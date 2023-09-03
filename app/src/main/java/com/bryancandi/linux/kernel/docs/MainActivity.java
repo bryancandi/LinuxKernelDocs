@@ -1,6 +1,8 @@
 package com.bryancandi.linux.kernel.docs;
 
 import android.app.AlertDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,15 +36,10 @@ public class MainActivity extends AppCompatActivity {
 
         binding.fab.setOnClickListener(view -> {
             WebView webView = findViewById(R.id.webView);
+            SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
+            prefs.edit().clear().commit(); //clear shared prefs for fresh start.
             webView.loadUrl("file:///android_asset/index.html");
-            //webView.setWebViewClient(new WebViewClient() {
-                                         //@Override
-                                         //public void onPageFinished(WebView view, String url) {
-                                             //super.onPageFinished(view, url);
-                                             //webView.clearHistory();
-                                         //}
-                                     //});
-            Snackbar.make(view, "Returned to home page.", Snackbar.LENGTH_LONG)
+            Snackbar.make(view, getString(R.string.fab_action), Snackbar.LENGTH_LONG)
                     .setAnchorView(R.id.fab)
                     .setAction("Action", null).show();
         });
