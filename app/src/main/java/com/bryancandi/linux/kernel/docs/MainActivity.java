@@ -2,28 +2,17 @@ package com.bryancandi.linux.kernel.docs;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
-
 import com.google.android.material.snackbar.Snackbar;
-
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-
-import android.text.Html;
-import android.view.View;
-
-import androidx.core.text.HtmlCompat;
-import androidx.core.view.WindowCompat;
+import androidx.core.app.ActivityCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
-
 import com.bryancandi.linux.kernel.docs.databinding.ActivityMainBinding;
-
 import android.view.Menu;
 import android.view.MenuItem;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -43,22 +32,19 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
-        binding.fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                WebView webView = findViewById(R.id.webView);
-                webView.loadUrl("file:///android_asset/index.html");
-                webView.setWebViewClient(new WebViewClient() {
-                                             @Override
-                                             public void onPageFinished(WebView view, String url) {
-                                                 super.onPageFinished(view, url);
-                                                 webView.clearHistory();
-                                             }
-                                         });
-                Snackbar.make(view, "Returned to home page.", Snackbar.LENGTH_LONG)
-                        .setAnchorView(R.id.fab)
-                        .setAction("Action", null).show();
-            }
+        binding.fab.setOnClickListener(view -> {
+            WebView webView = findViewById(R.id.webView);
+            webView.loadUrl("file:///android_asset/index.html");
+            //webView.setWebViewClient(new WebViewClient() {
+                                         //@Override
+                                         //public void onPageFinished(WebView view, String url) {
+                                             //super.onPageFinished(view, url);
+                                             //webView.clearHistory();
+                                         //}
+                                     //});
+            Snackbar.make(view, "Returned to home page.", Snackbar.LENGTH_LONG)
+                    .setAnchorView(R.id.fab)
+                    .setAction("Action", null).show();
         });
     }
 
@@ -85,6 +71,24 @@ public class MainActivity extends AppCompatActivity {
             kernelDialog.setCancelable(true);
             kernelDialog.show();
             return true;
+        }
+
+        if (id == R.id.action_forward) {
+            WebView webView = (WebView) findViewById(R.id.webView);
+            if(webView.canGoForward()){
+                webView.goForward();
+            }
+        }
+
+        if (id == R.id.action_back) {
+            WebView webView = (WebView) findViewById(R.id.webView);
+            if(webView.canGoBack()){
+                webView.goBack();
+            }
+        }
+
+        if (id == R.id.action_exit) {
+            ActivityCompat.finishAffinity(this);
         }
 
         return super.onOptionsItemSelected(item);

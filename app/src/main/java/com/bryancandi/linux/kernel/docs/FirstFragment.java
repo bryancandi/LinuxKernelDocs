@@ -4,7 +4,6 @@ import static android.content.ContentValues.TAG;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -14,8 +13,6 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
@@ -57,10 +54,10 @@ public class FirstFragment extends Fragment {
 
         if(savedUrl != null) {
             webView.loadUrl(savedUrl);
-            Log.d(TAG,"savedURL");
+            //Log.d(TAG,"savedURL");
         }else{
             webView.loadUrl(localURL);
-            Log.d(TAG, "localURL");
+            //Log.d(TAG, "localURL");
         }
 
         //webView.loadUrl(localURL);
