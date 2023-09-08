@@ -65,6 +65,7 @@ public class MainActivity extends AppCompatActivity {
             AlertDialog kernelDialog = new AlertDialog.Builder(MainActivity.this).create();
             kernelDialog.setTitle(getString(R.string.about_title));
             kernelDialog.setMessage(getString(R.string.kernel_version));
+            kernelDialog.setIcon(R.drawable.ic_info);
             kernelDialog.setCancelable(true);
             kernelDialog.show();
             return true;
