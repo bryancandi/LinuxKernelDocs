@@ -38,7 +38,8 @@ public class MainActivity extends AppCompatActivity {
             WebView webView = findViewById(R.id.webView);
             SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
             prefs.edit().clear().commit(); //clear shared prefs for fresh start.
-            webView.loadUrl("file:///android_asset/index.html");
+            //webView.loadUrl("file:///android_asset/index.html");
+            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
             Snackbar.make(view, getString(R.string.fab_action), Snackbar.LENGTH_LONG)
                     .setAnchorView(R.id.fab)
                     .setAction("Action", null).show();

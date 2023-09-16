@@ -1,51 +1,64 @@
 package com.bryancandi.linux.kernel.docs;
 
-import static android.content.ContentValues.TAG;
-
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import androidx.webkit.WebViewAssetLoader;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.webkit.WebViewClientCompat;
 
 public class FirstFragment extends Fragment {
 
-    private WebView webView;
+    private WebView mWebView;
 
-    @Override
-    public void onPause(){
-        super.onPause();
-        String currentUrl = webView.getUrl(); //get current URL on app close
-        SharedPreferences prefs = requireActivity().getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
-        prefs.edit().putString("URL_TAG", currentUrl ).apply(); //save current URL to Shared Prefs
+    private static class LocalContentWebViewClient extends WebViewClientCompat {
+        private final WebViewAssetLoader mAssetLoader;
+        LocalContentWebViewClient(WebViewAssetLoader assetLoader) {
+            mAssetLoader = assetLoader;
+        }
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view,
+                                                          WebResourceRequest request) {
+            return mAssetLoader.shouldInterceptRequest(request.getUrl());
+        }
     }
-    String localURL = "file:///android_asset/index.html";
+    //String localURL = "file:///android_asset/index.html";
+    String localURL = "https://appassets.androidplatform.net/assets/index.html";
 
     @Override
     public View onCreateView(
             LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_first, container, false);
+
         return view;
     }
 
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        webView = requireView().findViewById(R.id.webView);
-        WebSettings webSettings = webView.getSettings();
-        webView.setWebChromeClient( new WebChromeClient());
-        webView.setWebViewClient(new WebViewClient());
+        mWebView = requireView().findViewById(R.id.webView);
+
+        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(requireActivity()))
+                .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(requireActivity()))
+                //.setDomain("kernel.org")
+                .build();
+        mWebView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
+
+        WebSettings webSettings = mWebView.getSettings();
+        //mWebView.setWebChromeClient( new WebChromeClient());
+        //mWebView.setWebViewClient(new WebViewClient());
+        webSettings.setDomStorageEnabled(true);
         webSettings.setJavaScriptEnabled(true);
         webSettings.setUseWideViewPort(true);
-        webSettings.setDomStorageEnabled(true);
         webSettings.setSupportZoom(false);
         webSettings.setBuiltInZoomControls(false);
 
@@ -53,14 +66,20 @@ public class FirstFragment extends Fragment {
         String savedUrl = prefs.getString("URL_TAG", null); //load saved URL and apply to string 'savedURL'
 
         if(savedUrl != null) {
-            webView.loadUrl(savedUrl);
+            mWebView.loadUrl(savedUrl);
             //Log.d(TAG,"savedURL");
         }else{
-            webView.loadUrl(localURL);
+            mWebView.loadUrl(localURL);
             //Log.d(TAG, "localURL");
         }
+    }
 
-        //webView.loadUrl(localURL);
+    @Override
+    public void onPause(){
+        super.onPause();
+        String currentUrl = mWebView.getUrl(); //get current URL on app close
+        SharedPreferences prefs = requireActivity().getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
+        prefs.edit().putString("URL_TAG", currentUrl ).apply(); //save current URL to Shared Prefs
     }
 
     @Override
