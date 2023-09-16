@@ -48,19 +48,21 @@ public class FirstFragment extends Fragment {
 
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(requireActivity()))
-                .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(requireActivity()))
+                //.addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(requireActivity()))
                 //.setDomain("kernel.org")
                 .build();
         mWebView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
 
         WebSettings webSettings = mWebView.getSettings();
-        //mWebView.setWebChromeClient( new WebChromeClient());
-        //mWebView.setWebViewClient(new WebViewClient());
         webSettings.setDomStorageEnabled(true);
         webSettings.setJavaScriptEnabled(true);
         webSettings.setUseWideViewPort(true);
         webSettings.setSupportZoom(false);
         webSettings.setBuiltInZoomControls(false);
+        webSettings.setAllowFileAccessFromFileURLs(false); // Setting this off for security.
+        webSettings.setAllowUniversalAccessFromFileURLs(false); // Setting this off for security.
+        webSettings.setAllowFileAccess(false); // Setting this off for security.
+        webSettings.setAllowContentAccess(false); // Setting this off for security.
 
         SharedPreferences prefs = requireActivity().getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
         String savedUrl = prefs.getString("URL_TAG", null); //load saved URL and apply to string 'savedURL'
