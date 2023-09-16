@@ -34,16 +34,15 @@ public class MainActivity extends AppCompatActivity {
         appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
 
-        binding.fab.setOnClickListener(view -> {
-            WebView webView = findViewById(R.id.webView);
-            SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
-            prefs.edit().clear().commit(); //clear shared prefs for fresh start.
-            //webView.loadUrl("file:///android_asset/index.html");
-            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
-            Snackbar.make(view, getString(R.string.fab_action), Snackbar.LENGTH_LONG)
-                    .setAnchorView(R.id.fab)
-                    .setAction("Action", null).show();
-        });
+//        binding.fab.setOnClickListener(view -> {
+//            WebView webView = findViewById(R.id.webView);
+//            SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
+//            prefs.edit().clear().commit(); //clear shared prefs for fresh start.
+//            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+//            Snackbar.make(view, getString(R.string.fab_action), Snackbar.LENGTH_LONG)
+//                    .setAnchorView(R.id.fab)
+//                    .setAction("Action", null).show();
+//        });
     }
 
     @Override
@@ -65,7 +64,10 @@ public class MainActivity extends AppCompatActivity {
 
             AlertDialog kernelDialog = new AlertDialog.Builder(MainActivity.this).create();
             kernelDialog.setTitle(getString(R.string.about_title));
-            kernelDialog.setMessage(getString(R.string.kernel_tag) + "\n" + (getString(R.string.kernel_version)));
+            kernelDialog.setMessage(getString(R.string.kernel_tag)+"\n"+
+                    (getString(R.string.kernel_version))+"\n"+"\n"+
+                    getString(R.string.app_version)+"\n"+
+                    BuildConfig.VERSION_NAME+" ("+BuildConfig.VERSION_CODE+")");
             kernelDialog.setIcon(R.drawable.ic_info);
             kernelDialog.setCancelable(true);
             kernelDialog.show();
@@ -88,6 +90,15 @@ public class MainActivity extends AppCompatActivity {
 
         if (id == R.id.action_exit) {
             ActivityCompat.finishAffinity(this);
+        }
+
+        if (id == R.id.action_home) {
+            WebView webView = findViewById(R.id.webView);
+            SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
+            prefs.edit().clear().commit(); //clear shared prefs for fresh start.
+            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+            Snackbar.make(webView, getString(R.string.action_home_snackbar), Snackbar.LENGTH_LONG)
+                    .setAction("Action", null).show();
         }
 
         return super.onOptionsItemSelected(item);

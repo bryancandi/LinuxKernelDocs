@@ -1,5 +1,6 @@
 package com.bryancandi.linux.kernel.docs;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -30,7 +31,6 @@ public class FirstFragment extends Fragment {
             return mAssetLoader.shouldInterceptRequest(request.getUrl());
         }
     }
-    //String localURL = "file:///android_asset/index.html";
     String localURL = "https://appassets.androidplatform.net/assets/index.html";
 
     @Override
@@ -42,6 +42,7 @@ public class FirstFragment extends Fragment {
         return view;
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         mWebView = requireView().findViewById(R.id.webView);
