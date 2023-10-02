@@ -1,0 +1,323 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Notes on the change from 16-bit UIDs to 32-bit UIDs &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Hardware random number generators" href="hw_random.html" />
+    <link rel="prev" title="Configfs GPIO Simulator" href="gpio/gpio-sim.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.5.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rust/index.html">Rust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">The Linux kernel user's and administrator's guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="README.html">Linux kernel release 6.x &lt;http://kernel.org/&gt;</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kernel-parameters.html">The kernel's command-line parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="devices.html">Linux allocated devices (4.x+ version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sysctl/index.html">Documentation for /proc/sys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="abi.html">Linux ABI description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="features.html">Feature status on all architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hw-vuln/index.html">Hardware vulnerabilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reporting-regressions.html">Reporting regressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bug-hunting.html">Bug hunting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tainted-kernels.html">Tainted kernels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ramoops.html">Ramoops oops/panic logger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dynamic-debug-howto.html">Dynamic debug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="init.html">Explaining the &quot;No working init found.&quot; boot hang message</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kdump/index.html">Documentation for Kdump - The kexec-based Crash Dumping Solution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="perf/index.html">Performance monitor support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pstore-blk.html">pstore block oops/panic logger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sysfs-rules.html">Rules on how to access information in sysfs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workload-tracing.html">Discovering Linux kernel subsystems used by a workload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="acpi/index.html">ACPI Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="aoe/index.html">ATA over Ethernet (AoE)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="auxdisplay/index.html">Auxiliary Display Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bcache.html">A block layer cache (bcache)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="binderfs.html">The Android binderfs Filesystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="binfmt-misc.html">Kernel Support for miscellaneous Binary Formats (binfmt_misc)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="blockdev/index.html">Block Devices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bootconfig.html">Boot Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="braille-console.html">Linux Braille Console</a></li>
+<li class="toctree-l2"><a class="reference internal" href="btmrvl.html">btmrvl driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cgroup-v1/index.html">Control Groups version 1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cgroup-v2.html">Control Group v2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cifs/index.html">CIFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clearing-warn-once.html">Clearing WARN_ONCE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu-load.html">CPU load</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cputopology.html">How CPU topology info is exported via sysfs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dell_rbu.html">Dell Remote BIOS Update driver (dell_rbu)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="device-mapper/index.html">Device Mapper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="edid.html">EDID</a></li>
+<li class="toctree-l2"><a class="reference internal" href="efi-stub.html">The EFI Boot Stub</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ext4.html">ext4 General Information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filesystem-monitoring.html">File system Monitoring with fanotify</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nfs/index.html">NFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpio/index.html">gpio</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Notes on the change from 16-bit UIDs to 32-bit UIDs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hw_random.html">Hardware random number generators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="initrd.html">Using the initial RAM disk (initrd)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iostats.html">I/O statistics fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="java.html">Java(tm) Binary Kernel Support for Linux v1.03</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jfs.html">IBM's Journaled File System (JFS) for Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kernel-per-CPU-kthreads.html">Reducing OS jitter due to per-cpu kthreads</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laptops/index.html">Laptop Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lcd-panel-cgram.html">Parallel port LCD/Keypad Panel support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ldm.html">LDM - Logical Disk Manager (Dynamic Disks)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lockup-watchdogs.html">Softlockup detector and hardlockup detector (aka nmi_watchdog)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="LSM/index.html">Linux Security Module Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="md.html">RAID arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="media/index.html">Media subsystem admin and user guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mm/index.html">Memory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="module-signing.html">Kernel module signing facility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mono.html">Mono(tm) Binary Kernel Support for Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="namespaces/index.html">Namespaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="numastat.html">Numa policy hit/miss statistics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parport.html">Parport</a></li>
+<li class="toctree-l2"><a class="reference internal" href="perf-security.html">Perf events and tool security</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pm/index.html">Power Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pnp.html">Linux Plug and Play Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rapidio.html">RapidIO Subsystem Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ras.html">Reliability, Availability and Serviceability</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rtc.html">Real Time Clock (RTC) Drivers for Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="serial-console.html">Linux Serial Console</a></li>
+<li class="toctree-l2"><a class="reference internal" href="svga.html">Video Mode Selection Support 2.13</a></li>
+<li class="toctree-l2"><a class="reference internal" href="syscall-user-dispatch.html">Syscall User Dispatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sysrq.html">Linux Magic System Request Key Hacks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="thermal/index.html">Thermal Subsystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="thunderbolt.html">USB4 and Thunderbolt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ufs.html">Using UFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="unicode.html">Unicode support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="vga-softcursor.html">Software cursor for VGA</a></li>
+<li class="toctree-l2"><a class="reference internal" href="video-output.html">Video Output Switcher Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="xfs.html">The SGI XFS Filesystem</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/admin-guide/highuid.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="notes-on-the-change-from-16-bit-uids-to-32-bit-uids">
+<h1>Notes on the change from 16-bit UIDs to 32-bit UIDs<a class="headerlink" href="#notes-on-the-change-from-16-bit-uids-to-32-bit-uids" title="Permalink to this heading">¶</a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Author<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Chris Wing &lt;<a class="reference external" href="mailto:wingc&#37;&#52;&#48;umich&#46;edu">wingc<span>&#64;</span>umich<span>&#46;</span>edu</a>&gt;</p>
+</dd>
+<dt class="field-even">Last updated<span class="colon">:</span></dt>
+<dd class="field-even"><p>January 11, 2000</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>kernel code MUST take into account __kernel_uid_t and __kernel_uid32_t
+when communicating between user and kernel space in an ioctl or data
+structure.</p></li>
+<li><p>kernel code should use uid_t and gid_t in kernel-private structures and
+code.</p></li>
+</ul>
+<p>What's left to be done for 32-bit UIDs on all Linux architectures:</p>
+<ul>
+<li><p>Disk quotas have an interesting limitation that is not related to the
+maximum UID/GID. They are limited by the maximum file size on the
+underlying filesystem, because quota records are written at offsets
+corresponding to the UID in question.
+Further investigation is needed to see if the quota system can cope
+properly with huge UIDs. If it can deal with 64-bit file offsets on all
+architectures, this should not be a problem.</p></li>
+<li><p>Decide whether or not to keep backwards compatibility with the system
+accounting file, or if we should break it as the comments suggest
+(currently, the old 16-bit UID and GID are still written to disk, and
+part of the former pad space is used to store separate 32-bit UID and
+GID)</p></li>
+<li><p>Need to validate that OS emulation calls the 16-bit UID
+compatibility syscalls, if the OS being emulated used 16-bit UIDs, or
+uses the 32-bit UID system calls properly otherwise.</p>
+<p>This affects at least:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>iBCS on Intel</p></li>
+<li><p>sparc32 emulation on sparc64
+(need to support whatever new 32-bit UID system calls are added to
+sparc32)</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Validate that all filesystems behave properly.</p>
+<p>At present, 32-bit UIDs _should_ work for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>ext2</p></li>
+<li><p>ufs</p></li>
+<li><p>isofs</p></li>
+<li><p>nfs</p></li>
+<li><p>coda</p></li>
+<li><p>udf</p></li>
+</ul>
+</div></blockquote>
+<p>Ioctl() fixups have been made for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>ncpfs</p></li>
+<li><p>smbfs</p></li>
+</ul>
+</div></blockquote>
+<p>Filesystems with simple fixups to prevent 16-bit UID wraparound:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>minix</p></li>
+<li><p>sysv</p></li>
+<li><p>qnx4</p></li>
+</ul>
+</div></blockquote>
+<p>Other filesystems have not been checked yet.</p>
+</li>
+<li><p>The ncpfs and smpfs filesystems cannot presently use 32-bit UIDs in
+all ioctl()s. Some new ioctl()s have been added with 32-bit UIDs, but
+more are needed. (as well as new user&lt;-&gt;kernel data structures)</p></li>
+<li><p>The ELF core dump format only supports 16-bit UIDs on arm, i386, m68k,
+sh, and sparc32. Fixing this is probably not that important, but would
+require adding a new ELF section.</p></li>
+<li><p>The ioctl()s used to control the in-kernel NFS server only support
+16-bit UIDs on arm, i386, m68k, sh, and sparc32.</p></li>
+<li><p>make sure that the UID mapping feature of AX25 networking works properly
+(it should be safe because it's always used a 32-bit integer to
+communicate between user and kernel)</p></li>
+</ul>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/admin-guide/highuid.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

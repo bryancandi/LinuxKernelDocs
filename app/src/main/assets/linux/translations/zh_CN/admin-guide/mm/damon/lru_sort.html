@@ -1,0 +1,391 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>基于DAMON的LRU排序 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link rel="next" title="内核同页合并" href="../ksm.html" />
+    <link rel="prev" title="基于DAMON的回收" href="reclaim.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.5.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../staging/index.html">Unsorted Documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#api">内部API文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../../../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../../../_sources/translations/zh_CN/admin-guide/mm/damon/lru_sort.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../../../admin-guide/mm/damon/lru_sort.html"><span class="doc">DAMON-based LRU-lists Sorting</span></a></p>
+</dd>
+<dt class="field-even">翻译<span class="colon">:</span></dt>
+<dd class="field-even"><p>臧雷刚 Leigang Zang &lt;<a class="reference external" href="mailto:zangleigang&#37;&#52;&#48;hisilicon&#46;com">zangleigang<span>&#64;</span>hisilicon<span>&#46;</span>com</a>&gt;</p>
+</dd>
+<dt class="field-odd">校译<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
+<section id="damonlru">
+<h1>基于DAMON的LRU排序<a class="headerlink" href="#damonlru" title="Permalink to this heading">¶</a></h1>
+<p>基于DAMON的LRU排序是一个静态的内核模块，旨在用于以主动的、轻量级的数据访问模型
+为基础的页面优先级处理的LRU链表上，以使得LRU上的数据访问模型更为可信。</p>
+<section id="lru">
+<h2>哪里需要主动的LRU排序<a class="headerlink" href="#lru" title="Permalink to this heading">¶</a></h2>
+<p>在一个大型系统中，以页为粒度的访问检测会有比较显著的开销，LRU通常不会主动去排序，
+而是对部分特殊事件进行部分的、响应式的排序，例如：特殊的用户请求，系统调用或者
+内存压力。这导致，在有些场景下，LRU不能够完美的作为一个可信的数据访问模型，比如
+在内存压力下对目标内存进行回收。</p>
+<p>因为DAMON能够尽可能准确的识别数据访问模型，同时只引起用户指定范围的开销，主动的
+执行DAMON_LRU_SORT让LRU变得更为可信是有益的，而且这只需要较少和可控的开销。</p>
+</section>
+<section id="id1">
+<h2>这是如何工作的<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<p>DAMON_LRU_SORT使用DAMON寻找热页（范围内的页面访问频率高于用户指定的阈值）和冷页
+（范围内的页面在超过用户指定的时间无访问），并提高热页和降低冷页在LRU中的优先级。
+为了避免在排序过程占用更多的CPU计算资源，可以设置一个CPU占用时间的约束值。在约
+束下，分别提升或者降低更多的热页和冷页。系统管理员也可以配置三个内存水位以控制
+在何种条件下自动激活或者停止这种机制。</p>
+<p>冷热阈值和CPU约束的默认值是比较保守的。这意味着，在默认参数下，模块可以广泛且无
+负作用的使用在常见环境中，同时在只消耗一小部分CPU时间的情况下，给有内存压力的系
+统提供一定水平的冷热识别。</p>
+</section>
+<section id="id2">
+<h2>接口：模块参数<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h2>
+<p>使用此特性，你首先需要确认你的系统中运行的内核在编译时启用了
+<code class="docutils literal notranslate"><span class="pre">CONFIG_DAMON_LRU_SORT=y</span></code>.</p>
+<p>为了让系统管理员打开或者关闭并且调节指定的系统，DAMON_LRU_SORT设计了模块参数。
+这意味着，你可以添加 <code class="docutils literal notranslate"><span class="pre">damon_lru_sort.&lt;parameter&gt;=&lt;value&gt;</span></code> 到内核的启动命令行
+参数，或者在 <code class="docutils literal notranslate"><span class="pre">/sys/modules/damon_lru_sort/parameters/&lt;parameter&gt;</span></code> 写入正确的
+值。</p>
+<p>下边是每个参数的描述</p>
+<section id="enabled">
+<h3>enabled<a class="headerlink" href="#enabled" title="Permalink to this heading">¶</a></h3>
+<p>打开或者关闭DAMON_LRU_SORT.</p>
+<p>你可以通过设置这个参数为 <code class="docutils literal notranslate"><span class="pre">Y</span></code> 来打开DAMON_LRU_SORT。设置为 <code class="docutils literal notranslate"><span class="pre">N</span></code> 关闭
+DAMON_LRU_SORT。注意，在基于水位的激活的情况下，DAMON_LRU_SORT有可能不会真正去
+监测或者做LRU排序。对这种情况，参考下方关于水位的描述。</p>
+</section>
+<section id="commit-inputs">
+<h3>commit_inputs<a class="headerlink" href="#commit-inputs" title="Permalink to this heading">¶</a></h3>
+<p>让DAMON_LRU_SORT再次读取输入参数，除了 <code class="docutils literal notranslate"><span class="pre">enabled</span></code> 。</p>
+<p>在DAMON_LRU_SORT运行时，新的输入参数默认不会被应用。一旦这个参数被设置为 <code class="docutils literal notranslate"><span class="pre">Y</span></code>
+，DAMON_LRU_SORT会再次读取除了 <code class="docutils literal notranslate"><span class="pre">enabled</span></code> 之外的参数。读取完成后，这个参数会被
+设置为 <code class="docutils literal notranslate"><span class="pre">N</span></code> 。如果在读取时发现有无效参数，DAMON_LRU_SORT会被关闭。</p>
+</section>
+<section id="hot-thres-access-freq">
+<h3>hot_thres_access_freq<a class="headerlink" href="#hot-thres-access-freq" title="Permalink to this heading">¶</a></h3>
+<p>热点内存区域的访问频率阈值，千分比。</p>
+<p>如果一个内存区域的访问频率大于等于这个值，DAMON_LRU_SORT把这个区域看作热区，并
+在LRU上把这个区域标记为已访问，因些在内存压力下这部分内存不会被回收。默认为50%。</p>
+</section>
+<section id="cold-min-age">
+<h3>cold_min_age<a class="headerlink" href="#cold-min-age" title="Permalink to this heading">¶</a></h3>
+<p>用于识别冷内存区域的时间阈值，单位是微秒。</p>
+<p>如果一个内存区域在这个时间内未被访问过，DAMON_LRU_SORT把这个区域看作冷区，并在
+LRU上把这个区域标记为未访问，因此在内存压力下这些内存会首先被回收。默认值为120
+秒。</p>
+</section>
+<section id="quota-ms">
+<h3>quota_ms<a class="headerlink" href="#quota-ms" title="Permalink to this heading">¶</a></h3>
+<p>尝试LRU链表排序的时间限制，单位是毫秒。</p>
+<p>DAMON_LRU_SORT在一个时间窗口内（quota_reset_interval_ms）内最多尝试这么长时间来
+对LRU进行排序。这个可以用来作为CPU计算资源的约束。如果值为0，则表示无限制。</p>
+<p>默认10毫秒。</p>
+</section>
+<section id="quota-reset-interval-ms">
+<h3>quota_reset_interval_ms<a class="headerlink" href="#quota-reset-interval-ms" title="Permalink to this heading">¶</a></h3>
+<p>配额计时重置周期，毫秒。</p>
+<p>配额计时重置周期。即，在quota_reset_interval_ms毫秒内，DAMON_LRU_SORT对LRU进行
+排序不会超过quota_ms或者quota_sz。</p>
+<p>默认1秒。</p>
+</section>
+<section id="wmarks-interval">
+<h3>wmarks_interval<a class="headerlink" href="#wmarks-interval" title="Permalink to this heading">¶</a></h3>
+<p>水位的检查周期，单位是微秒。</p>
+<p>当DAMON_LRU_SORT使能但是由于水位而不活跃时检查水位前最小的等待时间。默认值5秒。</p>
+</section>
+<section id="wmarks-high">
+<h3>wmarks_high<a class="headerlink" href="#wmarks-high" title="Permalink to this heading">¶</a></h3>
+<p>空闲内存高水位，千分比。</p>
+<p>如果空闲内存水位高于这个值，DAMON_LRU_SORT停止工作，不做任何事，除了周期性的检
+查水位。默认200(20%)。</p>
+</section>
+<section id="wmarks-mid">
+<h3>wmarks_mid<a class="headerlink" href="#wmarks-mid" title="Permalink to this heading">¶</a></h3>
+<p>空闲内存中间水位，千分比。</p>
+<p>如果空闲内存水位在这个值与低水位之间，DAMON_LRU_SORT开始工作，开始检测并对LRU链
+表进行排序。默认150(15%)。</p>
+</section>
+<section id="wmarks-low">
+<h3>wmarks_low<a class="headerlink" href="#wmarks-low" title="Permalink to this heading">¶</a></h3>
+<p>空闲内存低水位，千分比。</p>
+<p>如果空闲内存小于这个值，DAMON_LRU_SORT不再工作，不做任何事，除了周期性的检查水
+线。默认50(5%)。</p>
+</section>
+<section id="sample-interval">
+<h3>sample_interval<a class="headerlink" href="#sample-interval" title="Permalink to this heading">¶</a></h3>
+<p>监测的采样周期，微秒。</p>
+<p>DAMON对冷内存监测的采样周期。更多细节请参考DAMON文档 (<a class="reference internal" href="usage.html"><span class="doc">详细用法</span></a>) 。默认5
+毫秒。</p>
+</section>
+<section id="aggr-interval">
+<h3>aggr_interval<a class="headerlink" href="#aggr-interval" title="Permalink to this heading">¶</a></h3>
+<p>监测的收集周期，微秒。</p>
+<p>DAMON对冷内存进行收集的时间周期。更多细节请参考DAMON文档 (<a class="reference internal" href="usage.html"><span class="doc">详细用法</span></a>) 。默认
+100毫秒。</p>
+</section>
+<section id="min-nr-regions">
+<h3>min_nr_regions<a class="headerlink" href="#min-nr-regions" title="Permalink to this heading">¶</a></h3>
+<p>最小监测区域数量。</p>
+<p>对冷内存区域监测的最小数量。这个值可以作为监测质量的下限。不过，这个值设置的过
+大会增加开销。更多细节请参考DAMON文档 (<a class="reference internal" href="usage.html"><span class="doc">详细用法</span></a>) 。默认值为10。</p>
+</section>
+<section id="max-nr-regions">
+<h3>max_nr_regions<a class="headerlink" href="#max-nr-regions" title="Permalink to this heading">¶</a></h3>
+<p>最大监测区域数量。</p>
+<p>对冷内存区域监测的最大数量。这个值可以作为监测质量的上限。然而，这个值设置的过
+低会导致监测结果变差。更多细节请参考DAMON文档 (<a class="reference internal" href="usage.html"><span class="doc">详细用法</span></a>) 。默认值为1000。</p>
+</section>
+<section id="monitor-region-start">
+<h3>monitor_region_start<a class="headerlink" href="#monitor-region-start" title="Permalink to this heading">¶</a></h3>
+<p>目标内存区域的起始物理地址。</p>
+<p>DAMON_LRU_SORT要处理的目标内存区域的起始物理地址。默认，使用系统最大内存。</p>
+</section>
+<section id="monitor-region-end">
+<h3>monitor_region_end<a class="headerlink" href="#monitor-region-end" title="Permalink to this heading">¶</a></h3>
+<p>目标内存区域的结束物理地址。</p>
+<p>DAMON_LRU_SORT要处理的目标内存区域的结束物理地址。默认，使用系统最大内存。</p>
+</section>
+<section id="kdamond-pid">
+<h3>kdamond_pid<a class="headerlink" href="#kdamond-pid" title="Permalink to this heading">¶</a></h3>
+<p>DAMON线程的PID。</p>
+<p>如果DAMON_LRU_SORT是使能的，这个表示任务线程的PID。其它情况为-1。</p>
+</section>
+<section id="nr-lru-sort-tried-hot-regions">
+<h3>nr_lru_sort_tried_hot_regions<a class="headerlink" href="#nr-lru-sort-tried-hot-regions" title="Permalink to this heading">¶</a></h3>
+<p>被尝试进行LRU排序的热内存区域的数量。</p>
+</section>
+<section id="bytes-lru-sort-tried-hot-regions">
+<h3>bytes_lru_sort_tried_hot_regions<a class="headerlink" href="#bytes-lru-sort-tried-hot-regions" title="Permalink to this heading">¶</a></h3>
+<p>被尝试进行LRU排序的热内存区域的大小（字节）。</p>
+</section>
+<section id="nr-lru-sorted-hot-regions">
+<h3>nr_lru_sorted_hot_regions<a class="headerlink" href="#nr-lru-sorted-hot-regions" title="Permalink to this heading">¶</a></h3>
+<p>成功进行LRU排序的热内存区域的数量。</p>
+</section>
+<section id="bytes-lru-sorted-hot-regions">
+<h3>bytes_lru_sorted_hot_regions<a class="headerlink" href="#bytes-lru-sorted-hot-regions" title="Permalink to this heading">¶</a></h3>
+<p>成功进行LRU排序的热内存区域的大小（字节）。</p>
+</section>
+<section id="nr-hot-quota-exceeds">
+<h3>nr_hot_quota_exceeds<a class="headerlink" href="#nr-hot-quota-exceeds" title="Permalink to this heading">¶</a></h3>
+<p>热区域时间约束超过限制的次数。</p>
+</section>
+<section id="nr-lru-sort-tried-cold-regions">
+<h3>nr_lru_sort_tried_cold_regions<a class="headerlink" href="#nr-lru-sort-tried-cold-regions" title="Permalink to this heading">¶</a></h3>
+<p>被尝试进行LRU排序的冷内存区域的数量。</p>
+</section>
+<section id="bytes-lru-sort-tried-cold-regions">
+<h3>bytes_lru_sort_tried_cold_regions<a class="headerlink" href="#bytes-lru-sort-tried-cold-regions" title="Permalink to this heading">¶</a></h3>
+<p>被尝试进行LRU排序的冷内存区域的大小（字节）。</p>
+</section>
+<section id="nr-lru-sorted-cold-regions">
+<h3>nr_lru_sorted_cold_regions<a class="headerlink" href="#nr-lru-sorted-cold-regions" title="Permalink to this heading">¶</a></h3>
+<p>成功进行LRU排序的冷内存区域的数量。</p>
+</section>
+<section id="bytes-lru-sorted-cold-regions">
+<h3>bytes_lru_sorted_cold_regions<a class="headerlink" href="#bytes-lru-sorted-cold-regions" title="Permalink to this heading">¶</a></h3>
+<p>成功进行LRU排序的冷内存区域的大小（字节）。</p>
+</section>
+<section id="nr-cold-quota-exceeds">
+<h3>nr_cold_quota_exceeds<a class="headerlink" href="#nr-cold-quota-exceeds" title="Permalink to this heading">¶</a></h3>
+<p>冷区域时间约束超过限制的次数。</p>
+</section>
+</section>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h2>
+<p>如下是一个运行时的命令示例，使DAMON_LRU_SORT查找访问频率超过50%的区域并对其进行
+LRU的优先级的提升，同时降低那些超过120秒无人访问的内存区域的优先级。优先级的处
+理被限制在最多1%的CPU以避免DAMON_LRU_SORT消费过多CPU时间。在系统空闲内存超过50%
+时DAMON_LRU_SORT停止工作，并在低于40%时重新开始工作。如果DAMON_RECLAIM没有取得
+进展且空闲内存低于20%，再次让DAMON_LRU_SORT停止工作，以此回退到以LRU链表为基础
+以页面为单位的内存回收上。</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cd /sys/modules/damon_lru_sort/parameters
+# echo 500 &gt; hot_thres_access_freq
+# echo 120000000 &gt; cold_min_age
+# echo 10 &gt; quota_ms
+# echo 1000 &gt; quota_reset_interval_ms
+# echo 500 &gt; wmarks_high
+# echo 400 &gt; wmarks_mid
+# echo 200 &gt; wmarks_low
+# echo Y &gt; enabled
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../../../_sources/translations/zh_CN/admin-guide/mm/damon/lru_sort.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
