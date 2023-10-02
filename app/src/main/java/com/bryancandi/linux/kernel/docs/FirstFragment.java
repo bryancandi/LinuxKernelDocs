@@ -31,7 +31,7 @@ public class FirstFragment extends Fragment {
             return mAssetLoader.shouldInterceptRequest(request.getUrl());
         }
     }
-    String localURL = "https://appassets.androidplatform.net/assets/index.html";
+    String localURL = "https://appassets.androidplatform.net/assets/linux/index.html";
 
     @Override
     public View onCreateView(

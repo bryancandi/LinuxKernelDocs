@@ -74,6 +74,11 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
+        if (id == R.id.action_changelog) {
+            WebView webView = findViewById(R.id.webView);
+            webView.loadUrl("https://appassets.androidplatform.net/assets/changelog/changelog.txt");
+        }
+
         if (id == R.id.action_forward) {
             WebView webView = (WebView) findViewById(R.id.webView);
             if(webView.canGoForward()){
@@ -96,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
             WebView webView = findViewById(R.id.webView);
             SharedPreferences prefs = getSharedPreferences("WEBVIEW", Context.MODE_PRIVATE);
             prefs.edit().clear().commit(); //clear shared prefs for fresh start.
-            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+            webView.loadUrl("https://appassets.androidplatform.net/assets/linux/index.html");
             Snackbar.make(webView, getString(R.string.action_home_snackbar), Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show();
         }
