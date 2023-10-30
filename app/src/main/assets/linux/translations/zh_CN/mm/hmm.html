@@ -32,7 +32,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -332,8 +332,8 @@ HMM 切换到直接使用 struct page 用于设备内存，这使得大多数内
 <section id="id4">
 <h2><a class="toc-backref" href="#id12" role="doc-backlink">移入和移出设备内存</a><a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h2>
 <p>由于 CPU 无法直接访问设备内存，因此设备驱动程序必须使用硬件 DMA 或设备特定的加载/存
-储指令来迁移数据。migrate_vma_setup()、migrate_vma_pages() 和
-migrate_vma_finalize() 函数旨在使驱动程序更易于编写并集中跨驱动程序的通用代码。</p>
+储指令来迁移数据。<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_setup" title="migrate_vma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_setup()</span></code></a>、<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_pages" title="migrate_vma_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_pages()</span></code></a> 和
+<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_finalize" title="migrate_vma_finalize"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_finalize()</span></code></a> 函数旨在使驱动程序更易于编写并集中跨驱动程序的通用代码。</p>
 <p>在将页面迁移到设备私有内存之前，需要创建特殊的设备私有 <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span></code> 。这些将用
 作特殊的“交换”页表条目，以便 CPU 进程在尝试访问已迁移到设备专用内存的页面时会发生异常。</p>
 <p>这些可以通过以下方式分配和释放:</p>
@@ -353,29 +353,29 @@ memunmap_pages(&amp;pagemap);
 release_mem_region(pagemap.range.start, range_len(&amp;pagemap.range));
 </pre></div>
 </div>
-<p>还有<a class="reference internal" href="../../../core-api/kernel-api.html#c.devm_request_free_mem_region" title="devm_request_free_mem_region"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_request_free_mem_region()</span></code></a>, devm_memremap_pages(),
+<p>还有<a class="reference internal" href="../../../core-api/kernel-api.html#c.devm_request_free_mem_region" title="devm_request_free_mem_region"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_request_free_mem_region()</span></code></a>, <a class="reference internal" href="../../../core-api/mm-api.html#c.devm_memremap_pages" title="devm_memremap_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_memremap_pages()</span></code></a>,
 devm_memunmap_pages() 和 devm_release_mem_region() 当资源可以绑定到 <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code>.</p>
 <p>整体迁移步骤类似于在系统内存中迁移 NUMA 页面(see <a class="reference internal" href="../../../mm/page_migration.html"><span class="doc">Page migration</span></a>) ，
 但这些步骤分为设备驱动程序特定代码和共享公共代码:</p>
 <ol class="arabic">
 <li><p><code class="docutils literal notranslate"><span class="pre">mmap_read_lock()</span></code></p>
-<p>设备驱动程序必须将 <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span></code> 传递给migrate_vma_setup()，
+<p>设备驱动程序必须将 <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span></code> 传递给<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_setup" title="migrate_vma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_setup()</span></code></a>，
 因此需要在迁移期间保留 mmap_read_lock() 或 mmap_write_lock()。</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">migrate_vma_setup(struct</span> <span class="pre">migrate_vma</span> <span class="pre">*args)</span></code></p>
 <p>设备驱动初始化了 <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">migrate_vma</span></code> 的字段，并将该指针传递给
-migrate_vma_setup()。<code class="docutils literal notranslate"><span class="pre">args-&gt;flags</span></code> 字段是用来过滤哪些源页面应该被迁移。
+<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_setup" title="migrate_vma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_setup()</span></code></a>。<code class="docutils literal notranslate"><span class="pre">args-&gt;flags</span></code> 字段是用来过滤哪些源页面应该被迁移。
 例如，设置 <code class="docutils literal notranslate"><span class="pre">MIGRATE_VMA_SELECT_SYSTEM</span></code> 将只迁移系统内存，设置
 <code class="docutils literal notranslate"><span class="pre">MIGRATE_VMA_SELECT_DEVICE_PRIVATE</span></code> 将只迁移驻留在设备私有内存中的页
 面。如果后者被设置， <code class="docutils literal notranslate"><span class="pre">args-&gt;pgmap_owner</span></code> 字段被用来识别驱动所拥有的设备
 私有页。这就避免了试图迁移驻留在其他设备中的设备私有页。目前，只有匿名的私有VMA
 范围可以被迁移到系统内存和设备私有内存。</p>
-<p>migrate_vma_setup()所做的第一步是用 <code class="docutils literal notranslate"><span class="pre">mmu_notifier_invalidate_range_start()</span></code>
+<p><a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_setup" title="migrate_vma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_setup()</span></code></a>所做的第一步是用 <code class="docutils literal notranslate"><span class="pre">mmu_notifier_invalidate_range_start()</span></code>
 和 <code class="docutils literal notranslate"><span class="pre">mmu_notifier_invalidate_range_end()</span></code> 调用来遍历设备周围的页表，使
 其他设备的MMU无效，以便在 <code class="docutils literal notranslate"><span class="pre">args-&gt;src</span></code> 数组中填写要迁移的PFN。
 <code class="docutils literal notranslate"><span class="pre">invalidate_range_start()</span></code> 回调传递给一个``struct mmu_notifier_range`` ，
 其 <code class="docutils literal notranslate"><span class="pre">event</span></code> 字段设置为MMU_NOTIFY_MIGRATE， <code class="docutils literal notranslate"><span class="pre">owner</span></code> 字段设置为传递给
-migrate_vma_setup()的 <code class="docutils literal notranslate"><span class="pre">args-&gt;pgmap_owner</span></code> 字段。这允许设备驱动跳过无
+<a class="reference internal" href="../../../core-api/mm-api.html#c.migrate_vma_setup" title="migrate_vma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">migrate_vma_setup()</span></code></a>的 <code class="docutils literal notranslate"><span class="pre">args-&gt;pgmap_owner</span></code> 字段。这允许设备驱动跳过无
 效化回调，只无效化那些实际正在迁移的设备私有MMU映射。这一点将在下一节详细解释。</p>
 <p>在遍历页表时，一个 <code class="docutils literal notranslate"><span class="pre">pte_none()</span></code> 或 <code class="docutils literal notranslate"><span class="pre">is_zero_pfn()</span></code> 条目导致一个有效
 的  “zero” PFN 存储在 <code class="docutils literal notranslate"><span class="pre">args-&gt;src</span></code> 阵列中。这让驱动分配设备私有内存并清

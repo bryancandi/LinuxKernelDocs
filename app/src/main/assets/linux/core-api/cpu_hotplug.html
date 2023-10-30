@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -86,7 +86,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -504,8 +519,8 @@ multi-instance state the following function is available:</p>
 <li><p>cpuhp_setup_state_multi(state, name, startup, teardown)</p></li>
 </ul>
 <p>The &#64;state argument is either a statically allocated state or one of the
-constants for dynamically allocated states - CPUHP_PREPARE_DYN,
-CPUHP_ONLINE_DYN - depending on the state section (PREPARE, ONLINE) for
+constants for dynamically allocated states - CPUHP_BP_PREPARE_DYN,
+CPUHP_AP_ONLINE_DYN - depending on the state section (PREPARE, ONLINE) for
 which a dynamic state should be allocated.</p>
 <p>The &#64;name argument is used for sysfs output and for instrumentation. The
 naming convention is &quot;subsys:mode&quot; or &quot;subsys/driver:mode&quot;,
@@ -705,7 +720,7 @@ cpuhp_remove_state(CPUHP_SUBSYS_STARTING);
 </div>
 <p>Setup and teardown a dynamically allocated state in the ONLINE section
 for notifications on offline operations:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state(CPUHP_ONLINE_DYN, &quot;subsys:offline&quot;, NULL, subsys_cpu_offline);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, &quot;subsys:offline&quot;, NULL, subsys_cpu_offline);
 if (state &lt; 0)
     return state;
 ....
@@ -714,7 +729,7 @@ cpuhp_remove_state(state);
 </div>
 <p>Setup and teardown a dynamically allocated state in the ONLINE section
 for notifications on online operations without invoking the callbacks:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state_nocalls(CPUHP_ONLINE_DYN, &quot;subsys:online&quot;, subsys_cpu_online, NULL);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, &quot;subsys:online&quot;, subsys_cpu_online, NULL);
 if (state &lt; 0)
     return state;
 ....
@@ -723,7 +738,7 @@ cpuhp_remove_state_nocalls(state);
 </div>
 <p>Setup, use and teardown a dynamically allocated multi-instance state in the
 ONLINE section for notifications on online and offline operation:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state_multi(CPUHP_ONLINE_DYN, &quot;subsys:online&quot;, subsys_cpu_online, subsys_cpu_offline);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>state = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN, &quot;subsys:online&quot;, subsys_cpu_online, subsys_cpu_offline);
 if (state &lt; 0)
     return state;
 ....
@@ -853,6 +868,21 @@ fi
 </pre></div>
 </div>
 <p>can process the event further.</p>
+<p>When changes to the CPUs in the system occur, the sysfs file
+/sys/devices/system/cpu/crash_hotplug contains '1' if the kernel
+updates the kdump capture kernel list of CPUs itself (via elfcorehdr),
+or '0' if userspace must update the kdump capture kernel list of CPUs.</p>
+<p>The availability depends on the CONFIG_HOTPLUG_CPU kernel configuration
+option.</p>
+<p>To skip userspace processing of CPU hot un/plug events for kdump
+(i.e. the unload-then-reload to obtain a current list of CPUs), this sysfs
+file can be used in a udev rule as follows:</p>
+<blockquote>
+<div><p>SUBSYSTEM==&quot;cpu&quot;, ATTRS{crash_hotplug}==&quot;1&quot;, GOTO=&quot;kdump_reload_end&quot;</p>
+</div></blockquote>
+<p>For a CPU hot un/plug event, if the architecture supports kernel updates
+of the elfcorehdr (which contains the list of CPUs), then the rule skips
+the unload-then-reload of the kdump capture kernel.</p>
 </section>
 <section id="kernel-inline-documentations-reference">
 <h2>Kernel Inline Documentations Reference<a class="headerlink" href="#kernel-inline-documentations-reference" title="Permalink to this heading">¶</a></h2>

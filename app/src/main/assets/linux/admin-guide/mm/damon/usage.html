@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -306,7 +306,7 @@ comma (&quot;,&quot;).</p>
 │ │ │ │ │ │ │ filters/nr_filters
 │ │ │ │ │ │ │ │ 0/type,matching,memcg_id
 │ │ │ │ │ │ │ stats/nr_tried,sz_tried,nr_applied,sz_applied,qt_exceeds
-│ │ │ │ │ │ │ tried_regions/
+│ │ │ │ │ │ │ tried_regions/total_bytes
 │ │ │ │ │ │ │ │ 0/start,end,nr_accesses,age
 │ │ │ │ │ │ │ │ ...
 │ │ │ │ │ │ ...
@@ -319,7 +319,7 @@ comma (&quot;,&quot;).</p>
 <h3>Root<a class="headerlink" href="#root" title="Permalink to this heading">¶</a></h3>
 <p>The root of the DAMON sysfs interface is <code class="docutils literal notranslate"><span class="pre">&lt;sysfs&gt;/kernel/mm/damon/</span></code>, and it
 has one directory named <code class="docutils literal notranslate"><span class="pre">admin</span></code>.  The directory contains the files for
-privileged user space programs' control of DAMON.  User space tools or deamons
+privileged user space programs' control of DAMON.  User space tools or daemons
 having the root permission could use this directory.</p>
 </section>
 <section id="kdamonds">
@@ -343,14 +343,16 @@ in the state.  Writing <code class="docutils literal notranslate"><span class="p
 user inputs in the sysfs files except <code class="docutils literal notranslate"><span class="pre">state</span></code> file again.  Writing
 <code class="docutils literal notranslate"><span class="pre">update_schemes_stats</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code> file updates the contents of stats files
 for each DAMON-based operation scheme of the kdamond.  For details of the
-stats, please refer to <a class="reference internal" href="#sysfs-schemes-stats"><span class="std std-ref">stats section</span></a>.  Writing
-<code class="docutils literal notranslate"><span class="pre">update_schemes_tried_regions</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code> file updates the DAMON-based
-operation scheme action tried regions directory for each DAMON-based operation
-scheme of the kdamond.  Writing <code class="docutils literal notranslate"><span class="pre">clear_schemes_tried_regions</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code>
-file clears the DAMON-based operating scheme action tried regions directory for
-each DAMON-based operation scheme of the kdamond.  For details of the
-DAMON-based operation scheme action tried regions directory, please refer to
-<a class="reference internal" href="#sysfs-schemes-tried-regions"><span class="std std-ref">tried_regions section</span></a>.</p>
+stats, please refer to <a class="reference internal" href="#sysfs-schemes-stats"><span class="std std-ref">stats section</span></a>.</p>
+<p>Writing <code class="docutils literal notranslate"><span class="pre">update_schemes_tried_regions</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code> file updates the
+DAMON-based operation scheme action tried regions directory for each
+DAMON-based operation scheme of the kdamond.  Writing
+<code class="docutils literal notranslate"><span class="pre">update_schemes_tried_bytes</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code> file updates only
+<code class="docutils literal notranslate"><span class="pre">.../tried_regions/total_bytes</span></code> files.  Writing
+<code class="docutils literal notranslate"><span class="pre">clear_schemes_tried_regions</span></code> to <code class="docutils literal notranslate"><span class="pre">state</span></code> file clears the DAMON-based
+operating scheme action tried regions directory for each DAMON-based operation
+scheme of the kdamond.  For details of the DAMON-based operation scheme action
+tried regions directory, please refer to <a class="reference internal" href="#sysfs-schemes-tried-regions"><span class="std std-ref">tried_regions section</span></a>.</p>
 <p>If the state is <code class="docutils literal notranslate"><span class="pre">on</span></code>, reading <code class="docutils literal notranslate"><span class="pre">pid</span></code> shows the pid of the kdamond thread.</p>
 <p><code class="docutils literal notranslate"><span class="pre">contexts</span></code> directory contains files for controlling the monitoring contexts
 that this kdamond will execute.</p>
@@ -536,15 +538,21 @@ DAMON-based operation scheme.</p>
 number (<code class="docutils literal notranslate"><span class="pre">N</span></code>) to the file creates the number of child directories named <code class="docutils literal notranslate"><span class="pre">0</span></code>
 to <code class="docutils literal notranslate"><span class="pre">N-1</span></code>.  Each directory represents each filter.  The filters are evaluated
 in the numeric order.</p>
-<p>Each filter directory contains three files, namely <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">matcing</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">memcg_path</span></code>.  You can write one of two special keywords, <code class="docutils literal notranslate"><span class="pre">anon</span></code> for
-anonymous pages, or <code class="docutils literal notranslate"><span class="pre">memcg</span></code> for specific memory cgroup filtering.  In case of
-the memory cgroup filtering, you can specify the memory cgroup of the interest
-by writing the path of the memory cgroup from the cgroups mount point to
-<code class="docutils literal notranslate"><span class="pre">memcg_path</span></code> file.  You can write <code class="docutils literal notranslate"><span class="pre">Y</span></code> or <code class="docutils literal notranslate"><span class="pre">N</span></code> to <code class="docutils literal notranslate"><span class="pre">matching</span></code> file to
-filter out pages that does or does not match to the type, respectively.  Then,
-the scheme's action will not be applied to the pages that specified to be
-filtered out.</p>
+<p>Each filter directory contains six files, namely <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">matcing</span></code>,
+<code class="docutils literal notranslate"><span class="pre">memcg_path</span></code>, <code class="docutils literal notranslate"><span class="pre">addr_start</span></code>, <code class="docutils literal notranslate"><span class="pre">addr_end</span></code>, and <code class="docutils literal notranslate"><span class="pre">target_idx</span></code>.  To <code class="docutils literal notranslate"><span class="pre">type</span></code>
+file, you can write one of four special keywords: <code class="docutils literal notranslate"><span class="pre">anon</span></code> for anonymous pages,
+<code class="docutils literal notranslate"><span class="pre">memcg</span></code> for specific memory cgroup, <code class="docutils literal notranslate"><span class="pre">addr</span></code> for specific address range (an
+open-ended interval), or <code class="docutils literal notranslate"><span class="pre">target</span></code> for specific DAMON monitoring target
+filtering.  In case of the memory cgroup filtering, you can specify the memory
+cgroup of the interest by writing the path of the memory cgroup from the
+cgroups mount point to <code class="docutils literal notranslate"><span class="pre">memcg_path</span></code> file.  In case of the address range
+filtering, you can specify the start and end address of the range to
+<code class="docutils literal notranslate"><span class="pre">addr_start</span></code> and <code class="docutils literal notranslate"><span class="pre">addr_end</span></code> files, respectively.  For the DAMON monitoring
+target filtering, you can specify the index of the target between the list of
+the DAMON context's monitoring targets list to <code class="docutils literal notranslate"><span class="pre">target_idx</span></code> file.  You can
+write <code class="docutils literal notranslate"><span class="pre">Y</span></code> or <code class="docutils literal notranslate"><span class="pre">N</span></code> to <code class="docutils literal notranslate"><span class="pre">matching</span></code> file to filter out pages that does or does
+not match to the type, respectively.  Then, the scheme's action will not be
+applied to the pages that specified to be filtered out.</p>
 <p>For example, below restricts a DAMOS action to be applied to only non-anonymous
 pages of all memory cgroups except <code class="docutils literal notranslate"><span class="pre">/having_care_already</span></code>.:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 2 &gt; nr_filters
@@ -557,8 +565,13 @@ echo /having_care_already &gt; 1/memcg_path
 echo N &gt; 1/matching
 </pre></div>
 </div>
-<p>Note that filters are currently supported only when <code class="docutils literal notranslate"><span class="pre">paddr</span></code>
-<cite>implementation &lt;sysfs_contexts&gt;</cite> is being used.</p>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">anon</span></code> and <code class="docutils literal notranslate"><span class="pre">memcg</span></code> filters are currently supported only when
+<code class="docutils literal notranslate"><span class="pre">paddr</span></code> <cite>implementation &lt;sysfs_contexts&gt;</cite> is being used.</p>
+<p>Also, memory regions that are filtered out by <code class="docutils literal notranslate"><span class="pre">addr</span></code> or <code class="docutils literal notranslate"><span class="pre">target</span></code> filters
+are not counted as the scheme has tried to those, while regions that filtered
+out by other type filters are counted as the scheme has tried to.  The
+difference is applied to <a class="reference internal" href="#damos-stats"><span class="std std-ref">stats</span></a> and
+<a class="reference internal" href="#sysfs-schemes-tried-regions"><span class="std std-ref">tried regions</span></a>.</p>
 </section>
 <section id="schemes-n-stats">
 <span id="sysfs-schemes-stats"></span><h3>schemes/&lt;N&gt;/stats/<a class="headerlink" href="#schemes-n-stats" title="Permalink to this heading">¶</a></h3>
@@ -569,19 +582,24 @@ be used for online analysis or tuning of the schemes.</p>
 <p>The statistics can be retrieved by reading the files under <code class="docutils literal notranslate"><span class="pre">stats</span></code> directory
 (<code class="docutils literal notranslate"><span class="pre">nr_tried</span></code>, <code class="docutils literal notranslate"><span class="pre">sz_tried</span></code>, <code class="docutils literal notranslate"><span class="pre">nr_applied</span></code>, <code class="docutils literal notranslate"><span class="pre">sz_applied</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">qt_exceeds</span></code>), respectively.  The files are not updated in real time, so you
-should ask DAMON sysfs interface to updte the content of the files for the
+should ask DAMON sysfs interface to update the content of the files for the
 stats by writing a special keyword, <code class="docutils literal notranslate"><span class="pre">update_schemes_stats</span></code> to the relevant
 <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code> file.</p>
 </section>
 <section id="schemes-n-tried-regions">
 <span id="sysfs-schemes-tried-regions"></span><h3>schemes/&lt;N&gt;/tried_regions/<a class="headerlink" href="#schemes-n-tried-regions" title="Permalink to this heading">¶</a></h3>
+<p>This directory initially has one file, <code class="docutils literal notranslate"><span class="pre">total_bytes</span></code>.</p>
 <p>When a special keyword, <code class="docutils literal notranslate"><span class="pre">update_schemes_tried_regions</span></code>, is written to the
-relevant <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code> file, DAMON creates directories named integer
-starting from <code class="docutils literal notranslate"><span class="pre">0</span></code> under this directory.  Each directory contains files
-exposing detailed information about each of the memory region that the
-corresponding scheme's <code class="docutils literal notranslate"><span class="pre">action</span></code> has tried to be applied under this directory,
-during next <a class="reference internal" href="#sysfs-monitoring-attrs"><span class="std std-ref">aggregation interval</span></a>.  The
-information includes address range, <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>, and <code class="docutils literal notranslate"><span class="pre">age</span></code> of the region.</p>
+relevant <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code> file, DAMON updates the <code class="docutils literal notranslate"><span class="pre">total_bytes</span></code> file so
+that reading it returns the total size of the scheme tried regions, and creates
+directories named integer starting from <code class="docutils literal notranslate"><span class="pre">0</span></code> under this directory.  Each
+directory contains files exposing detailed information about each of the memory
+region that the corresponding scheme's <code class="docutils literal notranslate"><span class="pre">action</span></code> has tried to be applied under
+this directory, during next <a class="reference internal" href="#sysfs-monitoring-attrs"><span class="std std-ref">aggregation interval</span></a>.  The information includes address range,
+<code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>, and <code class="docutils literal notranslate"><span class="pre">age</span></code> of the region.</p>
+<p>Writing <code class="docutils literal notranslate"><span class="pre">update_schemes_tried_bytes</span></code> to the relevant <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code>
+file will only update the <code class="docutils literal notranslate"><span class="pre">total_bytes</span></code> file, and will not create the
+subdirectories.</p>
 <p>The directories will be removed when another special keyword,
 <code class="docutils literal notranslate"><span class="pre">clear_schemes_tried_regions</span></code>, is written to the relevant
 <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code> file.</p>

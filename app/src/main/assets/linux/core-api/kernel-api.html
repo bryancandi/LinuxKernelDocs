@@ -17,7 +17,7 @@
     <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Concurrency Managed Workqueue (cmwq)" href="workqueue.html" />
+    <link rel="next" title="Workqueue" href="workqueue.html" />
     <link rel="prev" title="Core API Documentation" href="index.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,7 +70,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Core API Documentation</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#core-utilities">Core utilities</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">The Linux Kernel API</a></li>
-<li class="toctree-l3"><a class="reference internal" href="workqueue.html">Concurrency Managed Workqueue (cmwq)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workqueue.html">Workqueue</a></li>
 <li class="toctree-l3"><a class="reference internal" href="watch_queue.html">General notification mechanism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="printk-basics.html">Message logging with printk</a></li>
 <li class="toctree-l3"><a class="reference internal" href="printk-formats.html">How to get printk format specifiers right</a></li>
@@ -89,7 +89,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -6211,8 +6226,62 @@ bf(4) = 3
 ... and so on.</p>
 </div>
 </section>
-<section id="integer-power-functions">
-<h3>Integer power Functions<a class="headerlink" href="#integer-power-functions" title="Permalink to this heading">¶</a></h3>
+<section id="integer-log-and-power-functions">
+<h3>Integer log and power Functions<a class="headerlink" href="#integer-log-and-power-functions" title="Permalink to this heading">¶</a></h3>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.intlog2">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">intlog2</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.intlog2" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>computes log2 of a value; the result is shifted left by 24 bits</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">value</span></code></dt><dd><p>The value (must be != 0)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>to use rational values you can use the following method:</p>
+<blockquote>
+<div><p>intlog2(value) = intlog2(value * 2^x) - x * 2^24</p>
+</div></blockquote>
+<p>Some usecase examples:</p>
+<blockquote>
+<div><p>intlog2(8) will give 3 &lt;&lt; 24 = 3 * 2^24</p>
+<p>intlog2(9) will give 3 &lt;&lt; 24 + ... = 3.16... * 2^24</p>
+<p>intlog2(1.5) = intlog2(3) - 2^24 = 0.584... * 2^24</p>
+</div></blockquote>
+<p><strong>Return</strong></p>
+<p>log2(value) * 2^24</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.intlog10">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">intlog10</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.intlog10" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>computes log10 of a value; the result is shifted left by 24 bits</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">value</span></code></dt><dd><p>The value (must be != 0)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>to use rational values you can use the following method:</p>
+<blockquote>
+<div><p>intlog10(value) = intlog10(value * 10^x) - x * 2^24</p>
+</div></blockquote>
+<p>An usecase example:</p>
+<blockquote>
+<div><blockquote>
+<div><p>intlog10(1000) will give 3 &lt;&lt; 24 = 3 * 2^24</p>
+</div></blockquote>
+<p>due to the implementation intlog10(1000) might be not exactly 3 * 2^24</p>
+</div></blockquote>
+<p>look at intlog2 for similar examples</p>
+<p><strong>Return</strong></p>
+<p>log10(value) * 2^24</p>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.int_pow">
 <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">int_pow</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">base</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">exp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.int_pow" title="Permalink to this definition">¶</a><br /></dt>
@@ -9272,7 +9341,7 @@ but drivers should not try to interpret that return value.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.security_binder_transfer_file">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_binder_transfer_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cred</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">from</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cred</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.security_binder_transfer_file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_binder_transfer_file" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_binder_transfer_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cred</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">from</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cred</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.security_binder_transfer_file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_binder_transfer_file" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Check if a binder file xfer is allowed</p>
 </dd></dl>
 
@@ -9283,7 +9352,7 @@ but drivers should not try to interpret that return value.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">cred</span> <span class="pre">*to</span></code></dt><dd><p>receiving process</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>file being transferred</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>file being transferred</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -9336,14 +9405,14 @@ current process before allowing the current process to present itself to the
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.security_capget">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_capget</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">effective</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inheritable</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">permitted</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_capget" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_capget</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">effective</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inheritable</span></span>, <span class="n"><span class="pre">kernel_cap_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">permitted</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_capget" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Get the capability sets for a process</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*target</span></code></dt><dd><p>target process</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*target</span></code></dt><dd><p>target process</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">kernel_cap_t</span> <span class="pre">*effective</span></code></dt><dd><p>effective capability set</p>
 </dd>
@@ -9628,6 +9697,25 @@ point, been set to <strong>current-&gt;cred</strong>.  <strong>bprm</strong> poi
 structure.  This hook is a good place to perform state changes on the
 process such as clearing out non-inheritable signal state.  This is called
 immediately after commit_creds().</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.security_fs_context_submount">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_fs_context_submount</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fs_context</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fc</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">reference</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_fs_context_submount" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Initialise fc-&gt;security</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fs_context</span> <span class="pre">*fc</span></code></dt><dd><p>new filesystem context</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">super_block</span> <span class="pre">*reference</span></code></dt><dd><p>dentry reference for submount/remount</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Fill out the -&gt;security field for a new fs_context.</p>
+<p><strong>Return</strong></p>
+<p>Returns 0 on success or negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.security_fs_context_dup">
@@ -10766,7 +10854,7 @@ mediates both flock and fcntl style locks.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>file</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">cmd</span></code></dt><dd><p>fnctl command</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">cmd</span></code></dt><dd><p>fcntl command</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">arg</span></code></dt><dd><p>command argument</p>
 </dd>
@@ -15500,6 +15588,28 @@ namespace if possible and return it in <strong>dev</strong>.</p>
 <p><strong>Return</strong></p>
 <p>0 if succeeded, negative errno otherwise.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bdev_mark_dead">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bdev_mark_dead</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">block_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bdev</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">surprise</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bdev_mark_dead" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>mark a block device as dead</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">block_device</span> <span class="pre">*bdev</span></code></dt><dd><p>block device to operate on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">surprise</span></code></dt><dd><p>indicate a surprise removal</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Tell the file system that this devices or media is dead.  If <strong>surprise</strong> is set
+to <code class="docutils literal notranslate"><span class="pre">true</span></code> the device or media is already gone, if not we are preparing for an
+orderly removal.</p>
+<p>This calls into the file system, which then typicall syncs out all dirty data
+and writes back inodes and then invalidates any cached data in the inodes on
+the file system.  In addition we also invalidate the block device mapping.</p>
+</div>
 </section>
 <section id="char-devices">
 <h2>Char devices<a class="headerlink" href="#char-devices" title="Permalink to this heading">¶</a></h2>
@@ -17770,7 +17880,7 @@ needs without creating otherwise useless interruptions.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.rcu_is_watching">
 <span class="pre">notrace</span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rcu_is_watching</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rcu_is_watching" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>see if RCU thinks that the current CPU is not idle</p>
+<dd><p>RCU read-side critical sections permitted on current CPU?</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -17780,10 +17890,13 @@ needs without creating otherwise useless interruptions.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Return true if RCU is watching the running CPU, which means that this
-CPU can safely enter RCU read-side critical sections.  In other words,
-if the current CPU is not in its idle loop or is in an interrupt or
-NMI handler, return true.</p>
+<p>Return <strong>true</strong> if RCU is watching the running CPU and <strong>false</strong> otherwise.
+An <strong>true</strong> return means that this CPU can safely enter RCU read-side
+critical sections.</p>
+<p>Although calls to <a class="reference internal" href="#c.rcu_is_watching" title="rcu_is_watching"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_is_watching()</span></code></a> from most parts of the kernel
+will return <strong>true</strong>, there are important exceptions.  For example, if the
+current CPU is deep within its idle loop, in kernel entry/exit code,
+or offline, <a class="reference internal" href="#c.rcu_is_watching" title="rcu_is_watching"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_is_watching()</span></code></a> will return <strong>false</strong>.</p>
 <p>Make notrace because it can be called by the internal functions of
 ftrace, and making this notrace removes unnecessary recursion calls.</p>
 </div>
@@ -20294,6 +20407,8 @@ they can once again use their fastpaths.</p>
     raw_spinlock_t __private lock;
     unsigned long rtp_jiffies;
     unsigned long rtp_n_lock_retries;
+    struct timer_list lazy_timer;
+    unsigned int urgent_gp;
     struct work_struct rtp_work;
     struct irq_work rtp_irq_work;
     struct rcu_head barrier_q_head;
@@ -20312,6 +20427,10 @@ they can once again use their fastpaths.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">rtp_jiffies</span></code></dt><dd><p>Jiffies counter value for statistics.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rtp_n_lock_retries</span></code></dt><dd><p>Rough lock-contention statistic.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lazy_timer</span></code></dt><dd><p>Timer to unlazify callbacks.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">urgent_gp</span></code></dt><dd><p>Number of additional non-lazy grace periods.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rtp_work</span></code></dt><dd><p>Work queue for invoking callbacks.</p>
 </dd>
@@ -20348,6 +20467,7 @@ they can once again use their fastpaths.</p>
     unsigned long n_ipis;
     unsigned long n_ipis_fails;
     struct task_struct *kthread_ptr;
+    unsigned long lazy_jiffies;
     rcu_tasks_gp_func_t gp_func;
     pregp_func_t pregp_func;
     pertask_func_t pertask_func;
@@ -20394,6 +20514,8 @@ they can once again use their fastpaths.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">n_ipis_fails</span></code></dt><dd><p>Number of IPI-send failures.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">kthread_ptr</span></code></dt><dd><p>This flavor's grace-period/callback-invocation kthread.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lazy_jiffies</span></code></dt><dd><p>Number of jiffies to allow callbacks to be lazy.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">gp_func</span></code></dt><dd><p>This flavor's grace-period-wait function.</p>
 </dd>
@@ -20733,6 +20855,10 @@ on concurrent RCU and RCU-tasks grace periods.  Waiting on a given SRCU
 domain requires you to write a wrapper function for that SRCU domain's
 <a class="reference internal" href="#c.call_srcu" title="call_srcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_srcu()</span></code></a> function, with this wrapper supplying the pointer to the
 corresponding srcu_struct.</p>
+<p>Note that <a class="reference internal" href="#c.call_rcu_hurry" title="call_rcu_hurry"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu_hurry()</span></code></a> should be used instead of <a class="reference internal" href="#c.call_rcu" title="call_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu()</span></code></a>
+because in kernels built with CONFIG_RCU_LAZY=y the delay between the
+invocation of <a class="reference internal" href="#c.call_rcu" title="call_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu()</span></code></a> and that of the corresponding RCU callback
+can be multiple seconds.</p>
 <p>The first argument tells Tiny RCU's _wait_rcu_gp() not to
 bother waiting for RCU.  The reason for this is because anywhere
 <a class="reference internal" href="#c.synchronize_rcu_mult" title="synchronize_rcu_mult"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu_mult()</span></code></a> can be called is automatically already a full

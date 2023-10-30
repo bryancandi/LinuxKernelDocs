@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -167,7 +167,9 @@ and run:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>rustup override set $(scripts/min-tool-version.sh rustc)
 </pre></div>
 </div>
-<p>Otherwise, fetch a standalone installer from:</p>
+<p>This will configure your working directory to use the correct version of
+<code class="docutils literal notranslate"><span class="pre">rustc</span></code> without affecting your default toolchain. If you are not using
+<code class="docutils literal notranslate"><span class="pre">rustup</span></code>, fetch a standalone installer from:</p>
 <blockquote>
 <div><p><a class="reference external" href="https://forge.rust-lang.org/infra/other-installation-methods.html#standalone">https://forge.rust-lang.org/infra/other-installation-methods.html#standalone</a></p>
 </div></blockquote>
@@ -182,16 +184,17 @@ cross-compile <code class="docutils literal notranslate"><span class="pre">core<
 </div>
 <p>The components are installed per toolchain, thus upgrading the Rust compiler
 version later on requires re-adding the component.</p>
-<p>Otherwise, if a standalone installer is used, the Rust repository may be cloned
-into the installation folder of the toolchain:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone --recurse-submodules \
-        --branch $(scripts/min-tool-version.sh rustc) \
-        https://github.com/rust-lang/rust \
-        $(rustc --print sysroot)/lib/rustlib/src/rust
+<p>Otherwise, if a standalone installer is used, the Rust source tree may be
+downloaded into the toolchain's installation folder:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>curl -L &quot;https://static.rust-lang.org/dist/rust-src-$(scripts/min-tool-version.sh rustc).tar.gz&quot; |
+        tar -xzf - -C &quot;$(rustc --print sysroot)/lib&quot; \
+        &quot;rust-src-$(scripts/min-tool-version.sh rustc)/rust-src/lib/&quot; \
+        --strip-components=3
 </pre></div>
 </div>
 <p>In this case, upgrading the Rust compiler version later on requires manually
-updating this clone.</p>
+updating the source tree (this can be done by removing <code class="docutils literal notranslate"><span class="pre">$(rustc</span> <span class="pre">--print</span>
+<span class="pre">sysroot)/lib/rustlib/src/rust</span></code> then rerunning the above command).</p>
 </section>
 <section id="libclang">
 <h3>libclang<a class="headerlink" href="#libclang" title="Permalink to this heading">¶</a></h3>
@@ -216,9 +219,24 @@ to fetch pre-built releases and distribution packages.</p>
 <p>The bindings to the C side of the kernel are generated at build time using
 the <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> tool. A particular version is required.</p>
 <p>Install it via (note that this will download and build the tool from source):</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked --version $(scripts/min-tool-version.sh bindgen) bindgen
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked --version $(scripts/min-tool-version.sh bindgen) bindgen-cli
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">bindgen</span></code> needs to find a suitable <code class="docutils literal notranslate"><span class="pre">libclang</span></code> in order to work. If it is
+not found (or a different <code class="docutils literal notranslate"><span class="pre">libclang</span></code> than the one found should be used),
+the process can be tweaked using the environment variables understood by
+<code class="docutils literal notranslate"><span class="pre">clang-sys</span></code> (the Rust bindings crate that <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> uses to access
+<code class="docutils literal notranslate"><span class="pre">libclang</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LLVM_CONFIG_PATH</span></code> can be pointed to an <code class="docutils literal notranslate"><span class="pre">llvm-config</span></code> executable.</p></li>
+<li><p>Or <code class="docutils literal notranslate"><span class="pre">LIBCLANG_PATH</span></code> can be pointed to a <code class="docutils literal notranslate"><span class="pre">libclang</span></code> shared library
+or to the directory containing it.</p></li>
+<li><p>Or <code class="docutils literal notranslate"><span class="pre">CLANG_PATH</span></code> can be pointed to a <code class="docutils literal notranslate"><span class="pre">clang</span></code> executable.</p></li>
+</ul>
+<p>For details, please see <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code>'s documentation at:</p>
+<blockquote>
+<div><p><a class="reference external" href="https://github.com/KyleMayes/clang-sys#environment-variables">https://github.com/KyleMayes/clang-sys#environment-variables</a></p>
+</div></blockquote>
 </section>
 </section>
 <section id="requirements-developing">
@@ -279,7 +297,10 @@ thus nothing needs to be done.</p>
 be used with many editors to enable syntax highlighting, completion, go to
 definition, and other features.</p>
 <p><code class="docutils literal notranslate"><span class="pre">rust-analyzer</span></code> needs a configuration file, <code class="docutils literal notranslate"><span class="pre">rust-project.json</span></code>, which
-can be generated by the <code class="docutils literal notranslate"><span class="pre">rust-analyzer</span></code> Make target.</p>
+can be generated by the <code class="docutils literal notranslate"><span class="pre">rust-analyzer</span></code> Make target:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 rust-analyzer
+</pre></div>
+</div>
 </section>
 </section>
 <section id="configuration">

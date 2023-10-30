@@ -803,6 +803,8 @@ videodev2.h
     \#define \ :ref:`V4L2_PIX_FMT_Z16 <v4l2-pix-fmt-z16>`      v4l2\_fourcc('Z', '1', '6', ' ') \/\* Depth data 16-bit \*\/
     \#define \ :ref:`V4L2_PIX_FMT_MT21C <v4l2-pix-fmt-mt21c>`    v4l2\_fourcc('M', 'T', '2', '1') \/\* Mediatek compressed block mode  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_MM21 <v4l2-pix-fmt-mm21>`     v4l2\_fourcc('M', 'M', '2', '1') \/\* Mediatek 8-bit block mode, two non-contiguous planes \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_MT2110T <v4l2-pix-fmt-mt2110t>`  v4l2\_fourcc('M', 'T', '2', 'T') \/\* Mediatek 10-bit block tile mode \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_MT2110R <v4l2-pix-fmt-mt2110r>`  v4l2\_fourcc('M', 'T', '2', 'R') \/\* Mediatek 10-bit block raster mode \*\/
     \#define \ :ref:`V4L2_PIX_FMT_INZI <v4l2-pix-fmt-inzi>`     v4l2\_fourcc('I', 'N', 'Z', 'I') \/\* Intel Planar Greyscale 10-bit and Depth 16-bit \*\/
     \#define \ :ref:`V4L2_PIX_FMT_CNF4 <v4l2-pix-fmt-cnf4>`     v4l2\_fourcc('C', 'N', 'F', '4') \/\* Intel 4-bit packed depth confidence information \*\/
     \#define \ :ref:`V4L2_PIX_FMT_HI240 <v4l2-pix-fmt-hi240>`    v4l2\_fourcc('H', 'I', '2', '4') \/\* BTTV 8-bit dithered RGB \*\/

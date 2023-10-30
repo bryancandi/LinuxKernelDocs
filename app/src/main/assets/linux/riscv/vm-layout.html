@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -100,15 +100,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../arch/arm/index.html">ARM Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/arm64/index.html">ARM64 Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/ia64/index.html">IA-64 Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../loongarch/index.html">LoongArch Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arch/loongarch/index.html">LoongArch Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/m68k/index.html">m68k Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../mips/index.html">MIPS-specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arch/mips/index.html">MIPS-specific Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/nios2/index.html">Nios II Specific Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/openrisc/index.html">OpenRISC Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/parisc/index.html">PA-RISC Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../powerpc/index.html">powerpc</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">RISC-V architecture</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="acpi.html">ACPI on RISC-V</a></li>
+<li class="toctree-l3"><a class="reference internal" href="boot.html">RISC-V Kernel Boot Requirements and Constraints</a></li>
 <li class="toctree-l3"><a class="reference internal" href="boot-image-header.html">Boot image header in RISC-V Linux</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Virtual Memory Layout on RISC-V Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hwprobe.html">RISC-V Hardware Probing Interface</a></li>
@@ -118,7 +119,7 @@
 <li class="toctree-l3"><a class="reference internal" href="features.html">Feature status on riscv architecture</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../s390/index.html">s390 Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arch/s390/index.html">s390 Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/sh/index.html">SuperH Interfaces Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/sparc/index.html">Sparc Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arch/x86/index.html">x86-specific Documentation</a></li>
@@ -282,6 +283,25 @@ __________________|____________|__________________|_________|___________________
  __________________|____________|__________________|_________|____________________________________________________________
 </pre></div>
 </div>
+</section>
+<section id="userspace-vas">
+<h3>Userspace VAs<a class="headerlink" href="#userspace-vas" title="Permalink to this heading">¶</a></h3>
+<p>To maintain compatibility with software that relies on the VA space with a
+maximum of 48 bits the kernel will, by default, return virtual addresses to
+userspace from a 48-bit range (sv48). This default behavior is achieved by
+passing 0 into the hint address parameter of mmap. On CPUs with an address space
+smaller than sv48, the CPU maximum supported address space will be the default.</p>
+<p>Software can &quot;opt-in&quot; to receiving VAs from another VA space by providing
+a hint address to mmap. A hint address passed to mmap will cause the largest
+address space that fits entirely into the hint to be used, unless there is no
+space left in the address space. If there is no space available in the requested
+address space, an address in the next smallest available address space will be
+returned.</p>
+<p>For example, in order to obtain 48-bit VA space, a hint address greater than
+<code class="code docutils literal notranslate"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">47</span></code> must be provided. Note that this is 47 due to sv48 userspace
+ending at <code class="code docutils literal notranslate"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">47</span></code> and the addresses beyond this are reserved for the
+kernel. Similarly, to obtain 57-bit VA space addresses, a hint address greater
+than or equal to <code class="code docutils literal notranslate"><span class="pre">1</span> <span class="pre">&lt;&lt;</span> <span class="pre">56</span></code> must be provided.</p>
 </section>
 </section>
 </section>

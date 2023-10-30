@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -184,7 +184,22 @@
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -270,18 +285,6 @@ defining at a bare minimum the bus I/O addresses of the ATA shadow
 register blocks.</p>
 <section id="struct-ata-port-operations">
 <h3><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_port_operations</span></code><a class="headerlink" href="#struct-ata-port-operations" title="Permalink to this heading">¶</a></h3>
-<section id="disable-ata-port">
-<h4>Disable ATA port<a class="headerlink" href="#disable-ata-port" title="Permalink to this heading">¶</a></h4>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*port_disable) (struct ata_port *);
-</pre></div>
-</div>
-<p>Called from <a class="reference internal" href="#c.ata_bus_probe" title="ata_bus_probe"><code class="xref c c-func docutils literal notranslate"><span class="pre">ata_bus_probe()</span></code></a> error path, as well as when unregistering
-from the SCSI module (rmmod, hot unplug). This function should do
-whatever needs to be done to take the port out of use. In most cases,
-<code class="xref c c-func docutils literal notranslate"><span class="pre">ata_port_disable()</span></code> can be used as this hook.</p>
-<p>Called from <a class="reference internal" href="#c.ata_bus_probe" title="ata_bus_probe"><code class="xref c c-func docutils literal notranslate"><span class="pre">ata_bus_probe()</span></code></a> on a failed probe. Called from
-<code class="xref c c-func docutils literal notranslate"><span class="pre">ata_scsi_release()</span></code>.</p>
-</section>
 <section id="post-identify-device-configuration">
 <h4>Post-IDENTIFY device configuration<a class="headerlink" href="#post-identify-device-configuration" title="Permalink to this heading">¶</a></h4>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*dev_config) (struct ata_port *, struct ata_device *);
@@ -456,11 +459,6 @@ advanced drivers implement their own <code class="docutils literal notranslate">
 </section>
 <section id="exception-and-probe-handling-eh">
 <h4>Exception and probe handling (EH)<a class="headerlink" href="#exception-and-probe-handling-eh" title="Permalink to this heading">¶</a></h4>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*eng_timeout) (struct ata_port *ap);
-void (*phy_reset) (struct ata_port *ap);
-</pre></div>
-</div>
-<p>Deprecated. Use <code class="docutils literal notranslate"><span class="pre">-&gt;error_handler()</span></code> instead.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*freeze) (struct ata_port *ap);
 void (*thaw) (struct ata_port *ap);
 </pre></div>
@@ -523,8 +521,7 @@ int (*scr_write) (struct ata_port *ap, unsigned int sc_reg,
                    u32 val);
 </pre></div>
 </div>
-<p>Read and write standard SATA phy registers. Currently only used if
-<code class="docutils literal notranslate"><span class="pre">-&gt;phy_reset</span></code> hook called the <code class="xref c c-func docutils literal notranslate"><span class="pre">sata_phy_reset()</span></code> helper function.
+<p>Read and write standard SATA phy registers.
 sc_reg is one of SCR_STATUS, SCR_CONTROL, SCR_ERROR, or SCR_ACTIVE.</p>
 </section>
 <section id="init-and-shutdown">
@@ -670,12 +667,11 @@ to return without deallocating the qc. This leads us to
 <h3><a class="reference internal" href="#c.ata_scsi_error" title="ata_scsi_error"><code class="xref c c-func docutils literal notranslate"><span class="pre">ata_scsi_error()</span></code></a><a class="headerlink" href="#ata-scsi-error" title="Permalink to this heading">¶</a></h3>
 <p><a class="reference internal" href="#c.ata_scsi_error" title="ata_scsi_error"><code class="xref c c-func docutils literal notranslate"><span class="pre">ata_scsi_error()</span></code></a> is the current <code class="docutils literal notranslate"><span class="pre">transportt-&gt;eh_strategy_handler()</span></code>
 for libata. As discussed above, this will be entered in two cases -
-timeout and ATAPI error completion. This function calls low level libata
-driver's <code class="xref c c-func docutils literal notranslate"><span class="pre">eng_timeout()</span></code> callback, the standard callback for which is
-<code class="xref c c-func docutils literal notranslate"><span class="pre">ata_eng_timeout()</span></code>. It checks if a qc is active and calls
-<code class="xref c c-func docutils literal notranslate"><span class="pre">ata_qc_timeout()</span></code> on the qc if so. Actual error handling occurs in
-<code class="xref c c-func docutils literal notranslate"><span class="pre">ata_qc_timeout()</span></code>.</p>
-<p>If EH is invoked for timeout, <code class="xref c c-func docutils literal notranslate"><span class="pre">ata_qc_timeout()</span></code> stops BMDMA and
+timeout and ATAPI error completion. This function will check if a qc is active
+and has not failed yet. Such a qc will be marked with AC_ERR_TIMEOUT such that
+EH will know to handle it later. Then it calls low level libata driver's
+<code class="xref c c-func docutils literal notranslate"><span class="pre">error_handler()</span></code> callback.</p>
+<p>When the <code class="xref c c-func docutils literal notranslate"><span class="pre">error_handler()</span></code> callback is invoked it stops BMDMA and
 completes the qc. Note that as we're currently in EH, we cannot call
 scsi_done. As described in SCSI EH doc, a recovered scmd should be
 either retried with <code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_queue_insert()</span></code> or finished with
@@ -1633,7 +1629,7 @@ Might sleep.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ata_wait_register">
-<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_wait_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_port</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ap</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__iomem</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">reg</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_wait_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_wait_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_port</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ap</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__iomem</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">reg</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_wait_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>wait until register value changes</p>
 </dd></dl>
 
@@ -1648,9 +1644,9 @@ Might sleep.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">val</span></code></dt><dd><p>Wait condition</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">interval</span></code></dt><dd><p>polling interval in milliseconds</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">interval</span></code></dt><dd><p>polling interval in milliseconds</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">timeout</span></code></dt><dd><p>timeout in milliseconds</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">timeout</span></code></dt><dd><p>timeout in milliseconds</p>
 <p>Waiting for some bits of register to change is a common
 operation for ATA controllers.  This function reads 32bit LE
 IO-mapped register <strong>reg</strong> and tests for the following condition.</p>
@@ -2065,6 +2061,41 @@ Kernel thread context (may sleep)</p>
 </div></blockquote>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.ata_dev_power_set_standby">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_dev_power_set_standby</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_dev_power_set_standby" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Set a device power mode to standby</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_device</span> <span class="pre">*dev</span></code></dt><dd><p>target device</p>
+<p>Issue a STANDBY IMMEDIATE command to set a device power mode to standby.
+For an HDD device, this spins down the disks.</p>
+<p>LOCKING:
+Kernel thread context (may sleep).</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ata_dev_power_set_active">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_dev_power_set_active</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_dev_power_set_active" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Set a device power mode to active</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_device</span> <span class="pre">*dev</span></code></dt><dd><p>target device</p>
+<p>Issue a VERIFY command to enter to ensure that the device is in the
+active power mode. For a spun-down HDD (standby or idle power mode),
+the VERIFY command will complete after the disk spins up.</p>
+<p>LOCKING:
+Kernel thread context (may sleep).</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.ata_read_log_page">
 <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_read_log_page</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">log</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buf</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">sectors</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_read_log_page" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>read a specific log page</p>
@@ -2111,28 +2142,6 @@ Kernel thread context (may sleep)</p>
 <p><strong>Return</strong></p>
 <blockquote>
 <div><p>0 on success, -errno otherwise</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.ata_bus_probe">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_bus_probe</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_port</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ap</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_bus_probe" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Reset and probe ATA bus</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_port</span> <span class="pre">*ap</span></code></dt><dd><p>Bus to probe</p>
-<p>Master ATA bus probing function.  Initiates a hardware-dependent
-bus reset, then attempts to identify any devices found on
-the bus.</p>
-<p>LOCKING:
-PCI/etc. bus probe sem.</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<blockquote>
-<div><p>Zero on success, negative errno otherwise.</p>
 </div></blockquote>
 </div>
 <dl class="c function">
@@ -3927,6 +3936,23 @@ None.</p>
 </div></blockquote>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.ata_scsi_slave_alloc">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_scsi_slave_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">scsi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sdev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_scsi_slave_alloc" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Early setup of SCSI device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">scsi_device</span> <span class="pre">*sdev</span></code></dt><dd><p>SCSI device to examine</p>
+<p>This is called from <a class="reference internal" href="scsi.html#c.scsi_alloc_sdev" title="scsi_alloc_sdev"><code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_alloc_sdev()</span></code></a> when the scsi device
+associated with an ATA device is scanned on a port.</p>
+<p>LOCKING:
+Defined by SCSI layer.  We don't really care.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.ata_scsi_slave_config">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_scsi_slave_config</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">scsi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sdev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_scsi_slave_config" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set SCSI device attributes</p>
@@ -4086,28 +4112,8 @@ spin_lock_irqsave(host lock)</p>
 </div></blockquote>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.ata_dump_status">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_dump_status</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_port</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ap</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ata_taskfile</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tf</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_dump_status" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>user friendly display of error info</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_port</span> <span class="pre">*ap</span></code></dt><dd><p>the port in question</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ata_taskfile</span> <span class="pre">*tf</span></code></dt><dd><p>ptr to filled out taskfile</p>
-<p>Decode and dump the ATA error/status registers for the user so
-that they have some idea what really happened at the non
-make-believe layer.</p>
-<p>LOCKING:
-inherited from caller</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.ata_to_sense_error">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_to_sense_error</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="n"><span class="pre">id</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">drv_stat</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">drv_err</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sk</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">asc</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ascq</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">verbose</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_to_sense_error" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ata_to_sense_error</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="n"><span class="pre">id</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">drv_stat</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">drv_err</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sk</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">asc</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ascq</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ata_to_sense_error" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>convert ATA error to SCSI error</p>
 </dd></dl>
 
@@ -4125,8 +4131,6 @@ inherited from caller</p>
 <dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*asc</span></code></dt><dd><p>the additional sense code we'll fill out</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*ascq</span></code></dt><dd><p>the additional sense code qualifier we'll fill out</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">verbose</span></code></dt><dd><p>be verbose</p>
 <p>Converts an ATA error into a SCSI error.  Fill out pointers to
 SK, ASC, and ASCQ bytes for later use in fixed or descriptor
 format sense blocks.</p>

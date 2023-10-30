@@ -18,7 +18,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="GPU RFC Section" href="rfc/index.html" />
-    <link rel="prev" title="VGA Arbiter" href="vgaarbiter.html" />
+    <link rel="prev" title="Automated testing of the DRM subsystem" href="automated_testing.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,6 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../input/index.html">Input Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../hid/index.html">Human Interface Devices (HID)</a></li>
@@ -78,6 +79,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../fb/index.html">Frame Buffer</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
 </ul>
 </li>
@@ -173,19 +175,34 @@ implementations), and then remove it.</p>
 converted over. Modern compositors like Wayland or Surfaceflinger on Android
 really want an atomic modeset interface, so this is all about the bright
 future.</p>
-<p>There is a conversion guide for atomic and all you need is a GPU for a
-non-converted driver (again virtual HW drivers for KVM are still all
-suitable).</p>
+<p>There is a conversion guide for atomic <a class="footnote-reference brackets" href="#id4" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> and all you need is a GPU for a
+non-converted driver.  The &quot;Atomic mode setting design overview&quot; series <a class="footnote-reference brackets" href="#id5" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>
+<a class="footnote-reference brackets" href="#id6" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> at LWN.net can also be helpful.</p>
 <p>As part of this drivers also need to convert to universal plane (which means
 exposing primary &amp; cursor as proper plane objects). But that's much easier to
 do by directly using the new atomic helper driver callbacks.</p>
+<blockquote>
+<div><aside class="footnote brackets" id="id4" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://blog.ffwll.ch/2014/11/atomic-modeset-support-for-kms-drivers.html">https://blog.ffwll.ch/2014/11/atomic-modeset-support-for-kms-drivers.html</a></p>
+</aside>
+<aside class="footnote brackets" id="id5" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://lwn.net/Articles/653071/">https://lwn.net/Articles/653071/</a></p>
+</aside>
+<aside class="footnote brackets" id="id6" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">3</a><span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://lwn.net/Articles/653466/">https://lwn.net/Articles/653466/</a></p>
+</aside>
+</aside>
+</div></blockquote>
 <p>Contact: Daniel Vetter, respective driver maintainers</p>
 <p>Level: Advanced</p>
 </section>
 <section id="clean-up-the-clipped-coordination-confusion-around-planes">
 <h2>Clean up the clipped coordination confusion around planes<a class="headerlink" href="#clean-up-the-clipped-coordination-confusion-around-planes" title="Permalink to this heading">¶</a></h2>
 <p>We have a helper to get this right with drm_plane_helper_check_update(), but
-it's not consistently used. This should be fixed, preferrably in the atomic
+it's not consistently used. This should be fixed, preferably in the atomic
 helpers (and drivers then moved over to clipped coordinates). Probably the
 helper should also be moved from drm_plane_helper.c to the atomic helpers, to
 avoid confusion - the other helpers in that file are all deprecated legacy
@@ -280,13 +297,13 @@ depending which driver is the exporter and importer, the locking hierarchy is
 reversed.</p>
 <p>To solve this we need one standard per-object locking mechanism, which is
 <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_resv_lock" title="dma_resv_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_resv_lock()</span></code></a>. This lock needs to be called as the outermost lock, with all
-other driver specific per-object locks removed. The problem is tha rolling out
+other driver specific per-object locks removed. The problem is that rolling out
 the actual change to the locking contract is a flag day, due to <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_buf" title="dma_buf"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_buf</span></code></a>
 buffer sharing.</p>
 <p>Level: Expert</p>
 </section>
-<section id="convert-logging-to-drm-functions-with-drm-device-paramater">
-<h2>Convert logging to drm_* functions with drm_device paramater<a class="headerlink" href="#convert-logging-to-drm-functions-with-drm-device-paramater" title="Permalink to this heading">¶</a></h2>
+<section id="convert-logging-to-drm-functions-with-drm-device-parameter">
+<h2>Convert logging to drm_* functions with drm_device parameter<a class="headerlink" href="#convert-logging-to-drm-functions-with-drm-device-parameter" title="Permalink to this heading">¶</a></h2>
 <p>For drivers which could have multiple instances, it is necessary to
 differentiate between which is which in the logs. Since DRM_INFO/WARN/ERROR
 don't do this, drivers used dev_info/warn/err to make this differentiation. We
@@ -328,7 +345,7 @@ raw pointers.</p>
 </section>
 <section id="benchmark-and-optimize-blitting-and-format-conversion-function">
 <h2>Benchmark and optimize blitting and format-conversion function<a class="headerlink" href="#benchmark-and-optimize-blitting-and-format-conversion-function" title="Permalink to this heading">¶</a></h2>
-<p>Drawing to dispay memory quickly is crucial for many applications'
+<p>Drawing to display memory quickly is crucial for many applications'
 performance.</p>
 <p>On at least x86-64, sys_imageblit() is significantly slower than
 cfb_imageblit(), even though both use the same blitting algorithm and
@@ -389,13 +406,6 @@ should work) to avoid clobbering struct page.</p></li>
 <p>Might be good to also have some igt testcases for this.</p>
 <p>Contact: Daniel Vetter, Noralf Tronnes</p>
 <p>Level: Advanced</p>
-</section>
-<section id="struct-drm-gem-object-funcs">
-<h2>struct drm_gem_object_funcs<a class="headerlink" href="#struct-drm-gem-object-funcs" title="Permalink to this heading">¶</a></h2>
-<p>GEM objects can now have a function table instead of having the callbacks on the
-DRM driver struct. This is now the preferred way. Callbacks in drivers have been
-converted, except for <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a>.gem_prime_mmap.</p>
-<p>Level: Intermediate</p>
 </section>
 <section id="connector-register-unregister-fixes">
 <h2>connector register/unregister fixes<a class="headerlink" href="#connector-register-unregister-fixes" title="Permalink to this heading">¶</a></h2>
@@ -493,6 +503,37 @@ where possible.</p>
 DRM and fbdev drivers. Still, it's the correct thing to do.</p>
 <p>Contact: Thomas Zimmermann &lt;<a class="reference external" href="mailto:tzimmermann&#37;&#52;&#48;suse&#46;de">tzimmermann<span>&#64;</span>suse<span>&#46;</span>de</a>&gt;</p>
 <p>Level: Starter</p>
+</section>
+<section id="remove-driver-dependencies-on-fb-device">
+<h2>Remove driver dependencies on FB_DEVICE<a class="headerlink" href="#remove-driver-dependencies-on-fb-device" title="Permalink to this heading">¶</a></h2>
+<p>A number of fbdev drivers provide attributes via sysfs and therefore depend
+on CONFIG_FB_DEVICE to be selected. Review each driver and attempt to make
+any dependencies on CONFIG_FB_DEVICE optional. At the minimum, the respective
+code in the driver could be conditionalized via ifdef CONFIG_FB_DEVICE. Not
+all drivers might be able to drop CONFIG_FB_DEVICE.</p>
+<p>Contact: Thomas Zimmermann &lt;<a class="reference external" href="mailto:tzimmermann&#37;&#52;&#48;suse&#46;de">tzimmermann<span>&#64;</span>suse<span>&#46;</span>de</a>&gt;</p>
+<p>Level: Starter</p>
+</section>
+<section id="clean-up-checks-for-already-prepared-enabled-in-panels">
+<h2>Clean up checks for already prepared/enabled in panels<a class="headerlink" href="#clean-up-checks-for-already-prepared-enabled-in-panels" title="Permalink to this heading">¶</a></h2>
+<p>In a whole pile of panel drivers, we have code to make the
+prepare/unprepare/enable/disable callbacks behave as no-ops if they've already
+been called. To get some idea of the duplicated code, try:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git grep &#39;if.*&gt;prepared&#39; -- drivers/gpu/drm/panel
+git grep &#39;if.*&gt;enabled&#39; -- drivers/gpu/drm/panel
+</pre></div>
+</div>
+<p>In the patch (&quot;drm/panel: Check for already prepared/enabled in drm_panel&quot;)
+we've moved this check to the core. Now we can most definitely remove the
+check from the individual panels and save a pile of code.</p>
+<p>In adition to removing the check from the individual panels, it is believed
+that even the core shouldn't need this check and that should be considered
+an error if other code ever relies on this check. The check in the core
+currently prints a warning whenever something is relying on this check with
+dev_warn(). After a little while, we likely want to promote this to a
+WARN(1) to help encourage folks not to rely on this behavior.</p>
+<p>Contact: Douglas Anderson &lt;<a class="reference external" href="mailto:dianders&#37;&#52;&#48;chromium&#46;org">dianders<span>&#64;</span>chromium<span>&#46;</span>org</a>&gt;</p>
+<p>Level: Starter/Intermediate</p>
 <section id="core-refactorings">
 <h3>Core refactorings<a class="headerlink" href="#core-refactorings" title="Permalink to this heading">¶</a></h3>
 </section>
@@ -575,8 +616,8 @@ various convenience wrappers provided, e.g. <a class="reference internal" href="
 <section id="remove-automatic-page-mapping-from-dma-buf-importing">
 <h2>Remove automatic page mapping from dma-buf importing<a class="headerlink" href="#remove-automatic-page-mapping-from-dma-buf-importing" title="Permalink to this heading">¶</a></h2>
 <p>When importing dma-bufs, the dma-buf and PRIME frameworks automatically map
-imported pages into the importer's DMA area. <a class="reference internal" href="drm-mm.html#c.drm_gem_prime_fd_to_handle" title="drm_gem_prime_fd_to_handle"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_prime_fd_to_handle()</span></code></a> and
-<a class="reference internal" href="drm-mm.html#c.drm_gem_prime_handle_to_fd" title="drm_gem_prime_handle_to_fd"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_prime_handle_to_fd()</span></code></a> require that importers call <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_buf_attach" title="dma_buf_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_buf_attach()</span></code></a>
+imported pages into the importer's DMA area. drm_gem_prime_fd_to_handle() and
+drm_gem_prime_handle_to_fd() require that importers call <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_buf_attach" title="dma_buf_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_buf_attach()</span></code></a>
 even if they never do actual device DMA, but only CPU access through
 <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_buf_vmap" title="dma_buf_vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_buf_vmap()</span></code></a>. This is a problem for USB devices, which do not support DMA
 operations.</p>
@@ -731,18 +772,24 @@ DRM driver. Simple KMS helpers and SHMEM should be able to handle any
 existing hardware. The new driver's call-back functions are filled from
 existing fbdev code.</p>
 <p>More complex fbdev drivers can be refactored step-by-step into a DRM
-driver with the help of the DRM fbconv helpers. [1] These helpers provide
+driver with the help of the DRM fbconv helpers <a class="footnote-reference brackets" href="#id10" id="id7" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>. These helpers provide
 the transition layer between the DRM core infrastructure and the fbdev
 driver interface. Create a new DRM driver on top of the fbconv helpers,
 copy over the fbdev driver, and hook it up to the DRM code. Examples for
-several fbdev drivers are available at [1] and a tutorial of this process
-available at [2]. The result is a primitive DRM driver that can run X11
-and Weston.</p>
+several fbdev drivers are available in Thomas Zimmermann's fbconv tree
+<a class="footnote-reference brackets" href="#id10" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>, as well as a tutorial of this process <a class="footnote-reference brackets" href="#id11" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a>. The result is a primitive
+DRM driver that can run X11 and Weston.</p>
 <blockquote>
-<div><ul class="simple">
-<li><p>[1] <a class="reference external" href="https://gitlab.freedesktop.org/tzimmermann/linux/tree/fbconv">https://gitlab.freedesktop.org/tzimmermann/linux/tree/fbconv</a></p></li>
-<li><p>[2] <a class="reference external" href="https://gitlab.freedesktop.org/tzimmermann/linux/blob/fbconv/drivers/gpu/drm/drm_fbconv_helper.c">https://gitlab.freedesktop.org/tzimmermann/linux/blob/fbconv/drivers/gpu/drm/drm_fbconv_helper.c</a></p></li>
-</ul>
+<div><aside class="footnote brackets" id="id10" role="note">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id7">1</a>,<a role="doc-backlink" href="#id8">2</a>)</span>
+<p><a class="reference external" href="https://gitlab.freedesktop.org/tzimmermann/linux/tree/fbconv">https://gitlab.freedesktop.org/tzimmermann/linux/tree/fbconv</a></p>
+</aside>
+<aside class="footnote brackets" id="id11" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id9">5</a><span class="fn-bracket">]</span></span>
+<p><a class="reference external" href="https://gitlab.freedesktop.org/tzimmermann/linux/blob/fbconv/drivers/gpu/drm/drm_fbconv_helper.c">https://gitlab.freedesktop.org/tzimmermann/linux/blob/fbconv/drivers/gpu/drm/drm_fbconv_helper.c</a></p>
+</aside>
+</aside>
 </div></blockquote>
 <p>Contact: Thomas Zimmermann &lt;<a class="reference external" href="mailto:tzimmermann&#37;&#52;&#48;suse&#46;de">tzimmermann<span>&#64;</span>suse<span>&#46;</span>de</a>&gt;</p>
 <p>Level: Advanced</p>

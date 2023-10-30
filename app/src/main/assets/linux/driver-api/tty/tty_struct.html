@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -177,7 +177,22 @@
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -569,12 +584,13 @@ this ldisc.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct tty_struct {
     struct kref kref;
+    int index;
     struct device *dev;
     struct tty_driver *driver;
+    struct tty_port *port;
     const struct tty_operations *ops;
-    int index;
-    struct ld_semaphore ldisc_sem;
     struct tty_ldisc *ldisc;
+    struct ld_semaphore ldisc_sem;
     struct mutex atomic_write_lock;
     struct mutex legacy_mutex;
     struct mutex throttle_mutex;
@@ -584,6 +600,7 @@ this ldisc.</p>
     char name[64];
     unsigned long flags;
     int count;
+    unsigned int receive_room;
     struct winsize winsize;
     struct {
         spinlock_t lock;
@@ -592,15 +609,15 @@ this ldisc.</p>
         unsigned long unused[0];
     } flow;
     struct {
-        spinlock_t lock;
         struct pid *pgrp;
         struct pid *session;
+        spinlock_t lock;
         unsigned char pktstatus;
         bool packet;
         unsigned long unused[0];
     } ctrl;
     bool hw_stopped;
-    unsigned int receive_room;
+    bool closing;
     int flow_change;
     struct tty_struct *link;
     struct fasync_struct *fasync;
@@ -610,13 +627,11 @@ this ldisc.</p>
     void *disc_data;
     void *driver_data;
     spinlock_t files_lock;
+    int write_cnt;
+    unsigned char *write_buf;
     struct list_head tty_files;
 #define N_TTY_BUF_SIZE 4096;
-    int closing;
-    unsigned char *write_buf;
-    int write_cnt;
     struct work_struct SAK_work;
-    struct tty_port *port;
 };
 </pre></div>
 </div>
@@ -625,17 +640,19 @@ this ldisc.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">kref</span></code></dt><dd><p>reference counting by <a class="reference internal" href="#c.tty_kref_get" title="tty_kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">tty_kref_get()</span></code></a> and <a class="reference internal" href="#c.tty_kref_put" title="tty_kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">tty_kref_put()</span></code></a>, reaching zero
 frees the structure</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">index</span></code></dt><dd><p>index of this tty (e.g. to construct <strong>name</strong> like tty12)</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>class device or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> (e.g. ptys, serdev)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">driver</span></code></dt><dd><p><a class="reference internal" href="tty_driver.html#c.tty_driver" title="tty_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">tty_driver</span></code></a> operating this tty</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>persistent storage for this device (i.e. <a class="reference internal" href="tty_port.html#c.tty_port" title="tty_port"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">tty_port</span></code></a>)</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p><a class="reference internal" href="tty_driver.html#c.tty_operations" title="tty_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">tty_operations</span></code></a> of <strong>driver</strong> for this tty (open, close, etc.)</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">index</span></code></dt><dd><p>index of this tty (e.g. to construct <strong>name</strong> like tty12)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">ldisc</span></code></dt><dd><p>the current line discipline for this tty (n_tty by default)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ldisc_sem</span></code></dt><dd><p>protects line discipline changes (<strong>ldisc</strong>) -- lock tty not pty</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ldisc</span></code></dt><dd><p>the current line discipline for this tty (n_tty by default)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">atomic_write_lock</span></code></dt><dd><p>protects against concurrent writers, i.e. locks
 <strong>write_cnt</strong>, <strong>write_buf</strong> and similar</p>
@@ -662,6 +679,8 @@ ioctls)</p>
 <dt><code class="docutils literal notranslate"><span class="pre">count</span></code></dt><dd><p>count of open processes, reaching zero cancels all the work for
 this tty and drops a <strong>kref</strong> too (but does not free this tty)</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">receive_room</span></code></dt><dd><p>bytes permitted to feed to <strong>ldisc</strong> without any being lost</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">winsize</span></code></dt><dd><p>size of the terminal &quot;window&quot; (cf. <strong>winsize_mutex</strong>)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flow</span></code></dt><dd><p>flow settings grouped together, see also <strong>flow.unused</strong></p>
@@ -679,13 +698,13 @@ there for the very same reason.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ctrl</span></code></dt><dd><p>control settings grouped together, see also <strong>ctrl.unused</strong></p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ctrl.lock</span></code></dt><dd><p>lock for <strong>ctrl</strong> members</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ctrl.pgrp</span></code></dt><dd><p>process group of this tty (setpgrp(2))</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ctrl.session</span></code></dt><dd><p>session of this tty (setsid(2)). Writes are protected by both
 <strong>ctrl.lock</strong> and <strong>legacy_mutex</strong>, readers must use at least one of
 them.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ctrl.lock</span></code></dt><dd><p>lock for <strong>ctrl</strong> members</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ctrl.pktstatus</span></code></dt><dd><p>packet mode status (bitwise OR of <code class="docutils literal notranslate"><span class="pre">TIOCPKT_</span></code> constants)</p>
 </dd>
@@ -696,7 +715,7 @@ them.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">hw_stopped</span></code></dt><dd><p>not controlled by the tty layer, under <strong>driver</strong>'s control for CTS
 handling</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">receive_room</span></code></dt><dd><p>bytes permitted to feed to <strong>ldisc</strong> without any being lost</p>
+<dt><code class="docutils literal notranslate"><span class="pre">closing</span></code></dt><dd><p>when set during close, n_tty processes only START &amp; STOP chars</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flow_change</span></code></dt><dd><p>controls behavior of throttling, see tty_throttle_safe() and
 tty_unthrottle_safe()</p>
@@ -719,18 +738,14 @@ freeing the tty, (re)used to <a class="reference internal" href="tty_internals.h
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">files_lock</span></code></dt><dd><p>protects <strong>tty_files</strong> list</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tty_files</span></code></dt><dd><p>list of (re)openers of this tty (i.e. linked <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
-<span class="pre">tty_file_private</span></code>)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">closing</span></code></dt><dd><p>when set during close, n_tty processes only START &amp; STOP chars</p>
+<dt><code class="docutils literal notranslate"><span class="pre">write_cnt</span></code></dt><dd><p>count of bytes written in <a class="reference internal" href="tty_internals.html#c.tty_write" title="tty_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">tty_write()</span></code></a> to <strong>write_buf</strong></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">write_buf</span></code></dt><dd><p>temporary buffer used during <a class="reference internal" href="tty_internals.html#c.tty_write" title="tty_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">tty_write()</span></code></a> to copy user data to</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">write_cnt</span></code></dt><dd><p>count of bytes written in <a class="reference internal" href="tty_internals.html#c.tty_write" title="tty_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">tty_write()</span></code></a> to <strong>write_buf</strong></p>
+<dt><code class="docutils literal notranslate"><span class="pre">tty_files</span></code></dt><dd><p>list of (re)openers of this tty (i.e. linked <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">tty_file_private</span></code>)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">SAK_work</span></code></dt><dd><p>if the tty has a pending do_SAK, it is queued here</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>persistent storage for this device (i.e. <a class="reference internal" href="tty_port.html#c.tty_port" title="tty_port"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">tty_port</span></code></a>)</p>
 </dd>
 </dl>
 </div>

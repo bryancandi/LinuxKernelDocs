@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -87,7 +87,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -156,15 +171,25 @@ objects using SLAB_TYPESAFE_BY_RCU allocations.</p>
 to solve following problem.</p>
 <p>Without 'nulls', a typical RCU linked list managing objects which are
 allocated with SLAB_TYPESAFE_BY_RCU kmem_cache can use the following
-algorithms:</p>
+algorithms.  Following examples assume 'obj' is a pointer to such
+objects, which is having below type.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct object {
+  struct hlist_node obj_node;
+  atomic_t refcnt;
+  unsigned int key;
+};
+</pre></div>
+</div>
 <section id="lookup-algorithm">
 <h3>1) Lookup algorithm<a class="headerlink" href="#lookup-algorithm" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>begin:
-rcu_read_lock()
+rcu_read_lock();
 obj = lockless_lookup(key);
 if (obj) {
-  if (!try_get_ref(obj)) // might fail for free objects
+  if (!try_get_ref(obj)) { // might fail for free objects
+    rcu_read_unlock();
     goto begin;
+  }
   /*
   * Because a writer could delete object, and a writer could
   * reuse these object before the RCU grace period, we
@@ -186,7 +211,7 @@ but a version with an additional memory barrier (smp_rmb())</p>
   struct hlist_node *node, *next;
   for (pos = rcu_dereference((head)-&gt;first);
        pos &amp;&amp; ({ next = pos-&gt;next; smp_rmb(); prefetch(next); 1; }) &amp;&amp;
-       ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; });
+       ({ obj = hlist_entry(pos, typeof(*obj), obj_node); 1; });
        pos = rcu_dereference(next))
     if (obj-&gt;key == key)
       return obj;
@@ -198,10 +223,10 @@ but a version with an additional memory barrier (smp_rmb())</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct hlist_node *node;
 for (pos = rcu_dereference((head)-&gt;first);
      pos &amp;&amp; ({ prefetch(pos-&gt;next); 1; }) &amp;&amp;
-     ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; });
+     ({ obj = hlist_entry(pos, typeof(*obj), obj_node); 1; });
      pos = rcu_dereference(pos-&gt;next))
- if (obj-&gt;key == key)
-   return obj;
+  if (obj-&gt;key == key)
+    return obj;
 return NULL;
 </pre></div>
 </div>
@@ -219,7 +244,7 @@ checking the key.&quot;
 </section>
 <section id="insertion-algorithm">
 <h3>2) Insertion algorithm<a class="headerlink" href="#insertion-algorithm" title="Permalink to this heading">¶</a></h3>
-<p>We need to make sure a reader cannot read the new 'obj-&gt;obj_next' value
+<p>We need to make sure a reader cannot read the new 'obj-&gt;obj_node.next' value
 and previous value of 'obj-&gt;key'. Otherwise, an item could be deleted
 from a chain, and inserted into another chain. If new chain was empty
 before the move, 'next' pointer is NULL, and lockless reader can not
@@ -255,8 +280,7 @@ very very fast (before the end of RCU grace period)</p>
 <hr class="docutils" />
 <section id="avoiding-extra-smp-rmb">
 <h2>Avoiding extra smp_rmb()<a class="headerlink" href="#avoiding-extra-smp-rmb" title="Permalink to this heading">¶</a></h2>
-<p>With hlist_nulls we can avoid extra smp_rmb() in lockless_lookup()
-and extra _release() in insert function.</p>
+<p>With hlist_nulls we can avoid extra smp_rmb() in lockless_lookup().</p>
 <p>For example, if we choose to store the slot number as the 'nulls'
 end-of-list marker for each slot of the hash table, we can detect
 a race (some writer did a delete and/or a move of an object
@@ -266,12 +290,14 @@ is not the slot number, then we must restart the lookup at
 the beginning. If the object was moved to the same chain,
 then the reader doesn't care: It might occasionally
 scan the list again without harm.</p>
+<p>Note that using hlist_nulls means the type of 'obj_node' field of
+'struct object' becomes 'struct hlist_nulls_node'.</p>
 <section id="id1">
 <h3>1) lookup algorithm<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>head = &amp;table[slot];
 begin:
 rcu_read_lock();
-hlist_nulls_for_each_entry_rcu(obj, node, head, member) {
+hlist_nulls_for_each_entry_rcu(obj, node, head, obj_node) {
   if (obj-&gt;key == key) {
     if (!try_get_ref(obj)) { // might fail for free objects
       rcu_read_unlock();
@@ -303,6 +329,8 @@ rcu_read_unlock();
 </section>
 <section id="insert-algorithm">
 <h3>2) Insert algorithm<a class="headerlink" href="#insert-algorithm" title="Permalink to this heading">¶</a></h3>
+<p>Same to the above one, but uses <a class="reference internal" href="../core-api/kernel-api.html#c.hlist_nulls_add_head_rcu" title="hlist_nulls_add_head_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">hlist_nulls_add_head_rcu()</span></code></a> instead of
+<a class="reference internal" href="../core-api/kernel-api.html#c.hlist_add_head_rcu" title="hlist_add_head_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">hlist_add_head_rcu()</span></code></a>.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/*
  * Please note that new inserts are done at the head of list,
  * not in the middle or end.

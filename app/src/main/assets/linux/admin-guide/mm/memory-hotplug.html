@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -531,6 +531,16 @@ kernel configuration option.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uevent</span></code></p></td>
 <td><p>read-write: generic udev file for device subsystems.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">crash_hotplug</span></code></p></td>
+<td><p>read-only: when changes to the system memory map
+occur due to hot un/plug of memory, this file contains
+'1' if the kernel updates the kdump capture kernel memory
+map itself (via elfcorehdr), or '0' if userspace must update
+the kdump capture kernel memory map.</p>
+<p>Availability depends on the CONFIG_MEMORY_HOTPLUG kernel
+configuration option.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <div class="admonition note">
@@ -683,6 +693,16 @@ node in any case, it can fragment physical
 memory in a way that huge pages in bigger
 granularity cannot be formed on hotplugged
 memory.</p>
+<p>With value &quot;force&quot; it could result in memory
+wastage due to memmap size limitations. For
+example, if the memmap for a memory block
+requires 1 MiB, but the pageblock size is 2
+MiB, 1 MiB of hotplugged memory will be wasted.
+Note that there are still cases where the
+feature cannot be enforced: for example, if the
+memmap is smaller than a single page, or if the
+architecture does not support the forced mode
+in all configurations.</p>
 </td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">online_policy</span></code></p></td>
@@ -900,7 +920,7 @@ situations.</p>
 when still encountering permanently unmovable pages within ZONE_MOVABLE
 (-&gt; BUG), memory offlining will keep retrying until it eventually succeeds.</p>
 <p>When offlining is triggered from user space, the offlining context can be
-terminated by sending a fatal signal. A timeout based offlining can easily be
+terminated by sending a signal. A timeout based offlining can easily be
 implemented via:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% timeout $TIMEOUT offline_block | failure_handling
 </pre></div>

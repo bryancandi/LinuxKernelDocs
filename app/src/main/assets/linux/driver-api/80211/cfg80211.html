@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -178,7 +178,22 @@
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -458,7 +473,7 @@ different bands/PHY modes.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>rate-specific flags</p>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>rate-specific flags from <a class="reference internal" href="#c.ieee80211_rate_flags" title="ieee80211_rate_flags"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ieee80211_rate_flags</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bitrate</span></code></dt><dd><p>bitrate in units of 100 Kbps</p>
 </dd>
@@ -1423,7 +1438,8 @@ request that is being handled.</p>
         bool prev_bssid_valid;
     } wext;
 #endif;
-    struct cfg80211_cqm_config *cqm_config;
+    struct wiphy_work cqm_rssi_work;
+    struct cfg80211_cqm_config __rcu *cqm_config;
     struct list_head pmsr_list;
     spinlock_t pmsr_lock;
     struct work_struct pmsr_free_wk;
@@ -1567,6 +1583,8 @@ registered for unexpected class 3 frames (AP mode)</p>
 <dt><code class="docutils literal notranslate"><span class="pre">wext.default_mgmt_key</span></code></dt><dd><p>(private) selected default management key index</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wext.prev_bssid_valid</span></code></dt><dd><p>(private) previous BSSID validity</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cqm_rssi_work</span></code></dt><dd><p>(private) CQM RSSI reporting work</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cqm_config</span></code></dt><dd><p>(private) nl80211 RSSI monitor state</p>
 </dd>
@@ -2085,7 +2103,7 @@ networks.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">twt_responder</span></code></dt><dd><p>Enable Target Wait Time</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>flags, as defined in enum cfg80211_ap_settings_flags</p>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>flags, as defined in <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">nl80211_ap_settings_flags</span></code></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">he_obss_pd</span></code></dt><dd><p>OBSS Packet Detection settings</p>
 </dd>
@@ -2577,7 +2595,7 @@ in during get_station() or dump_station().</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">discovery_retries</span></code></dt><dd><p>mesh path discovery retries</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>mesh path flags</p>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>mesh path flags from <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mesh_path_flags</span></code></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hop_count</span></code></dt><dd><p>hops to destination</p>
 </dd>
@@ -3841,7 +3859,7 @@ mutex.</p>
     int uapsd_queues;
     const u8 *ap_mld_addr;
     struct {
-        const u8 *addr;
+        u8 addr[ETH_ALEN] ;
         struct cfg80211_bss *bss;
         u16 status;
     } links[IEEE80211_MLD_MAX_NUM_LINKS];
@@ -4484,7 +4502,7 @@ to userspace.</p>
     bool scan_6ghz;
     u32 n_6ghz_params;
     struct cfg80211_scan_6ghz_params *scan_6ghz_params;
-    struct ieee80211_channel *channels[];
+    struct ieee80211_channel *channels[] __counted_by(n_channels);
 };
 </pre></div>
 </div>
@@ -4509,7 +4527,7 @@ the actual dwell time may be shorter.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">duration_mandatory</span></code></dt><dd><p>if set, the scan duration must be as specified by the
 <code class="docutils literal notranslate"><span class="pre">duration</span></code> field.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>bit field of flags controlling operation</p>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>control flags from <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">nl80211_scan_flags</span></code></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rates</span></code></dt><dd><p>bitmap of rates to advertise for each band</p>
 </dd>

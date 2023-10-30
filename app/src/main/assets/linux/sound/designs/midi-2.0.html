@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,6 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver implementer's API guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../../input/index.html">Input Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../hid/index.html">Human Interface Devices (HID)</a></li>
@@ -78,6 +79,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../fb/index.html">Frame Buffer</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
 </ul>
 </li>
@@ -198,8 +200,8 @@ topology based on those information.  When the device is older and
 doesn't respond to the new UMP inquiries, the driver falls back and
 builds the topology based on Group Terminal Block (GTB) information
 from the USB descriptor.  Some device might be screwed up by the
-unexpected UMP command; in such a case, pass <cite>midi2_probe=0</cite> option to
-snd-usb-audio driver for skipping the UMP v1.1 inquiries.</p>
+unexpected UMP command; in such a case, pass <cite>midi2_ump_probe=0</cite>
+option to snd-usb-audio driver for skipping the UMP v1.1 inquiries.</p>
 <p>When the MIDI 2.0 device is probed, the kernel creates a rawmidi
 device for each UMP Endpoint of the device.  Its device name is
 <cite>/dev/snd/umpC*D*</cite> and different from the standard rawmidi device name
@@ -469,6 +471,183 @@ name and attributes accordingly, and notifies the changes via the
 announcement to the ALSA sequencer system port, similarly like the
 normal port change notification.</p></li>
 </ul>
+</section>
+<section id="midi2-usb-gadget-function-driver">
+<h2>MIDI2 USB Gadget Function Driver<a class="headerlink" href="#midi2-usb-gadget-function-driver" title="Permalink to this heading">¶</a></h2>
+<p>The latest kernel contains the support for USB MIDI 2.0 gadget
+function driver, which can be used for prototyping and debugging MIDI
+2.0 features.</p>
+<p><cite>CONFIG_USB_GADGET</cite>, <cite>CONFIG_USB_CONFIGFS</cite> and
+<cite>CONFIG_USB_CONFIGFS_F_MIDI2</cite> need to be enabled for the MIDI2 gadget
+driver.</p>
+<p>In addition, for using a gadget driver, you need a working UDC driver.
+In the example below, we use <cite>dummy_hcd</cite> driver (enabled via
+<cite>CONFIG_USB_DUMMY_HCD</cite>) that is available on PC and VM for debugging
+purpose.  There are other UDC drivers depending on the platform, and
+those can be used for a real device, instead, too.</p>
+<p>At first, on a system to run the gadget, load <cite>libcomposite</cite> module:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% modprobe libcomposite
+</pre></div>
+</div>
+<p>and you'll have <cite>usb_gadget</cite> subdirectory under configfs space
+(typically <cite>/sys/kernel/config</cite> on modern OS).  Then create a gadget
+instance and add configurations there, for example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% cd /sys/kernel/config
+% mkdir usb_gadget/g1
+
+% cd usb_gadget/g1
+% mkdir configs/c.1
+% mkdir functions/midi2.usb0
+
+% echo 0x0004 &gt; idProduct
+% echo 0x17b3 &gt; idVendor
+% mkdir strings/0x409
+% echo &quot;ACME Enterprises&quot; &gt; strings/0x409/manufacturer
+% echo &quot;ACMESynth&quot; &gt; strings/0x409/product
+% echo &quot;ABCD12345&quot; &gt; strings/0x409/serialnumber
+
+% mkdir configs/c.1/strings/0x409
+% echo &quot;Monosynth&quot; &gt; configs/c.1/strings/0x409/configuration
+% echo 120 &gt; configs/c.1/MaxPower
+</pre></div>
+</div>
+<p>At this point, there must be a subdirectory <cite>ep.0</cite>, and that is the
+configuration for a UMP Endpoint.  You can fill the Endpoint
+information like:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo &quot;ACMESynth&quot; &gt; functions/midi2.usb0/iface_name
+% echo &quot;ACMESynth&quot; &gt; functions/midi2.usb0/ep.0/ep_name
+% echo &quot;ABCD12345&quot; &gt; functions/midi2.usb0/ep.0/product_id
+% echo 0x0123 &gt; functions/midi2.usb0/ep.0/family
+% echo 0x4567 &gt; functions/midi2.usb0/ep.0/model
+% echo 0x123456 &gt; functions/midi2.usb0/ep.0/manufacturer
+% echo 0x12345678 &gt; functions/midi2.usb0/ep.0/sw_revision
+</pre></div>
+</div>
+<p>The default MIDI protocol can be set either 1 or 2:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo 2 &gt; functions/midi2.usb0/ep.0/protocol
+</pre></div>
+</div>
+<p>And, you can find a subdirectory <cite>block.0</cite> under this Endpoint
+subdirectory.  This defines the Function Block information:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo &quot;Monosynth&quot; &gt; functions/midi2.usb0/ep.0/block.0/name
+% echo 0 &gt; functions/midi2.usb0/ep.0/block.0/first_group
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.0/num_groups
+</pre></div>
+</div>
+<p>Finally, link the configuration and enable it:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% ln -s functions/midi2.usb0 configs/c.1
+% echo dummy_udc.0 &gt; UDC
+</pre></div>
+</div>
+<p>where <cite>dummy_udc.0</cite> is an example case and it differs depending on the
+system.  You can find the UDC instances in <cite>/sys/class/udc</cite> and pass
+the found name instead:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% ls /sys/class/udc
+dummy_udc.0
+</pre></div>
+</div>
+<p>Now, the MIDI 2.0 gadget device is enabled, and the gadget host
+creates a new sound card instance containing a UMP rawmidi device by
+<cite>f_midi2</cite> driver:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% cat /proc/asound/cards
+....
+1 [Gadget         ]: f_midi2 - MIDI 2.0 Gadget
+                     MIDI 2.0 Gadget
+</pre></div>
+</div>
+<p>And on the connected host, a similar card should appear, too, but with
+the card and device names given in the configfs above:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% cat /proc/asound/cards
+....
+2 [ACMESynth      ]: USB-Audio - ACMESynth
+                     ACME Enterprises ACMESynth at usb-dummy_hcd.0-1, high speed
+</pre></div>
+</div>
+<p>You can play a MIDI file on the gadget side:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% aplaymidi -p 20:1 to_host.mid
+</pre></div>
+</div>
+<p>and this will appear as an input from a MIDI device on the connected
+host:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% aseqdump -p 20:0 -u 2
+</pre></div>
+</div>
+<p>Vice versa, a playback on the connected host will work as an input on
+the gadget, too.</p>
+<p>Each Function Block may have different direction and UI-hint,
+specified via <cite>direction</cite> and <cite>ui_hint</cite> attributes.
+Passing <cite>1</cite> is for input-only, <cite>2</cite> for out-only and <cite>3</cite> for
+bidirectional (the default value).  For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo 2 &gt; functions/midi2.usb0/ep.0/block.0/direction
+% echo 2 &gt; functions/midi2.usb0/ep.0/block.0/ui_hint
+</pre></div>
+</div>
+<p>When you need more than one Function Blocks, you can create
+subdirectories <cite>block.1</cite>, <cite>block.2</cite>, etc dynamically, and configure
+them in the configuration procedure above before linking.
+For example, to create a second Function Block for a keyboard:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% mkdir functions/midi2.usb0/ep.0/block.1
+% echo &quot;Keyboard&quot; &gt; functions/midi2.usb0/ep.0/block.1/name
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.1/first_group
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.1/num_groups
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.1/direction
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.1/ui_hint
+</pre></div>
+</div>
+<p>The <cite>block.*</cite> subdirectories can be removed dynamically, too (except
+for <cite>block.0</cite> which is persistent).</p>
+<p>For assigning a Function Block for MIDI 1.0 I/O, set up in <cite>is_midi1</cite>
+attribute.  1 is for MIDI 1.0, and 2 is for MIDI 1.0 with low speed
+connection:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo 2 &gt; functions/midi2.usb0/ep.0/block.1/is_midi1
+</pre></div>
+</div>
+<p>For disabling the processing of UMP Stream messages in the gadget
+driver, pass <cite>0</cite> to <cite>process_ump</cite> attribute in the top-level config:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo 0 &gt; functions/midi2.usb0/process_ump
+</pre></div>
+</div>
+<p>The MIDI 1.0 interface at altset 0 is supported by the gadget driver,
+too.  When MIDI 1.0 interface is selected by the connected host, the
+UMP I/O on the gadget is translated from/to USB MIDI 1.0 packets
+accordingly while the gadget driver keeps communicating with the
+user-space over UMP rawmidi.</p>
+<p>MIDI 1.0 ports are set up from the config in each Function Block.
+For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% echo 0 &gt; functions/midi2.usb0/ep.0/block.0/midi1_first_group
+% echo 1 &gt; functions/midi2.usb0/ep.0/block.0/midi1_num_groups
+</pre></div>
+</div>
+<p>The configuration above will enable the Group 1 (the index 0) for MIDI
+1.0 interface.  Note that those groups must be in the groups defined
+for the Function Block itself.</p>
+<p>The gadget driver supports more than one UMP Endpoints, too.
+Similarly like the Function Blocks, you can create a new subdirectory
+<cite>ep.1</cite> (but under the card top-level config) to enable a new Endpoint:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% mkdir functions/midi2.usb0/ep.1
+</pre></div>
+</div>
+<p>and create a new Function Block there.  For example, to create 4
+Groups for the Function Block of this new Endpoint:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% mkdir functions/midi2.usb0/ep.1/block.0
+% echo 4 &gt; functions/midi2.usb0/ep.1/block.0/num_groups
+</pre></div>
+</div>
+<p>Now, you'll have 4 rawmidi devices in total: the first two are UMP
+rawmidi devices for Endpoint 0 and Endpoint 1, and other two for the
+legacy MIDI 1.0 rawmidi devices corresponding to both EP 0 and EP 1.</p>
+<p>The current altsetting on the gadget can be informed via a control
+element &quot;Operation Mode&quot; with <cite>RAWMIDI</cite> iface.  e.g. you can read it
+via <cite>amixer</cite> program running on the gadget host like:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>% amixer -c1 cget iface=RAWMIDI,name=&#39;Operation Mode&#39;
+; type=INTEGER,access=r--v----,values=1,min=0,max=2,step=0
+: values=2
+</pre></div>
+</div>
+<p>The value (shown in the second returned line with <cite>: values=</cite>)
+indicates 1 for MIDI 1.0 (altset 0), 2 for MIDI 2.0 (altset 1) and 0
+for unset.</p>
+<p>As of now, the configurations can't be changed after binding.</p>
 </section>
 </section>
 

@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -373,6 +373,144 @@ $<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><sp
 $<span class="w"> </span>modprobe<span class="w"> </span>kunit-example-test
 </pre></div>
 </div>
+</section>
+</section>
+<section id="test-attributes-and-filtering">
+<h2>Test Attributes and Filtering<a class="headerlink" href="#test-attributes-and-filtering" title="Permalink to this heading">¶</a></h2>
+<p>Test suites and cases can be marked with test attributes, such as speed of
+test. These attributes will later be printed in test output and can be used to
+filter test execution.</p>
+<section id="marking-test-attributes">
+<h3>Marking Test Attributes<a class="headerlink" href="#marking-test-attributes" title="Permalink to this heading">¶</a></h3>
+<p>Tests are marked with an attribute by including a <code class="docutils literal notranslate"><span class="pre">kunit_attributes</span></code> object
+in the test definition.</p>
+<p>Test cases can be marked using the <code class="docutils literal notranslate"><span class="pre">KUNIT_CASE_ATTR(test_name,</span> <span class="pre">attributes)</span></code>
+macro to define the test case instead of <code class="docutils literal notranslate"><span class="pre">KUNIT_CASE(test_name)</span></code>.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit_attributes</span><span class="w"> </span><span class="n">example_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KUNIT_VERY_SLOW</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit_case</span><span class="w"> </span><span class="n">example_test_cases</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">KUNIT_CASE_ATTR</span><span class="p">(</span><span class="n">example_test</span><span class="p">,</span><span class="w"> </span><span class="n">example_attr</span><span class="p">),</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To mark a test case as slow, you can also use <code class="docutils literal notranslate"><span class="pre">KUNIT_CASE_SLOW(test_name)</span></code>.
+This is a helpful macro as the slow attribute is the most commonly used.</p>
+</div>
+<p>Test suites can be marked with an attribute by setting the &quot;attr&quot; field in the
+suite definition.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit_attributes</span><span class="w"> </span><span class="n">example_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KUNIT_VERY_SLOW</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit_suite</span><span class="w"> </span><span class="n">example_test_suite</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">...,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">example_attr</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Not all attributes need to be set in a <code class="docutils literal notranslate"><span class="pre">kunit_attributes</span></code> object. Unset
+attributes will remain uninitialized and act as though the attribute is set
+to 0 or NULL. Thus, if an attribute is set to 0, it is treated as unset.
+These unset attributes will not be reported and may act as a default value
+for filtering purposes.</p>
+</div>
+</section>
+<section id="reporting-attributes">
+<h3>Reporting Attributes<a class="headerlink" href="#reporting-attributes" title="Permalink to this heading">¶</a></h3>
+<p>When a user runs tests, attributes will be present in the raw kernel output (in
+KTAP format). Note that attributes will be hidden by default in kunit.py output
+for all passing tests but the raw kernel output can be accessed using the
+<code class="docutils literal notranslate"><span class="pre">--raw_output</span></code> flag. This is an example of how test attributes for test cases
+will be formatted in kernel output:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># example_test.speed: slow
+ok 1 example_test
+</pre></div>
+</div>
+<p>This is an example of how test attributes for test suites will be formatted in
+kernel output:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>  KTAP version 2
+  # Subtest: example_suite
+  # module: kunit_example_test
+  1..3
+  ...
+ok 1 example_suite
+</pre></div>
+</div>
+<p>Additionally, users can output a full attribute report of tests with their
+attributes, using the command line flag <code class="docutils literal notranslate"><span class="pre">--list_tests_attr</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>kunit.py<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;example&quot;</span><span class="w"> </span>--list_tests_attr
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This report can be accessed when running KUnit manually by passing in the
+module_param <code class="docutils literal notranslate"><span class="pre">kunit.action=list_attr</span></code>.</p>
+</div>
+</section>
+<section id="filtering">
+<h3>Filtering<a class="headerlink" href="#filtering" title="Permalink to this heading">¶</a></h3>
+<p>Users can filter tests using the <code class="docutils literal notranslate"><span class="pre">--filter</span></code> command line flag when running
+tests. As an example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>kunit.py<span class="w"> </span>run<span class="w"> </span>--filter<span class="w"> </span><span class="nv">speed</span><span class="o">=</span>slow
+</pre></div>
+</div>
+<p>You can also use the following operations on filters: &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;&lt;=&quot;, &quot;&gt;=&quot;,
+&quot;!=&quot;, and &quot;=&quot;. Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>kunit.py<span class="w"> </span>run<span class="w"> </span>--filter<span class="w"> </span><span class="s2">&quot;speed&gt;slow&quot;</span>
+</pre></div>
+</div>
+<p>This example will run all tests with speeds faster than slow. Note that the
+characters &lt; and &gt; are often interpreted by the shell, so they may need to be
+quoted or escaped, as above.</p>
+<p>Additionally, you can use multiple filters at once. Simply separate filters
+using commas. Example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>kunit.py<span class="w"> </span>run<span class="w"> </span>--filter<span class="w"> </span><span class="s2">&quot;speed&gt;slow, module=kunit_example_test&quot;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You can use this filtering feature when running KUnit manually by passing
+the filter as a module param: <code class="docutils literal notranslate"><span class="pre">kunit.filter=&quot;speed&gt;slow,</span> <span class="pre">speed&lt;=normal&quot;</span></code>.</p>
+</div>
+<p>Filtered tests will not run or show up in the test output. You can use the
+<code class="docutils literal notranslate"><span class="pre">--filter_action=skip</span></code> flag to skip filtered tests instead. These tests will be
+shown in the test output in the test but will not run. To use this feature when
+running KUnit manually, use the module param <code class="docutils literal notranslate"><span class="pre">kunit.filter_action=skip</span></code>.</p>
+</section>
+<section id="rules-of-filtering-procedure">
+<h3>Rules of Filtering Procedure<a class="headerlink" href="#rules-of-filtering-procedure" title="Permalink to this heading">¶</a></h3>
+<p>Since both suites and test cases can have attributes, there may be conflicts
+between attributes during filtering. The process of filtering follows these
+rules:</p>
+<ul class="simple">
+<li><p>Filtering always operates at a per-test level.</p></li>
+<li><p>If a test has an attribute set, then the test's value is filtered on.</p></li>
+<li><p>Otherwise, the value falls back to the suite's value.</p></li>
+<li><p>If neither are set, the attribute has a global &quot;default&quot; value, which is used.</p></li>
+</ul>
+</section>
+<section id="list-of-current-attributes">
+<h3>List of Current Attributes<a class="headerlink" href="#list-of-current-attributes" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">speed</span></code></p>
+<p>This attribute indicates the speed of a test's execution (how slow or fast the
+test is).</p>
+<p>This attribute is saved as an enum with the following categories: &quot;normal&quot;,
+&quot;slow&quot;, or &quot;very_slow&quot;. The assumed default speed for tests is &quot;normal&quot;. This
+indicates that the test takes a relatively trivial amount of time (less than
+1 second), regardless of the machine it is running on. Any test slower than
+this could be marked as &quot;slow&quot; or &quot;very_slow&quot;.</p>
+<p>The macro <code class="docutils literal notranslate"><span class="pre">KUNIT_CASE_SLOW(test_name)</span></code> can be easily used to set the speed
+of a test case to &quot;slow&quot;.</p>
+<p><code class="docutils literal notranslate"><span class="pre">module</span></code></p>
+<p>This attribute indicates the name of the module associated with the test.</p>
+<p>This attribute is automatically saved as a string and is printed for each suite.
+Tests can also be filtered using this attribute.</p>
 </section>
 </section>
 </section>

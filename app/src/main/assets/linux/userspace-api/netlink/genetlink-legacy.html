@@ -17,7 +17,7 @@
     <script src="../../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Platform Profile Selection (e.g. /sys/firmware/acpi/platform_profile)" href="../sysfs-platform_profile.html" />
+    <link rel="next" title="Netlink specification support for raw Netlink families" href="netlink-raw.html" />
     <link rel="prev" title="Netlink spec C code generation" href="c-code-gen.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -107,6 +107,7 @@
 <li class="toctree-l3"><a class="reference internal" href="specs.html">Netlink protocol specifications (in YAML)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="c-code-gen.html">Netlink spec C code generation</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Netlink specification support for legacy Generic Netlink families</a></li>
+<li class="toctree-l3"><a class="reference internal" href="netlink-raw.html">Netlink specification support for raw Netlink families</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../sysfs-platform_profile.html">Platform Profile Selection (e.g. /sys/firmware/acpi/platform_profile)</a></li>
@@ -156,10 +157,8 @@
 <p>This document describes the many additional quirks and properties
 required to describe older Generic Netlink families which form
 the <code class="docutils literal notranslate"><span class="pre">genetlink-legacy</span></code> protocol level.</p>
-<p>The spec is a work in progress, some of the quirks are just documented
-for future reference.</p>
-<section id="specification-defined">
-<h2>Specification (defined)<a class="headerlink" href="#specification-defined" title="Permalink to this heading">¶</a></h2>
+<section id="specification">
+<h2>Specification<a class="headerlink" href="#specification" title="Permalink to this heading">¶</a></h2>
 <section id="attribute-type-nests">
 <h3>Attribute type nests<a class="headerlink" href="#attribute-type-nests" title="Permalink to this heading">¶</a></h3>
 <p>New Netlink families should use <code class="docutils literal notranslate"><span class="pre">multi-attr</span></code> to define arrays.
@@ -291,14 +290,26 @@ the previous operation in the &quot;from-kernel&quot; direction).</p>
 </section>
 </section>
 </section>
-<section id="other-quirks-todo">
-<h2>Other quirks (todo)<a class="headerlink" href="#other-quirks-todo" title="Permalink to this heading">¶</a></h2>
+<section id="other-quirks">
+<h2>Other quirks<a class="headerlink" href="#other-quirks" title="Permalink to this heading">¶</a></h2>
 <section id="structures">
 <h3>Structures<a class="headerlink" href="#structures" title="Permalink to this heading">¶</a></h3>
 <p>Legacy families can define C structures both to be used as the contents of
 an attribute and as a fixed message header. Structures are defined in
-<code class="docutils literal notranslate"><span class="pre">definitions</span></code>  and referenced in operations or attributes. Note that
-structures defined in YAML are implicitly packed according to C
+<code class="docutils literal notranslate"><span class="pre">definitions</span></code>  and referenced in operations or attributes.</p>
+<section id="members">
+<h4>members<a class="headerlink" href="#members" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> - The attribute name of the struct member</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type</span></code> - One of the scalar types <code class="docutils literal notranslate"><span class="pre">u8</span></code>, <code class="docutils literal notranslate"><span class="pre">u16</span></code>, <code class="docutils literal notranslate"><span class="pre">u32</span></code>, <code class="docutils literal notranslate"><span class="pre">u64</span></code>, <code class="docutils literal notranslate"><span class="pre">s8</span></code>,
+<code class="docutils literal notranslate"><span class="pre">s16</span></code>, <code class="docutils literal notranslate"><span class="pre">s32</span></code>, <code class="docutils literal notranslate"><span class="pre">s64</span></code>, <code class="docutils literal notranslate"><span class="pre">string</span></code> or <code class="docutils literal notranslate"><span class="pre">binary</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">byte-order</span></code> - <code class="docutils literal notranslate"><span class="pre">big-endian</span></code> or <code class="docutils literal notranslate"><span class="pre">little-endian</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">doc</span></code>, <code class="docutils literal notranslate"><span class="pre">enum</span></code>, <code class="docutils literal notranslate"><span class="pre">enum-as-flags</span></code>, <code class="docutils literal notranslate"><span class="pre">display-hint</span></code> - Same as for
+<a class="reference internal" href="specs.html#attribute-properties"><span class="std std-ref">attribute definitions</span></a></p></li>
+</ul>
+</div></blockquote>
+<p>Note that structures defined in YAML are implicitly packed according to C
 conventions. For example, the following struct is 4 bytes, not 6 bytes:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">u8</span><span class="w"> </span><span class="n">a</span><span class="p">;</span>
@@ -326,6 +337,7 @@ need for explicit padding from whether the members are naturally aligned.</p>
 <span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">u8</span>
 </pre></div>
 </div>
+</section>
 <section id="fixed-headers">
 <h4>Fixed Headers<a class="headerlink" href="#fixed-headers" title="Permalink to this heading">¶</a></h4>
 <p>Fixed message headers can be added to operations using <code class="docutils literal notranslate"><span class="pre">fixed-header</span></code>.

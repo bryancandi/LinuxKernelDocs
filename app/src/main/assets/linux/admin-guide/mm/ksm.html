@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -366,6 +366,8 @@ scan. It's a noop if not a single KSM page hit the
 <dl class="simple">
 <dt>general_profit</dt><dd><p>how effective is KSM. The calculation is explained below.</p>
 </dd>
+<dt>pages_scanned</dt><dd><p>how many pages are being scanned for ksm</p>
+</dd>
 <dt>pages_shared</dt><dd><p>how many shared pages are being used</p>
 </dd>
 <dt>pages_sharing</dt><dd><p>how many more sites are sharing them i.e. how much saved</p>
@@ -380,7 +382,13 @@ scan. It's a noop if not a single KSM page hit the
 </dd>
 <dt>stable_node_dups</dt><dd><p>number of duplicated KSM pages</p>
 </dd>
+<dt>ksm_zero_pages</dt><dd><p>how many zero pages that are still mapped into processes were mapped by
+KSM when deduplicating.</p>
+</dd>
 </dl>
+<p>When <code class="docutils literal notranslate"><span class="pre">use_zero_pages</span></code> is/was enabled, the sum of <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code> +
+<code class="docutils literal notranslate"><span class="pre">ksm_zero_pages</span></code> represents the actual number of pages saved by KSM.
+if <code class="docutils literal notranslate"><span class="pre">use_zero_pages</span></code> has never been enabled, <code class="docutils literal notranslate"><span class="pre">ksm_zero_pages</span></code> is 0.</p>
 <p>A high ratio of <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code> to <code class="docutils literal notranslate"><span class="pre">pages_shared</span></code> indicates good
 sharing, but a high ratio of <code class="docutils literal notranslate"><span class="pre">pages_unshared</span></code> to <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code>
 indicates wasted effort.  <code class="docutils literal notranslate"><span class="pre">pages_volatile</span></code> embraces several
@@ -400,22 +408,26 @@ several times, which are unprofitable memory consumed.</p>
 <ol class="arabic">
 <li><p>How to determine whether KSM save memory or consume memory in system-wide
 range? Here is a simple approximate calculation for reference:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>general_profit =~ pages_sharing * sizeof(page) - (all_rmap_items) *
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>general_profit =~ ksm_saved_pages * sizeof(page) - (all_rmap_items) *
                   sizeof(rmap_item);
 </pre></div>
 </div>
-<p>where all_rmap_items can be easily obtained by summing <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code>,
-<code class="docutils literal notranslate"><span class="pre">pages_shared</span></code>, <code class="docutils literal notranslate"><span class="pre">pages_unshared</span></code> and <code class="docutils literal notranslate"><span class="pre">pages_volatile</span></code>.</p>
+<p>where ksm_saved_pages equals to the sum of <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code> +
+<code class="docutils literal notranslate"><span class="pre">ksm_zero_pages</span></code> of the system, and all_rmap_items can be easily
+obtained by summing <code class="docutils literal notranslate"><span class="pre">pages_sharing</span></code>, <code class="docutils literal notranslate"><span class="pre">pages_shared</span></code>, <code class="docutils literal notranslate"><span class="pre">pages_unshared</span></code>
+and <code class="docutils literal notranslate"><span class="pre">pages_volatile</span></code>.</p>
 </li>
 <li><p>The KSM profit inner a single process can be similarly obtained by the
 following approximate calculation:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>process_profit =~ ksm_merging_pages * sizeof(page) -
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>process_profit =~ ksm_saved_pages * sizeof(page) -
                   ksm_rmap_items * sizeof(rmap_item).
 </pre></div>
 </div>
-<p>where ksm_merging_pages is shown under the directory <code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/</span></code>,
-and ksm_rmap_items is shown in <code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/ksm_stat</span></code>. The process profit
-is also shown in <code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/ksm_stat</span></code> as ksm_process_profit.</p>
+<p>where ksm_saved_pages equals to the sum of <code class="docutils literal notranslate"><span class="pre">ksm_merging_pages</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ksm_zero_pages</span></code>, both of which are shown under the directory
+<code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/ksm_stat</span></code>, and ksm_rmap_items is also shown in
+<code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/ksm_stat</span></code>. The process profit is also shown in
+<code class="docutils literal notranslate"><span class="pre">/proc/&lt;pid&gt;/ksm_stat</span></code> as ksm_process_profit.</p>
 </li>
 </ol>
 <p>From the perspective of application, a high ratio of <code class="docutils literal notranslate"><span class="pre">ksm_rmap_items</span></code> to

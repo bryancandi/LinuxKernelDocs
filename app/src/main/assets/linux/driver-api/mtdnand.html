@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -186,7 +186,22 @@
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -1258,6 +1273,7 @@ explanation.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct nand_parameters {
     const char *model;
     bool supports_set_get_features;
+    bool supports_read_cache;
     unsigned long set_feature_list[BITS_TO_LONGS(ONFI_FEATURE_NUMBER)];
     unsigned long get_feature_list[BITS_TO_LONGS(ONFI_FEATURE_NUMBER)];
     struct onfi_params *onfi;
@@ -1269,6 +1285,8 @@ explanation.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">model</span></code></dt><dd><p>Model name</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">supports_set_get_features</span></code></dt><dd><p>The NAND chip supports setting/getting features</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">supports_read_cache</span></code></dt><dd><p>The NAND chip supports read cache operations</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_feature_list</span></code></dt><dd><p>Bitmap of features that can be set</p>
 </dd>
@@ -3036,6 +3054,24 @@ This function does not select/unselect the CS line.</p>
 <p>Returns 0 on success, a negative error code otherwise.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.nand_exit_status_op">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">nand_exit_status_op</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.nand_chip" title="nand_chip"><span class="n"><span class="pre">nand_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chip</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.nand_exit_status_op" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Exit a STATUS operation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">nand_chip</span> <span class="pre">*chip</span></code></dt><dd><p>The NAND chip</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function sends a READ0 command to cancel the effect of the STATUS
+command to avoid reading only the status until a new read command is sent.</p>
+<p>This function does not select/unselect the CS line.</p>
+<p>Returns 0 on success, a negative error code otherwise.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.nand_erase_op">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">nand_erase_op</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.nand_chip" title="nand_chip"><span class="n"><span class="pre">nand_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chip</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">eraseblock</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.nand_erase_op" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Do an erase operation</p>
@@ -3966,24 +4002,6 @@ error code in case one of the arguments is invalid.</p>
 <p><strong>Description</strong></p>
 <p>This function issues a READ PARAMETER PAGE operation.
 This function does not select/unselect the CS line.</p>
-<p>Returns 0 on success, a negative error code otherwise.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.nand_exit_status_op">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">nand_exit_status_op</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.nand_chip" title="nand_chip"><span class="n"><span class="pre">nand_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chip</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.nand_exit_status_op" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Exit a STATUS operation</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">nand_chip</span> <span class="pre">*chip</span></code></dt><dd><p>The NAND chip</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function sends a READ0 command to cancel the effect of the STATUS
-command to avoid reading only the status until a new read command is sent.</p>
-<p>This function does not select/unselect the CS line.</p>
 <p>Returns 0 on success, a negative error code otherwise.</p>
 </div>
 <dl class="c function">

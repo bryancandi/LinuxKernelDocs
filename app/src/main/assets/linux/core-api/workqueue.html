@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Concurrency Managed Workqueue (cmwq) &#8212; The Linux Kernel  documentation</title>
+    <title>Workqueue &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,7 +70,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Core API Documentation</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#core-utilities">Core utilities</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="kernel-api.html">The Linux Kernel API</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Concurrency Managed Workqueue (cmwq)</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Workqueue</a></li>
 <li class="toctree-l3"><a class="reference internal" href="watch_queue.html">General notification mechanism</a></li>
 <li class="toctree-l3"><a class="reference internal" href="printk-basics.html">Message logging with printk</a></li>
 <li class="toctree-l3"><a class="reference internal" href="printk-formats.html">How to get printk format specifiers right</a></li>
@@ -89,7 +89,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -146,8 +161,8 @@
 
           <div class="body" role="main">
             
-  <section id="concurrency-managed-workqueue-cmwq">
-<h1>Concurrency Managed Workqueue (cmwq)<a class="headerlink" href="#concurrency-managed-workqueue-cmwq" title="Permalink to this heading">¶</a></h1>
+  <section id="workqueue">
+<h1>Workqueue<a class="headerlink" href="#workqueue" title="Permalink to this heading">¶</a></h1>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>September, 2010</p>
@@ -173,8 +188,8 @@ functions associated with the work items one after the other.  When
 there is no work item left on the workqueue the worker becomes idle.
 When a new work item gets queued, the worker begins executing again.</p>
 </section>
-<section id="why-cmwq">
-<h2>Why cmwq?<a class="headerlink" href="#why-cmwq" title="Permalink to this heading">¶</a></h2>
+<section id="why-concurrency-managed-workqueue">
+<h2>Why Concurrency Managed Workqueue?<a class="headerlink" href="#why-concurrency-managed-workqueue" title="Permalink to this heading">¶</a></h2>
 <p>In the original wq implementation, a multi threaded (MT) wq had one
 worker thread per CPU and a single threaded (ST) wq had one worker
 thread system-wide.  A single MT wq needed to keep around the same
@@ -337,16 +352,15 @@ intensive work items.</p>
 </section>
 <section id="max-active">
 <h3><code class="docutils literal notranslate"><span class="pre">max_active</span></code><a class="headerlink" href="#max-active" title="Permalink to this heading">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> determines the maximum number of execution contexts
-per CPU which can be assigned to the work items of a wq.  For example,
-with <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> of 16, at most 16 work items of the wq can be
-executing at the same time per CPU.</p>
-<p>Currently, for a bound wq, the maximum limit for <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> is
-512 and the default value used when 0 is specified is 256.  For an
-unbound wq, the limit is higher of 512 and 4 *
-<code class="docutils literal notranslate"><span class="pre">num_possible_cpus()</span></code>.  These values are chosen sufficiently high
-such that they are not the limiting factor while providing protection
-in runaway cases.</p>
+<p><code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> determines the maximum number of execution contexts per
+CPU which can be assigned to the work items of a wq. For example, with
+<code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> of 16, at most 16 work items of the wq can be executing
+at the same time per CPU. This is always a per-CPU attribute, even for
+unbound workqueues.</p>
+<p>The maximum limit for <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> is 512 and the default value used
+when 0 is specified is 256. These values are chosen sufficiently high
+such that they are not the limiting factor while providing protection in
+runaway cases.</p>
 <p>The number of active work items of a wq is usually regulated by the
 users of the wq, more specifically, by how many work items the users
 may queue at the same time.  Unless there is a specific need for
@@ -358,7 +372,7 @@ achieve this behavior.  Work items on such wq were always queued to the
 unbound worker-pools and only one work item could be active at any given
 time thus achieving the same ordering property as ST wq.</p>
 <p>In the current implementation the above configuration only guarantees
-ST behavior within a given NUMA node. Instead <code class="docutils literal notranslate"><span class="pre">alloc_ordered_queue()</span></code> should
+ST behavior within a given NUMA node. Instead <code class="docutils literal notranslate"><span class="pre">alloc_ordered_workqueue()</span></code> should
 be used to achieve system-wide ST behavior.</p>
 </section>
 </section>
@@ -456,25 +470,333 @@ cycles, using a bound wq is usually beneficial due to the increased
 level of locality in wq operations and work item execution.</p></li>
 </ul>
 </section>
+<section id="affinity-scopes">
+<h2>Affinity Scopes<a class="headerlink" href="#affinity-scopes" title="Permalink to this heading">¶</a></h2>
+<p>An unbound workqueue groups CPUs according to its affinity scope to improve
+cache locality. For example, if a workqueue is using the default affinity
+scope of &quot;cache&quot;, it will group CPUs according to last level cache
+boundaries. A work item queued on the workqueue will be assigned to a worker
+on one of the CPUs which share the last level cache with the issuing CPU.
+Once started, the worker may or may not be allowed to move outside the scope
+depending on the <code class="docutils literal notranslate"><span class="pre">affinity_strict</span></code> setting of the scope.</p>
+<p>Workqueue currently supports the following affinity scopes.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">default</span></code></dt><dd><p>Use the scope in module parameter <code class="docutils literal notranslate"><span class="pre">workqueue.default_affinity_scope</span></code>
+which is always set to one of the scopes below.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu</span></code></dt><dd><p>CPUs are not grouped. A work item issued on one CPU is processed by a
+worker on the same CPU. This makes unbound workqueues behave as per-cpu
+workqueues without concurrency management.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">smt</span></code></dt><dd><p>CPUs are grouped according to SMT boundaries. This usually means that the
+logical threads of each physical CPU core are grouped together.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cache</span></code></dt><dd><p>CPUs are grouped according to cache boundaries. Which specific cache
+boundary is used is determined by the arch code. L3 is used in a lot of
+cases. This is the default affinity scope.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">numa</span></code></dt><dd><p>CPUs are grouped according to NUMA bounaries.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">system</span></code></dt><dd><p>All CPUs are put in the same group. Workqueue makes no effort to process a
+work item on a CPU close to the issuing CPU.</p>
+</dd>
+</dl>
+<p>The default affinity scope can be changed with the module parameter
+<code class="docutils literal notranslate"><span class="pre">workqueue.default_affinity_scope</span></code> and a specific workqueue's affinity
+scope can be changed using <code class="docutils literal notranslate"><span class="pre">apply_workqueue_attrs()</span></code>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">WQ_SYSFS</span></code> is set, the workqueue will have the following affinity scope
+related interface files under its <code class="docutils literal notranslate"><span class="pre">/sys/devices/virtual/workqueue/WQ_NAME/</span></code>
+directory.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">affinity_scope</span></code></dt><dd><p>Read to see the current affinity scope. Write to change.</p>
+<p>When default is the current scope, reading this file will also show the
+current effective scope in parentheses, for example, <code class="docutils literal notranslate"><span class="pre">default</span> <span class="pre">(cache)</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">affinity_strict</span></code></dt><dd><p>0 by default indicating that affinity scopes are not strict. When a work
+item starts execution, workqueue makes a best-effort attempt to ensure
+that the worker is inside its affinity scope, which is called
+repatriation. Once started, the scheduler is free to move the worker
+anywhere in the system as it sees fit. This enables benefiting from scope
+locality while still being able to utilize other CPUs if necessary and
+available.</p>
+<p>If set to 1, all workers of the scope are guaranteed always to be in the
+scope. This may be useful when crossing affinity scopes has other
+implications, for example, in terms of power consumption or workload
+isolation. Strict NUMA scope can also be used to match the workqueue
+behavior of older kernels.</p>
+</dd>
+</dl>
+</section>
+<section id="affinity-scopes-and-performance">
+<h2>Affinity Scopes and Performance<a class="headerlink" href="#affinity-scopes-and-performance" title="Permalink to this heading">¶</a></h2>
+<p>It'd be ideal if an unbound workqueue's behavior is optimal for vast
+majority of use cases without further tuning. Unfortunately, in the current
+kernel, there exists a pronounced trade-off between locality and utilization
+necessitating explicit configurations when workqueues are heavily used.</p>
+<p>Higher locality leads to higher efficiency where more work is performed for
+the same number of consumed CPU cycles. However, higher locality may also
+cause lower overall system utilization if the work items are not spread
+enough across the affinity scopes by the issuers. The following performance
+testing with dm-crypt clearly illustrates this trade-off.</p>
+<p>The tests are run on a CPU with 12-cores/24-threads split across four L3
+caches (AMD Ryzen 9 3900x). CPU clock boost is turned off for consistency.
+<code class="docutils literal notranslate"><span class="pre">/dev/dm-0</span></code> is a dm-crypt device created on NVME SSD (Samsung 990 PRO) and
+opened with <code class="docutils literal notranslate"><span class="pre">cryptsetup</span></code> with default settings.</p>
+<section id="scenario-1-enough-issuers-and-work-spread-across-the-machine">
+<h3>Scenario 1: Enough issuers and work spread across the machine<a class="headerlink" href="#scenario-1-enough-issuers-and-work-spread-across-the-machine" title="Permalink to this heading">¶</a></h3>
+<p>The command used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ fio --filename=/dev/dm-0 --direct=1 --rw=randrw --bs=32k --ioengine=libaio \
+  --iodepth=64 --runtime=60 --numjobs=24 --time_based --group_reporting \
+  --name=iops-test-job --verify=sha512
+</pre></div>
+</div>
+<p>There are 24 issuers, each issuing 64 IOs concurrently. <code class="docutils literal notranslate"><span class="pre">--verify=sha512</span></code>
+makes <code class="docutils literal notranslate"><span class="pre">fio</span></code> generate and read back the content each time which makes
+execution locality matter between the issuer and <code class="docutils literal notranslate"><span class="pre">kcryptd</span></code>. The followings
+are the read bandwidths and CPU utilizations depending on different affinity
+scope settings on <code class="docutils literal notranslate"><span class="pre">kcryptd</span></code> measured over five runs. Bandwidths are in
+MiBps, and CPU util in percents.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.6%" />
+<col style="width: 35.7%" />
+<col style="width: 35.7%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Affinity</p></th>
+<th class="head"><p>Bandwidth (MiBps)</p></th>
+<th class="head"><p>CPU util (%)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>system</p></td>
+<td><p>1159.40 ±1.34</p></td>
+<td><p>99.31 ±0.02</p></td>
+</tr>
+<tr class="row-odd"><td><p>cache</p></td>
+<td><p>1166.40 ±0.89</p></td>
+<td><p>99.34 ±0.01</p></td>
+</tr>
+<tr class="row-even"><td><p>cache (strict)</p></td>
+<td><p>1166.00 ±0.71</p></td>
+<td><p>99.35 ±0.01</p></td>
+</tr>
+</tbody>
+</table>
+<p>With enough issuers spread across the system, there is no downside to
+&quot;cache&quot;, strict or otherwise. All three configurations saturate the whole
+machine but the cache-affine ones outperform by 0.6% thanks to improved
+locality.</p>
+</section>
+<section id="scenario-2-fewer-issuers-enough-work-for-saturation">
+<h3>Scenario 2: Fewer issuers, enough work for saturation<a class="headerlink" href="#scenario-2-fewer-issuers-enough-work-for-saturation" title="Permalink to this heading">¶</a></h3>
+<p>The command used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ fio --filename=/dev/dm-0 --direct=1 --rw=randrw --bs=32k \
+  --ioengine=libaio --iodepth=64 --runtime=60 --numjobs=8 \
+  --time_based --group_reporting --name=iops-test-job --verify=sha512
+</pre></div>
+</div>
+<p>The only difference from the previous scenario is <code class="docutils literal notranslate"><span class="pre">--numjobs=8</span></code>. There are
+a third of the issuers but is still enough total work to saturate the
+system.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.6%" />
+<col style="width: 35.7%" />
+<col style="width: 35.7%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Affinity</p></th>
+<th class="head"><p>Bandwidth (MiBps)</p></th>
+<th class="head"><p>CPU util (%)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>system</p></td>
+<td><p>1155.40 ±0.89</p></td>
+<td><p>97.41 ±0.05</p></td>
+</tr>
+<tr class="row-odd"><td><p>cache</p></td>
+<td><p>1154.40 ±1.14</p></td>
+<td><p>96.15 ±0.09</p></td>
+</tr>
+<tr class="row-even"><td><p>cache (strict)</p></td>
+<td><p>1112.00 ±4.64</p></td>
+<td><p>93.26 ±0.35</p></td>
+</tr>
+</tbody>
+</table>
+<p>This is more than enough work to saturate the system. Both &quot;system&quot; and
+&quot;cache&quot; are nearly saturating the machine but not fully. &quot;cache&quot; is using
+less CPU but the better efficiency puts it at the same bandwidth as
+&quot;system&quot;.</p>
+<p>Eight issuers moving around over four L3 cache scope still allow &quot;cache
+(strict)&quot; to mostly saturate the machine but the loss of work conservation
+is now starting to hurt with 3.7% bandwidth loss.</p>
+</section>
+<section id="scenario-3-even-fewer-issuers-not-enough-work-to-saturate">
+<h3>Scenario 3: Even fewer issuers, not enough work to saturate<a class="headerlink" href="#scenario-3-even-fewer-issuers-not-enough-work-to-saturate" title="Permalink to this heading">¶</a></h3>
+<p>The command used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ fio --filename=/dev/dm-0 --direct=1 --rw=randrw --bs=32k \
+  --ioengine=libaio --iodepth=64 --runtime=60 --numjobs=4 \
+  --time_based --group_reporting --name=iops-test-job --verify=sha512
+</pre></div>
+</div>
+<p>Again, the only difference is <code class="docutils literal notranslate"><span class="pre">--numjobs=4</span></code>. With the number of issuers
+reduced to four, there now isn't enough work to saturate the whole system
+and the bandwidth becomes dependent on completion latencies.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.6%" />
+<col style="width: 35.7%" />
+<col style="width: 35.7%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Affinity</p></th>
+<th class="head"><p>Bandwidth (MiBps)</p></th>
+<th class="head"><p>CPU util (%)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>system</p></td>
+<td><p>993.60 ±1.82</p></td>
+<td><p>75.49 ±0.06</p></td>
+</tr>
+<tr class="row-odd"><td><p>cache</p></td>
+<td><p>973.40 ±1.52</p></td>
+<td><p>74.90 ±0.07</p></td>
+</tr>
+<tr class="row-even"><td><p>cache (strict)</p></td>
+<td><p>828.20 ±4.49</p></td>
+<td><p>66.84 ±0.29</p></td>
+</tr>
+</tbody>
+</table>
+<p>Now, the tradeoff between locality and utilization is clearer. &quot;cache&quot; shows
+2% bandwidth loss compared to &quot;system&quot; and &quot;cache (struct)&quot; whopping 20%.</p>
+</section>
+<section id="conclusion-and-recommendations">
+<h3>Conclusion and Recommendations<a class="headerlink" href="#conclusion-and-recommendations" title="Permalink to this heading">¶</a></h3>
+<p>In the above experiments, the efficiency advantage of the &quot;cache&quot; affinity
+scope over &quot;system&quot; is, while consistent and noticeable, small. However, the
+impact is dependent on the distances between the scopes and may be more
+pronounced in processors with more complex topologies.</p>
+<p>While the loss of work-conservation in certain scenarios hurts, it is a lot
+better than &quot;cache (strict)&quot; and maximizing workqueue utilization is
+unlikely to be the common case anyway. As such, &quot;cache&quot; is the default
+affinity scope for unbound pools.</p>
+<ul class="simple">
+<li><p>As there is no one option which is great for most cases, workqueue usages
+that may consume a significant amount of CPU are recommended to configure
+the workqueues using <code class="docutils literal notranslate"><span class="pre">apply_workqueue_attrs()</span></code> and/or enable
+<code class="docutils literal notranslate"><span class="pre">WQ_SYSFS</span></code>.</p></li>
+<li><p>An unbound workqueue with strict &quot;cpu&quot; affinity scope behaves the same as
+<code class="docutils literal notranslate"><span class="pre">WQ_CPU_INTENSIVE</span></code> per-cpu workqueue. There is no real advanage to the
+latter and an unbound workqueue provides a lot more flexibility.</p></li>
+<li><p>Affinity scopes are introduced in Linux v6.5. To emulate the previous
+behavior, use strict &quot;numa&quot; affinity scope.</p></li>
+<li><p>The loss of work-conservation in non-strict affinity scopes is likely
+originating from the scheduler. There is no theoretical reason why the
+kernel wouldn't be able to do the right thing and maintain
+work-conservation in most cases. As such, it is possible that future
+scheduler improvements may make most of these tunables unnecessary.</p></li>
+</ul>
+</section>
+</section>
+<section id="examining-configuration">
+<h2>Examining Configuration<a class="headerlink" href="#examining-configuration" title="Permalink to this heading">¶</a></h2>
+<p>Use tools/workqueue/wq_dump.py to examine unbound CPU affinity
+configuration, worker pools and how workqueues map to the pools:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ tools/workqueue/wq_dump.py
+Affinity Scopes
+===============
+wq_unbound_cpumask=0000000f
+
+CPU
+  nr_pods  4
+  pod_cpus [0]=00000001 [1]=00000002 [2]=00000004 [3]=00000008
+  pod_node [0]=0 [1]=0 [2]=1 [3]=1
+  cpu_pod  [0]=0 [1]=1 [2]=2 [3]=3
+
+SMT
+  nr_pods  4
+  pod_cpus [0]=00000001 [1]=00000002 [2]=00000004 [3]=00000008
+  pod_node [0]=0 [1]=0 [2]=1 [3]=1
+  cpu_pod  [0]=0 [1]=1 [2]=2 [3]=3
+
+CACHE (default)
+  nr_pods  2
+  pod_cpus [0]=00000003 [1]=0000000c
+  pod_node [0]=0 [1]=1
+  cpu_pod  [0]=0 [1]=0 [2]=1 [3]=1
+
+NUMA
+  nr_pods  2
+  pod_cpus [0]=00000003 [1]=0000000c
+  pod_node [0]=0 [1]=1
+  cpu_pod  [0]=0 [1]=0 [2]=1 [3]=1
+
+SYSTEM
+  nr_pods  1
+  pod_cpus [0]=0000000f
+  pod_node [0]=-1
+  cpu_pod  [0]=0 [1]=0 [2]=0 [3]=0
+
+Worker Pools
+============
+pool[00] ref= 1 nice=  0 idle/workers=  4/  4 cpu=  0
+pool[01] ref= 1 nice=-20 idle/workers=  2/  2 cpu=  0
+pool[02] ref= 1 nice=  0 idle/workers=  4/  4 cpu=  1
+pool[03] ref= 1 nice=-20 idle/workers=  2/  2 cpu=  1
+pool[04] ref= 1 nice=  0 idle/workers=  4/  4 cpu=  2
+pool[05] ref= 1 nice=-20 idle/workers=  2/  2 cpu=  2
+pool[06] ref= 1 nice=  0 idle/workers=  3/  3 cpu=  3
+pool[07] ref= 1 nice=-20 idle/workers=  2/  2 cpu=  3
+pool[08] ref=42 nice=  0 idle/workers=  6/  6 cpus=0000000f
+pool[09] ref=28 nice=  0 idle/workers=  3/  3 cpus=00000003
+pool[10] ref=28 nice=  0 idle/workers= 17/ 17 cpus=0000000c
+pool[11] ref= 1 nice=-20 idle/workers=  1/  1 cpus=0000000f
+pool[12] ref= 2 nice=-20 idle/workers=  1/  1 cpus=00000003
+pool[13] ref= 2 nice=-20 idle/workers=  1/  1 cpus=0000000c
+
+Workqueue CPU -&gt; pool
+=====================
+[    workqueue \ CPU              0  1  2  3 dfl]
+events                   percpu   0  2  4  6
+events_highpri           percpu   1  3  5  7
+events_long              percpu   0  2  4  6
+events_unbound           unbound  9  9 10 10  8
+events_freezable         percpu   0  2  4  6
+events_power_efficient   percpu   0  2  4  6
+events_freezable_power_  percpu   0  2  4  6
+rcu_gp                   percpu   0  2  4  6
+rcu_par_gp               percpu   0  2  4  6
+slub_flushwq             percpu   0  2  4  6
+netns                    ordered  8  8  8  8  8
+...
+</pre></div>
+</div>
+<p>See the command's help message for more info.</p>
+</section>
 <section id="monitoring">
 <h2>Monitoring<a class="headerlink" href="#monitoring" title="Permalink to this heading">¶</a></h2>
 <p>Use tools/workqueue/wq_monitor.py to monitor workqueue operations:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ tools/workqueue/wq_monitor.py events
-                            total  infl  CPUtime  CPUhog  CMwake  mayday rescued
+                            total  infl  CPUtime  CPUhog CMW/RPR  mayday rescued
 events                      18545     0      6.1       0       5       -       -
 events_highpri                  8     0      0.0       0       0       -       -
 events_long                     3     0      0.0       0       0       -       -
-events_unbound              38306     0      0.1       -       -       -       -
+events_unbound              38306     0      0.1       -       7       -       -
 events_freezable                0     0      0.0       0       0       -       -
 events_power_efficient      29598     0      0.2       0       0       -       -
 events_freezable_power_        10     0      0.0       0       0       -       -
 sock_diag_events                0     0      0.0       0       0       -       -
 
-                            total  infl  CPUtime  CPUhog  CMwake  mayday rescued
+                            total  infl  CPUtime  CPUhog CMW/RPR  mayday rescued
 events                      18548     0      6.1       0       5       -       -
 events_highpri                  8     0      0.0       0       0       -       -
 events_long                     3     0      0.0       0       0       -       -
-events_unbound              38322     0      0.1       -       -       -       -
+events_unbound              38322     0      0.1       -       7       -       -
 events_freezable                0     0      0.0       0       0       -       -
 events_power_efficient      29603     0      0.2       0       0       -       -
 events_freezable_power_        10     0      0.0       0       0       -       -
@@ -553,7 +875,10 @@ required when breaking the conditions inside a work function.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct workqueue_attrs {
     int nice;
     cpumask_var_t cpumask;
-    bool no_numa;
+    cpumask_var_t __pod_cpumask;
+    bool affn_strict;
+    enum wq_affn_scope affn_scope;
+    bool ordered;
 };
 </pre></div>
 </div>
@@ -562,11 +887,32 @@ required when breaking the conditions inside a work function.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">nice</span></code></dt><dd><p>nice level</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cpumask</span></code></dt><dd><p>allowed CPUs</p>
+<p>Work items in this workqueue are affine to these CPUs and not allowed
+to execute on other CPUs. A pool serving a workqueue must have the
+same <strong>cpumask</strong>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">no_numa</span></code></dt><dd><p>disable NUMA affinity</p>
-<p>Unlike other fields, <code class="docutils literal notranslate"><span class="pre">no_numa</span></code> isn't a property of a worker_pool. It
-only modifies how <a class="reference internal" href="#c.apply_workqueue_attrs" title="apply_workqueue_attrs"><code class="xref c c-func docutils literal notranslate"><span class="pre">apply_workqueue_attrs()</span></code></a> select pools and thus
-doesn't participate in pool hash calculations or equality comparisons.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">__pod_cpumask</span></code></dt><dd><p>internal attribute used to create per-pod pools</p>
+<p>Internal use only.</p>
+<p>Per-pod unbound worker pools are used to improve locality. Always a
+subset of -&gt;cpumask. A workqueue can be associated with multiple
+worker pools with disjoint <strong>__pod_cpumask</strong>'s. Whether the enforcement
+of a pool's <strong>__pod_cpumask</strong> is strict depends on <strong>affn_strict</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">affn_strict</span></code></dt><dd><p>affinity scope is strict</p>
+<p>If clear, workqueue will make a best-effort attempt at starting the
+worker inside <strong>__pod_cpumask</strong> but the scheduler is free to migrate it
+outside.</p>
+<p>If set, workers are only allowed to run inside <strong>__pod_cpumask</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">affn_scope</span></code></dt><dd><p>unbound CPU affinity scope</p>
+<p>CPU pods are used to improve execution locality of unbound work
+items. There are multiple pod types, one for each wq_affn_scope, and
+every CPU in the system belongs to one pod in every pod type. CPUs
+that belong to the same pod share the worker pool. For example,
+selecting <code class="docutils literal notranslate"><span class="pre">WQ_AFFN_NUMA</span></code> makes the workqueue use a separate worker
+pool for each NUMA node.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ordered</span></code></dt><dd><p>work items must be executed one by one in queueing order</p>
 </dd>
 </dl>
 </div>
@@ -617,7 +963,7 @@ doesn't participate in pool hash calculations or equality comparisons.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>WQ_* flags</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">max_active</span></code></dt><dd><p>max in-flight work items, 0 for default
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">max_active</span></code></dt><dd><p>max in-flight work items per CPU, 0 for default
 remaining args: args for <strong>fmt</strong></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>variable arguments</p>
@@ -626,7 +972,7 @@ remaining args: args for <strong>fmt</strong></p>
 <p><strong>Description</strong></p>
 <p>Allocate a workqueue with the specified parameters.  For detailed
 information on WQ_* flags, please refer to
-<a class="reference internal" href="#"><span class="doc">Concurrency Managed Workqueue (cmwq)</span></a>.</p>
+<a class="reference internal" href="#"><span class="doc">Workqueue</span></a>.</p>
 <p><strong>Return</strong></p>
 <p>Pointer to the allocated workqueue on success, <code class="docutils literal notranslate"><span class="pre">NULL</span></code> on failure.</p>
 </div>
@@ -761,38 +1107,6 @@ workqueue otherwise.</p>
 <p>Shares the same memory-ordering properties of <a class="reference internal" href="#c.queue_work" title="queue_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_work()</span></code></a>, cf. the
 DocBook header of <a class="reference internal" href="#c.queue_work" title="queue_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_work()</span></code></a>.</p>
 </div>
-<dl class="c macro">
-<dt class="sig sig-object c" id="c.flush_scheduled_work">
-<span class="sig-name descname"><span class="n"><span class="pre">flush_scheduled_work</span></span></span><a class="headerlink" href="#c.flush_scheduled_work" title="Permalink to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-<p><code class="docutils literal notranslate"><span class="pre">flush_scheduled_work</span> <span class="pre">()</span></code></p>
-<blockquote>
-<div><p>ensure that any scheduled work has run to completion.</p>
-</div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
-<p>Forces execution of the kernel-global workqueue and blocks until its
-completion.</p>
-<p>It's very easy to get into trouble if you don't take great care.
-Either of the following situations will lead to deadlock:</p>
-<blockquote>
-<div><p>One of the work items currently on the workqueue needs to acquire
-a lock held by your code or its caller.</p>
-<p>Your code is running in the context of a work routine.</p>
-</div></blockquote>
-<p>They will be detected by lockdep when they occur, but the first might not
-occur very often.  It depends on what work items are on the workqueue and
-what locks they need, which you have no control over.</p>
-<p>In most situations flushing the entire workqueue is overkill; you merely
-need to know that a particular work item isn't queued and isn't running.
-In such cases you should use <a class="reference internal" href="#c.cancel_delayed_work_sync" title="cancel_delayed_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">cancel_delayed_work_sync()</span></code></a> or
-<a class="reference internal" href="#c.cancel_work_sync" title="cancel_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">cancel_work_sync()</span></code></a> instead.</p>
-<p>Please stop calling this function! A conversion to stop flushing system-wide
-workqueues is in progress. This function will be removed after all in-tree
-users stopped calling this function.</p>
-</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.schedule_delayed_work_on">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">schedule_delayed_work_on</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">delayed_work</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dwork</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">delay</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.schedule_delayed_work_on" title="Permalink to this definition">¶</a><br /></dt>
@@ -918,28 +1232,6 @@ ignored.</p>
 successfully, -errno on failure.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.unbound_pwq_by_node">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">pool_workqueue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">unbound_pwq_by_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wq</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.unbound_pwq_by_node" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>return the unbound pool_workqueue for the given node</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_struct</span> <span class="pre">*wq</span></code></dt><dd><p>the target workqueue</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">node</span></code></dt><dd><p>the node ID</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This must be called with any of wq_pool_mutex, wq-&gt;mutex or RCU
-read locked.
-If the pwq needs to be used beyond the locking in effect, the caller is
-responsible for guaranteeing that the pwq stays online.</p>
-<p><strong>Return</strong></p>
-<p>The unbound pool_workqueue for <strong>node</strong>.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.get_work_pool">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_work_pool</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_work_pool" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return the worker_pool a given work was associated with</p>
@@ -979,23 +1271,6 @@ returned pool is and stays online.</p>
 <code class="docutils literal notranslate"><span class="pre">WORK_OFFQ_POOL_NONE</span></code> if none.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.wake_up_worker">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wake_up_worker</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wake_up_worker" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>wake up an idle worker</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker_pool</span> <span class="pre">*pool</span></code></dt><dd><p>worker pool to wake worker from</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Wake up the first idle worker of <strong>pool</strong>.</p>
-<p><strong>Context</strong></p>
-<p>raw_spin_lock_irq(pool-&gt;lock).</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.worker_set_flags">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">worker_set_flags</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.worker_set_flags" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.worker_set_flags" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>set worker flags and adjust nr_running accordingly</p>
@@ -1011,8 +1286,6 @@ returned pool is and stays online.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Set <strong>flags</strong> in <strong>worker-&gt;flags</strong> and adjust nr_running accordingly.</p>
-<p><strong>Context</strong></p>
-<p>raw_spin_lock_irq(pool-&gt;lock)</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.worker_clr_flags">
@@ -1030,8 +1303,145 @@ returned pool is and stays online.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Clear <strong>flags</strong> in <strong>worker-&gt;flags</strong> and adjust nr_running accordingly.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.worker_enter_idle">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">worker_enter_idle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.worker_enter_idle" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.worker_enter_idle" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>enter idle state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker</span> <span class="pre">*worker</span></code></dt><dd><p>worker which is entering idle state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><strong>worker</strong> is entering idle state.  Update stats and idle timer if
+necessary.</p>
+<p>LOCKING:
+raw_spin_lock_irq(pool-&gt;lock).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.worker_leave_idle">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">worker_leave_idle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.worker_leave_idle" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.worker_leave_idle" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>leave idle state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker</span> <span class="pre">*worker</span></code></dt><dd><p>worker which is leaving idle state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><strong>worker</strong> is leaving idle state.  Update stats.</p>
+<p>LOCKING:
+raw_spin_lock_irq(pool-&gt;lock).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.find_worker_executing_work">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">find_worker_executing_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.find_worker_executing_work" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>find worker which is executing a work</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool of interest</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work to find worker for</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Find a worker which is executing <strong>work</strong> on <strong>pool</strong> by searching
+<strong>pool-&gt;busy_hash</strong> which is keyed by the address of <strong>work</strong>.  For a worker
+to match, its current execution should match the address of <strong>work</strong> and
+its work function.  This is to avoid unwanted dependency between
+unrelated work executions through a work item being recycled while still
+being executed.</p>
+<p>This is a bit tricky.  A work item may be freed once its execution
+starts and nothing prevents the freed area from being recycled for
+another work item.  If the same work item address ends up being reused
+before the original execution finishes, workqueue will identify the
+recycled work item as currently executing and make it wait until the
+current execution finishes, introducing an unwanted dependency.</p>
+<p>This function checks the work item address and work function to avoid
+false positives.  Note that this isn't complete as one may construct a
+work function which can introduce dependency onto itself through a
+recycled work item.  Well, if somebody wants to shoot oneself in the
+foot that badly, there's only so much we can do, and if such deadlock
+actually occurs, it should be easy to locate the culprit work function.</p>
 <p><strong>Context</strong></p>
-<p>raw_spin_lock_irq(pool-&gt;lock)</p>
+<p>raw_spin_lock_irq(pool-&gt;lock).</p>
+<p><strong>Return</strong></p>
+<p>Pointer to worker which is executing <strong>work</strong> if found, <code class="docutils literal notranslate"><span class="pre">NULL</span></code>
+otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.move_linked_works">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">move_linked_works</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">list_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">head</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">nextp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.move_linked_works" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>move linked works to a list</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>start of series of works to be scheduled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">list_head</span> <span class="pre">*head</span></code></dt><dd><p>target list to append <strong>work</strong> to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">**nextp</span></code></dt><dd><p>out parameter for nested worklist walking</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Schedule linked works starting from <strong>work</strong> to <strong>head</strong>. Work series to be
+scheduled starts at <strong>work</strong> and includes any consecutive work with
+WORK_STRUCT_LINKED set in its predecessor. See <a class="reference internal" href="#c.assign_work" title="assign_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">assign_work()</span></code></a> for details on
+<strong>nextp</strong>.</p>
+<p><strong>Context</strong></p>
+<p>raw_spin_lock_irq(pool-&gt;lock).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.assign_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">assign_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.assign_work" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">nextp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.assign_work" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>assign a work item and its linked work items to a worker</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work to assign</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker</span> <span class="pre">*worker</span></code></dt><dd><p>worker to assign to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">**nextp</span></code></dt><dd><p>out parameter for nested worklist walking</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Assign <strong>work</strong> and its linked work items to <strong>worker</strong>. If <strong>work</strong> is already being
+executed by another worker in the same pool, it'll be punted there.</p>
+<p>If <strong>nextp</strong> is not NULL, it's updated to point to the next work of the last
+scheduled work. This allows <a class="reference internal" href="#c.assign_work" title="assign_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">assign_work()</span></code></a> to be nested inside
+<a class="reference internal" href="kernel-api.html#c.list_for_each_entry_safe" title="list_for_each_entry_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_entry_safe()</span></code></a>.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was successfully assigned to <strong>worker</strong>. <code class="docutils literal notranslate"><span class="pre">false</span></code> if <strong>work</strong>
+was punted to another worker already executing it.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kick_pool">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kick_pool</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kick_pool" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>wake up an idle worker if necessary</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool to kick</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><strong>pool</strong> may have pending work items. Wake up worker if necessary. Returns
+whether a worker was woken up.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.wq_worker_running">
@@ -1108,71 +1518,6 @@ is guaranteed to not be processing any works.</p>
 <p><strong>Return</strong></p>
 <p>The last work function <code class="docutils literal notranslate"><span class="pre">current</span></code> executed as a worker, NULL if it
 hasn't executed any work yet.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.find_worker_executing_work">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">find_worker_executing_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">worker_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.find_worker_executing_work" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>find worker which is executing a work</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool of interest</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work to find worker for</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Find a worker which is executing <strong>work</strong> on <strong>pool</strong> by searching
-<strong>pool-&gt;busy_hash</strong> which is keyed by the address of <strong>work</strong>.  For a worker
-to match, its current execution should match the address of <strong>work</strong> and
-its work function.  This is to avoid unwanted dependency between
-unrelated work executions through a work item being recycled while still
-being executed.</p>
-<p>This is a bit tricky.  A work item may be freed once its execution
-starts and nothing prevents the freed area from being recycled for
-another work item.  If the same work item address ends up being reused
-before the original execution finishes, workqueue will identify the
-recycled work item as currently executing and make it wait until the
-current execution finishes, introducing an unwanted dependency.</p>
-<p>This function checks the work item address and work function to avoid
-false positives.  Note that this isn't complete as one may construct a
-work function which can introduce dependency onto itself through a
-recycled work item.  Well, if somebody wants to shoot oneself in the
-foot that badly, there's only so much we can do, and if such deadlock
-actually occurs, it should be easy to locate the culprit work function.</p>
-<p><strong>Context</strong></p>
-<p>raw_spin_lock_irq(pool-&gt;lock).</p>
-<p><strong>Return</strong></p>
-<p>Pointer to worker which is executing <strong>work</strong> if found, <code class="docutils literal notranslate"><span class="pre">NULL</span></code>
-otherwise.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.move_linked_works">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">move_linked_works</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">list_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">head</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">nextp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.move_linked_works" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>move linked works to a list</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>start of series of works to be scheduled</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">list_head</span> <span class="pre">*head</span></code></dt><dd><p>target list to append <strong>work</strong> to</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">**nextp</span></code></dt><dd><p>out parameter for nested worklist walking</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Schedule linked works starting from <strong>work</strong> to <strong>head</strong>.  Work series to
-be scheduled starts at <strong>work</strong> and includes any consecutive work with
-WORK_STRUCT_LINKED set in its predecessor.</p>
-<p>If <strong>nextp</strong> is not NULL, it's updated to point to the next work of
-the last scheduled work.  This allows <a class="reference internal" href="#c.move_linked_works" title="move_linked_works"><code class="xref c c-func docutils literal notranslate"><span class="pre">move_linked_works()</span></code></a> to be
-nested inside outer <a class="reference internal" href="kernel-api.html#c.list_for_each_entry_safe" title="list_for_each_entry_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_entry_safe()</span></code></a>.</p>
-<p><strong>Context</strong></p>
-<p>raw_spin_lock_irq(pool-&gt;lock).</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.get_pwq">
@@ -1339,8 +1684,8 @@ online will get a splat.</p>
 <p><code class="docutils literal notranslate"><span class="pre">false</span></code> if <strong>work</strong> was already on a queue, <code class="docutils literal notranslate"><span class="pre">true</span></code> otherwise.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.workqueue_select_cpu_near">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">workqueue_select_cpu_near</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.workqueue_select_cpu_near" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.select_numa_node_cpu">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">select_numa_node_cpu</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.select_numa_node_cpu" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Select a CPU based on NUMA node</p>
 </dd></dl>
 
@@ -1456,41 +1801,6 @@ pending and its timer was modified.</p>
 that a full RCU grace period is guaranteed only after a <code class="docutils literal notranslate"><span class="pre">true</span></code> return.
 While <strong>rwork</strong> is guaranteed to be executed after a <code class="docutils literal notranslate"><span class="pre">false</span></code> return, the
 execution may happen before a full RCU grace period has passed.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.worker_enter_idle">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">worker_enter_idle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.worker_enter_idle" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.worker_enter_idle" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>enter idle state</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker</span> <span class="pre">*worker</span></code></dt><dd><p>worker which is entering idle state</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p><strong>worker</strong> is entering idle state.  Update stats and idle timer if
-necessary.</p>
-<p>LOCKING:
-raw_spin_lock_irq(pool-&gt;lock).</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.worker_leave_idle">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">worker_leave_idle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.worker_leave_idle" title="worker"><span class="n"><span class="pre">worker</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">worker</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.worker_leave_idle" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>leave idle state</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">worker</span> <span class="pre">*worker</span></code></dt><dd><p>worker which is leaving idle state</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p><strong>worker</strong> is leaving idle state.  Update stats.</p>
-<p>LOCKING:
-raw_spin_lock_irq(pool-&gt;lock).</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.worker_attach_to_pool">
@@ -2149,36 +2459,29 @@ workqueue's saved_max_active and activate inactive work items
 accordingly.  If <strong>pwq</strong> is freezing, clear <strong>pwq-&gt;max_active</strong> to zero.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.wq_calc_node_cpumask">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wq_calc_node_cpumask</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.workqueue_attrs" title="workqueue_attrs"><span class="n"><span class="pre">workqueue_attrs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attrs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu_going_down</span></span>, <span class="n"><span class="pre">cpumask_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cpumask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wq_calc_node_cpumask" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>calculate a wq_attrs' cpumask for the specified node</p>
+<dt class="sig sig-object c" id="c.wq_calc_pod_cpumask">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wq_calc_pod_cpumask</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.workqueue_attrs" title="workqueue_attrs"><span class="n"><span class="pre">workqueue_attrs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attrs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu_going_down</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wq_calc_pod_cpumask" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>calculate a wq_attrs' cpumask for a pod</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">workqueue_attrs</span> <span class="pre">*attrs</span></code></dt><dd><p>the wq_attrs of the default pwq of the target workqueue</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_attrs</span> <span class="pre">*attrs</span></code></dt><dd><p>the wq_attrs of the default pwq of the target workqueue</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">node</span></code></dt><dd><p>the target NUMA node</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">cpu</span></code></dt><dd><p>the target CPU</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">cpu_going_down</span></code></dt><dd><p>if &gt;= 0, the CPU to consider as offline</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">cpumask_t</span> <span class="pre">*cpumask</span></code></dt><dd><p>outarg, the resulting cpumask</p>
-</dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Calculate the cpumask a workqueue with <strong>attrs</strong> should use on <strong>node</strong>.  If
-<strong>cpu_going_down</strong> is &gt;= 0, that cpu is considered offline during
-calculation.  The result is stored in <strong>cpumask</strong>.</p>
-<p>If NUMA affinity is not enabled, <strong>attrs-&gt;cpumask</strong> is always used.  If
-enabled and <strong>node</strong> has online CPUs requested by <strong>attrs</strong>, the returned
-cpumask is the intersection of the possible CPUs of <strong>node</strong> and
-<strong>attrs-&gt;cpumask</strong>.</p>
-<p>The caller is responsible for ensuring that the cpumask of <strong>node</strong> stays
-stable.</p>
-<p><strong>Return</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">true</span></code> if the resulting <strong>cpumask</strong> is different from <strong>attrs-&gt;cpumask</strong>,
-<code class="docutils literal notranslate"><span class="pre">false</span></code> if equal.</p>
+<p>Calculate the cpumask a workqueue with <strong>attrs</strong> should use on <strong>pod</strong>. If
+<strong>cpu_going_down</strong> is &gt;= 0, that cpu is considered offline during calculation.
+The result is stored in <strong>attrs-&gt;__pod_cpumask</strong>.</p>
+<p>If pod affinity is not enabled, <strong>attrs-&gt;cpumask</strong> is always used. If enabled
+and <strong>pod</strong> has online CPUs requested by <strong>attrs</strong>, the returned cpumask is the
+intersection of the possible CPUs of <strong>pod</strong> and <strong>attrs-&gt;cpumask</strong>.</p>
+<p>The caller is responsible for ensuring that the cpumask of <strong>pod</strong> stays stable.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.apply_workqueue_attrs">
@@ -2195,21 +2498,20 @@ stable.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Apply <strong>attrs</strong> to an unbound workqueue <strong>wq</strong>.  Unless disabled, on NUMA
-machines, this function maps a separate pwq to each NUMA node with
-possibles CPUs in <strong>attrs-&gt;cpumask</strong> so that work items are affine to the
-NUMA node it was issued on.  Older pwqs are released as in-flight work
-items finish.  Note that a work item which repeatedly requeues itself
-back-to-back will stay on its current pwq.</p>
+<p>Apply <strong>attrs</strong> to an unbound workqueue <strong>wq</strong>. Unless disabled, this function maps
+a separate pwq to each CPU pod with possibles CPUs in <strong>attrs-&gt;cpumask</strong> so that
+work items are affine to the pod it was issued on. Older pwqs are released as
+in-flight work items finish. Note that a work item which repeatedly requeues
+itself back-to-back will stay on its current pwq.</p>
 <p>Performs GFP_KERNEL allocations.</p>
 <p>Assumes caller has CPU hotplug read exclusion, i.e. cpus_read_lock().</p>
 <p><strong>Return</strong></p>
 <p>0 on success and -errno on failure.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.wq_update_unbound_numa">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wq_update_unbound_numa</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wq</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">online</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wq_update_unbound_numa" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>update NUMA affinity of a wq for CPU hot[un]plug</p>
+<dt class="sig sig-object c" id="c.wq_update_pod">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wq_update_pod</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wq</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">cpu</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hotplug_cpu</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">online</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wq_update_pod" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>update pod affinity of a wq for CPU hot[un]plug</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -2217,25 +2519,25 @@ back-to-back will stay on its current pwq.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_struct</span> <span class="pre">*wq</span></code></dt><dd><p>the target workqueue</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">cpu</span></code></dt><dd><p>the CPU coming up or going down</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">cpu</span></code></dt><dd><p>the CPU to update pool association for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">hotplug_cpu</span></code></dt><dd><p>the CPU coming up or going down</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">online</span></code></dt><dd><p>whether <strong>cpu</strong> is coming up or going down</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function is to be called from <code class="docutils literal notranslate"><span class="pre">CPU_DOWN_PREPARE</span></code>, <code class="docutils literal notranslate"><span class="pre">CPU_ONLINE</span></code> and
-<code class="docutils literal notranslate"><span class="pre">CPU_DOWN_FAILED</span></code>.  <strong>cpu</strong> is being hot[un]plugged, update NUMA affinity of
+<code class="docutils literal notranslate"><span class="pre">CPU_DOWN_FAILED</span></code>.  <strong>cpu</strong> is being hot[un]plugged, update pod affinity of
 <strong>wq</strong> accordingly.</p>
-<p>If NUMA affinity can't be adjusted due to memory allocation failure, it
-falls back to <strong>wq-&gt;dfl_pwq</strong> which may not be optimal but is always
-correct.</p>
-<p>Note that when the last allowed CPU of a NUMA node goes offline for a
-workqueue with a cpumask spanning multiple nodes, the workers which were
-already executing the work items for the workqueue will lose their CPU
-affinity and may execute on any CPU.  This is similar to how per-cpu
-workqueues behave on CPU_DOWN.  If a workqueue user wants strict
-affinity, it's the user's responsibility to flush the work item from
-CPU_DOWN_PREPARE.</p>
+<p>If pod affinity can't be adjusted due to memory allocation failure, it falls
+back to <strong>wq-&gt;dfl_pwq</strong> which may not be optimal but is always correct.</p>
+<p>Note that when the last allowed CPU of a pod goes offline for a workqueue
+with a cpumask spanning multiple pods, the workers which were already
+executing the work items for the workqueue will lose their CPU affinity and
+may execute on any CPU. This is similar to how per-cpu workqueues behave on
+CPU_DOWN. If a workqueue user wants strict affinity, it's the user's
+responsibility to flush the work item from CPU_DOWN_PREPARE.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.destroy_workqueue">
@@ -2325,11 +2627,11 @@ work functions to determine whether it's being run off the rescuer task.</p>
 <p>Test whether <strong>wq</strong>'s cpu workqueue for <strong>cpu</strong> is congested.  There is
 no synchronization around this function and the test result is
 unreliable and only useful as advisory hints or for debugging.</p>
-<p>If <strong>cpu</strong> is WORK_CPU_UNBOUND, the test is performed on the local CPU.
-Note that both per-cpu and unbound workqueues may be associated with
-multiple pool_workqueues which have separate congested states.  A
-workqueue being congested on one CPU doesn't mean the workqueue is also
-contested on other CPUs / NUMA nodes.</p>
+<p>If <strong>cpu</strong> is WORK_CPU_UNBOUND, the test is performed on the local CPU.</p>
+<p>With the exception of ordered workqueues, all workqueues have per-cpu
+pool_workqueues, each with its own congested state. A workqueue being
+congested on one CPU doesn't mean that the workqueue is contested on any
+other CPUs.</p>
 <p><strong>Return</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">true</span></code> if congested, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
 </div>
@@ -2661,12 +2963,12 @@ attributes.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This is the first half of two-staged workqueue subsystem initialization
-and invoked as soon as the bare basics - memory allocation, cpumasks and
-idr are up.  It sets up all the data structures and system workqueues
-and allows early boot code to create workqueues and queue/cancel work
-items.  Actual work item execution starts only after kthreads can be
-created and scheduled right before early initcalls.</p>
+<p>This is the first step of three-staged workqueue subsystem initialization and
+invoked as soon as the bare basics - memory allocation, cpumasks and idr are
+up. It sets up all the data structures and system workqueues and allows early
+boot code to create workqueues and queue/cancel work items. Actual work item
+execution starts only after kthreads can be created and scheduled right
+before early initcalls.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.workqueue_init">
@@ -2681,11 +2983,28 @@ created and scheduled right before early initcalls.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This is the latter half of two-staged workqueue subsystem initialization
-and invoked as soon as kthreads can be created and scheduled.
-Workqueues have been created and work items queued on them, but there
-are no kworkers executing the work items yet.  Populate the worker pools
-with the initial workers and enable future kworker creations.</p>
+<p>This is the second step of three-staged workqueue subsystem initialization
+and invoked as soon as kthreads can be created and scheduled. Workqueues have
+been created and work items queued on them, but there are no kworkers
+executing the work items yet. Populate the worker pools with the initial
+workers and enable future kworker creations.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.workqueue_init_topology">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">workqueue_init_topology</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.workqueue_init_topology" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>initialize CPU pods for unbound workqueues</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span></code></dt><dd><p>no arguments</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is the third step of there-staged workqueue subsystem initialization and
+invoked after SMP and topology information are fully initialized. It
+initializes the unbound CPU pods accordingly.</p>
 </div>
 </section>
 </section>

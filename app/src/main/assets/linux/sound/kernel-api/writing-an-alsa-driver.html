@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,6 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver implementer's API guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../../input/index.html">Input Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../hid/index.html">Human Interface Devices (HID)</a></li>
@@ -78,6 +79,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../fb/index.html">Frame Buffer</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
 </ul>
 </li>
@@ -1973,8 +1975,8 @@ the position and calculates the available space, and wakes up the
 sleeping poll threads, etc.</p>
 <p>This callback is also atomic by default.</p>
 </section>
-<section id="copy-user-copy-kernel-and-fill-silence-ops">
-<h4>copy_user, copy_kernel and fill_silence ops<a class="headerlink" href="#copy-user-copy-kernel-and-fill-silence-ops" title="Permalink to this heading">¶</a></h4>
+<section id="copy-and-fill-silence-ops">
+<h4>copy and fill_silence ops<a class="headerlink" href="#copy-and-fill-silence-ops" title="Permalink to this heading">¶</a></h4>
 <p>These callbacks are not mandatory, and can be omitted in most cases.
 These callbacks are used when the hardware buffer cannot be in the
 normal memory space. Some chips have their own buffer in the hardware
@@ -3219,8 +3221,8 @@ make an intermediate buffer and copy/set the data from it to the
 external hardware buffer in interrupts (or in tasklets, preferably).</p>
 <p>The first case works fine if the external hardware buffer is large
 enough. This method doesn't need any extra buffers and thus is more
-efficient. You need to define the <code class="docutils literal notranslate"><span class="pre">copy_user</span></code> and <code class="docutils literal notranslate"><span class="pre">copy_kernel</span></code>
-callbacks for the data transfer, in addition to the <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code>
+efficient. You need to define the <code class="docutils literal notranslate"><span class="pre">copy</span></code> callback
+for the data transfer, in addition to the <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code>
 callback for playback. However, there is a drawback: it cannot be
 mmapped. The examples are GUS's GF1 PCM or emu8000's wavetable PCM.</p>
 <p>The second case allows for mmap on the buffer, although you have to
@@ -3231,20 +3233,20 @@ the vxpocket driver.</p>
 buffer instead of the host memory. In this case, mmap is available only
 on certain architectures like the Intel one. In non-mmap mode, the data
 cannot be transferred as in the normal way. Thus you need to define the
-<code class="docutils literal notranslate"><span class="pre">copy_user</span></code>, <code class="docutils literal notranslate"><span class="pre">copy_kernel</span></code> and <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code> callbacks as well,
+<code class="docutils literal notranslate"><span class="pre">copy</span></code> and <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code> callbacks as well,
 as in the cases above. Examples are found in <code class="docutils literal notranslate"><span class="pre">rme32.c</span></code> and
 <code class="docutils literal notranslate"><span class="pre">rme96.c</span></code>.</p>
-<p>The implementation of the <code class="docutils literal notranslate"><span class="pre">copy_user</span></code>, <code class="docutils literal notranslate"><span class="pre">copy_kernel</span></code> and
+<p>The implementation of the <code class="docutils literal notranslate"><span class="pre">copy</span></code> and
 <code class="docutils literal notranslate"><span class="pre">silence</span></code> callbacks depends upon whether the hardware supports
-interleaved or non-interleaved samples. The <code class="docutils literal notranslate"><span class="pre">copy_user</span></code> callback is
+interleaved or non-interleaved samples. The <code class="docutils literal notranslate"><span class="pre">copy</span></code> callback is
 defined like below, a bit differently depending on whether the direction
 is playback or capture:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static int playback_copy_user(struct snd_pcm_substream *substream,
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static int playback_copy(struct snd_pcm_substream *substream,
              int channel, unsigned long pos,
-             void __user *src, unsigned long count);
-static int capture_copy_user(struct snd_pcm_substream *substream,
+             struct iov_iter *src, unsigned long count);
+static int capture_copy(struct snd_pcm_substream *substream,
              int channel, unsigned long pos,
-             void __user *dst, unsigned long count);
+             struct iov_iter *dst, unsigned long count);
 </pre></div>
 </div>
 <p>In the case of interleaved samples, the second argument (<code class="docutils literal notranslate"><span class="pre">channel</span></code>) is
@@ -3258,19 +3260,18 @@ and capture directions. In the playback case, you copy the given amount
 of data (<code class="docutils literal notranslate"><span class="pre">count</span></code>) at the specified pointer (<code class="docutils literal notranslate"><span class="pre">src</span></code>) to the specified
 offset (<code class="docutils literal notranslate"><span class="pre">pos</span></code>) in the hardware buffer. When coded like memcpy-like
 way, the copy would look like:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>my_memcpy_from_user(my_buffer + pos, src, count);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>my_memcpy_from_iter(my_buffer + pos, src, count);
 </pre></div>
 </div>
 <p>For the capture direction, you copy the given amount of data (<code class="docutils literal notranslate"><span class="pre">count</span></code>)
 at the specified offset (<code class="docutils literal notranslate"><span class="pre">pos</span></code>) in the hardware buffer to the
 specified pointer (<code class="docutils literal notranslate"><span class="pre">dst</span></code>):</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>my_memcpy_to_user(dst, my_buffer + pos, count);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>my_memcpy_to_iter(dst, my_buffer + pos, count);
 </pre></div>
 </div>
-<p>Here the functions are named <code class="docutils literal notranslate"><span class="pre">from_user</span></code> and <code class="docutils literal notranslate"><span class="pre">to_user</span></code> because
-it's the user-space buffer that is passed to these callbacks.  That
-is, the callback is supposed to copy data from/to the user-space
-directly to/from the hardware buffer.</p>
+<p>The given <code class="docutils literal notranslate"><span class="pre">src</span></code> or <code class="docutils literal notranslate"><span class="pre">dst</span></code> a struct iov_iter pointer containing the
+pointer and the size.  Use the existing helpers to copy or access the
+data as defined in <code class="docutils literal notranslate"><span class="pre">linux/uio.h</span></code>.</p>
 <p>Careful readers might notice that these callbacks receive the
 arguments in bytes, not in frames like other callbacks.  It's because
 this makes coding easier like in the examples above, and also it makes
@@ -3284,25 +3285,6 @@ interleaved case.  The callback is supposed to copy the data from/to
 the given user-space buffer, but only for the given channel. For
 details, please check <code class="docutils literal notranslate"><span class="pre">isa/gus/gus_pcm.c</span></code> or <code class="docutils literal notranslate"><span class="pre">pci/rme9652/rme9652.c</span></code>
 as examples.</p>
-<p>The above callbacks are the copies from/to the user-space buffer.  There
-are some cases where we want to copy from/to the kernel-space buffer
-instead.  In such a case, the <code class="docutils literal notranslate"><span class="pre">copy_kernel</span></code> callback is called.  It'd
-look like:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static int playback_copy_kernel(struct snd_pcm_substream *substream,
-             int channel, unsigned long pos,
-             void *src, unsigned long count);
-static int capture_copy_kernel(struct snd_pcm_substream *substream,
-             int channel, unsigned long pos,
-             void *dst, unsigned long count);
-</pre></div>
-</div>
-<p>As found easily, the only difference is that the buffer pointer is
-without a <code class="docutils literal notranslate"><span class="pre">__user</span></code> prefix; that is, a kernel-buffer pointer is passed
-in the fourth argument.  Correspondingly, the implementation would be
-a version without the user-copy, such as:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>my_memcpy(my_buffer + pos, src, count);
-</pre></div>
-</div>
 <p>Usually for the playback, another callback <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code> is
 defined.  It's implemented in a similar way as the copy callbacks
 above:</p>
@@ -3310,10 +3292,10 @@ above:</p>
                    unsigned long pos, unsigned long count);
 </pre></div>
 </div>
-<p>The meanings of arguments are the same as in the <code class="docutils literal notranslate"><span class="pre">copy_user</span></code> and
-<code class="docutils literal notranslate"><span class="pre">copy_kernel</span></code> callbacks, although there is no buffer pointer
+<p>The meanings of arguments are the same as in the <code class="docutils literal notranslate"><span class="pre">copy</span></code> callback,
+although there is no buffer pointer
 argument. In the case of interleaved samples, the channel argument has
-no meaning, as for the <code class="docutils literal notranslate"><span class="pre">copy_*</span></code> callbacks.</p>
+no meaning, as for the <code class="docutils literal notranslate"><span class="pre">copy</span></code> callback.</p>
 <p>The role of the <code class="docutils literal notranslate"><span class="pre">fill_silence</span></code> callback is to set the given amount
 (<code class="docutils literal notranslate"><span class="pre">count</span></code>) of silence data at the specified offset (<code class="docutils literal notranslate"><span class="pre">pos</span></code>) in the
 hardware buffer. Suppose that the data format is signed (that is, the

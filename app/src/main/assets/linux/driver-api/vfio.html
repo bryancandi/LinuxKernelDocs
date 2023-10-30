@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -165,6 +165,9 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">VFIO - &quot;Virtual Function I/O&quot; </a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#groups-devices-and-iommus">Groups, Devices, and IOMMUs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#vfio-usage-example">VFIO Usage Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#iommufd-and-vfio-iommu-type1">IOMMUFD and vfio_iommu_type1</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vfio-device-cdev">VFIO Device cdev</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#device-cdev-example">Device cdev Example</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#vfio-user-api">VFIO User API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#vfio-bus-driver-api">VFIO bus driver API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#ppc64-spapr-implementation-note">PPC64 sPAPR implementation note</a></li>
@@ -179,7 +182,22 @@
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -237,7 +255,7 @@
           <div class="body" role="main">
             
   <section id="vfio-virtual-function-i-o-1">
-<h1>VFIO - &quot;Virtual Function I/O&quot; <a class="footnote-reference brackets" href="#id5" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a><a class="headerlink" href="#vfio-virtual-function-i-o-1" title="Permalink to this heading">¶</a></h1>
+<h1>VFIO - &quot;Virtual Function I/O&quot; <a class="footnote-reference brackets" href="#id7" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a><a class="headerlink" href="#vfio-virtual-function-i-o-1" title="Permalink to this heading">¶</a></h1>
 <p>Many modern systems now provide DMA and interrupt remapping facilities
 to help ensure I/O devices behave within the boundaries they've been
 allotted.  This includes x86 hardware with AMD-Vi and Intel VT-d,
@@ -245,13 +263,13 @@ POWER systems with Partitionable Endpoints (PEs) and embedded PowerPC
 systems such as Freescale PAMU.  The VFIO driver is an IOMMU/device
 agnostic framework for exposing direct device access to userspace, in
 a secure, IOMMU protected environment.  In other words, this allows
-safe <a class="footnote-reference brackets" href="#id6" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>, non-privileged, userspace drivers.</p>
+safe <a class="footnote-reference brackets" href="#id8" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>, non-privileged, userspace drivers.</p>
 <p>Why do we want that?  Virtual machines often make use of direct device
 access (&quot;device assignment&quot;) when configured for the highest possible
 I/O performance.  From a device and host perspective, this simply
 turns the VM into a userspace driver, with the benefits of
 significantly reduced latency, higher bandwidth, and direct use of
-bare-metal device drivers <a class="footnote-reference brackets" href="#id7" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>.</p>
+bare-metal device drivers <a class="footnote-reference brackets" href="#id9" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>.</p>
 <p>Some applications, particularly in the high performance computing
 field, also benefit from low-overhead, direct device access from
 userspace.  Examples include network adapters (often non-TCP/IP based)
@@ -371,7 +389,7 @@ lrwxrwxrwx. 1 root root 0 Apr 23 16:13 0000:06:0d.1 -&gt;
         ../../../../devices/pci0000:00/0000:00:1e.0/0000:06:0d.1
 </pre></div>
 </div>
-<p>This device is behind a PCIe-to-PCI bridge <a class="footnote-reference brackets" href="#id8" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>, therefore we also
+<p>This device is behind a PCIe-to-PCI bridge <a class="footnote-reference brackets" href="#id10" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>, therefore we also
 need to add device 0000:06:0d.1 to the group following the same
 procedure as above.  Device 0000:00:1e.0 is a bridge that does
 not currently have a host driver, therefore it's not required to
@@ -461,6 +479,128 @@ ioctl(device, VFIO_DEVICE_RESET);
 </pre></div>
 </div>
 </section>
+<section id="iommufd-and-vfio-iommu-type1">
+<h2>IOMMUFD and vfio_iommu_type1<a class="headerlink" href="#iommufd-and-vfio-iommu-type1" title="Permalink to this heading">¶</a></h2>
+<p>IOMMUFD is the new user API to manage I/O page tables from userspace.
+It intends to be the portal of delivering advanced userspace DMA
+features (nested translation <a class="footnote-reference brackets" href="#id11" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a>, PASID <a class="footnote-reference brackets" href="#id12" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></a>, etc.) while also providing
+a backwards compatibility interface for existing VFIO_TYPE1v2_IOMMU use
+cases.  Eventually the vfio_iommu_type1 driver, as well as the legacy
+vfio container and group model is intended to be deprecated.</p>
+<p>The IOMMUFD backwards compatibility interface can be enabled two ways.
+In the first method, the kernel can be configured with
+CONFIG_IOMMUFD_VFIO_CONTAINER, in which case the IOMMUFD subsystem
+transparently provides the entire infrastructure for the VFIO
+container and IOMMU backend interfaces.  The compatibility mode can
+also be accessed if the VFIO container interface, ie. /dev/vfio/vfio is
+simply symlink'd to /dev/iommu.  Note that at the time of writing, the
+compatibility mode is not entirely feature complete relative to
+VFIO_TYPE1v2_IOMMU (ex. DMA mapping MMIO) and does not attempt to
+provide compatibility to the VFIO_SPAPR_TCE_IOMMU interface.  Therefore
+it is not generally advisable at this time to switch from native VFIO
+implementations to the IOMMUFD compatibility interfaces.</p>
+<p>Long term, VFIO users should migrate to device access through the cdev
+interface described below, and native access through the IOMMUFD
+provided interfaces.</p>
+</section>
+<section id="vfio-device-cdev">
+<h2>VFIO Device cdev<a class="headerlink" href="#vfio-device-cdev" title="Permalink to this heading">¶</a></h2>
+<p>Traditionally user acquires a device fd via VFIO_GROUP_GET_DEVICE_FD
+in a VFIO group.</p>
+<p>With CONFIG_VFIO_DEVICE_CDEV=y the user can now acquire a device fd
+by directly opening a character device /dev/vfio/devices/vfioX where
+&quot;X&quot; is the number allocated uniquely by VFIO for registered devices.
+cdev interface does not support noiommu devices, so user should use
+the legacy group interface if noiommu is wanted.</p>
+<p>The cdev only works with IOMMUFD.  Both VFIO drivers and applications
+must adapt to the new cdev security model which requires using
+VFIO_DEVICE_BIND_IOMMUFD to claim DMA ownership before starting to
+actually use the device.  Once BIND succeeds then a VFIO device can
+be fully accessed by the user.</p>
+<p>VFIO device cdev doesn't rely on VFIO group/container/iommu drivers.
+Hence those modules can be fully compiled out in an environment
+where no legacy VFIO application exists.</p>
+<p>So far SPAPR does not support IOMMUFD yet.  So it cannot support device
+cdev either.</p>
+<p>vfio device cdev access is still bound by IOMMU group semantics, ie. there
+can be only one DMA owner for the group.  Devices belonging to the same
+group can not be bound to multiple iommufd_ctx or shared between native
+kernel and vfio bus driver or other driver supporting the driver_managed_dma
+flag.  A violation of this ownership requirement will fail at the
+VFIO_DEVICE_BIND_IOMMUFD ioctl, which gates full device access.</p>
+</section>
+<section id="device-cdev-example">
+<h2>Device cdev Example<a class="headerlink" href="#device-cdev-example" title="Permalink to this heading">¶</a></h2>
+<p>Assume user wants to access PCI device 0000:6a:01.0:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ls /sys/bus/pci/devices/0000:6a:01.0/vfio-dev/
+vfio0
+</pre></div>
+</div>
+<p>This device is therefore represented as vfio0.  The user can verify
+its existence:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ls -l /dev/vfio/devices/vfio0
+crw------- 1 root root 511, 0 Feb 16 01:22 /dev/vfio/devices/vfio0
+$ cat /sys/bus/pci/devices/0000:6a:01.0/vfio-dev/vfio0/dev
+511:0
+$ ls -l /dev/char/511\:0
+lrwxrwxrwx 1 root root 21 Feb 16 01:22 /dev/char/511:0 -&gt; ../vfio/devices/vfio0
+</pre></div>
+</div>
+<p>Then provide the user with access to the device if unprivileged
+operation is desired:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ chown user:user /dev/vfio/devices/vfio0
+</pre></div>
+</div>
+<p>Finally the user could get cdev fd by:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cdev_fd = open(&quot;/dev/vfio/devices/vfio0&quot;, O_RDWR);
+</pre></div>
+</div>
+<p>An opened cdev_fd doesn't give the user any permission of accessing
+the device except binding the cdev_fd to an iommufd.  After that point
+then the device is fully accessible including attaching it to an
+IOMMUFD IOAS/HWPT to enable userspace DMA:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct vfio_device_bind_iommufd bind = {
+        .argsz = sizeof(bind),
+        .flags = 0,
+};
+struct iommu_ioas_alloc alloc_data  = {
+        .size = sizeof(alloc_data),
+        .flags = 0,
+};
+struct vfio_device_attach_iommufd_pt attach_data = {
+        .argsz = sizeof(attach_data),
+        .flags = 0,
+};
+struct iommu_ioas_map map = {
+        .size = sizeof(map),
+        .flags = IOMMU_IOAS_MAP_READABLE |
+                 IOMMU_IOAS_MAP_WRITEABLE |
+                 IOMMU_IOAS_MAP_FIXED_IOVA,
+        .__reserved = 0,
+};
+
+iommufd = open(&quot;/dev/iommu&quot;, O_RDWR);
+
+bind.iommufd = iommufd;
+ioctl(cdev_fd, VFIO_DEVICE_BIND_IOMMUFD, &amp;bind);
+
+ioctl(iommufd, IOMMU_IOAS_ALLOC, &amp;alloc_data);
+attach_data.pt_id = alloc_data.out_ioas_id;
+ioctl(cdev_fd, VFIO_DEVICE_ATTACH_IOMMUFD_PT, &amp;attach_data);
+
+/* Allocate some space and setup a DMA mapping */
+map.user_va = (int64_t)mmap(0, 1024 * 1024, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+map.iova = 0; /* 1MB starting at 0x0 from device view */
+map.length = 1024 * 1024;
+map.ioas_id = alloc_data.out_ioas_id;;
+
+ioctl(iommufd, IOMMU_IOAS_MAP, &amp;map);
+
+/* Other device operations as stated in &quot;VFIO Usage Example&quot; */
+</pre></div>
+</div>
+</section>
 <section id="vfio-user-api">
 <h2>VFIO User API<a class="headerlink" href="#vfio-user-api" title="Permalink to this heading">¶</a></h2>
 <p>Please see include/uapi/linux/vfio.h for complete API documentation.</p>
@@ -498,6 +638,7 @@ similar to a file operations structure:</p>
                                 struct iommufd_ctx *ictx, u32 *out_device_id);
         void    (*unbind_iommufd)(struct vfio_device *vdev);
         int     (*attach_ioas)(struct vfio_device *vdev, u32 *pt_id);
+        void    (*detach_ioas)(struct vfio_device *vdev);
         int     (*open_device)(struct vfio_device *vdev);
         void    (*close_device)(struct vfio_device *vdev);
         ssize_t (*read)(struct vfio_device *vdev, char __user *buf,
@@ -532,9 +673,10 @@ container_of().</p>
 - The [un]bind_iommufd callbacks are issued when the device is bound to
   and unbound from iommufd.
 
-- The attach_ioas callback is issued when the device is attached to an
-  IOAS managed by the bound iommufd. The attached IOAS is automatically
-  detached when the device is unbound from iommufd.
+- The [de]attach_ioas callback is issued when the device is attached to
+  and detached from an IOAS managed by the bound iommufd. However, the
+  attached IOAS can also be automatically detached when the device is
+  unbound from iommufd.
 
 - The read/write/mmap callbacks implement the device region access defined
   by the device&#39;s own VFIO_DEVICE_GET_REGION_INFO ioctl.
@@ -748,13 +890,13 @@ and removes it.</p>
 </ol>
 <hr class="docutils" />
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id5" role="note">
+<aside class="footnote brackets" id="id7" role="note">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
 <p>VFIO was originally an acronym for &quot;Virtual Function I/O&quot; in its
 initial implementation by Tom Lyon while as Cisco.  We've since
 outgrown the acronym, but it's catchy.</p>
 </aside>
-<aside class="footnote brackets" id="id6" role="note">
+<aside class="footnote brackets" id="id8" role="note">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
 <p>&quot;safe&quot; also depends upon a device being &quot;well behaved&quot;.  It's
 possible for multi-function devices to have backdoors between
@@ -767,14 +909,14 @@ still provide isolation.  For PCI, SR-IOV Virtual Functions are the
 best indicator of &quot;well behaved&quot;, as these are designed for
 virtualization usage models.</p>
 </aside>
-<aside class="footnote brackets" id="id7" role="note">
+<aside class="footnote brackets" id="id9" role="note">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">3</a><span class="fn-bracket">]</span></span>
 <p>As always there are trade-offs to virtual machine device
 assignment that are beyond the scope of VFIO.  It's expected that
 future IOMMU technologies will reduce some, but maybe not all, of
 these trade-offs.</p>
 </aside>
-<aside class="footnote brackets" id="id8" role="note">
+<aside class="footnote brackets" id="id10" role="note">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id4">4</a><span class="fn-bracket">]</span></span>
 <p>In this case the device is below a PCI bridge, so transactions
 from either function of the device are indistinguishable to the iommu:</p>
@@ -784,6 +926,18 @@ from either function of the device are indistinguishable to the iommu:</p>
 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 90)
 </pre></div>
 </div>
+</aside>
+<aside class="footnote brackets" id="id11" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">5</a><span class="fn-bracket">]</span></span>
+<p>Nested translation is an IOMMU feature which supports two stage
+address translations.  This improves the address translation efficiency
+in IOMMU virtualization.</p>
+</aside>
+<aside class="footnote brackets" id="id12" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id6">6</a><span class="fn-bracket">]</span></span>
+<p>PASID stands for Process Address Space ID, introduced by PCI
+Express.  It is a prerequisite for Shared Virtual Addressing (SVA)
+and Scalable I/O Virtualization (Scalable IOV).</p>
 </aside>
 </aside>
 </section>

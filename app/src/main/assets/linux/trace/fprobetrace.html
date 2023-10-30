@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -235,9 +235,9 @@ f:fprobes/myprobe vfs_read count=count pos=pos
 </pre></div>
 </div>
 <p>It also chooses the fetch type from BTF information. For example, in the above
-example, the <code class="docutils literal notranslate"><span class="pre">count</span></code> is unsigned long, and the <code class="docutils literal notranslate"><span class="pre">pos</span></code> is a pointer. Thus, both
-are converted to 64bit unsigned long, but only <code class="docutils literal notranslate"><span class="pre">pos</span></code> has &quot;%Lx&quot; print-format as
-below</p>
+example, the <code class="docutils literal notranslate"><span class="pre">count</span></code> is unsigned long, and the <code class="docutils literal notranslate"><span class="pre">pos</span></code> is a pointer. Thus,
+both are converted to 64bit unsigned long, but only <code class="docutils literal notranslate"><span class="pre">pos</span></code> has &quot;%Lx&quot;
+print-format as below</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat events/fprobes/myprobe/format
 name: myprobe
 ID: 1313
@@ -261,9 +261,43 @@ is expanded to all function arguments of the function or the tracepoint.</p>
 f:fprobes/myprobe vfs_read file=file buf=buf count=count pos=pos
 </pre></div>
 </div>
-<p>BTF also affects the <code class="docutils literal notranslate"><span class="pre">$retval</span></code>. If user doesn't set any type, the retval type is
-automatically picked from the BTF. If the function returns <code class="docutils literal notranslate"><span class="pre">void</span></code>, <code class="docutils literal notranslate"><span class="pre">$retval</span></code>
-is rejected.</p>
+<p>BTF also affects the <code class="docutils literal notranslate"><span class="pre">$retval</span></code>. If user doesn't set any type, the retval
+type is automatically picked from the BTF. If the function returns <code class="docutils literal notranslate"><span class="pre">void</span></code>,
+<code class="docutils literal notranslate"><span class="pre">$retval</span></code> is rejected.</p>
+<p>You can access the data fields of a data structure using allow operator <code class="docutils literal notranslate"><span class="pre">-&gt;</span></code>
+(for pointer type) and dot operator <code class="docutils literal notranslate"><span class="pre">.</span></code> (for data structure type.):</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo &#39;t sched_switch preempt prev_pid=prev-&gt;pid next_pid=next-&gt;pid&#39; &gt;&gt; dynamic_events
+</pre></div>
+</div>
+<p>The field access operators, <code class="docutils literal notranslate"><span class="pre">-&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">.</span></code> can be combined for accessing deeper
+members and other structure members pointed by the member. e.g. <code class="docutils literal notranslate"><span class="pre">foo-&gt;bar.baz-&gt;qux</span></code>
+If there is non-name union member, you can directly access it as the C code does.
+For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct {
+       union {
+       int a;
+       int b;
+       };
+} *foo;
+</pre></div>
+</div>
+<p>To access <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code>, use <code class="docutils literal notranslate"><span class="pre">foo-&gt;a</span></code> and <code class="docutils literal notranslate"><span class="pre">foo-&gt;b</span></code> in this case.</p>
+<p>This data field access is available for the return value via <code class="docutils literal notranslate"><span class="pre">$retval</span></code>,
+e.g. <code class="docutils literal notranslate"><span class="pre">$retval-&gt;name</span></code>.</p>
+<p>For these BTF arguments and fields, <code class="docutils literal notranslate"><span class="pre">:string</span></code> and <code class="docutils literal notranslate"><span class="pre">:ustring</span></code> change the
+behavior. If these are used for BTF argument or field, it checks whether
+the BTF type of the argument or the data field is <code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">*</span></code> or <code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">[]</span></code>,
+or not.  If not, it rejects applying the string types. Also, with the BTF
+support, you don't need a memory dereference operator (<code class="docutils literal notranslate"><span class="pre">+0(PTR)</span></code>) for
+accessing the string pointed by a <code class="docutils literal notranslate"><span class="pre">PTR</span></code>. It automatically adds the memory
+dereference operator according to the BTF type. e.g.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo &#39;t sched_switch prev-&gt;comm:string&#39; &gt;&gt; dynamic_events
+# echo &#39;f getname_flags%return $retval-&gt;name:string&#39; &gt;&gt; dynamic_events
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">prev-&gt;comm</span></code> is an embedded char array in the data structure, and
+<code class="docutils literal notranslate"><span class="pre">$retval-&gt;name</span></code> is a char pointer in the data structure. But in both
+cases, you can use <code class="docutils literal notranslate"><span class="pre">:string</span></code> type to get the string.</p>
 </section>
 <section id="usage-examples">
 <h2>Usage examples<a class="headerlink" href="#usage-examples" title="Permalink to this heading">¶</a></h2>
@@ -313,8 +347,8 @@ the other hand, the <code class="docutils literal notranslate"><span class="pre"
 parameters. This means you can access any field values in the task
 structure pointed by the <code class="docutils literal notranslate"><span class="pre">prev</span></code> and <code class="docutils literal notranslate"><span class="pre">next</span></code> arguments.</p>
 <p>For example, usually <code class="docutils literal notranslate"><span class="pre">task_struct::start_time</span></code> is not traced, but with this
-traceprobe event, you can trace it as below.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> # echo &#39;t sched_switch comm=+1896(next):string start_time=+1728(next):u64&#39; &gt; dynamic_events
+traceprobe event, you can trace that field as below.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> # echo &#39;t sched_switch comm=next-&gt;comm:string next-&gt;start_time&#39; &gt; dynamic_events
  # head -n 20 trace | tail
 #           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION
 #              | |         |   |||||     |         |
@@ -328,14 +362,6 @@ traceprobe event, you can trace it as below.</p>
           &lt;idle&gt;-0       [000] d..3.  5606.692368: sched_switch: (__probestub_sched_switch+0x4/0x10) comm=&quot;kworker/0:1&quot; usage=1 start_time=137000000
 </pre></div>
 </div>
-<p>Currently, to find the offset of a specific field in the data structure,
-you need to build kernel with debuginfo and run <cite>perf probe</cite> command with
-<cite>-D</cite> option. e.g.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># perf probe -D &quot;__probestub_sched_switch next-&gt;comm:string next-&gt;start_time&quot;
-p:probe/__probestub_sched_switch __probestub_sched_switch+0 comm=+1896(%cx):string start_time=+1728(%cx):u64
-</pre></div>
-</div>
-<p>And replace the <code class="docutils literal notranslate"><span class="pre">%cx</span></code> with the <code class="docutils literal notranslate"><span class="pre">next</span></code>.</p>
 </section>
 </section>
 

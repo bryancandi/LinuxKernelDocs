@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -179,7 +179,22 @@
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -793,6 +808,11 @@ system.</p>
 #ifdef CONFIG_SWIOTLB;
     struct io_tlb_mem *dma_io_tlb_mem;
 #endif;
+#ifdef CONFIG_SWIOTLB_DYNAMIC;
+    struct list_head dma_io_tlb_pools;
+    spinlock_t dma_io_tlb_lock;
+    bool dma_uses_io_tlb;
+#endif;
     struct dev_archdata     archdata;
     struct device_node      *of_node;
     struct fwnode_handle    *fwnode;
@@ -890,7 +910,13 @@ segment limitations.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cma_area</span></code></dt><dd><p>Contiguous memory area for dma allocations</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">dma_io_tlb_mem</span></code></dt><dd><p>Pointer to the swiotlb pool used.  Not for driver use.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_io_tlb_mem</span></code></dt><dd><p>Software IO TLB allocator.  Not for driver use.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_io_tlb_pools</span></code></dt><dd><p>List of transient swiotlb memory pools.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_io_tlb_lock</span></code></dt><dd><p>Protects changes to the list of active pools.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_uses_io_tlb</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">true</span></code> if device has used the software IO TLB.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">archdata</span></code></dt><dd><p>For arch-specific additions.</p>
 </dd>
@@ -1105,6 +1131,334 @@ lockdep_no_validate class.</p>
 <p>This must be called with the device_lock() already held, for example
 from driver -&gt;remove().</p>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.bus_type">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_type</span></span></span><a class="headerlink" href="#c.bus_type" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>The bus type of the device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct bus_type {
+    const char              *name;
+    const char              *dev_name;
+    const struct attribute_group **bus_groups;
+    const struct attribute_group **dev_groups;
+    const struct attribute_group **drv_groups;
+    int (*match)(struct device *dev, struct device_driver *drv);
+    int (*uevent)(const struct device *dev, struct kobj_uevent_env *env);
+    int (*probe)(struct device *dev);
+    void (*sync_state)(struct device *dev);
+    void (*remove)(struct device *dev);
+    void (*shutdown)(struct device *dev);
+    int (*online)(struct device *dev);
+    int (*offline)(struct device *dev);
+    int (*suspend)(struct device *dev, pm_message_t state);
+    int (*resume)(struct device *dev);
+    int (*num_vf)(struct device *dev);
+    int (*dma_configure)(struct device *dev);
+    void (*dma_cleanup)(struct device *dev);
+    const struct dev_pm_ops *pm;
+    const struct iommu_ops *iommu_ops;
+    bool need_parent_lock;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>The name of the bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_name</span></code></dt><dd><p>Used for subsystems to enumerate devices like (&quot;foo``u``&quot;, dev-&gt;id).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bus_groups</span></code></dt><dd><p>Default attributes of the bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_groups</span></code></dt><dd><p>Default attributes of the devices on the bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">drv_groups</span></code></dt><dd><p>Default attributes of the device drivers on the bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">match</span></code></dt><dd><p>Called, perhaps multiple times, whenever a new device or driver
+is added for this bus. It should return a positive value if the
+given device can be handled by the given driver and zero
+otherwise. It may also return error code if determining that
+the driver supports the device is not possible. In case of
+-EPROBE_DEFER it will queue the device for deferred probing.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">uevent</span></code></dt><dd><p>Called when a device is added, removed, or a few other things
+that generate uevents to add the environment variables.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">probe</span></code></dt><dd><p>Called when a new device or driver add to this bus, and callback
+the specific driver's probe to initial the matched device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sync_state</span></code></dt><dd><p>Called to sync device state to software state after all the
+state tracking consumers linked to this device (present at
+the time of late_initcall) have successfully bound to a
+driver. If the device has no consumers, this function will
+be called at late_initcall_sync level. If the device has
+consumers that are never bound to a driver, this function
+will never get called until they do.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">remove</span></code></dt><dd><p>Called when a device removed from this bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shutdown</span></code></dt><dd><p>Called at shut-down time to quiesce the device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">online</span></code></dt><dd><p>Called to put the device back online (after offlining it).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offline</span></code></dt><dd><p>Called to put the device offline for hot-removal. May fail.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">suspend</span></code></dt><dd><p>Called when a device on this bus wants to go to sleep mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">resume</span></code></dt><dd><p>Called to bring a device on this bus out of sleep mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_vf</span></code></dt><dd><p>Called to find out how many virtual functions a device on this
+bus supports.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_configure</span></code></dt><dd><p>Called to setup DMA configuration on a device on
+this bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_cleanup</span></code></dt><dd><p>Called to cleanup DMA configuration on a device on
+this bus.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pm</span></code></dt><dd><p>Power management operations of this bus, callback the specific
+device driver's pm-ops.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">iommu_ops</span></code></dt><dd><p>IOMMU specific operations for this bus, used to attach IOMMU
+driver implementations to a bus and allow the driver to do
+bus-specific setup</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">need_parent_lock</span></code></dt><dd><p>When probing or removing a device on this bus, the
+device core should lock the device's parent.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>A bus is a channel between the processor and one or more devices. For the
+purposes of the device model, all devices are connected via a bus, even if
+it is an internal, virtual, &quot;platform&quot; bus. Buses can plug into each other.
+A USB controller is usually a PCI device, for example. The device model
+represents the actual connections between buses and the devices they control.
+A bus is represented by the bus_type structure. It contains the name, the
+default attributes, the bus' methods, PM operations, and the driver core's
+private data.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.bus_notifier_event">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_notifier_event</span></span></span><a class="headerlink" href="#c.bus_notifier_event" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Bus Notifier events that have happened</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_ADD_DEVICE</span></code></dt><dd><p>device is added to this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_DEL_DEVICE</span></code></dt><dd><p>device is about to be removed from this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_REMOVED_DEVICE</span></code></dt><dd><p>device is successfully removed from this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_BIND_DRIVER</span></code></dt><dd><p>a driver is about to be bound to this device on this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_BOUND_DRIVER</span></code></dt><dd><p>a driver is successfully bound to this device on this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_UNBIND_DRIVER</span></code></dt><dd><p>a driver is about to be unbound from this device on this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_UNBOUND_DRIVER</span></code></dt><dd><p>a driver is successfully unbound from this device on this bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">BUS_NOTIFY_DRIVER_NOT_BOUND</span></code></dt><dd><p>a driver failed to be bound to this device on this bus</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>These are the value passed to a bus notifier when a specific event happens.</p>
+<p>Note that bus notifiers are likely to be called with the device lock already
+held by the driver core, so be careful in any notifier callback as to what
+you do with the device structure.</p>
+<p>All bus notifiers are called with the target <a class="reference internal" href="#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> * as an argument.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.class">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">class</span></span></span><a class="headerlink" href="#c.class" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device classes</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct class {
+    const char              *name;
+    const struct attribute_group    **class_groups;
+    const struct attribute_group    **dev_groups;
+    int (*dev_uevent)(const struct device *dev, struct kobj_uevent_env *env);
+    char *(*devnode)(const struct device *dev, umode_t *mode);
+    void (*class_release)(const struct class *class);
+    void (*dev_release)(struct device *dev);
+    int (*shutdown_pre)(struct device *dev);
+    const struct kobj_ns_type_operations *ns_type;
+    const void *(*namespace)(const struct device *dev);
+    void (*get_ownership)(const struct device *dev, kuid_t *uid, kgid_t *gid);
+    const struct dev_pm_ops *pm;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>Name of the class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">class_groups</span></code></dt><dd><p>Default attributes of this class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_groups</span></code></dt><dd><p>Default attributes of the devices that belong to the class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_uevent</span></code></dt><dd><p>Called when a device is added, removed from this class, or a
+few other things that generate uevents to add the environment
+variables.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">devnode</span></code></dt><dd><p>Callback to provide the devtmpfs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">class_release</span></code></dt><dd><p>Called to release this class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_release</span></code></dt><dd><p>Called to release the device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shutdown_pre</span></code></dt><dd><p>Called at shut-down time before driver shutdown.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ns_type</span></code></dt><dd><p>Callbacks so sysfs can detemine namespaces.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">namespace</span></code></dt><dd><p>Namespace of the device belongs to this class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_ownership</span></code></dt><dd><p>Allows class to specify uid/gid of the sysfs directories
+for the devices belonging to the class. Usually tied to
+device's namespace.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pm</span></code></dt><dd><p>The default device power management operations of this class.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>A class is a higher-level view of a device that abstracts out low-level
+implementation details. Drivers may see a SCSI disk or an ATA disk, but,
+at the class level, they are all simply disks. Classes allow user space
+to work with devices based on what they do, rather than how they are
+connected or how they work.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.probe_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">probe_type</span></span></span><a class="headerlink" href="#c.probe_type" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device driver probe type to try Device drivers may opt in for special handling of their respective probe routines. This tells the core what to expect and prefer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">PROBE_DEFAULT_STRATEGY</span></code></dt><dd><p>Used by drivers that work equally well
+whether probed synchronously or asynchronously.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PROBE_PREFER_ASYNCHRONOUS</span></code></dt><dd><p>Drivers for &quot;slow&quot; devices which
+probing order is not essential for booting the system may
+opt into executing their probes asynchronously.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PROBE_FORCE_SYNCHRONOUS</span></code></dt><dd><p>Use this to annotate drivers that need
+their probe routines to run synchronously with driver and
+device registration (with the exception of -EPROBE_DEFER
+handling - re-probing always ends up being done asynchronously).</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Note that the end goal is to switch the kernel to use asynchronous
+probing by default, so annotating drivers with
+<code class="docutils literal notranslate"><span class="pre">PROBE_PREFER_ASYNCHRONOUS</span></code> is a temporary measure that allows us
+to speed up boot process while we are validating the rest of the
+drivers.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.device_driver">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device_driver</span></span></span><a class="headerlink" href="#c.device_driver" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>The basic device driver structure</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct device_driver {
+    const char              *name;
+    const struct bus_type   *bus;
+    struct module           *owner;
+    const char              *mod_name;
+    bool suppress_bind_attrs;
+    enum probe_type probe_type;
+    const struct of_device_id       *of_match_table;
+    const struct acpi_device_id     *acpi_match_table;
+    int (*probe) (struct device *dev);
+    void (*sync_state)(struct device *dev);
+    int (*remove) (struct device *dev);
+    void (*shutdown) (struct device *dev);
+    int (*suspend) (struct device *dev, pm_message_t state);
+    int (*resume) (struct device *dev);
+    const struct attribute_group **groups;
+    const struct attribute_group **dev_groups;
+    const struct dev_pm_ops *pm;
+    void (*coredump) (struct device *dev);
+    struct driver_private *p;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>Name of the device driver.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bus</span></code></dt><dd><p>The bus which the device of this driver belongs to.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">owner</span></code></dt><dd><p>The module owner.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mod_name</span></code></dt><dd><p>Used for built-in modules.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">suppress_bind_attrs</span></code></dt><dd><p>Disables bind/unbind via sysfs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">probe_type</span></code></dt><dd><p>Type of the probe (synchronous or asynchronous) to use.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">of_match_table</span></code></dt><dd><p>The open firmware table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">acpi_match_table</span></code></dt><dd><p>The ACPI match table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">probe</span></code></dt><dd><p>Called to query the existence of a specific device,
+whether this driver can work with it, and bind the driver
+to a specific device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sync_state</span></code></dt><dd><p>Called to sync device state to software state after all the
+state tracking consumers linked to this device (present at
+the time of late_initcall) have successfully bound to a
+driver. If the device has no consumers, this function will
+be called at late_initcall_sync level. If the device has
+consumers that are never bound to a driver, this function
+will never get called until they do.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">remove</span></code></dt><dd><p>Called when the device is removed from the system to
+unbind a device from this driver.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shutdown</span></code></dt><dd><p>Called at shut-down time to quiesce the device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">suspend</span></code></dt><dd><p>Called to put the device to sleep mode. Usually to a
+low power state.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">resume</span></code></dt><dd><p>Called to bring a device from sleep mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">groups</span></code></dt><dd><p>Default attributes that get created by the driver core
+automatically.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_groups</span></code></dt><dd><p>Additional attributes attached to device instance once
+it is bound to the driver.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pm</span></code></dt><dd><p>Power management operations of the device which matched
+this driver.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">coredump</span></code></dt><dd><p>Called when sysfs entry is written to. The device driver
+is expected to call the dev_coredump API resulting in a
+uevent.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p</span></code></dt><dd><p>Driver core's private data, no one other than the driver
+core can touch this.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The device driver-model tracks all of the drivers known to the system.
+The main reason for this tracking is to enable the driver core to match
+up drivers with new devices. Once drivers are known objects within the
+system, however, a number of other things become possible. Device drivers
+can export information and configuration variables that are independent
+of any specific device.</p>
 </section>
 <section id="device-drivers-base">
 <h2>Device Drivers Base<a class="headerlink" href="#device-drivers-base" title="Permalink to this heading">¶</a></h2>
@@ -1123,6 +1477,129 @@ from driver -&gt;remove().</p>
 <p><strong>Description</strong></p>
 <p>Call the driver model init functions to initialize their
 subsystems. Called early from init/main.c.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.driver_find_device_by_name">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device_by_name</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device_by_name" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device of a specific name.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>the driver we're iterating</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>name of the device to match</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.driver_find_device_by_of_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device_by_of_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_node</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">np</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device_by_of_node" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device by of_node pointer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>the driver we're iterating</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">device_node</span> <span class="pre">*np</span></code></dt><dd><p>of_node pointer to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.driver_find_device_by_fwnode">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device_by_fwnode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device_by_fwnode" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device by fwnode pointer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>the driver we're iterating</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">fwnode_handle</span> <span class="pre">*fwnode</span></code></dt><dd><p>fwnode pointer to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.driver_find_device_by_devt">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device_by_devt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="n"><span class="pre">dev_t</span></span><span class="w"> </span><span class="n"><span class="pre">devt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device_by_devt" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device by devt.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>the driver we're iterating</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_t</span> <span class="pre">devt</span></code></dt><dd><p>devt pointer to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.driver_find_device_by_acpi_dev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device_by_acpi_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">acpi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device_by_acpi_dev" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the ACPI_COMPANION device.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>the driver we're iterating</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">acpi_device</span> <span class="pre">*adev</span></code></dt><dd><p>ACPI_COMPANION device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.module_driver">
+<span class="sig-name descname"><span class="n"><span class="pre">module_driver</span></span></span><a class="headerlink" href="#c.module_driver" title="Permalink to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">module_driver</span> <span class="pre">(__driver,</span> <span class="pre">__register,</span> <span class="pre">__unregister,</span> <span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Helper macro for drivers that don't do anything special in module init/exit. This eliminates a lot of boilerplate. Each module may only use this macro once, and calling it replaces <a class="reference internal" href="basics.html#c.module_init" title="module_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_init()</span></code></a> and <a class="reference internal" href="basics.html#c.module_exit" title="module_exit"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_exit()</span></code></a>.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__driver</span></code></dt><dd><p>driver name</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__register</span></code></dt><dd><p>register function for this driver type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__unregister</span></code></dt><dd><p>unregister function for this driver type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>Additional arguments to be passed to __register and __unregister.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Use this macro to construct bus specific macros for registering
+drivers, and do not use it on its own.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.builtin_driver">
+<span class="sig-name descname"><span class="n"><span class="pre">builtin_driver</span></span></span><a class="headerlink" href="#c.builtin_driver" title="Permalink to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">builtin_driver</span> <span class="pre">(__driver,</span> <span class="pre">__register,</span> <span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Helper macro for drivers that don't do anything special in init and have no exit. This eliminates some boilerplate. Each driver may only use this macro once, and calling it replaces device_initcall (or in some cases, the legacy __initcall). This is meant to be a direct parallel of <a class="reference internal" href="#c.module_driver" title="module_driver"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_driver()</span></code></a> above but without the __exit stuff that is not used for builtin cases.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__driver</span></code></dt><dd><p>driver name</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__register</span></code></dt><dd><p>register function for this driver type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>Additional arguments to be passed to __register</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Use this macro to construct bus specific macros for registering
+drivers, and do not use it on its own.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_set_override">
@@ -1153,7 +1630,7 @@ when the driver_override field is allocated by driver/bus code.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_for_each_device">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_for_each_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_for_each_device" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_for_each_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_for_each_device" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Iterator for devices bound to a driver.</p>
 </dd></dl>
 
@@ -1174,7 +1651,7 @@ when the driver_override field is allocated by driver/bus code.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_find_device">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">match</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">match</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find_device" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>device iterator for locating a particular device.</p>
 </dd></dl>
 
@@ -1200,7 +1677,7 @@ return to the caller and not iterate over any more devices.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_create_file">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_create_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">driver_attribute</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_create_file" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_create_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">driver_attribute</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_create_file" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>create sysfs file for driver.</p>
 </dd></dl>
 
@@ -1215,7 +1692,7 @@ return to the caller and not iterate over any more devices.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_remove_file">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_remove_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">driver_attribute</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_remove_file" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_remove_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">driver_attribute</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_remove_file" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>remove sysfs file for driver.</p>
 </dd></dl>
 
@@ -1230,7 +1707,7 @@ return to the caller and not iterate over any more devices.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register driver with bus</p>
 </dd></dl>
 
@@ -1247,7 +1724,7 @@ structures.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_unregister">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_unregister" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_unregister" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>remove driver from system.</p>
 </dd></dl>
 
@@ -1832,7 +2309,7 @@ root_device_register().</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the struct class that this device should be registered to</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> that this device should be registered to</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*parent</span></code></dt><dd><p>pointer to the parent <a class="reference internal" href="#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> of this new device, if any</p>
 </dd>
@@ -1866,7 +2343,7 @@ pointer.</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the struct class that this device should be registered to</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> that this device should be registered to</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*parent</span></code></dt><dd><p>pointer to the parent <a class="reference internal" href="#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> of this new device, if any</p>
 </dd>
@@ -1904,7 +2381,7 @@ pointer.</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the struct class that this device was registered with</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> that this device was registered with</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev_t</span> <span class="pre">devt</span></code></dt><dd><p>the dev_t of the device that was previously registered</p>
 </dd>
@@ -2156,9 +2633,84 @@ any reference held to the old node.</p>
 <p>This function is executed with one CPU on-line and disabled interrupts.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.class_find_device_by_name">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_find_device_by_name</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class_find_device_by_name" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">class</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_find_device_by_name" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device of a specific name.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>class type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>name of the device to match</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.class_find_device_by_of_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_find_device_by_of_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class_find_device_by_of_node" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">class</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_node</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">np</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_find_device_by_of_node" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the of_node.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>class type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">device_node</span> <span class="pre">*np</span></code></dt><dd><p>of_node of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.class_find_device_by_fwnode">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_find_device_by_fwnode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class_find_device_by_fwnode" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">class</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_find_device_by_fwnode" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the fwnode.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>class type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">fwnode_handle</span> <span class="pre">*fwnode</span></code></dt><dd><p>fwnode of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.class_find_device_by_devt">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_find_device_by_devt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class_find_device_by_devt" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">class</span></span>, <span class="n"><span class="pre">dev_t</span></span><span class="w"> </span><span class="n"><span class="pre">devt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_find_device_by_devt" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the device type.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>class type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_t</span> <span class="pre">devt</span></code></dt><dd><p>device type of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.class_find_device_by_acpi_dev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_find_device_by_acpi_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class_find_device_by_acpi_dev" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">class</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">acpi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_find_device_by_acpi_dev" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the ACPI_COMPANION device.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*class</span></code></dt><dd><p>class type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">acpi_device</span> <span class="pre">*adev</span></code></dt><dd><p>ACPI_COMPANION device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.class_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">class</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_create" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>create a struct class structure</p>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">class_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_create" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>create a <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> structure</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -2168,22 +2720,22 @@ any reference held to the old node.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This is used to create a struct class pointer that can then be used
+<p>This is used to create a <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> pointer that can then be used
 in calls to <a class="reference internal" href="#c.device_create" title="device_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">device_create()</span></code></a>.</p>
-<p>Returns <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code> pointer on success, or <a class="reference internal" href="../core-api/kernel-api.html#c.ERR_PTR" title="ERR_PTR"><code class="xref c c-func docutils literal notranslate"><span class="pre">ERR_PTR()</span></code></a> on error.</p>
+<p>Returns <a class="reference internal" href="#c.class" title="class"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> pointer on success, or <a class="reference internal" href="../core-api/kernel-api.html#c.ERR_PTR" title="ERR_PTR"><code class="xref c c-func docutils literal notranslate"><span class="pre">ERR_PTR()</span></code></a> on error.</p>
 <p>Note, the pointer created here is to be destroyed when finished by
 making a call to <a class="reference internal" href="#c.class_destroy" title="class_destroy"><code class="xref c c-func docutils literal notranslate"><span class="pre">class_destroy()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.class_destroy">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">class_destroy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">class</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cls</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_destroy" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>destroys a struct class structure</p>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">class_destroy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.class" title="class"><span class="n"><span class="pre">class</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cls</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.class_destroy" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>destroys a <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> structure</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*cls</span></code></dt><dd><p>pointer to the struct class that is to be destroyed</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">class</span> <span class="pre">*cls</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.class" title="class"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">class</span></code></a> that is to be destroyed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -2772,7 +3324,7 @@ pair is found, break out and return.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.device_driver_attach">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device_driver_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.device_driver_attach" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device_driver_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.device_driver_attach" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>attach a specific driver to a specific device</p>
 </dd></dl>
 
@@ -2790,7 +3342,7 @@ pair is found, break out and return.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_attach">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_attach" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">driver_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_attach" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>try to bind driver to devices.</p>
 </dd></dl>
 
@@ -3447,7 +3999,7 @@ unregistered in the reverse order in which they were registered.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.platform_find_device_by_driver">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">platform_find_device_by_driver</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.platform_find_device_by_driver" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">platform_find_device_by_driver</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.platform_find_device_by_driver" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Find a platform device with a given driver.</p>
 </dd></dl>
 
@@ -3461,8 +4013,100 @@ unregistered in the reverse order in which they were registered.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_device_by_name">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device_by_name</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device_by_name" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device of a specific name.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*start</span></code></dt><dd><p>Device to begin with</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>name of the device to match</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_device_by_of_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device_by_of_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_node</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">np</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device_by_of_node" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the of_node.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">device_node</span> <span class="pre">*np</span></code></dt><dd><p>of_node of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_device_by_fwnode">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device_by_fwnode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device_by_fwnode" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the fwnode.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">fwnode_handle</span> <span class="pre">*fwnode</span></code></dt><dd><p>fwnode of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_device_by_devt">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device_by_devt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="n"><span class="pre">dev_t</span></span><span class="w"> </span><span class="n"><span class="pre">devt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device_by_devt" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the device type.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_t</span> <span class="pre">devt</span></code></dt><dd><p>device type of the device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_next_device">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_next_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cur</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_next_device" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Find the next device after a given device in a given bus.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*cur</span></code></dt><dd><p>device to begin the search with.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bus_find_device_by_acpi_dev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device_by_acpi_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">acpi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device_by_acpi_dev" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>device iterator for locating a particular device matching the ACPI COMPANION device.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*bus</span></code></dt><dd><p>bus type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">acpi_device</span> <span class="pre">*adev</span></code></dt><dd><p>ACPI COMPANION device to match.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.bus_for_each_dev">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_for_each_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_for_each_dev" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_for_each_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_for_each_dev" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>device iterator.</p>
 </dd></dl>
 
@@ -3492,7 +4136,7 @@ count in the supplied callback.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_find_device">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">match</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">match</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_find_device" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>device iterator for locating a particular device.</p>
 </dd></dl>
 
@@ -3518,7 +4162,7 @@ return to the caller and not iterate over any more devices.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_for_each_drv">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_for_each_drv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_for_each_drv" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_for_each_drv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_for_each_drv" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>driver iterator</p>
 </dd></dl>
 
@@ -3549,7 +4193,7 @@ so it doesn't disappear before returning to the caller.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_rescan_devices">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_rescan_devices</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_rescan_devices" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_rescan_devices</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_rescan_devices" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>rescan devices on the bus for possible drivers</p>
 </dd></dl>
 
@@ -3584,7 +4228,7 @@ driver attachment should change accordingly.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a driver-core subsystem</p>
 </dd></dl>
 
@@ -3601,7 +4245,7 @@ the devices and drivers that belong to the subsystem.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_unregister">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_unregister" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_unregister" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>remove a bus from the system</p>
 </dd></dl>
 
@@ -3617,7 +4261,7 @@ Finally, we call bus_put() to release the refcount</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.subsys_system_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_system_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_system_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_system_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_system_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a subsystem at /sys/devices/system/</p>
 </dd></dl>
 
@@ -3644,7 +4288,7 @@ directory itself and not some create fake root-device placed in
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.subsys_virtual_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_virtual_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_virtual_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_virtual_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_virtual_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a subsystem at /sys/devices/virtual/</p>
 </dd></dl>
 
@@ -3665,7 +4309,7 @@ constructs which need sysfs interface.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.driver_find">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">device_driver</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">driver_find</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.driver_find" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>locate driver on a bus by its name.</p>
 </dd></dl>
 
@@ -3686,7 +4330,7 @@ The caller is responsible for preventing this.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.bus_get_dev_root">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_get_dev_root</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bus_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_get_dev_root" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bus_get_dev_root</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bus_get_dev_root" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return a pointer to the &quot;device root&quot; of a bus</p>
 </dd></dl>
 

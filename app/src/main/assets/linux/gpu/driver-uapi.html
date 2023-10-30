@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -70,6 +70,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../input/index.html">Input Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../hid/index.html">Human Interface Devices (HID)</a></li>
@@ -78,6 +79,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../fb/index.html">Frame Buffer</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
 </ul>
 </li>
@@ -1971,6 +1973,283 @@ applied to the buffer object.</p>
 <span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="p">...</span>
 </pre></div>
 </div>
+</section>
+<section id="drm-nouveau-uapi">
+<h2>drm/nouveau uAPI<a class="headerlink" href="#drm-nouveau-uapi" title="Permalink to this heading">¶</a></h2>
+<section id="vm-bind-exec-uapi">
+<h3>VM_BIND / EXEC uAPI<a class="headerlink" href="#vm-bind-exec-uapi" title="Permalink to this heading">¶</a></h3>
+<p>Nouveau's VM_BIND / EXEC UAPI consists of three ioctls: DRM_NOUVEAU_VM_INIT,
+DRM_NOUVEAU_VM_BIND and DRM_NOUVEAU_EXEC.</p>
+<p>In order to use the UAPI firstly a user client must initialize the VA space
+using the DRM_NOUVEAU_VM_INIT ioctl specifying which region of the VA space
+should be managed by the kernel and which by the UMD.</p>
+<p>The DRM_NOUVEAU_VM_BIND ioctl provides clients an interface to manage the
+userspace-managable portion of the VA space. It provides operations to map
+and unmap memory. Mappings may be flagged as sparse. Sparse mappings are not
+backed by a GEM object and the kernel will ignore GEM handles provided
+alongside a sparse mapping.</p>
+<p>Userspace may request memory backed mappings either within or outside of the
+bounds (but not crossing those bounds) of a previously mapped sparse
+mapping. Subsequently requested memory backed mappings within a sparse
+mapping will take precedence over the corresponding range of the sparse
+mapping. If such memory backed mappings are unmapped the kernel will make
+sure that the corresponding sparse mapping will take their place again.
+Requests to unmap a sparse mapping that still contains memory backed mappings
+will result in those memory backed mappings being unmapped first.</p>
+<p>Unmap requests are not bound to the range of existing mappings and can even
+overlap the bounds of sparse mappings. For such a request the kernel will
+make sure to unmap all memory backed mappings within the given range,
+splitting up memory backed mappings which are only partially contained
+within the given range. Unmap requests with the sparse flag set must match
+the range of a previously mapped sparse mapping exactly though.</p>
+<p>While the kernel generally permits arbitrary sequences and ranges of memory
+backed mappings being mapped and unmapped, either within a single or multiple
+VM_BIND ioctl calls, there are some restrictions for sparse mappings.</p>
+<dl class="simple">
+<dt>The kernel does not permit to:</dt><dd><ul class="simple">
+<li><p>unmap non-existent sparse mappings</p></li>
+<li><p>unmap a sparse mapping and map a new sparse mapping overlapping the range
+of the previously unmapped sparse mapping within the same VM_BIND ioctl</p></li>
+<li><p>unmap a sparse mapping and map new memory backed mappings overlapping the
+range of the previously unmapped sparse mapping within the same VM_BIND
+ioctl</p></li>
+</ul>
+</dd>
+</dl>
+<p>When using the VM_BIND ioctl to request the kernel to map memory to a given
+virtual address in the GPU's VA space there is no guarantee that the actual
+mappings are created in the GPU's MMU. If the given memory is swapped out
+at the time the bind operation is executed the kernel will stash the mapping
+details into it's internal alloctor and create the actual MMU mappings once
+the memory is swapped back in. While this is transparent for userspace, it is
+guaranteed that all the backing memory is swapped back in and all the memory
+mappings, as requested by userspace previously, are actually mapped once the
+DRM_NOUVEAU_EXEC ioctl is called to submit an exec job.</p>
+<p>A VM_BIND job can be executed either synchronously or asynchronously. If
+exectued asynchronously, userspace may provide a list of syncobjs this job
+will wait for and/or a list of syncobj the kernel will signal once the
+VM_BIND job finished execution. If executed synchronously the ioctl will
+block until the bind job is finished. For synchronous jobs the kernel will
+not permit any syncobjs submitted to the kernel.</p>
+<p>To execute a push buffer the UAPI provides the DRM_NOUVEAU_EXEC ioctl. EXEC
+jobs are always executed asynchronously, and, equal to VM_BIND jobs, provide
+the option to synchronize them with syncobjs.</p>
+<p>Besides that, EXEC jobs can be scheduled for a specified channel to execute on.</p>
+<p>Since VM_BIND jobs update the GPU's VA space on job submit, EXEC jobs do have
+an up to date view of the VA space. However, the actual mappings might still
+be pending. Hence, EXEC jobs require to have the particular fences - of
+the corresponding VM_BIND jobs they depent on - attached to them.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_sync">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_sync</span></span></span><a class="headerlink" href="#c.drm_nouveau_sync" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>sync object</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_sync {
+    __u32 flags;
+#define DRM_NOUVEAU_SYNC_SYNCOBJ 0x0;
+#define DRM_NOUVEAU_SYNC_TIMELINE_SYNCOBJ 0x1;
+#define DRM_NOUVEAU_SYNC_TYPE_MASK 0xf;
+    __u32 handle;
+    __u64 timeline_value;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>the flags for a sync object</p>
+<p>The first 8 bits are used to determine the type of the sync object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>the handle of the sync object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeline_value</span></code></dt><dd><p>The timeline point of the sync object in case the syncobj is of
+type DRM_NOUVEAU_SYNC_TIMELINE_SYNCOBJ.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This structure serves as synchronization mechanism for (potentially)
+asynchronous operations such as EXEC or VM_BIND.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_vm_init">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_vm_init</span></span></span><a class="headerlink" href="#c.drm_nouveau_vm_init" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>GPU VA space init structure</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_vm_init {
+    __u64 kernel_managed_addr;
+    __u64 kernel_managed_size;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">kernel_managed_addr</span></code></dt><dd><p>start address of the kernel managed VA space
+region</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kernel_managed_size</span></code></dt><dd><p>size of the kernel managed VA space region in
+bytes</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Used to initialize the GPU's VA space for a user client, telling the kernel
+which portion of the VA space is managed by the UMD and kernel respectively.</p>
+<p>For the UMD to use the VM_BIND uAPI, this must be called before any BOs or
+channels are created; if called afterwards DRM_IOCTL_NOUVEAU_VM_INIT fails
+with -ENOSYS.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_vm_bind_op">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_vm_bind_op</span></span></span><a class="headerlink" href="#c.drm_nouveau_vm_bind_op" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>VM_BIND operation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_vm_bind_op {
+    __u32 op;
+#define DRM_NOUVEAU_VM_BIND_OP_MAP 0x0;
+#define DRM_NOUVEAU_VM_BIND_OP_UNMAP 0x1;
+    __u32 flags;
+#define DRM_NOUVEAU_VM_BIND_SPARSE (1 &lt;&lt; 8);
+    __u32 handle;
+    __u32 pad;
+    __u64 addr;
+    __u64 bo_offset;
+    __u64 range;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">op</span></code></dt><dd><p>the operation type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>the flags for a <a class="reference internal" href="#c.drm_nouveau_vm_bind_op" title="drm_nouveau_vm_bind_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_vm_bind_op</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>the handle of the DRM GEM object to map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>32 bit padding, should be 0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>the address the VA space region or (memory backed) mapping should be mapped to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bo_offset</span></code></dt><dd><p>the offset within the BO backing the mapping</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">range</span></code></dt><dd><p>the size of the requested mapping in bytes</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This structure represents a single VM_BIND operation. UMDs should pass
+an array of this structure via <a class="reference internal" href="#c.drm_nouveau_vm_bind" title="drm_nouveau_vm_bind"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_nouveau_vm_bind</span></code></a>'s <code class="xref c c-type docutils literal notranslate"><span class="pre">op_ptr</span></code> field.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_vm_bind">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_vm_bind</span></span></span><a class="headerlink" href="#c.drm_nouveau_vm_bind" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>structure for DRM_IOCTL_NOUVEAU_VM_BIND</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_vm_bind {
+    __u32 op_count;
+    __u32 flags;
+#define DRM_NOUVEAU_VM_BIND_RUN_ASYNC 0x1;
+    __u32 wait_count;
+    __u32 sig_count;
+    __u64 wait_ptr;
+    __u64 sig_ptr;
+    __u64 op_ptr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">op_count</span></code></dt><dd><p>the number of <a class="reference internal" href="#c.drm_nouveau_vm_bind_op" title="drm_nouveau_vm_bind_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_vm_bind_op</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>the flags for a <a class="reference internal" href="#c.drm_nouveau_vm_bind" title="drm_nouveau_vm_bind"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_vm_bind</span></code></a> ioctl</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait_count</span></code></dt><dd><p>the number of wait <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sig_count</span></code></dt><dd><p>the number of <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to signal when finished</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait_ptr</span></code></dt><dd><p>pointer to <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to wait for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sig_ptr</span></code></dt><dd><p>pointer to <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to signal when finished</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">op_ptr</span></code></dt><dd><p>pointer to the <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_vm_bind_ops</span></code> to execute</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_exec_push">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_exec_push</span></span></span><a class="headerlink" href="#c.drm_nouveau_exec_push" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>EXEC push operation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_exec_push {
+    __u64 va;
+    __u32 va_len;
+    __u32 flags;
+#define DRM_NOUVEAU_EXEC_PUSH_NO_PREFETCH 0x1;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">va</span></code></dt><dd><p>the virtual address of the push buffer mapping</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">va_len</span></code></dt><dd><p>the length of the push buffer mapping</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>the flags for this push buffer mapping</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This structure represents a single EXEC push operation. UMDs should pass an
+array of this structure via <a class="reference internal" href="#c.drm_nouveau_exec" title="drm_nouveau_exec"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_nouveau_exec</span></code></a>'s <code class="xref c c-type docutils literal notranslate"><span class="pre">push_ptr</span></code> field.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_nouveau_exec">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_nouveau_exec</span></span></span><a class="headerlink" href="#c.drm_nouveau_exec" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>structure for DRM_IOCTL_NOUVEAU_EXEC</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_nouveau_exec {
+    __u32 channel;
+    __u32 push_count;
+    __u32 wait_count;
+    __u32 sig_count;
+    __u64 wait_ptr;
+    __u64 sig_ptr;
+    __u64 push_ptr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">channel</span></code></dt><dd><p>the channel to execute the push buffer in</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">push_count</span></code></dt><dd><p>the number of <a class="reference internal" href="#c.drm_nouveau_exec_push" title="drm_nouveau_exec_push"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_exec_push</span></code></a> ops</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait_count</span></code></dt><dd><p>the number of wait <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sig_count</span></code></dt><dd><p>the number of <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to signal when finished</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait_ptr</span></code></dt><dd><p>pointer to <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to wait for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sig_ptr</span></code></dt><dd><p>pointer to <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_syncs</span></code> to signal when finished</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">push_ptr</span></code></dt><dd><p>pointer to <a class="reference internal" href="#c.drm_nouveau_exec_push" title="drm_nouveau_exec_push"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_nouveau_exec_push</span></code></a> ops</p>
+</dd>
+</dl>
+</div>
+</section>
 </section>
 </section>
 

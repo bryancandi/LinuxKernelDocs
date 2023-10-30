@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -183,7 +183,22 @@
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -337,9 +352,11 @@ your driver:</p>
         int (*adap_monitor_all_enable)(struct cec_adapter *adap, bool enable);
         int (*adap_monitor_pin_enable)(struct cec_adapter *adap, bool enable);
         int (*adap_log_addr)(struct cec_adapter *adap, u8 logical_addr);
-        void (*adap_configured)(struct cec_adapter *adap, bool configured);
+        void (*adap_unconfigured)(struct cec_adapter *adap);
         int (*adap_transmit)(struct cec_adapter *adap, u8 attempts,
                               u32 signal_free_time, struct cec_msg *msg);
+        void (*adap_nb_transmit_canceled)(struct cec_adapter *adap,
+                                          const struct cec_msg *msg);
         void (*adap_status)(struct cec_adapter *adap, struct seq_file *file);
         void (*adap_free)(struct cec_adapter *adap);
 
@@ -351,8 +368,8 @@ your driver:</p>
 };
 </pre></div>
 </div>
-<p>The seven low-level ops deal with various aspects of controlling the CEC adapter
-hardware:</p>
+<p>These low-level ops deal with various aspects of controlling the CEC adapter
+hardware. They are all called with the mutex adap-&gt;lock held.</p>
 <p>To enable/disable the hardware:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int (*adap_enable)(struct cec_adapter *adap, bool enable);
 </pre></div>
@@ -394,14 +411,12 @@ If the maximum number of available logical addresses is exceeded, then it
 should return -ENXIO. Once a logical address is programmed the CEC hardware
 can receive directed messages to that address.</p>
 <p>Note that adap_log_addr must return 0 if logical_addr is CEC_LOG_ADDR_INVALID.</p>
-<p>Called when the adapter is fully configured or unconfigured:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*adap_configured)(struct cec_adapter *adap, bool configured);
+<p>Called when the adapter is unconfigured:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*adap_unconfigured)(struct cec_adapter *adap);
 </pre></div>
 </div>
-<p>If configured == true, then the adapter is fully configured, i.e. all logical
-addresses have been successfully claimed. If configured == false, then the
-adapter is unconfigured. If the driver has to take specific actions after
-(un)configuration, then that can be done through this optional callback.</p>
+<p>The adapter is unconfigured. If the driver has to take specific actions after
+unconfiguration, then that can be done through this optional callback.</p>
 <p>To transmit a new message:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int (*adap_transmit)(struct cec_adapter *adap, u8 attempts,
                      u32 signal_free_time, struct cec_msg *msg);
@@ -416,6 +431,17 @@ a new message for the same initiator. Most hardware will handle this
 automatically, but in some cases this information is needed.</p>
 <p>The CEC_FREE_TIME_TO_USEC macro can be used to convert signal_free_time to
 microseconds (one data bit period is 2.4 ms).</p>
+<p>To pass on the result of a canceled non-blocking transmit:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*adap_nb_transmit_canceled)(struct cec_adapter *adap,
+                                  const struct cec_msg *msg);
+</pre></div>
+</div>
+<p>This optional callback can be used to obtain the result of a canceled
+non-blocking transmit with sequence number msg-&gt;sequence. This is
+called if the transmit was aborted, the transmit timed out (i.e. the
+hardware never signaled that the transmit finished), or the transmit
+was successful, but the wait for the expected reply was either aborted
+or it timed out.</p>
 <p>To log the current CEC hardware status:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*adap_status)(struct cec_adapter *adap, struct seq_file *file);
 </pre></div>
@@ -555,7 +581,8 @@ command, so this callback is never called for empty lines or comment lines.</p>
 <section id="implementing-the-high-level-cec-adapter">
 <h2><span class="section-number">6.6. </span>Implementing the High-Level CEC Adapter<a class="headerlink" href="#implementing-the-high-level-cec-adapter" title="Permalink to this heading">¶</a></h2>
 <p>The low-level operations drive the hardware, the high-level operations are
-CEC protocol driven. The following high-level callbacks are available:</p>
+CEC protocol driven. The high-level callbacks are called without the adap-&gt;lock
+mutex being held. The following high-level callbacks are available:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cec_adap_ops {
         /* Low-level callbacks */
         ...
@@ -564,10 +591,18 @@ CEC protocol driven. The following high-level callbacks are available:</p>
         ...
 
         /* High-level CEC message callback */
+        void (*configured)(struct cec_adapter *adap);
         int (*received)(struct cec_adapter *adap, struct cec_msg *msg);
 };
 </pre></div>
 </div>
+<p>Called when the adapter is configured:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void (*configured)(struct cec_adapter *adap);
+</pre></div>
+</div>
+<p>The adapter is fully configured, i.e. all logical addresses have been
+successfully claimed. If the driver has to take specific actions after
+configuration, then that can be done through this optional callback.</p>
 <p>The received() callback allows the driver to optionally handle a newly
 received CEC message:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int (*received)(struct cec_adapter *adap, struct cec_msg *msg);

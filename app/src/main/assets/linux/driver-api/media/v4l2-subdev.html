@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -183,7 +183,22 @@
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -370,6 +385,8 @@ in DT as I2C device nodes. The API used in this second case is described further
 below.</p>
 <p>Using one or the other registration method only affects the probing process, the
 run-time bridge-subdevice interaction is in both cases the same.</p>
+<section id="registering-synchronous-sub-devices">
+<h3><span class="section-number">2.7.1.1. </span>Registering synchronous sub-devices<a class="headerlink" href="#registering-synchronous-sub-devices" title="Permalink to this heading">¶</a></h3>
 <p>In the <strong>synchronous</strong> case a device (bridge) driver needs to register the
 <a class="reference internal" href="#c.v4l2_subdev" title="v4l2_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev</span></code></a> with the v4l2_device:</p>
 <blockquote>
@@ -388,6 +405,9 @@ entity will be automatically registered with the media device.</p>
 </div></blockquote>
 <p>Afterwards the subdev module can be unloaded and
 <a class="reference internal" href="#c.v4l2_subdev" title="v4l2_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">sd</span></code></a>-&gt;dev == <code class="docutils literal notranslate"><span class="pre">NULL</span></code>.</p>
+</section>
+<section id="registering-asynchronous-sub-devices">
+<h3><span class="section-number">2.7.1.2. </span>Registering asynchronous sub-devices<a class="headerlink" href="#registering-asynchronous-sub-devices" title="Permalink to this heading">¶</a></h3>
 <p>In the <strong>asynchronous</strong> case subdevice probing can be invoked independently of
 the bridge driver availability. The subdevice driver then has to verify whether
 all the requirements for a successful probing are satisfied. This can include a
@@ -398,57 +418,82 @@ the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_register_su
 performed using the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_unregister_subdev" title="v4l2_async_unregister_subdev"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_unregister_subdev()</span></code></a> call. Subdevices
 registered this way are stored in a global list of subdevices, ready to be
 picked up by bridge drivers.</p>
-<p>Bridge drivers in turn have to register a notifier object. This is
-performed using the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_register" title="v4l2_async_nf_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_register()</span></code></a> call. To
-unregister the notifier the driver has to call
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_unregister" title="v4l2_async_nf_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_unregister()</span></code></a>. The former of the two functions
-takes two arguments: a pointer to struct <a class="reference internal" href="v4l2-device.html#c.v4l2_device" title="v4l2_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_device</span></code></a> and a
-pointer to struct <a class="reference internal" href="v4l2-async.html#c.v4l2_async_notifier" title="v4l2_async_notifier"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_notifier</span></code></a>.</p>
+</section>
+<section id="asynchronous-sub-device-notifiers">
+<h3><span class="section-number">2.7.1.3. </span>Asynchronous sub-device notifiers<a class="headerlink" href="#asynchronous-sub-device-notifiers" title="Permalink to this heading">¶</a></h3>
+<p>Bridge drivers in turn have to register a notifier object. This is performed
+using the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_register" title="v4l2_async_nf_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_register()</span></code></a> call. To unregister the notifier the
+driver has to call <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_unregister" title="v4l2_async_nf_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_unregister()</span></code></a>. Before releasing memory
+of an unregister notifier, it must be cleaned up by calling
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_cleanup" title="v4l2_async_nf_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_cleanup()</span></code></a>.</p>
 <p>Before registering the notifier, bridge drivers must do two things: first, the
-notifier must be initialized using the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_init" title="v4l2_async_nf_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_init()</span></code></a>.
-Second, bridge drivers can then begin to form a list of subdevice descriptors
-that the bridge device needs for its operation. Several functions are available
-to add subdevice descriptors to a notifier, depending on the type of device and
-the needs of the driver.</p>
-<p><a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_add_fwnode_remote" title="v4l2_async_nf_add_fwnode_remote"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_add_fwnode_remote()</span></code></a> and
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_add_i2c" title="v4l2_async_nf_add_i2c"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_add_i2c()</span></code></a> are for bridge and ISP drivers for
-registering their async sub-devices with the notifier.</p>
-<p><a class="reference internal" href="v4l2-async.html#c.v4l2_async_register_subdev_sensor" title="v4l2_async_register_subdev_sensor"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_register_subdev_sensor()</span></code></a> is a helper function for
-sensor drivers registering their own async sub-device, but it also registers a
-notifier and further registers async sub-devices for lens and flash devices
-found in firmware. The notifier for the sub-device is unregistered with the
-async sub-device.</p>
-<p>These functions allocate an async sub-device descriptor which is of type struct
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev" title="v4l2_async_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_subdev</span></code></a> embedded in a driver-specific struct. The &amp;struct
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev" title="v4l2_async_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_subdev</span></code></a> shall be the first member of this struct:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">my_async_subdev</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">v4l2_async_subdev</span><span class="w"> </span><span class="n">asd</span><span class="p">;</span>
+notifier must be initialized using the <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_init" title="v4l2_async_nf_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_init()</span></code></a>.  Second,
+bridge drivers can then begin to form a list of async connection descriptors
+that the bridge device needs for its
+operation. <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_add_fwnode" title="v4l2_async_nf_add_fwnode"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_add_fwnode()</span></code></a>,
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_add_fwnode_remote" title="v4l2_async_nf_add_fwnode_remote"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_add_fwnode_remote()</span></code></a> and <a class="reference internal" href="v4l2-async.html#c.v4l2_async_nf_add_i2c" title="v4l2_async_nf_add_i2c"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_nf_add_i2c()</span></code></a></p>
+<p>Async connection descriptors describe connections to external sub-devices the
+drivers for which are not yet probed. Based on an async connection, a media data
+or ancillary link may be created when the related sub-device becomes
+available. There may be one or more async connections to a given sub-device but
+this is not known at the time of adding the connections to the notifier. Async
+connections are bound as matching async sub-devices are found, one by one.</p>
+</section>
+<section id="asynchronous-sub-device-notifier-for-sub-devices">
+<h3><span class="section-number">2.7.1.4. </span>Asynchronous sub-device notifier for sub-devices<a class="headerlink" href="#asynchronous-sub-device-notifier-for-sub-devices" title="Permalink to this heading">¶</a></h3>
+<p>A driver that registers an asynchronous sub-device may also register an
+asynchronous notifier. This is called an asynchronous sub-device notifier andthe
+process is similar to that of a bridge driver apart from that the notifier is
+initialised using <a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev_nf_init" title="v4l2_async_subdev_nf_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_subdev_nf_init()</span></code></a> instead. A sub-device
+notifier may complete only after the V4L2 device becomes available, i.e. there's
+a path via async sub-devices and notifiers to a notifier that is not an
+asynchronous sub-device notifier.</p>
+</section>
+<section id="asynchronous-sub-device-registration-helper-for-camera-sensor-drivers">
+<h3><span class="section-number">2.7.1.5. </span>Asynchronous sub-device registration helper for camera sensor drivers<a class="headerlink" href="#asynchronous-sub-device-registration-helper-for-camera-sensor-drivers" title="Permalink to this heading">¶</a></h3>
+<p><a class="reference internal" href="v4l2-async.html#c.v4l2_async_register_subdev_sensor" title="v4l2_async_register_subdev_sensor"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_register_subdev_sensor()</span></code></a> is a helper function for sensor
+drivers registering their own async connection, but it also registers a notifier
+and further registers async connections for lens and flash devices found in
+firmware. The notifier for the sub-device is unregistered and cleaned up with
+the async sub-device, using <a class="reference internal" href="v4l2-async.html#c.v4l2_async_unregister_subdev" title="v4l2_async_unregister_subdev"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_unregister_subdev()</span></code></a>.</p>
+</section>
+<section id="asynchronous-sub-device-notifier-example">
+<h3><span class="section-number">2.7.1.6. </span>Asynchronous sub-device notifier example<a class="headerlink" href="#asynchronous-sub-device-notifier-example" title="Permalink to this heading">¶</a></h3>
+<p>These functions allocate an async connection descriptor which is of type struct
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_connection" title="v4l2_async_connection"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_connection</span></code></a> embedded in a driver-specific struct. The &amp;struct
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_connection" title="v4l2_async_connection"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_connection</span></code></a> shall be the first member of this struct:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">my_async_connection</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">v4l2_async_connection</span><span class="w"> </span><span class="n">asc</span><span class="p">;</span>
 <span class="w">        </span><span class="p">...</span>
 <span class="p">};</span>
 
-<span class="k">struct</span><span class="w"> </span><span class="nc">my_async_subdev</span><span class="w"> </span><span class="o">*</span><span class="n">my_asd</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">my_async_connection</span><span class="w"> </span><span class="o">*</span><span class="n">my_asc</span><span class="p">;</span>
 <span class="k">struct</span><span class="w"> </span><span class="nc">fwnode_handle</span><span class="w"> </span><span class="o">*</span><span class="n">ep</span><span class="p">;</span>
 
 <span class="p">...</span>
 
-<span class="n">my_asd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v4l2_async_nf_add_fwnode_remote</span><span class="p">(</span><span class="o">&amp;</span><span class="n">notifier</span><span class="p">,</span><span class="w"> </span><span class="n">ep</span><span class="p">,</span>
-<span class="w">                                         </span><span class="k">struct</span><span class="w"> </span><span class="nc">my_async_subdev</span><span class="p">);</span>
+<span class="n">my_asc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v4l2_async_nf_add_fwnode_remote</span><span class="p">(</span><span class="o">&amp;</span><span class="n">notifier</span><span class="p">,</span><span class="w"> </span><span class="n">ep</span><span class="p">,</span>
+<span class="w">                                         </span><span class="k">struct</span><span class="w"> </span><span class="nc">my_async_connection</span><span class="p">);</span>
 <span class="n">fwnode_handle_put</span><span class="p">(</span><span class="n">ep</span><span class="p">);</span>
 
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">asd</span><span class="p">))</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">asd</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">my_asc</span><span class="p">))</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">PTR_ERR</span><span class="p">(</span><span class="n">my_asc</span><span class="p">);</span>
 </pre></div>
 </div>
-<p>The V4L2 core will then use these descriptors to match asynchronously
-registered subdevices to them. If a match is detected the <code class="docutils literal notranslate"><span class="pre">.bound()</span></code>
-notifier callback is called. After all subdevices have been located the
-.complete() callback is called. When a subdevice is removed from the
-system the .unbind() method is called. All three callbacks are optional.</p>
+</section>
+<section id="asynchronous-sub-device-notifier-callbacks">
+<h3><span class="section-number">2.7.1.7. </span>Asynchronous sub-device notifier callbacks<a class="headerlink" href="#asynchronous-sub-device-notifier-callbacks" title="Permalink to this heading">¶</a></h3>
+<p>The V4L2 core will then use these connection descriptors to match asynchronously
+registered subdevices to them. If a match is detected the <code class="docutils literal notranslate"><span class="pre">.bound()</span></code> notifier
+callback is called. After all connections have been bound the .complete()
+callback is called. When a connection is removed from the system the
+<code class="docutils literal notranslate"><span class="pre">.unbind()</span></code> method is called. All three callbacks are optional.</p>
 <p>Drivers can store any type of custom data in their driver-specific
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev" title="v4l2_async_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_subdev</span></code></a> wrapper. If any of that data requires special
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_connection" title="v4l2_async_connection"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_connection</span></code></a> wrapper. If any of that data requires special
 handling when the structure is freed, drivers must implement the <code class="docutils literal notranslate"><span class="pre">.destroy()</span></code>
 notifier callback. The framework will call it right before freeing the
-<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev" title="v4l2_async_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_subdev</span></code></a>.</p>
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_connection" title="v4l2_async_connection"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_async_connection</span></code></a>.</p>
+</section>
 </section>
 <section id="calling-subdev-operations">
 <h2><span class="section-number">2.7.2. </span>Calling subdev operations<a class="headerlink" href="#calling-subdev-operations" title="Permalink to this heading">¶</a></h2>
@@ -1877,9 +1922,9 @@ these ops.</p>
     struct device *dev;
     struct fwnode_handle *fwnode;
     struct list_head async_list;
-    struct v4l2_async_subdev *asd;
-    struct v4l2_async_notifier *notifier;
+    struct list_head async_subdev_endpoint_list;
     struct v4l2_async_notifier *subdev_notifier;
+    struct list_head asc_list;
     struct v4l2_subdev_platform_data *pdata;
     struct mutex *state_lock;
     struct led_classdev *privacy_led;
@@ -1932,15 +1977,17 @@ is attached.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">fwnode</span></code></dt><dd><p>The fwnode_handle of the subdev, usually the same as
 either dev-&gt;of_node-&gt;fwnode or dev-&gt;fwnode (whichever is non-NULL).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">async_list</span></code></dt><dd><p>Links this subdev to a global subdev_list or <strong>notifier-&gt;done</strong>
-list.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">async_list</span></code></dt><dd><p>Links this subdev to a global subdev_list or
+<strong>notifier-&gt;done_list</strong> list.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">asd</span></code></dt><dd><p>Pointer to respective <a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev" title="v4l2_async_subdev"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_async_subdev</span></code></a>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">notifier</span></code></dt><dd><p>Pointer to the managing notifier.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">async_subdev_endpoint_list</span></code></dt><dd><p>List entry in async_subdev_endpoint_entry of
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev_endpoint" title="v4l2_async_subdev_endpoint"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_async_subdev_endpoint</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">subdev_notifier</span></code></dt><dd><p>A sub-device notifier implicitly registered for the sub-
 device using <a class="reference internal" href="v4l2-async.html#c.v4l2_async_register_subdev_sensor" title="v4l2_async_register_subdev_sensor"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_register_subdev_sensor()</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">asc_list</span></code></dt><dd><p>Async connection list, of <a class="reference internal" href="v4l2-async.html#c.v4l2_async_connection" title="v4l2_async_connection"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">v4l2_async_connection</span></code></a>.subdev_entry.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pdata</span></code></dt><dd><p>common part of subdevice platform data</p>
 </dd>
@@ -2313,8 +2360,9 @@ subdev.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This function will release the resources allocated in
-v4l2_subdev_init_finalize.</p>
+<p>Clean up a V4L2 async sub-device. Must be called for a sub-device as part of
+its release if resources have been associated with it using
+<a class="reference internal" href="v4l2-async.html#c.v4l2_async_subdev_endpoint_add" title="v4l2_async_subdev_endpoint_add"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_async_subdev_endpoint_add()</span></code></a> or <a class="reference internal" href="#c.v4l2_subdev_init_finalize" title="v4l2_subdev_init_finalize"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_init_finalize()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_subdev_lock_state">
@@ -2467,7 +2515,7 @@ the routing.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_subdev_set_routing_with_fmt">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_subdev_set_routing_with_fmt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev" title="v4l2_subdev"><span class="n"><span class="pre">v4l2_subdev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sd</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_krouting" title="v4l2_subdev_krouting"><span class="n"><span class="pre">v4l2_subdev_krouting</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">routing</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../userspace-api/media/v4l/subdev-formats.html#c.v4l2_mbus_framefmt" title="v4l2_mbus_framefmt"><span class="n"><span class="pre">v4l2_mbus_framefmt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fmt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_subdev_set_routing_with_fmt" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_subdev_set_routing_with_fmt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev" title="v4l2_subdev"><span class="n"><span class="pre">v4l2_subdev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sd</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_krouting" title="v4l2_subdev_krouting"><span class="n"><span class="pre">v4l2_subdev_krouting</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">routing</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../userspace-api/media/v4l/subdev-formats.html#c.v4l2_mbus_framefmt" title="v4l2_mbus_framefmt"><span class="n"><span class="pre">v4l2_mbus_framefmt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fmt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_subdev_set_routing_with_fmt" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set given routing and format to subdev state</p>
 </dd></dl>
 
@@ -2478,7 +2526,7 @@ the routing.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_state</span> <span class="pre">*state</span></code></dt><dd><p>The subdevice state</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_krouting</span> <span class="pre">*routing</span></code></dt><dd><p>Routing that will be copied to subdev state</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">v4l2_subdev_krouting</span> <span class="pre">*routing</span></code></dt><dd><p>Routing that will be copied to subdev state</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">v4l2_mbus_framefmt</span> <span class="pre">*fmt</span></code></dt><dd><p>Format used to initialize all the streams</p>
 </dd>

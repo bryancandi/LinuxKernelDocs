@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.5.0</p>
+<p class="blurb">6.6.0</p>
 
 
 
@@ -98,10 +98,11 @@
 <li class="toctree-l2"><a class="reference internal" href="gcc-plugins.html">GCC plugin infrastructure</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Building Linux with Clang/LLVM</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#about">About</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1">Clang</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#building-with-llvm">Building with LLVM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-llvm-argument">The LLVM= argument</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#cross-compiling">Cross Compiling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#llvm-utilities">LLVM Utilities</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#omitting-cross-compile">Omitting CROSS_COMPILE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-llvm-ias-argument">The LLVM_IAS= argument</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ccache">Ccache</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#supported-architectures">Supported Architectures</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#getting-help">Getting Help</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#getting-llvm">Getting LLVM</a></li>
@@ -164,49 +165,37 @@ objects</a>. Clang is a front-end to LLVM
 that supports C and the GNU C extensions required by the kernel, and is
 pronounced &quot;klang,&quot; not &quot;see-lang.&quot;</p>
 </section>
-<section id="id1">
-<h2>Clang<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
-<p>The compiler used can be swapped out via <code class="docutils literal notranslate"><span class="pre">CC=</span></code> command line argument to <code class="docutils literal notranslate"><span class="pre">make</span></code>.
-<code class="docutils literal notranslate"><span class="pre">CC=</span></code> should be set when selecting a config and during a build.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make CC=clang defconfig
-
-make CC=clang
+<section id="building-with-llvm">
+<h2>Building with LLVM<a class="headerlink" href="#building-with-llvm" title="Permalink to this heading">¶</a></h2>
+<p>Invoke <code class="docutils literal notranslate"><span class="pre">make</span></code> via:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1
+</pre></div>
+</div>
+<p>to compile for the host target. For cross compiling:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm64
 </pre></div>
 </div>
 </section>
-<section id="cross-compiling">
-<h2>Cross Compiling<a class="headerlink" href="#cross-compiling" title="Permalink to this heading">¶</a></h2>
-<p>A single Clang compiler binary will typically contain all supported backends,
-which can help simplify cross compiling.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu-
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is not used to prefix the Clang compiler binary, instead
-<code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is used to set a command line flag: <code class="docutils literal notranslate"><span class="pre">--target=&lt;triple&gt;</span></code>. For
-example:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>clang --target=aarch64-linux-gnu foo.c
-</pre></div>
-</div>
-</section>
-<section id="llvm-utilities">
-<h2>LLVM Utilities<a class="headerlink" href="#llvm-utilities" title="Permalink to this heading">¶</a></h2>
-<p>LLVM has substitutes for GNU binutils utilities. They can be enabled individually.
-The full list of supported make variables:</p>
+<section id="the-llvm-argument">
+<h2>The LLVM= argument<a class="headerlink" href="#the-llvm-argument" title="Permalink to this heading">¶</a></h2>
+<p>LLVM has substitutes for GNU binutils utilities. They can be enabled
+individually. The full list of supported make variables:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm STRIP=llvm-strip \
   OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump READELF=llvm-readelf \
   HOSTCC=clang HOSTCXX=clang++ HOSTAR=llvm-ar HOSTLD=ld.lld
 </pre></div>
 </div>
-<p>To simplify the above command, Kbuild supports the <code class="docutils literal notranslate"><span class="pre">LLVM</span></code> variable:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1
-</pre></div>
-</div>
+<p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> expands to the above.</p>
 <p>If your LLVM tools are not available in your PATH, you can supply their
 location using the LLVM variable with a trailing slash:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=/path/to/llvm/
 </pre></div>
 </div>
-<p>which will use <code class="docutils literal notranslate"><span class="pre">/path/to/llvm/clang</span></code>, <code class="docutils literal notranslate"><span class="pre">/path/to/llvm/ld.lld</span></code>, etc.</p>
+<p>which will use <code class="docutils literal notranslate"><span class="pre">/path/to/llvm/clang</span></code>, <code class="docutils literal notranslate"><span class="pre">/path/to/llvm/ld.lld</span></code>, etc. The
+following may also be used:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>PATH=/path/to/llvm:$PATH make LLVM=1
+</pre></div>
+</div>
 <p>If your LLVM tools have a version suffix and you want to test with that
 explicit version rather than the unsuffixed executables like <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>, you
 can pass the suffix using the <code class="docutils literal notranslate"><span class="pre">LLVM</span></code> variable:</p>
@@ -214,27 +203,65 @@ can pass the suffix using the <code class="docutils literal notranslate"><span c
 </pre></div>
 </div>
 <p>which will use <code class="docutils literal notranslate"><span class="pre">clang-14</span></code>, <code class="docutils literal notranslate"><span class="pre">ld.lld-14</span></code>, etc.</p>
+<p>To support combinations of out of tree paths with version suffixes, we
+recommend:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>PATH=/path/to/llvm/:$PATH make LLVM=-14
+</pre></div>
+</div>
 <p><code class="docutils literal notranslate"><span class="pre">LLVM=0</span></code> is not the same as omitting <code class="docutils literal notranslate"><span class="pre">LLVM</span></code> altogether, it will behave like
-<code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>. If you only wish to use certain LLVM utilities, use their respective
-make variables.</p>
-<p>The integrated assembler is enabled by default. You can pass <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code> to
-disable it.</p>
+<code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>. If you only wish to use certain LLVM utilities, use their
+respective make variables.</p>
+<p>The same value used for <code class="docutils literal notranslate"><span class="pre">LLVM=</span></code> should be set for each invocation of <code class="docutils literal notranslate"><span class="pre">make</span></code>
+if configuring and building via distinct commands. <code class="docutils literal notranslate"><span class="pre">LLVM=</span></code> should also be set
+as an environment variable when running scripts that will eventually run
+<code class="docutils literal notranslate"><span class="pre">make</span></code>.</p>
 </section>
-<section id="omitting-cross-compile">
-<h2>Omitting CROSS_COMPILE<a class="headerlink" href="#omitting-cross-compile" title="Permalink to this heading">¶</a></h2>
-<p>As explained above, <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is used to set <code class="docutils literal notranslate"><span class="pre">--target=&lt;triple&gt;</span></code>.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is not specified, the <code class="docutils literal notranslate"><span class="pre">--target=&lt;triple&gt;</span></code> is inferred
-from <code class="docutils literal notranslate"><span class="pre">ARCH</span></code>.</p>
-<p>That means if you use only LLVM tools, <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> becomes unnecessary.</p>
-<p>For example, to cross-compile the arm64 kernel:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make ARCH=arm64 LLVM=1
+<section id="cross-compiling">
+<h2>Cross Compiling<a class="headerlink" href="#cross-compiling" title="Permalink to this heading">¶</a></h2>
+<p>A single Clang compiler binary (and corresponding LLVM utilities) will
+typically contain all supported back ends, which can help simplify cross
+compiling especially when <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> is used. If you use only LLVM tools,
+<code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> or target-triple-prefixes become unnecessary. Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm64
 </pre></div>
 </div>
-<p>If <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code> is specified, <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is also used to derive
-<code class="docutils literal notranslate"><span class="pre">--prefix=&lt;path&gt;</span></code> to search for the GNU assembler and linker.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make ARCH=arm64 LLVM=1 LLVM_IAS=0 CROSS_COMPILE=aarch64-linux-gnu-
+<p>As an example of mixing LLVM and GNU utilities, for a target like <code class="docutils literal notranslate"><span class="pre">ARCH=s390</span></code>
+which does not yet have <code class="docutils literal notranslate"><span class="pre">ld.lld</span></code> or <code class="docutils literal notranslate"><span class="pre">llvm-objcopy</span></code> support, you could
+invoke <code class="docutils literal notranslate"><span class="pre">make</span></code> via:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=s390 LD=s390x-linux-gnu-ld.bfd \
+  OBJCOPY=s390x-linux-gnu-objcopy
 </pre></div>
 </div>
+<p>This example will invoke <code class="docutils literal notranslate"><span class="pre">s390x-linux-gnu-ld.bfd</span></code> as the linker and
+<code class="docutils literal notranslate"><span class="pre">s390x-linux-gnu-objcopy</span></code>, so ensure those are reachable in your <code class="docutils literal notranslate"><span class="pre">$PATH</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is not used to prefix the Clang compiler binary (or
+corresponding LLVM utilities) as is the case for GNU utilities when <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>
+is not set.</p>
+</section>
+<section id="the-llvm-ias-argument">
+<h2>The LLVM_IAS= argument<a class="headerlink" href="#the-llvm-ias-argument" title="Permalink to this heading">¶</a></h2>
+<p>Clang can assemble assembler code. You can pass <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code> to disable this
+behavior and have Clang invoke the corresponding non-integrated assembler
+instead. Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 LLVM_IAS=0
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> is necessary when cross compiling and <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code>
+is used in order to set <code class="docutils literal notranslate"><span class="pre">--prefix=</span></code> for the compiler to find the
+corresponding non-integrated assembler (typically, you don't want to use the
+system assembler when targeting another architecture). Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm LLVM_IAS=0 CROSS_COMPILE=arm-linux-gnueabi-
+</pre></div>
+</div>
+</section>
+<section id="ccache">
+<h2>Ccache<a class="headerlink" href="#ccache" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ccache</span></code> can be used with <code class="docutils literal notranslate"><span class="pre">clang</span></code> to improve subsequent builds, (though
+<a class="reference external" href="kbuild.html#kbuild-build-timestamp">KBUILD_BUILD_TIMESTAMP</a> should be set to a deterministic value between builds
+in order to avoid 100% cache misses, see <a class="reference external" href="reproducible-builds.html#timestamps">Reproducible_builds</a> for more info):</p>
+<blockquote>
+<div><p>KBUILD_BUILD_TIMESTAMP='' make LLVM=1 CC=&quot;ccache clang&quot;</p>
+</div></blockquote>
 </section>
 <section id="supported-architectures">
 <h2>Supported Architectures<a class="headerlink" href="#supported-architectures" title="Permalink to this heading">¶</a></h2>
@@ -274,27 +301,31 @@ yet. Bug reports are always welcome at the issue tracker below!</p>
 <td><p>Maintained</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>mips</p></td>
+<tr class="row-odd"><td><p>loongarch</p></td>
 <td><p>Maintained</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>powerpc</p></td>
+<tr class="row-even"><td><p>mips</p></td>
+<td><p>Maintained</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>powerpc</p></td>
+<td><p>Maintained</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>riscv</p></td>
+<td><p>Supported</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>s390</p></td>
 <td><p>Maintained</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">CC=clang</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>riscv</p></td>
+<tr class="row-even"><td><p>um (User Mode)</p></td>
 <td><p>Maintained</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>s390</p></td>
-<td><p>Maintained</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CC=clang</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>um (User Mode)</p></td>
-<td><p>Maintained</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>x86</p></td>
+<tr class="row-odd"><td><p>x86</p></td>
 <td><p>Supported</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
 </tr>
@@ -315,9 +346,11 @@ yet. Bug reports are always welcome at the issue tracker below!</p>
 </ul>
 </section>
 <section id="getting-llvm">
-<span id="id2"></span><h2>Getting LLVM<a class="headerlink" href="#getting-llvm" title="Permalink to this heading">¶</a></h2>
-<p>We provide prebuilt stable versions of LLVM on <a class="reference external" href="https://kernel.org/pub/tools/llvm/">kernel.org</a>.
-Below are links that may be useful for building LLVM from source or procuring
+<span id="id1"></span><h2>Getting LLVM<a class="headerlink" href="#getting-llvm" title="Permalink to this heading">¶</a></h2>
+<p>We provide prebuilt stable versions of LLVM on <a class="reference external" href="https://kernel.org/pub/tools/llvm/">kernel.org</a>. These have been optimized with profile
+data for building Linux kernels, which should improve kernel build times
+relative to other distributions of LLVM.</p>
+<p>Below are links that may be useful for building LLVM from source or procuring
 it through a distribution's package manager.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://releases.llvm.org/download.html">https://releases.llvm.org/download.html</a></p></li>
