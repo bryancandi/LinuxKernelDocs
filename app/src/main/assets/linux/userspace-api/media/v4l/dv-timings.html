@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -95,6 +95,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../unshare.html">unshare system call</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../spec_ctrl.html">Speculation Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../accelerators/ocxl.html">OpenCAPI (Open Coherent Accelerator Processor Interface)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../dma-buf-alloc-exchange.html">Exchanging pixel buffers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../ebpf/index.html">eBPF Userspace API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../ELF.html">Linux-specific ELF idiosyncrasies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../ioctl/index.html">IOCTLs</a></li>
@@ -182,6 +183,24 @@ current DV timings they use the
 <a class="reference internal" href="vidioc-g-dv-timings.html#vidioc-g-dv-timings"><span class="std std-ref">VIDIOC_G_DV_TIMINGS</span></a> ioctl. To detect
 the DV timings as seen by the video receiver applications use the
 <a class="reference internal" href="vidioc-query-dv-timings.html#vidioc-query-dv-timings"><span class="std std-ref">ioctl VIDIOC_QUERY_DV_TIMINGS</span></a> ioctl.</p>
+<p>When the hardware detects a video source change (e.g. the video
+signal appears or disappears, or the video resolution changes), then
+it will issue a <cite>V4L2_EVENT_SOURCE_CHANGE</cite> event. Use the
+<a class="reference internal" href="vidioc-subscribe-event.html#vidioc-subscribe-event"><span class="std std-ref">ioctl VIDIOC_SUBSCRIBE_EVENT</span></a> and the
+<a class="reference internal" href="vidioc-dqevent.html#vidioc-dqevent"><span class="std std-ref">ioctl VIDIOC_DQEVENT</span></a> to check if this event was reported.</p>
+<p>If the video signal changed, then the application has to stop
+streaming, free all buffers, and call the <a class="reference internal" href="vidioc-query-dv-timings.html#vidioc-query-dv-timings"><span class="std std-ref">ioctl VIDIOC_QUERY_DV_TIMINGS</span></a>
+to obtain the new video timings, and if they are valid, it can set
+those by calling the <a class="reference internal" href="vidioc-g-dv-timings.html#vidioc-g-dv-timings"><span class="std std-ref">ioctl VIDIOC_S_DV_TIMINGS</span></a>.
+This will also update the format, so use the <a class="reference internal" href="vidioc-g-fmt.html#vidioc-g-fmt"><span class="std std-ref">ioctl VIDIOC_G_FMT</span></a>
+to obtain the new format. Now the application can allocate new buffers
+and start streaming again.</p>
+<p>The <a class="reference internal" href="vidioc-query-dv-timings.html#vidioc-query-dv-timings"><span class="std std-ref">ioctl VIDIOC_QUERY_DV_TIMINGS</span></a> will just report what the
+hardware detects, it will never change the configuration. If the
+currently set timings and the actually detected timings differ, then
+typically this will mean that you will not be able to capture any
+video. The correct approach is to rely on the <cite>V4L2_EVENT_SOURCE_CHANGE</cite>
+event so you know when something changed.</p>
 <p>Applications can make use of the <a class="reference internal" href="vidioc-enuminput.html#input-capabilities"><span class="std std-ref">Input capabilities</span></a> and
 <a class="reference internal" href="vidioc-enumoutput.html#output-capabilities"><span class="std std-ref">Output capabilities</span></a> flags to determine whether the digital
 video ioctls can be used with the given input or output.</p>

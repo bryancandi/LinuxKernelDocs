@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Softlockup與hardlockup檢測機制(又名:nmi_watchdog) &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Unicode（統一碼）支持" href="unicode.html" />
+    <link rel="prev" title="如何通過sysfs將CPU拓撲導出" href="cputopology.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.7.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../zh_CN/index.html">中文翻译</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">繁體中文翻譯</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">與Linux 內核社區一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#api">內部API文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id2">開發工具和流程</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#id3">面向用戶的文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相關文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">體系結構文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">術語表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_TW/admin-guide/lockup-watchdogs.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是爲讓中文讀者更容易閱讀和理解，而不是作爲一個分支。因此，
+如果您對此文件有任何意見或改動，請先嘗試更新原始英文文件。如果要更改或
+修正某處翻譯文件，請將意見或補丁發送給維護者（聯繫方式見下）。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您發現本文檔與原始文件有任何不同或者有翻譯問題，請聯繫該文件的譯者，
+或者發送電子郵件給胡皓文以獲取幫助：&lt;<a class="reference external" href="mailto:src&#46;res&#46;211&#37;&#52;&#48;gmail&#46;com">src<span>&#46;</span>res<span>&#46;</span>211<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../admin-guide/lockup-watchdogs.html"><span class="doc">Softlockup detector and hardlockup detector (aka nmi_watchdog)</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>Hailong Liu &lt;<a class="reference external" href="mailto:liu&#46;hailong6&#37;&#52;&#48;zte&#46;com&#46;cn">liu<span>&#46;</span>hailong6<span>&#64;</span>zte<span>&#46;</span>com<span>&#46;</span>cn</a>&gt;</p>
+</dd>
+</dl>
+<section id="softlockuphardlockup-nmi-watchdog">
+<span id="tw-lockup-watchdogs"></span><h1>Softlockup與hardlockup檢測機制(又名:nmi_watchdog)<a class="headerlink" href="#softlockuphardlockup-nmi-watchdog" title="Permalink to this heading">¶</a></h1>
+<p>Linux中內核實現了一種用以檢測系統發生softlockup和hardlockup的看門狗機制。</p>
+<p>Softlockup是一種會引發系統在內核態中一直循環超過20秒（詳見下面“實現”小節）導致
+其他任務沒有機會得到運行的BUG。一旦檢測到'softlockup'發生，默認情況下系統會打
+印當前堆棧跟蹤信息並進入鎖定狀態。也可配置使其在檢測到'softlockup'後進入panic
+狀態；通過sysctl命令設置“kernel.softlockup_panic”、使用內核啓動參數
+“softlockup_panic”（詳見Documentation/admin-guide/kernel-parameters.rst）以及使
+能內核編譯選項“BOOTPARAM_SOFTLOCKUP_PANIC”都可實現這種配置。</p>
+<p>而'hardlockup'是一種會引發系統在內核態一直循環超過10秒鐘（詳見&quot;實現&quot;小節）導致其
+他中斷沒有機會運行的缺陷。與'softlockup'情況類似，除了使用sysctl命令設置
+'hardlockup_panic'、使能內核選項“BOOTPARAM_HARDLOCKUP_PANIC”以及使用內核參數
+&quot;nmi_watchdog&quot;(詳見:”<a class="reference internal" href="../../../admin-guide/kernel-parameters.html"><span class="doc">The kernel's command-line parameters</span></a>“)外，一旦檢
+測到'hardlockup'默認情況下系統打印當前堆棧跟蹤信息，然後進入鎖定狀態。</p>
+<p>這個panic選項也可以與panic_timeout結合使用（這個panic_timeout是通過稍具迷惑性的
+sysctl命令&quot;kernel.panic&quot;來設置），使系統在panic指定時間後自動重啓。</p>
+<section id="id1">
+<h2>實現<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<p>Softlockup和hardlockup分別建立在hrtimer(高精度定時器)和perf兩個子系統上而實現。
+這也就意味着理論上任何架構只要實現了這兩個子系統就支持這兩種檢測機制。</p>
+<p>Hrtimer用於週期性產生中斷並喚醒watchdog線程；NMI perf事件則以”watchdog_thresh“
+(編譯時默認初始化爲10秒，也可通過”watchdog_thresh“這個sysctl接口來進行配置修改)
+爲間隔週期產生以檢測 hardlockups。如果一個CPU在這個時間段內沒有檢測到hrtimer中
+斷髮生，'hardlockup 檢測器'(即NMI perf事件處理函數)將會視系統配置而選擇產生內核
+警告或者直接panic。</p>
+<p>而watchdog線程本質上是一個高優先級內核線程，每調度一次就對時間戳進行一次更新。
+如果時間戳在2*watchdog_thresh(這個是softlockup的觸發門限)這段時間都未更新,那麼
+&quot;softlocup 檢測器&quot;(內部hrtimer定時器回調函數)會將相關的調試信息打印到系統日誌中，
+然後如果系統配置了進入panic流程則進入panic，否則內核繼續執行。</p>
+<p>Hrtimer定時器的週期是2*watchdog_thresh/5，也就是說在hardlockup被觸發前hrtimer有
+2~3次機會產生時鐘中斷。</p>
+<p>如上所述,內核相當於爲系統管理員提供了一個可調節hrtimer定時器和perf事件週期長度
+的調節旋鈕。如何通過這個旋鈕爲特定使用場景配置一個合理的週期值要對lockups檢測的
+響應速度和lockups檢測開銷這二者之間進行權衡。</p>
+<p>默認情況下所有在線cpu上都會運行一個watchdog線程。不過在內核配置了”NO_HZ_FULL“的
+情況下watchdog線程默認只會運行在管家(housekeeping)cpu上，而”nohz_full“啓動參數指
+定的cpu上則不會有watchdog線程運行。試想，如果我們允許watchdog線程在”nohz_full“指
+定的cpu上運行，這些cpu上必須得運行時鐘定時器來激發watchdog線程調度；這樣一來就會
+使”nohz_full“保護用戶程序免受內核干擾的功能失效。當然，副作用就是”nohz_full“指定
+的cpu即使在內核產生了lockup問題我們也無法檢測到。不過，至少我們可以允許watchdog
+線程在管家(non-tickless)核上繼續運行以便我們能繼續正常的監測這些cpus上的lockups
+事件。</p>
+<p>不論哪種情況都可以通過sysctl命令kernel.watchdog_cpumask來對沒有運行watchdog線程
+的cpu集合進行調節。對於nohz_full而言,如果nohz_full cpu上有異常掛住的情況，通過
+這種方式打開這些cpu上的watchdog進行調試可能會有所作用。</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_TW/admin-guide/lockup-watchdogs.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

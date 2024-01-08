@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -99,15 +99,14 @@
 <li class="toctree-l2"><a class="reference internal" href="../arc/index.html">ARC architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arm/index.html">ARM Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../arm64/index.html">ARM64 Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ia64/index.html">IA-64 Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../loongarch/index.html">LoongArch Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../m68k/index.html">m68k Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mips/index.html">MIPS-specific Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../nios2/index.html">Nios II Specific Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../openrisc/index.html">OpenRISC Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../parisc/index.html">PA-RISC Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../powerpc/index.html">powerpc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../riscv/index.html">RISC-V architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../powerpc/index.html">powerpc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../riscv/index.html">RISC-V architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../s390/index.html">s390 Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../sh/index.html">SuperH Interfaces Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../sparc/index.html">Sparc Architecture</a></li>
@@ -233,7 +232,7 @@ resulted in the feature flags becoming hard to parse by humans. Adding a new
 flag to /proc/cpuinfo should be avoided if user space can obtain information
 about the feature from resctrl's info directory.</p>
 <p>To use the feature mount the file system:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t resctrl resctrl [-o cdp[,cdpl2][,mba_MBps]] /sys/fs/resctrl
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t resctrl resctrl [-o cdp[,cdpl2][,mba_MBps][,debug]] /sys/fs/resctrl
 </pre></div>
 </div>
 <p>mount options are:</p>
@@ -244,6 +243,9 @@ about the feature from resctrl's info directory.</p>
 </dd>
 <dt>&quot;mba_MBps&quot;:</dt><dd><p>Enable the MBA Software Controller(mba_sc) to specify MBA
 bandwidth in MBps</p>
+</dd>
+<dt>&quot;debug&quot;:</dt><dd><p>Make debug files accessible. Available debug files are annotated with
+&quot;Available only with debug option&quot;.</p>
 </dd>
 </dl>
 <p>L2 and L3 CDP are controlled separately.</p>
@@ -313,6 +315,16 @@ one resource group. No sharing allowed.</p>
 </dd>
 <dt>&quot;P&quot;:</dt><dd><p>Corresponding region is pseudo-locked. No
 sharing allowed.</p>
+</dd>
+</dl>
+</div></blockquote>
+</dd>
+<dt>&quot;sparse_masks&quot;:</dt><dd><p>Indicates if non-contiguous 1s value in CBM is supported.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>&quot;0&quot;:</dt><dd><p>Only contiguous 1s value in CBM is supported.</p>
+</dd>
+<dt>&quot;1&quot;:</dt><dd><p>Non-contiguous 1s value in CBM is supported.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -495,10 +507,16 @@ is not allowed for MON groups which monitor CPUs. No other move
 operation is currently allowed other than simply renaming a CTRL_MON or
 MON group.</p>
 <p>All groups contain the following files:</p>
-<dl class="simple">
+<dl>
 <dt>&quot;tasks&quot;:</dt><dd><p>Reading this file shows the list of all tasks that belong to
 this group. Writing a task id to the file will add a task to the
-group. If the group is a CTRL_MON group the task is removed from
+group. Multiple tasks can be added by separating the task ids
+with commas. Tasks will be assigned sequentially. Multiple
+failures are not supported. A single failure encountered while
+attempting to assign a task will cause the operation to abort and
+already added tasks before the failure will remain in the group.
+Failures will be logged to /sys/fs/resctrl/info/last_cmd_status.</p>
+<p>If the group is a CTRL_MON group the task is removed from
 whichever previous CTRL_MON group owned the task and also from
 any MON group that owned the task. If the group is a MON group,
 then the task must already belong to the CTRL_MON parent of this
@@ -534,6 +552,9 @@ pseudo-locked region's schemata to the resource group's &quot;schemata&quot;
 file. On successful pseudo-locked region creation the mode will
 automatically change to &quot;pseudo-locked&quot;.</p>
 </dd>
+<dt>&quot;ctrl_hw_id&quot;:</dt><dd><p>Available only with debug option. The identifier used by hardware
+for the control group. On x86 this is the CLOSID.</p>
+</dd>
 </dl>
 <p>When monitoring is enabled all MON groups will also contain:</p>
 <dl class="simple">
@@ -546,6 +567,9 @@ files provide a read out of the current value of the event for
 all tasks in the group. In CTRL_MON groups these files provide
 the sum for all tasks in the CTRL_MON group and all tasks in
 MON groups. Please see example section for more details on usage.</p>
+</dd>
+<dt>&quot;mon_hw_id&quot;:</dt><dd><p>Available only with debug option. The identifier used by hardware
+for the monitor group. On x86 this is the RMID.</p>
 </dd>
 </dl>
 <section id="resource-allocation-rules">
@@ -631,12 +655,13 @@ CPU look in /sys/devices/system/cpu/cpu*/cache/index*/id</p>
 for allocation using a bitmask. The maximum value of the mask is defined
 by each cpu model (and may be different for different cache levels). It
 is found using CPUID, but is also provided in the &quot;info&quot; directory of
-the resctrl file system in &quot;info/{resource}/cbm_mask&quot;. Intel hardware
+the resctrl file system in &quot;info/{resource}/cbm_mask&quot;. Some Intel hardware
 requires that these masks have all the '1' bits in a contiguous block. So
 0x3, 0x6 and 0xC are legal 4-bit masks with two bits set, but 0x5, 0x9
-and 0xA are not.  On a system with a 20-bit mask each bit represents 5%
-of the capacity of the cache. You could partition the cache into four
-equal parts with masks: 0x1f, 0x3e0, 0x7c00, 0xf8000.</p>
+and 0xA are not. Check /sys/fs/resctrl/info/{resource}/sparse_masks
+if non-contiguous 1s value is supported. On a system with a 20-bit mask
+each bit represents 5% of the capacity of the cache. You could partition
+the cache into four equal parts with masks: 0x1f, 0x3e0, 0x7c00, 0xf8000.</p>
 </section>
 </section>
 <section id="memory-bandwidth-allocation-and-monitoring">

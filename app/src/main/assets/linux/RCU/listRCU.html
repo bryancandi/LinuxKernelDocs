@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -87,22 +87,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3 current"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -165,6 +150,14 @@
 (<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">list_head</span></code> in list.h).  One big advantage of this approach is
 that all of the required memory ordering is provided by the list macros.
 This document describes several list-based RCU use cases.</p>
+<p>When iterating a list while holding the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_read_lock" title="rcu_read_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_lock()</span></code></a>, writers may
+modify the list.  The reader is guaranteed to see all of the elements
+which were added to the list before they acquired the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_read_lock" title="rcu_read_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_lock()</span></code></a>
+and are still on the list when they drop the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_read_unlock" title="rcu_read_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_unlock()</span></code></a>.
+Elements which are added to, or removed from the list may or may not
+be seen.  If the writer calls <a class="reference internal" href="../core-api/kernel-api.html#c.list_replace_rcu" title="list_replace_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_replace_rcu()</span></code></a>, the reader may see
+either the old element or the new element; they will not see both,
+nor will they see neither.</p>
 <section id="example-1-read-mostly-list-deferred-destruction">
 <h2>Example 1: Read-mostly list: Deferred Destruction<a class="headerlink" href="#example-1-read-mostly-list-deferred-destruction" title="Permalink to this heading">¶</a></h2>
 <p>A widely used usecase for RCU lists in the kernel is lockless iteration over

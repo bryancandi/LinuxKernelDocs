@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -78,6 +78,7 @@
 <li class="toctree-l2"><a class="reference internal" href="clk.html">The Common Clk Framework</a></li>
 <li class="toctree-l2"><a class="reference internal" href="device-io.html">Bus-Independent Device Accesses</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Buffer Sharing and Synchronization (dma-buf)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#userspace-api-principles-and-use">Userspace API principles and use</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#shared-dma-buffers">Shared DMA Buffers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#reservation-objects">Reservation Objects</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#dma-fences">DMA Fences</a></li>
@@ -175,24 +176,10 @@
 <li class="toctree-l2"><a class="reference internal" href="zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -254,13 +241,29 @@
 <p>The dma-buf subsystem provides the framework for sharing buffers for
 hardware (DMA) access across multiple device drivers and subsystems, and
 for synchronizing asynchronous hardware access.</p>
-<p>This is used, for example, by drm &quot;prime&quot; multi-GPU support, but is of
-course not limited to GPU use cases.</p>
-<p>The three main components of this are: (1) dma-buf, representing a
-sg_table and exposed to userspace as a file descriptor to allow passing
-between devices, (2) fence, which provides a mechanism to signal when
-one device has finished access, and (3) reservation, which manages the
-shared or exclusive fence(s) associated with the buffer.</p>
+<p>As an example, it is used extensively by the DRM subsystem to exchange
+buffers between processes, contexts, library APIs within the same
+process, and also to exchange buffers with other subsystems such as
+V4L2.</p>
+<p>This document describes the way in which kernel subsystems can use and
+interact with the three main primitives offered by dma-buf:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>dma-buf, representing a sg_table and exposed to userspace as a file
+descriptor to allow passing between processes, subsystems, devices,
+etc;</p></li>
+<li><p>dma-fence, providing a mechanism to signal when an asynchronous
+hardware operation has completed; and</p></li>
+<li><p>dma-resv, which manages a set of dma-fences for a particular dma-buf
+allowing implicit (kernel-ordered) synchronization of work to
+preserve the illusion of coherent access</p></li>
+</ul>
+</div></blockquote>
+<section id="userspace-api-principles-and-use">
+<h2>Userspace API principles and use<a class="headerlink" href="#userspace-api-principles-and-use" title="Permalink to this heading">¶</a></h2>
+<p>For more details on how to design your subsystem's API for dma-buf use, please
+see <a class="reference internal" href="../userspace-api/dma-buf-alloc-exchange.html"><span class="doc">Exchanging pixel buffers</span></a>.</p>
+</section>
 <section id="shared-dma-buffers">
 <h2>Shared DMA Buffers<a class="headerlink" href="#shared-dma-buffers" title="Permalink to this heading">¶</a></h2>
 <p>This document serves as a guide to device-driver writers on what is the dma-buf
@@ -3404,6 +3407,25 @@ from the same context, since a seqno is not common across contexts.</p>
 <p><strong>Description</strong></p>
 <p>Returns true if f1 is chronologically later than f2. Both fences must be
 from the same context, since a seqno is not re-used across contexts.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dma_fence_is_later_or_same">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dma_fence_is_later_or_same</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dma_fence" title="dma_fence"><span class="n"><span class="pre">dma_fence</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">f1</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dma_fence" title="dma_fence"><span class="n"><span class="pre">dma_fence</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">f2</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dma_fence_is_later_or_same" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>return true if f1 is later or same as f2</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_fence</span> <span class="pre">*f1</span></code></dt><dd><p>the first fence from the same context</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_fence</span> <span class="pre">*f2</span></code></dt><dd><p>the second fence from the same context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns true if f1 is chronologically later than f2 or the same fence. Both
+fences must be from the same context, since a seqno is not re-used across
+contexts.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dma_fence_later">

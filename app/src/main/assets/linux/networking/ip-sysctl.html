@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -778,6 +778,11 @@ opportunistic reduction of timer interrupts.</p>
 Using 0 disables SACK compression.</p>
 <p>Default : 44</p>
 </dd>
+<dt>tcp_backlog_ack_defer - BOOLEAN</dt><dd><p>If set, user thread processing socket backlog tries sending
+one ACK for the whole queue. This helps to avoid potential
+long latencies at end of a TCP socket syscall.</p>
+<p>Default : true</p>
+</dd>
 <dt>tcp_slow_start_after_idle - BOOLEAN</dt><dd><p>If set, provide RFC2861 behavior and time out the congestion
 window after an idle period.  An idle period is defined at
 the current RTO.  If unset, the congestion window will not
@@ -1132,6 +1137,15 @@ of congestion. This is not intended behavior for PLB and should be
 used only for experimentation purpose.</p>
 <p>Possible Values: 0 - 256</p>
 <p>Default: 128</p>
+</dd>
+<dt>tcp_pingpong_thresh - INTEGER</dt><dd><p>The number of estimated data replies sent for estimated incoming data
+requests that must happen before TCP considers that a connection is a
+&quot;ping-pong&quot; (request-response) connection for which delayed
+acknowledgments can provide benefits.</p>
+<p>This threshold is 1 by default, but some applications may need a higher
+threshold for optimal performance.</p>
+<p>Possible Values: 1 - 255</p>
+<p>Default: 1</p>
 </dd>
 </dl>
 </section>
@@ -2143,6 +2157,16 @@ ignored. Zero lifetimes stay unaffected.</p>
 </ul>
 </div></blockquote>
 </dd>
+<dt>ra_honor_pio_life - BOOLEAN</dt><dd><p>Whether to use RFC4862 Section 5.5.3e to determine the valid
+lifetime of an address matching a prefix sent in a Router
+Advertisement Prefix Information Option.</p>
+<ul class="simple">
+<li><p>If enabled, the PIO valid lifetime will always be honored.</p></li>
+<li><p>If disabled, RFC4862 section 5.5.3e is used to determine
+the valid lifetime of the address.</p></li>
+</ul>
+<p>Default: 0 (disabled)</p>
+</dd>
 <dt>accept_ra_rt_info_min_plen - INTEGER</dt><dd><p>Minimum prefix length of Route Information in RA.</p>
 <p>Route Information w/ prefix smaller than this variable shall
 be ignored.</p>
@@ -2296,10 +2320,16 @@ addresses over public addresses.</p></li>
 </ul>
 </div></blockquote>
 </dd>
-<dt>temp_valid_lft - INTEGER</dt><dd><p>valid lifetime (in seconds) for temporary addresses.</p>
+<dt>temp_valid_lft - INTEGER</dt><dd><p>valid lifetime (in seconds) for temporary addresses. If less than the
+minimum required lifetime (typically 5 seconds), temporary addresses
+will not be created.</p>
 <p>Default: 172800 (2 days)</p>
 </dd>
-<dt>temp_prefered_lft - INTEGER</dt><dd><p>Preferred lifetime (in seconds) for temporary addresses.</p>
+<dt>temp_prefered_lft - INTEGER</dt><dd><p>Preferred lifetime (in seconds) for temporary addresses. If
+temp_prefered_lft is less than the minimum required lifetime (typically
+5 seconds), temporary addresses will not be created. If
+temp_prefered_lft is greater than temp_valid_lft, the preferred lifetime
+is temp_valid_lft.</p>
 <p>Default: 86400 (1 day)</p>
 </dd>
 <dt>keep_addr_on_down - INTEGER</dt><dd><p>Keep all IPv6 addresses on an interface down event. If set static

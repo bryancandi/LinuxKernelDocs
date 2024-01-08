@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -181,24 +181,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -380,6 +366,14 @@ ABI.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">power_limit_1_tmax_us</span></code> (RO)</dt><dd><p>Maximum powercap sysfs constraint_1_time_window_us for Intel RAPL</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">power_floor_status</span></code> (RO)</dt><dd><p>When set to 1, the power floor of the system in the current
+configuration has been reached.  It needs to be reconfigured to allow
+power to be reduced any further.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">power_floor_enable</span></code> (RW)</dt><dd><p>When set to 1, enable reading and notification of the power floor
+status. Notifications are triggered for the power_floor_status
+attribute value changes.</p>
+</dd>
 </dl>
 <p><code class="file docutils literal notranslate"><span class="pre">/sys/bus/pci/devices/0000:00:04.0/</span></code></p>
 <dl class="simple">
@@ -500,6 +494,52 @@ DLVR PLL frequency.</p>
 <section id="dptf-fan-control">
 <h2>DPTF Fan Control<a class="headerlink" href="#dptf-fan-control" title="Permalink to this heading">¶</a></h2>
 <p>Refer to <a class="reference internal" href="../../admin-guide/acpi/fan_performance_states.html"><span class="doc">ACPI Fan Performance States</span></a></p>
+</section>
+<section id="workload-type-hints">
+<h2>Workload Type Hints<a class="headerlink" href="#workload-type-hints" title="Permalink to this heading">¶</a></h2>
+<p>The firmware in Meteor Lake processor generation is capable of identifying
+workload type and passing hints regarding it to the OS. A special sysfs
+interface is provided to allow user space to obtain workload type hints from
+the firmware and control the rate at which they are provided.</p>
+<p>User space can poll attribute &quot;workload_type_index&quot; for the current hint or
+can receive a notification whenever the value of this attribute is updated.</p>
+<p>file:<cite>/sys/bus/pci/devices/0000:00:04.0/workload_hint/</cite>
+Segment 0, bus 0, device 4, function 0 is reserved for the processor thermal
+device on all Intel client processors. So, the above path doesn't change
+based on the processor generation.</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">workload_hint_enable</span></code> (RW)</dt><dd><p>Enable firmware to send workload type hints to user space.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">notification_delay_ms</span></code> (RW)</dt><dd><p>Minimum delay in milliseconds before firmware will notify OS. This is
+for the rate control of notifications. This delay is between changing
+the workload type prediction in the firmware and notifying the OS about
+the change. The default delay is 1024 ms. The delay of 0 is invalid.
+The delay is rounded up to the nearest power of 2 to simplify firmware
+programming of the delay value. The read of notification_delay_ms
+attribute shows the effective value used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">workload_type_index</span></code> (RO)</dt><dd><p>Predicted workload type index. User space can get notification of
+change via existing sysfs attribute change notification mechanism.</p>
+<p>The supported index values and their meaning for the Meteor Lake
+processor generation are as follows:</p>
+<dl class="simple">
+<dt>0 -  Idle: System performs no tasks, power and idle residency are</dt><dd><p>consistently low for long periods of time.</p>
+</dd>
+<dt>1 – Battery Life: Power is relatively low, but the processor may</dt><dd><p>still be actively performing a task, such as video playback for
+a long period of time.</p>
+</dd>
+<dt>2 – Sustained: Power level that is relatively high for a long period</dt><dd><p>of time, with very few to no periods of idleness, which will
+eventually exhaust RAPL Power Limit 1 and 2.</p>
+</dd>
+<dt>3 – Bursty: Consumes a relatively constant average amount of power, but</dt><dd><p>periods of relative idleness are interrupted by bursts of
+activity. The bursts are relatively short and the periods of
+relative idleness between them typically prevent RAPL Power
+Limit 1 from being exhausted.</p>
+</dd>
+</dl>
+<p>4 – Unknown: Can't classify.</p>
+</dd>
+</dl>
 </section>
 </section>
 

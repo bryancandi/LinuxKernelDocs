@@ -811,6 +811,7 @@ videodev2.h
     \#define \ :ref:`V4L2_PIX_FMT_QC08C <v4l2-pix-fmt-qc08c>`    v4l2\_fourcc('Q', '0', '8', 'C') \/\* Qualcomm 8-bit compressed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_QC10C <v4l2-pix-fmt-qc10c>`    v4l2\_fourcc('Q', '1', '0', 'C') \/\* Qualcomm 10-bit compressed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_AJPG <v4l2-pix-fmt-ajpg>`     v4l2\_fourcc('A', 'J', 'P', 'G') \/\* Aspeed JPEG \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_HEXTILE <v4l2-pix-fmt-hextile>`  v4l2\_fourcc('H', 'X', 'T', 'L') \/\* Hextile compressed \*\/
 
     \/\* 10bit raw packed, 32 bytes for every 25 pixels, last LSB 6 bits unused \*\/
     \#define \ :ref:`V4L2_PIX_FMT_IPU3_SBGGR10 <v4l2-pix-fmt-ipu3-sbggr10>`       v4l2\_fourcc('i', 'p', '3', 'b') \/\* IPU3 packed 10-bit BGGR bayer \*\/

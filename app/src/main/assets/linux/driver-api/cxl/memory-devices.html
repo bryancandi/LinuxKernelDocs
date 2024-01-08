@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -173,24 +173,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -644,7 +630,7 @@ between the subsystem drivers cxl_acpi, cxl_pci, and core drivers
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_register_map {
-    struct device *dev;
+    struct device *host;
     void __iomem *base;
     resource_size_t resource;
     resource_size_t max_size;
@@ -659,7 +645,7 @@ between the subsystem drivers cxl_acpi, cxl_pci, and core drivers
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>device for devm operations and logging</p>
+<dt><code class="docutils literal notranslate"><span class="pre">host</span></code></dt><dd><p>device for devm operations and logging</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">base</span></code></dt><dd><p>virtual base of the register-block-BAR + <strong>block_offset</strong></p>
 </dd>
@@ -807,6 +793,7 @@ interleave-width, and the target list are mutable.</p>
     cxl_calc_hb_fn calc_hb;
     void *platform_data;
     struct mutex range_lock;
+    int qos_class;
     struct cxl_switch_decoder cxlsd;
 };
 </pre></div>
@@ -822,6 +809,8 @@ interleave-width, and the target list are mutable.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">platform_data</span></code></dt><dd><p>platform specific configuration data</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">range_lock</span></code></dt><dd><p>sync region autodiscovery by address range</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">qos_class</span></code></dt><dd><p>QoS performance class cookie</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cxlsd</span></code></dt><dd><p>base cxl switch decoder</p>
 </dd>
@@ -924,11 +913,10 @@ interleave-width, and the target list are mutable.</p>
     struct xarray regions;
     struct cxl_dport *parent_dport;
     struct ida decoder_ida;
-    struct cxl_register_map comp_map;
+    struct cxl_register_map reg_map;
     int nr_dports;
     int hdm_end;
     int commit_end;
-    resource_size_t component_reg_phys;
     bool dead;
     unsigned int depth;
     struct cxl_cdat {
@@ -959,15 +947,13 @@ interleave-width, and the target list are mutable.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">decoder_ida</span></code></dt><dd><p>allocator for decoder ids</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">comp_map</span></code></dt><dd><p>component register capability mappings</p>
+<dt><code class="docutils literal notranslate"><span class="pre">reg_map</span></code></dt><dd><p>component and ras register mapping parameters</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nr_dports</span></code></dt><dd><p>number of entries in <strong>dports</strong></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdm_end</span></code></dt><dd><p>track last allocated HDM decoder instance for allocation ordering</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">commit_end</span></code></dt><dd><p>cursor to track highest committed decoder for commit ordering</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">component_reg_phys</span></code></dt><dd><p>component register capability base address (optional)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dead</span></code></dt><dd><p>last ep has been removed, force port re-creation</p>
 </dd>
@@ -989,11 +975,12 @@ interleave-width, and the target list are mutable.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_dport {
     struct device *dport_dev;
-    struct cxl_register_map comp_map;
+    struct cxl_register_map reg_map;
     int port_id;
     struct cxl_rcrb_info rcrb;
     bool rch;
     struct cxl_port *port;
+    struct cxl_regs regs;
 };
 </pre></div>
 </div>
@@ -1001,7 +988,7 @@ interleave-width, and the target list are mutable.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">dport_dev</span></code></dt><dd><p>PCI bridge or firmware device representing the downstream link</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">comp_map</span></code></dt><dd><p>component register capability mappings</p>
+<dt><code class="docutils literal notranslate"><span class="pre">reg_map</span></code></dt><dd><p>component and ras register mapping parameters</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">port_id</span></code></dt><dd><p>unique hardware identifier for dport in decoder target list</p>
 </dd>
@@ -1010,6 +997,8 @@ interleave-width, and the target list are mutable.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">rch</span></code></dt><dd><p>Indicate whether this dport was enumerated in RCH or VH mode</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>reference to cxl_port that contains this downstream port</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">regs</span></code></dt><dd><p>Dport parsed register blocks</p>
 </dd>
 </dl>
 </div>
@@ -1464,6 +1453,32 @@ associated with <strong>port</strong></p></li>
 <li><p>account for how many entries in <strong>port</strong>'s target list are needed to
 cover all of the added endpoints.</p></li>
 </ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.cxl_calc_interleave_pos">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_calc_interleave_pos</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_endpoint_decoder" title="cxl_endpoint_decoder"><span class="n"><span class="pre">cxl_endpoint_decoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxled</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_calc_interleave_pos" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>calculate an endpoint position in a region</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_endpoint_decoder</span> <span class="pre">*cxled</span></code></dt><dd><p>endpoint decoder member of given region</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The endpoint position is calculated by traversing the topology from
+the endpoint to the root decoder and iteratively applying this
+calculation:</p>
+<blockquote>
+<div><p>position = position * parent_ways + parent_pos;</p>
+</div></blockquote>
+<p>...where <strong>position</strong> is inferred from switch and root decoder target lists.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>position &gt;= 0 on success</dt><dd><p>-ENXIO on failure</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.devm_cxl_add_region">

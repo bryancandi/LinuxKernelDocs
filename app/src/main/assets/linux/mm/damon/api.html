@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -182,6 +182,7 @@ the source tree.</p>
     struct damon_addr_range ar;
     unsigned long sampling_addr;
     unsigned int nr_accesses;
+    unsigned int nr_accesses_bp;
     struct list_head list;
     unsigned int age;
 };
@@ -195,6 +196,9 @@ the source tree.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code></dt><dd><p>Access frequency of this region.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nr_accesses_bp</span></code></dt><dd><p><strong>nr_accesses</strong> in basis point (0.01%) that updated for
+each sampling interval.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>List head for siblings.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">age</span></code></dt><dd><p>Age of this region.</p>
@@ -202,6 +206,17 @@ the source tree.</p>
 </dl>
 </div>
 <p><strong>Description</strong></p>
+<p><strong>nr_accesses</strong> is reset to zero for every <a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_attrs-&gt;aggr_interval</span></code></a> and be
+increased for every <a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_attrs-&gt;sample_interval</span></code></a> if an access to the region
+during the last sampling interval is found.  The update of this field should
+not be done with direct access but with the helper function,
+<a class="reference internal" href="#c.damon_update_region_access_rate" title="damon_update_region_access_rate"><code class="xref c c-func docutils literal notranslate"><span class="pre">damon_update_region_access_rate()</span></code></a>.</p>
+<p><strong>nr_accesses_bp</strong> is another representation of <strong>nr_accesses</strong> in basis point
+(1 in 10,000) that updated for every <a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_attrs-&gt;sample_interval</span></code></a> in a
+manner similar to moving sum.  By the algorithm, this value becomes
+<strong>nr_accesses</strong> * 10000 for every <a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_attrs</span></code></a>-&gt;aggr_interval.  This can
+be used when the aggregation interval is too huge and therefore cannot wait
+for it before getting the access monitoring results.</p>
 <p><strong>age</strong> is initially zero, increased for each aggregation interval, and reset
 to zero again if the access frequency is significantly changed.  If two
 regions are merged into a new region, both <strong>nr_accesses</strong> and <strong>age</strong> of the new
@@ -532,6 +547,7 @@ and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct damos {
     struct damos_access_pattern pattern;
     enum damos_action action;
+    unsigned long apply_interval_us;
     struct damos_quota quota;
     struct damos_watermarks wmarks;
     struct list_head filters;
@@ -546,6 +562,8 @@ and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">action</span></code></dt><dd><p><code class="xref c c-type docutils literal notranslate"><span class="pre">damo_action</span></code> to be applied to the target regions.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">apply_interval_us</span></code></dt><dd><p>The time between applying the <strong>action</strong>.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">quota</span></code></dt><dd><p>Control the aggressiveness of this scheme.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wmarks</span></code></dt><dd><p>Watermarks for automated (in)activation of this scheme.</p>
@@ -559,15 +577,14 @@ and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>For each aggregation interval, DAMON finds regions which fit in the
+<p>For each <strong>apply_interval_us</strong>, DAMON finds regions which fit in the
 <code class="xref c c-type docutils literal notranslate"><span class="pre">pattern</span></code> and applies <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code> to those. To avoid consuming too much
 CPU time or IO resources for the <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code>, <code class="xref c c-type docutils literal notranslate"><span class="pre">quota</span></code> is used.</p>
+<p>If <strong>apply_interval_us</strong> is zero, <a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_attrs-&gt;aggr_interval</span></code></a> is used instead.</p>
 <p>To do the work only when needed, schemes can be activated for specific
 system situations using <code class="xref c c-type docutils literal notranslate"><span class="pre">wmarks</span></code>.  If all schemes that registered to the
 monitoring context are inactive, DAMON stops monitoring either, and just
 repeatedly checks the watermarks.</p>
-<p>If all schemes that registered to a <a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span></code></a> are inactive, DAMON
-stops monitoring and just repeatedly checks the watermarks.</p>
 <p>Before applying the <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code> to a memory region, <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a>
 implementation could check pages of the region and skip <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code> to respect
 <code class="xref c c-type docutils literal notranslate"><span class="pre">filters</span></code></p>
@@ -760,13 +777,14 @@ regions.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>For each <strong>sample_interval</strong>, DAMON checks whether each region is accessed or
-not.  It aggregates and keeps the access information (number of accesses to
-each region) for <strong>aggr_interval</strong> time.  DAMON also checks whether the target
-memory regions need update (e.g., by <code class="docutils literal notranslate"><span class="pre">mmap()</span></code> calls from the application,
-in case of virtual memory monitoring) and applies the changes for each
-<strong>ops_update_interval</strong>.  All time intervals are in micro-seconds.
-Please refer to <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a> and <a class="reference internal" href="#c.damon_callback" title="damon_callback"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_callback</span></code></a> for more
-detail.</p>
+not during the last <strong>sample_interval</strong>.  If such access is found, DAMON
+aggregates the information by increasing <a class="reference internal" href="#c.damon_region" title="damon_region"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_region-&gt;nr_accesses</span></code></a> for
+<strong>aggr_interval</strong> time.  For each <strong>aggr_interval</strong>, the count is reset.  DAMON
+also checks whether the target memory regions need update (e.g., by
+<code class="docutils literal notranslate"><span class="pre">mmap()</span></code> calls from the application, in case of virtual memory monitoring)
+and applies the changes for each <strong>ops_update_interval</strong>.  All time intervals
+are in micro-seconds.  Please refer to <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a> and <a class="reference internal" href="#c.damon_callback" title="damon_callback"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">damon_callback</span></code></a> for more detail.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.damon_ctx">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damon_ctx</span></span></span><a class="headerlink" href="#c.damon_ctx" title="Permalink to this definition">¶</a><br /></dt>
@@ -888,8 +906,11 @@ Accesses to other fields must be protected by themselves.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This function should not be called while the kdamond is running.
-Every time interval is in micro-seconds.</p>
+<p>This function should be called while the kdamond is not running, or an
+access check results aggregation is not ongoing (e.g., from
+<a class="reference internal" href="#c.damon_callback" title="damon_callback"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_callback</span></code></a>-&gt;after_aggregation or
+<a class="reference internal" href="#c.damon_callback" title="damon_callback"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_callback</span></code></a>-&gt;after_wmarks_check callbacks).</p>
+<p>Every time interval is in micro-seconds.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative error code otherwise.</p>
 </div>
@@ -993,6 +1014,27 @@ latter case, this function saves the start and end addresses of the resource
 in <strong>start</strong> and <strong>end</strong>, respectively.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.damon_update_region_access_rate">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damon_update_region_access_rate</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_region" title="damon_region"><span class="n"><span class="pre">damon_region</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">accessed</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_attrs" title="damon_attrs"><span class="n"><span class="pre">damon_attrs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attrs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.damon_update_region_access_rate" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Update the access rate of a region.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_region</span> <span class="pre">*r</span></code></dt><dd><p>The DAMON region to update for its access check result.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">accessed</span></code></dt><dd><p>Whether the region has accessed during last sampling interval.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_attrs</span> <span class="pre">*attrs</span></code></dt><dd><p>The damon_attrs of the DAMON context.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Update the access rate of a region with the region's last sampling interval
+access check result.</p>
+<p>Usually this will be called by <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">damon_operations-&gt;check_accesses</span></code></a> callback.</p>
 </div>
 </section>
 </section>

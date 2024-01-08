@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -184,24 +184,10 @@
 <li class="toctree-l2"><a class="reference internal" href="zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -835,6 +821,10 @@ the identifier.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cdx_device_id {
     __u16 vendor;
     __u16 device;
+    __u16 subvendor;
+    __u16 subdevice;
+    __u32 class;
+    __u32 class_mask;
     __u32 override_only;
 };
 </pre></div>
@@ -844,6 +834,16 @@ the identifier.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">vendor</span></code></dt><dd><p>Vendor ID</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">device</span></code></dt><dd><p>Device ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">subvendor</span></code></dt><dd><p>Subsystem vendor ID (or CDX_ANY_ID)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">subdevice</span></code></dt><dd><p>Subsystem device ID (or CDX_ANY_ID)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">class</span></code></dt><dd><p>Device class
+Most drivers do not need to specify class/class_mask
+as vendor/device is normally sufficient.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">class_mask</span></code></dt><dd><p>Limit which sub-fields of the class field are compared.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">override_only</span></code></dt><dd><p>Match only when dev-&gt;driver_override is this driver.</p>
 </dd>
@@ -1389,7 +1389,7 @@ preferred CPU of <strong>group</strong>.</p>
 can do asym_packing balance only if all its SMT siblings are idle. Also, it
 can only do it if <strong>group</strong> is an SMT group and has exactly on busy CPU. Larger
 imbalances in the number of CPUS are dealt with in <a class="reference internal" href="#c.find_busiest_group" title="find_busiest_group"><code class="xref c c-func docutils literal notranslate"><span class="pre">find_busiest_group()</span></code></a>.</p>
-<p>If we are balancing load within an SMT core, or at DIE domain level, always
+<p>If we are balancing load within an SMT core, or at PKG domain level, always
 proceed.</p>
 <p><strong>Return</strong></p>
 <p>true if <strong>env</strong>::dst_cpu can do with asym_packing load balance. False
@@ -5538,6 +5538,23 @@ calling threadfn().</p>
 task_struct can't go away.</p>
 <p>Returns the result of threadfn(), or <code class="docutils literal notranslate"><span class="pre">-EINTR</span></code> if <a class="reference internal" href="#c.wake_up_process" title="wake_up_process"><code class="xref c c-func docutils literal notranslate"><span class="pre">wake_up_process()</span></code></a>
 was never called.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kthread_stop_put">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kthread_stop_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">k</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kthread_stop_put" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>stop a thread and put its task struct</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*k</span></code></dt><dd><p>thread created by <a class="reference internal" href="#c.kthread_create" title="kthread_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kthread_create()</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Stops a thread created by <a class="reference internal" href="#c.kthread_create" title="kthread_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kthread_create()</span></code></a> and put its task_struct.
+Only use when holding an extra task struct reference obtained by
+calling get_task_struct().</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kthread_worker_fn">
@@ -16534,22 +16551,6 @@ is no longer being used.</p>
 </dl>
 <p><strong>NOTE</strong></p>
 <p><strong>x</strong> is not checked for &gt; 0xff; larger values produce odd results.</p>
-</div>
-<dl class="c macro">
-<dt class="sig sig-object c" id="c.ARRAY_SIZE">
-<span class="sig-name descname"><span class="n"><span class="pre">ARRAY_SIZE</span></span></span><a class="headerlink" href="#c.ARRAY_SIZE" title="Permalink to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-<p><code class="docutils literal notranslate"><span class="pre">ARRAY_SIZE</span> <span class="pre">(arr)</span></code></p>
-<blockquote>
-<div><p>get the number of elements in array <strong>arr</strong></p>
-</div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">arr</span></code></dt><dd><p>array to be sized</p>
-</dd>
-</dl>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.upper_32_bits">

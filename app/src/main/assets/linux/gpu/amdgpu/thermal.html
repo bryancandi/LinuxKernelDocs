@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -77,6 +77,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../sound/index.html">Sound Subsystem Documentation</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="../index.html">GPU Driver Developer's Guide</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../fb/index.html">Frame Buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../leds/index.html">LEDs</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
@@ -330,16 +331,13 @@ clock labeled OD_MCLK</p></li>
 <li><p>three &lt;frequency, voltage&gt; points labeled OD_VDDC_CURVE.
 They can be used to calibrate the sclk voltage curve. This is
 available for Vega20 and NV1X.</p></li>
-<li><p>voltage offset for the six anchor points of the v/f curve labeled
-OD_VDDC_CURVE. They can be used to calibrate the v/f curve. This
-is only availabe for some SMU13 ASICs.</p></li>
 <li><p>voltage offset(in mV) applied on target voltage calculation.
-This is available for Sienna Cichlid, Navy Flounder and Dimgrey
-Cavefish. For these ASICs, the target voltage calculation can be
-illustrated by &quot;voltage = voltage calculated from v/f curve +
-overdrive vddgfx offset&quot;</p></li>
-<li><p>a list of valid ranges for sclk, mclk, and voltage curve points
-labeled OD_RANGE</p></li>
+This is available for Sienna Cichlid, Navy Flounder, Dimgrey
+Cavefish and some later SMU13 ASICs. For these ASICs, the target
+voltage calculation can be illustrated by &quot;voltage = voltage
+calculated from v/f curve + overdrive vddgfx offset&quot;</p></li>
+<li><p>a list of valid ranges for sclk, mclk, voltage curve points
+or voltage offset labeled OD_RANGE</p></li>
 </ul>
 <p>&lt; For APUs &gt;</p>
 <p>Reading the file will display:</p>
@@ -365,27 +363,16 @@ clock. E.g., &quot;s 0 500&quot; will update minimum sclk to be 500 MHz.
 clocks on VanGogh, the string contains &quot;p core index clock&quot;.
 E.g., &quot;p 2 0 800&quot; would set the minimum core clock on core
 2 to 800Mhz.</p>
-<dl class="simple">
-<dt>For sclk voltage curve,</dt><dd><ul class="simple">
-<li><p>For NV1X, enter the new values by writing a string that
-contains &quot;vc point clock voltage&quot; to the file. The points
-are indexed by 0, 1 and 2. E.g., &quot;vc 0 300 600&quot; will update
-point1 with clock set as 300Mhz and voltage as 600mV. &quot;vc 2
-1000 1000&quot; will update point3 with clock set as 1000Mhz and
-voltage 1000mV.</p></li>
-<li><p>For SMU13 ASICs, enter the new values by writing a string that
-contains &quot;vc anchor_point_index voltage_offset&quot; to the file.
-There are total six anchor points defined on the v/f curve with
-index as 0 - 5.
-- &quot;vc 0 10&quot; will update the voltage offset for point1 as 10mv.
-- &quot;vc 5 -10&quot; will update the voltage offset for point6 as -10mv.</p></li>
-</ul>
-</dd>
-</dl>
-<p>To update the voltage offset applied for gfxclk/voltage calculation,
-enter the new value by writing a string that contains &quot;vo offset&quot;.
-This is supported by Sienna Cichlid, Navy Flounder and Dimgrey Cavefish.
-And the offset can be a positive or negative value.</p>
+<p>For sclk voltage curve supported by Vega20 and NV1X, enter the new
+values by writing a string that contains &quot;vc point clock voltage&quot;
+to the file. The points are indexed by 0, 1 and 2. E.g., &quot;vc 0 300
+600&quot; will update point1 with clock set as 300Mhz and voltage as 600mV.
+&quot;vc 2 1000 1000&quot; will update point3 with clock set as 1000Mhz and
+voltage 1000mV.</p>
+<p>For voltage offset supported by Sienna Cichlid, Navy Flounder, Dimgrey
+Cavefish and some later SMU13 ASICs, enter the new value by writing a
+string that contains &quot;vo offset&quot;. E.g., &quot;vo -10&quot; will update the extra
+voltage offset applied to the whole v/f curve line as -10mv.</p>
 </li>
 <li><p>When you have edited all of the states as needed, write &quot;c&quot; (commit)
 to the file to commit your changes</p></li>
@@ -403,7 +390,16 @@ this.</p>
 Vega10 and later ASICs.
 pp_dpm_fclk interface is only available for Vega20 and later ASICs.</p>
 <p>Reading back the files will show you the available power levels within
-the power state and the clock information for those levels.</p>
+the power state and the clock information for those levels. If deep sleep is
+applied to a clock, the level will be denoted by a special level 'S:'
+E.g.,</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>S: 19Mhz *
+0: 615Mhz
+1: 800Mhz
+2: 888Mhz
+3: 1000Mhz
+</pre></div>
+</div>
 <p>To manually adjust these states, first select manual using
 power_dpm_force_performance_level.
 Secondly, enter a new value for each level by inputing a string that
@@ -450,6 +446,93 @@ file will dump all the current gpu metrics data.</p>
 power consume, throttler status, fan speed and cpu core statistics(
 available for APU only). That's it will give a snapshot of all sensors
 at the same time.</p>
+</section>
+<section id="fan-curve">
+<h3>fan_curve<a class="headerlink" href="#fan-curve" title="Permalink to this heading">¶</a></h3>
+<p>The amdgpu driver provides a sysfs API for checking and adjusting the fan
+control curve line.</p>
+<p>Reading back the file shows you the current settings(temperature in Celsius
+degree and fan speed in pwm) applied to every anchor point of the curve line
+and their permitted ranges if changable.</p>
+<p>Writing a desired string(with the format like &quot;anchor_point_index temperature
+fan_speed_in_pwm&quot;) to the file, change the settings for the specific anchor
+point accordingly.</p>
+<p>When you have finished the editing, write &quot;c&quot; (commit) to the file to commit
+your changes.</p>
+<p>If you want to reset to the default value, write &quot;r&quot; (reset) to the file to
+reset them</p>
+<p>There are two fan control modes supported: auto and manual. With auto mode,
+PMFW handles the fan speed control(how fan speed reacts to ASIC temperature).
+While with manual mode, users can set their own fan curve line as what
+described here. Normally the ASIC is booted up with auto mode. Any
+settings via this interface will switch the fan control to manual mode
+implicitly.</p>
+</section>
+<section id="acoustic-limit-rpm-threshold">
+<h3>acoustic_limit_rpm_threshold<a class="headerlink" href="#acoustic-limit-rpm-threshold" title="Permalink to this heading">¶</a></h3>
+<p>The amdgpu driver provides a sysfs API for checking and adjusting the
+acoustic limit in RPM for fan control.</p>
+<p>Reading back the file shows you the current setting and the permitted
+ranges if changable.</p>
+<p>Writing an integer to the file, change the setting accordingly.</p>
+<p>When you have finished the editing, write &quot;c&quot; (commit) to the file to commit
+your changes.</p>
+<p>If you want to reset to the default value, write &quot;r&quot; (reset) to the file to
+reset them</p>
+<p>This setting works under auto fan control mode only. It adjusts the PMFW's
+behavior about the maximum speed in RPM the fan can spin. Setting via this
+interface will switch the fan control to auto mode implicitly.</p>
+</section>
+<section id="acoustic-target-rpm-threshold">
+<h3>acoustic_target_rpm_threshold<a class="headerlink" href="#acoustic-target-rpm-threshold" title="Permalink to this heading">¶</a></h3>
+<p>The amdgpu driver provides a sysfs API for checking and adjusting the
+acoustic target in RPM for fan control.</p>
+<p>Reading back the file shows you the current setting and the permitted
+ranges if changable.</p>
+<p>Writing an integer to the file, change the setting accordingly.</p>
+<p>When you have finished the editing, write &quot;c&quot; (commit) to the file to commit
+your changes.</p>
+<p>If you want to reset to the default value, write &quot;r&quot; (reset) to the file to
+reset them</p>
+<p>This setting works under auto fan control mode only. It can co-exist with
+other settings which can work also under auto mode. It adjusts the PMFW's
+behavior about the maximum speed in RPM the fan can spin when ASIC
+temperature is not greater than target temperature. Setting via this
+interface will switch the fan control to auto mode implicitly.</p>
+</section>
+<section id="fan-target-temperature">
+<h3>fan_target_temperature<a class="headerlink" href="#fan-target-temperature" title="Permalink to this heading">¶</a></h3>
+<p>The amdgpu driver provides a sysfs API for checking and adjusting the
+target tempeature in Celsius degree for fan control.</p>
+<p>Reading back the file shows you the current setting and the permitted
+ranges if changable.</p>
+<p>Writing an integer to the file, change the setting accordingly.</p>
+<p>When you have finished the editing, write &quot;c&quot; (commit) to the file to commit
+your changes.</p>
+<p>If you want to reset to the default value, write &quot;r&quot; (reset) to the file to
+reset them</p>
+<p>This setting works under auto fan control mode only. It can co-exist with
+other settings which can work also under auto mode. Paring with the
+acoustic_target_rpm_threshold setting, they define the maximum speed in
+RPM the fan can spin when ASIC temperature is not greater than target
+temperature. Setting via this interface will switch the fan control to
+auto mode implicitly.</p>
+</section>
+<section id="fan-minimum-pwm">
+<h3>fan_minimum_pwm<a class="headerlink" href="#fan-minimum-pwm" title="Permalink to this heading">¶</a></h3>
+<p>The amdgpu driver provides a sysfs API for checking and adjusting the
+minimum fan speed in PWM.</p>
+<p>Reading back the file shows you the current setting and the permitted
+ranges if changable.</p>
+<p>Writing an integer to the file, change the setting accordingly.</p>
+<p>When you have finished the editing, write &quot;c&quot; (commit) to the file to commit
+your changes.</p>
+<p>If you want to reset to the default value, write &quot;r&quot; (reset) to the file to
+reset them</p>
+<p>This setting works under auto fan control mode only. It can co-exist with
+other settings which can work also under auto mode. It adjusts the PMFW's
+behavior about the minimum fan speed in PWM the fan should spin. Setting
+via this interface will switch the fan control to auto mode implicitly.</p>
 </section>
 </section>
 <section id="gfxoff">

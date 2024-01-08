@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -84,7 +84,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../iio/index.html">Industrial I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../leds/index.html">LEDs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../pcmcia/index.html">PCMCIA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../spi/index.html">Serial Peripheral Interface (SPI)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../w1/index.html">1-Wire Subsystem</a></li>
@@ -244,7 +243,7 @@ memory mappings.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">gfp_mask</span></code></dt><dd><p>Memory allocation flags to use for allocating pages.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">i_mmap_writable</span></code></dt><dd><p>Number of VM_SHARED mappings.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">i_mmap_writable</span></code></dt><dd><p>Number of VM_SHARED, VM_MAYWRITE mappings.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nr_thps</span></code></dt><dd><p>Number of THPs in the pagecache (non-shmem only).</p>
 </dd>
@@ -485,38 +484,6 @@ s_user_ns of the superblock <strong>sb</strong>. If the caller is on an idmapped
 the caller's fsuid and fsgid according to the <strong>idmap</strong> first.</p>
 <p><strong>Return</strong></p>
 <p>true if fsuid and fsgid is mapped, false if not.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.inode_get_ctime">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">timespec64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">inode_get_ctime</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.inode_get_ctime" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.inode_get_ctime" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>fetch the current ctime from the inode</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>inode from which to fetch ctime</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Grab the current ctime from the inode and return it.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.inode_set_ctime_to_ts">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">timespec64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">inode_set_ctime_to_ts</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.inode_set_ctime_to_ts" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">timespec64</span></span><span class="w"> </span><span class="n"><span class="pre">ts</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.inode_set_ctime_to_ts" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>set the ctime in the inode</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>inode in which to set the ctime</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">timespec64</span> <span class="pre">ts</span></code></dt><dd><p>value to set in the ctime field</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Set the ctime in <strong>inode</strong> to <strong>ts</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.inode_set_ctime">
@@ -2768,11 +2735,12 @@ some acceptable default.</p>
 <p>To avoid blocking kernel daemons, such as lockd, that need to acquire POSIX
 locks, the -&gt;lock() interface may return asynchronously, before the lock has
 been granted or denied by the underlying filesystem, if (and only if)
-lm_grant is set. Callers expecting -&gt;lock() to return asynchronously
-will only use F_SETLK, not F_SETLKW; they will set FL_SLEEP if (and only if)
-the request is for a blocking lock. When -&gt;lock() does return asynchronously,
-it must return FILE_LOCK_DEFERRED, and call -&gt;lm_grant() when the lock
-request completes.
+lm_grant is set. Additionally EXPORT_OP_ASYNC_LOCK in export_operations
+flags need to be set.</p>
+<p>Callers expecting -&gt;lock() to return asynchronously will only use F_SETLK,
+not F_SETLKW; they will set FL_SLEEP if (and only if) the request is for a
+blocking lock. When -&gt;lock() does return asynchronously, it must return
+FILE_LOCK_DEFERRED, and call -&gt;lm_grant() when the lock request completes.
 If the request is for non-blocking lock the file system should return
 FILE_LOCK_DEFERRED then try to get the lock and call the callback routine
 with the result. If the request timed out the callback routine will return a
@@ -3699,6 +3667,27 @@ and then attach the address_space's inode to its superblock's dirty
 inode list.</p>
 <p><a class="reference internal" href="#c.mark_buffer_dirty" title="mark_buffer_dirty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mark_buffer_dirty()</span></code></a> is atomic.  It takes bh-&gt;b_folio-&gt;mapping-&gt;private_lock,
 i_pages lock and mapping-&gt;host-&gt;i_lock.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bdev_getblk">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">buffer_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">bdev_getblk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">block_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bdev</span></span>, <span class="n"><span class="pre">sector_t</span></span><span class="w"> </span><span class="n"><span class="pre">block</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bdev_getblk" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Get a buffer_head in a block device's buffer cache.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">block_device</span> <span class="pre">*bdev</span></code></dt><dd><p>The block device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sector_t</span> <span class="pre">block</span></code></dt><dd><p>The block number.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">size</span></code></dt><dd><p>The size of buffer_heads for this <strong>bdev</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>The memory allocation flags to use.</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>The buffer head, or NULL if memory could not be allocated.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__bread_gfp">
@@ -5417,6 +5406,30 @@ buffer <strong>from</strong> at offset <strong>ppos</strong> into the kernel spa
 advanced by this number, or negative value is returned on error.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.generic_encode_ino32_fh">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">generic_encode_ino32_fh</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.generic_encode_ino32_fh" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="n"><span class="pre">__u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fh</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">max_len</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.generic_encode_ino32_fh" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">parent</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.generic_encode_ino32_fh" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>generic export_operations-&gt;encode_fh function</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>the object to encode</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__u32</span> <span class="pre">*fh</span></code></dt><dd><p>where to store the file handle fragment</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">*max_len</span></code></dt><dd><p>maximum length to store there (in 4 byte units)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*parent</span></code></dt><dd><p>parent directory inode, if wanted</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This generic encode_fh function assumes that the 32 inode number
+is suitable for locating an inode, and that the generation number
+can be used to check that it is still valid.  It places them in the
+filehandle fragment where export_decode_fh expects to find them.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.generic_fh_to_dentry">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dentry</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">generic_fh_to_dentry</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.generic_fh_to_dentry" title="fid"><span class="n"><span class="pre">fid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fid</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">fh_len</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">fh_type</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">inode</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">get_inode</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">ino</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">gen</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.generic_fh_to_dentry" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>generic helper for the fh_to_dentry export operation</p>
@@ -5648,6 +5661,22 @@ anything has changed.</p>
 <p>In this implementation, we fetch the current value, set the QUERIED flag and
 then try to swap it into place with a cmpxchg, if it wasn't already set. If
 that fails, we try again with the newly fetched value from the cmpxchg.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.simple_inode_init_ts">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">timespec64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">simple_inode_init_ts</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.simple_inode_init_ts" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.simple_inode_init_ts" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>initialize the timestamps for a new inode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>inode to be initialized</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>When a new inode is created, most filesystems set the timestamps to the
+current time. Add a helper to do this.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.posix_acl_chmod">
@@ -6041,6 +6070,25 @@ NULL name; some file systems use this operation internally, with varying
 semantics.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.mnt_get_write_access">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mnt_get_write_access</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mnt_get_write_access" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>get write access to a mount without freeze protection</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vfsmount</span> <span class="pre">*m</span></code></dt><dd><p>the mount on which to take a write</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This tells the low-level filesystem that a write is about to be performed to
+it, and makes sure that writes are allowed (mnt it read-write) before
+returning success. This operation does not protect against filesystem being
+frozen. When the write operation is finished, <a class="reference internal" href="#c.mnt_put_write_access" title="mnt_put_write_access"><code class="xref c c-func docutils literal notranslate"><span class="pre">mnt_put_write_access()</span></code></a> must be
+called. This is effectively a refcount.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.mnt_want_write">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mnt_want_write</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mnt_want_write" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>get write access to a mount</p>
@@ -6075,6 +6123,23 @@ finished, <a class="reference internal" href="#c.mnt_drop_write" title="mnt_drop
 skips incrementing mnt_writers (since the open file already has a reference)
 and instead only does the freeze protection and the check for emergency r/o
 remounts.  This must be paired with mnt_drop_write_file.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mnt_put_write_access">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mnt_put_write_access</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mnt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mnt_put_write_access" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>give up write access to a mount</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vfsmount</span> <span class="pre">*mnt</span></code></dt><dd><p>the mount on which to give up write access</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Tells the low-level filesystem that we are done
+performing writes to it.  Must be matched with
+<a class="reference internal" href="#c.mnt_get_write_access" title="mnt_get_write_access"><code class="xref c c-func docutils literal notranslate"><span class="pre">mnt_get_write_access()</span></code></a> call above.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mnt_drop_write">
@@ -7520,6 +7585,54 @@ it is allowed to access the file data, zero is returned.</p>
 <p>Allow any ongoing concurrent call into <a class="reference internal" href="#c.debugfs_remove" title="debugfs_remove"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_remove()</span></code></a> or
 debugfs_remove_recursive() blocked by a former call to
 <a class="reference internal" href="#c.debugfs_file_get" title="debugfs_file_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_file_get()</span></code></a> to proceed and return to its caller.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.debugfs_enter_cancellation">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">debugfs_enter_cancellation</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.debugfs_enter_cancellation" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">debugfs_cancellation</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cancellation</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.debugfs_enter_cancellation" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>enter a debugfs cancellation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>the file being accessed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">debugfs_cancellation</span> <span class="pre">*cancellation</span></code></dt><dd><p>the cancellation object, the cancel callback
+inside of it must be initialized</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>When a debugfs file is removed it needs to wait for all active
+operations to complete. However, the operation itself may need
+to wait for hardware or completion of some asynchronous process
+or similar. As such, it may need to be cancelled to avoid long
+waits or even deadlocks.</p>
+<p>This function can be used inside a debugfs handler that may
+need to be cancelled. As soon as this function is called, the
+cancellation's 'cancel' callback may be called, at which point
+the caller should proceed to call <a class="reference internal" href="#c.debugfs_leave_cancellation" title="debugfs_leave_cancellation"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_leave_cancellation()</span></code></a>
+and leave the debugfs handler function as soon as possible.
+Note that the 'cancel' callback is only ever called in the
+context of some kind of <a class="reference internal" href="#c.debugfs_remove" title="debugfs_remove"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_remove()</span></code></a>.</p>
+<p>This function must be paired with <a class="reference internal" href="#c.debugfs_leave_cancellation" title="debugfs_leave_cancellation"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_leave_cancellation()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.debugfs_leave_cancellation">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">debugfs_leave_cancellation</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.debugfs_leave_cancellation" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">debugfs_cancellation</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cancellation</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.debugfs_leave_cancellation" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>leave cancellation section</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>the file being accessed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">debugfs_cancellation</span> <span class="pre">*cancellation</span></code></dt><dd><p>the cancellation previously registered with
+<a class="reference internal" href="#c.debugfs_enter_cancellation" title="debugfs_enter_cancellation"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_enter_cancellation()</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>See the documentation of <a class="reference internal" href="#c.debugfs_enter_cancellation" title="debugfs_enter_cancellation"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_enter_cancellation()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.debugfs_create_u8">

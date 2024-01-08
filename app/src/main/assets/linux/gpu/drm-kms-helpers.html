@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -77,6 +77,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../sound/index.html">Sound Subsystem Documentation</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">GPU Driver Developer's Guide</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fb/index.html">Frame Buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../leds/index.html">LEDs</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
@@ -2063,6 +2064,26 @@ any already successfully prepared framebuffer.</p>
 <p>0 on success, negative error code on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_unprepare_planes">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_unprepare_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_unprepare_planes" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>release plane resources on aborts</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object with old state structures</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function cleans up plane state, specifically framebuffers, from the
+atomic state. It undoes the effects of <a class="reference internal" href="#c.drm_atomic_helper_prepare_planes" title="drm_atomic_helper_prepare_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_prepare_planes()</span></code></a>
+when aborting an atomic commit. For cleaning up after a successful commit
+use <a class="reference internal" href="#c.drm_atomic_helper_cleanup_planes" title="drm_atomic_helper_cleanup_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_cleanup_planes()</span></code></a>.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_planes">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_planes" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>commit plane state</p>
@@ -2174,8 +2195,9 @@ planes.</p>
 <p>This function cleans up plane state, specifically framebuffers, from the old
 configuration. Hence the old configuration must be perserved in <strong>old_state</strong> to
 be able to call this function.</p>
-<p>This function must also be called on the new state when the atomic update
-fails at any point after calling <a class="reference internal" href="#c.drm_atomic_helper_prepare_planes" title="drm_atomic_helper_prepare_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_prepare_planes()</span></code></a>.</p>
+<p>This function may not be called on the new state when the atomic update
+fails at any point after calling <a class="reference internal" href="#c.drm_atomic_helper_prepare_planes" title="drm_atomic_helper_prepare_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_prepare_planes()</span></code></a>. Use
+<a class="reference internal" href="#c.drm_atomic_helper_unprepare_planes" title="drm_atomic_helper_unprepare_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_unprepare_planes()</span></code></a> in this case.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_swap_state">
@@ -6189,9 +6211,7 @@ this flag shall implement the <a class="reference internal" href="#c.drm_bridge_
     struct drm_device *dev;
     struct drm_encoder *encoder;
     struct list_head chain_node;
-#ifdef CONFIG_OF;
     struct device_node *of_node;
-#endif;
     struct list_head list;
     const struct drm_bridge_timings *timings;
     const struct drm_bridge_funcs *funcs;
@@ -8489,7 +8509,7 @@ on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_is_tmds">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_is_tmds</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_is_tmds" title="edid"><span class="n"><span class="pre">edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_is_tmds" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_is_tmds</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_is_tmds" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_is_tmds" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>is the downstream facing port TMDS?</p>
 </dd></dl>
 
@@ -8500,7 +8520,7 @@ on failure.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">port_cap[4]</span></code></dt><dd><p>port capabilities</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
@@ -8589,7 +8609,7 @@ or 0 if max clock not defined</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_max_tmds_clock">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_max_tmds_clock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_max_tmds_clock" title="edid"><span class="n"><span class="pre">edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_max_tmds_clock" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_max_tmds_clock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_max_tmds_clock" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_max_tmds_clock" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>extract downstream facing port max TMDS clock</p>
 </dd></dl>
 
@@ -8600,7 +8620,7 @@ or 0 if max clock not defined</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">port_cap[4]</span></code></dt><dd><p>port capabilities</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
@@ -8609,7 +8629,7 @@ or 0 if max TMDS clock not defined</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_min_tmds_clock">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_min_tmds_clock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_min_tmds_clock" title="edid"><span class="n"><span class="pre">edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_min_tmds_clock" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_min_tmds_clock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_min_tmds_clock" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_min_tmds_clock" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>extract downstream facing port min TMDS clock</p>
 </dd></dl>
 
@@ -8620,7 +8640,7 @@ or 0 if max TMDS clock not defined</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">port_cap[4]</span></code></dt><dd><p>port capabilities</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
@@ -8629,7 +8649,7 @@ or 0 if max TMDS clock not defined</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_max_bpc">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_max_bpc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_max_bpc" title="edid"><span class="n"><span class="pre">edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_max_bpc" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_max_bpc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_max_bpc" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_max_bpc" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>extract downstream facing port max bits per component</p>
 </dd></dl>
 
@@ -8640,7 +8660,7 @@ or 0 if max TMDS clock not defined</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">port_cap[4]</span></code></dt><dd><p>downstream facing port capabilities</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
@@ -8740,7 +8760,7 @@ colorspace.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_debug">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_debug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">seq_file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_debug" title="edid"><span class="n"><span class="pre">edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_debug" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_downstream_debug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">seq_file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">port_cap</span></span><span class="p"><span class="pre">[</span></span><span class="m"><span class="pre">4</span></span><span class="p"><span class="pre">]</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_downstream_debug" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_downstream_debug" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>debug DP branch devices</p>
 </dd></dl>
 
@@ -8753,7 +8773,7 @@ colorspace.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">port_cap[4]</span></code></dt><dd><p>port capabilities</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
 </dd>
@@ -10163,6 +10183,7 @@ to downstream port of parent branches.</p>
     int pbn;
     bool delete : 1;
     bool dsc_enabled : 1;
+    enum drm_dp_mst_payload_allocation payload_allocation_status;
     struct list_head next;
 };
 </pre></div>
@@ -10184,7 +10205,7 @@ inform hardware of the starting timeslot for a payload), the driver may either:<
 <a class="reference internal" href="#c.drm_dp_mst_atomic_wait_for_dependencies" title="drm_dp_mst_atomic_wait_for_dependencies"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_mst_atomic_wait_for_dependencies()</span></code></a> has been called, which will ensure the
 previous MST states payload start slots have been copied over to the new state. Note
 that a new start slot won't be assigned/removed from this payload until
-<a class="reference internal" href="#c.drm_dp_add_payload_part1" title="drm_dp_add_payload_part1"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_add_payload_part1()</span></code></a>/<a class="reference internal" href="#c.drm_dp_remove_payload" title="drm_dp_remove_payload"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_remove_payload()</span></code></a> have been called.</p></li>
+<a class="reference internal" href="#c.drm_dp_add_payload_part1" title="drm_dp_add_payload_part1"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_add_payload_part1()</span></code></a>/<a class="reference internal" href="#c.drm_dp_remove_payload_part2" title="drm_dp_remove_payload_part2"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_remove_payload_part2()</span></code></a> have been called.</p></li>
 <li><p>Acquire the MST modesetting lock, and then wait for any pending MST-related commits to
 get committed to hardware by calling <a class="reference internal" href="drm-kms.html#c.drm_crtc_commit_wait" title="drm_crtc_commit_wait"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_commit_wait()</span></code></a> on each of the
 <a class="reference internal" href="drm-kms.html#c.drm_crtc_commit" title="drm_crtc_commit"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_commit</span></code></a> structs in <a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_dp_mst_topology_state.commit_deps</span></code></a>.</p></li>
@@ -10203,6 +10224,8 @@ the immediate downstream DP Rx</p>
 <dt><code class="docutils literal notranslate"><span class="pre">delete</span></code></dt><dd><p>Whether or not we intend to delete this payload during this atomic commit</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dsc_enabled</span></code></dt><dd><p>Whether or not this payload has DSC enabled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">payload_allocation_status</span></code></dt><dd><p>The allocation status of this payload</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">next</span></code></dt><dd><p>The list node for this payload</p>
 </dd>
@@ -10622,15 +10645,35 @@ connector's early_unregister hook.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Determines the starting time slot for the given payload, and programs the VCPI for this payload
-into hardware. After calling this, the driver should generate ACT and payload packets.</p>
+into the DPCD of DPRX. After calling this, the driver should generate ACT and payload packets.</p>
 <p><strong>Return</strong></p>
-<p>0 on success, error code on failure. In the event that this fails,
-<strong>payload.vc_start_slot</strong> will also be set to -1.</p>
+<p>0 on success, error code on failure.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_dp_remove_payload">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_remove_payload</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><span class="n"><span class="pre">drm_dp_mst_topology_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mst_state</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_payload</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_payload</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_remove_payload" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Remove an MST payload</p>
+<dt class="sig sig-object c" id="c.drm_dp_remove_payload_part1">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_remove_payload_part1</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><span class="n"><span class="pre">drm_dp_mst_topology_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mst_state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">payload</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_remove_payload_part1" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Remove an MST payload along the virtual channel</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_topology_mgr</span> <span class="pre">*mgr</span></code></dt><dd><p>Manager to use.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_topology_state</span> <span class="pre">*mst_state</span></code></dt><dd><p>The MST atomic state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_atomic_payload</span> <span class="pre">*payload</span></code></dt><dd><p>The payload to remove</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Removes a payload along the virtual channel if it was successfully allocated.
+After calling this, the driver should set HW to generate ACT and then switch to new
+payload allocation state.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_remove_payload_part2">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_remove_payload_part2</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><span class="n"><span class="pre">drm_dp_mst_topology_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mst_state</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_payload</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_payload</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_remove_payload_part2" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Remove an MST payload locally</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -10642,13 +10685,14 @@ into hardware. After calling this, the driver should generate ACT and payload pa
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dp_mst_atomic_payload</span> <span class="pre">*old_payload</span></code></dt><dd><p>The payload with its old state</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_atomic_payload</span> <span class="pre">*new_payload</span></code></dt><dd><p>The payload to write</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_atomic_payload</span> <span class="pre">*new_payload</span></code></dt><dd><p>The payload with its latest state</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Removes a payload from an MST topology if it was successfully assigned a start slot. Also updates
-the starting time slots of all other payloads which would have been shifted towards the start of
-the VC table as a result. After calling this, the driver should generate ACT and payload packets.</p>
+<p>Updates the starting time slots of all other payloads which would have been shifted towards
+the start of the payload ID table as a result of removing a payload. Driver should call this
+function whenever it removes a payload in its HW. It's independent to the result of payload
+allocation/deallocation at branch devices along the virtual channel.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_add_payload_part2">
@@ -15136,6 +15180,21 @@ and <strong>vpref</strong>.</p>
 function will return -EINVAL, error that can be safely ignored.</p>
 <p><strong>Return</strong></p>
 <p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_edid_is_digital">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_is_digital</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_edid_is_digital" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_is_digital" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>is digital?</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>The EDID</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Return true if input is digital.</p>
 </div>
 </section>
 <section id="scdc-helper-functions-reference">

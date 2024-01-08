@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -84,7 +84,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../iio/index.html">Industrial I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../leds/index.html">LEDs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../pcmcia/index.html">PCMCIA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../spi/index.html">Serial Peripheral Interface (SPI)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../w1/index.html">1-Wire Subsystem</a></li>
@@ -441,6 +440,69 @@ relative to the object type (e.g. <code class="docutils literal notranslate"><sp
 </dd>
 </dl>
 </div>
+<dl class="c union">
+<dt class="sig sig-object c" id="c.landlock_key">
+<span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_key</span></span></span><a class="headerlink" href="#c.landlock_key" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Key of a ruleset's red-black tree</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>union landlock_key {
+    struct landlock_object *object;
+    uintptr_t data;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">object</span></code></dt><dd><p>Pointer to identify a kernel object (e.g. an inode).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Raw data to identify an arbitrary 32-bit value
+(e.g. a TCP port).</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.landlock_key_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_key_type</span></span></span><a class="headerlink" href="#c.landlock_key_type" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Type of <a class="reference internal" href="#c.landlock_key" title="landlock_key"><code class="xref c c-type docutils literal notranslate"><span class="pre">union</span> <span class="pre">landlock_key</span></code></a></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_KEY_INODE</span></code></dt><dd><p>Type of <a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_ruleset.root_inode</span></code></a>'s node
+keys.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_KEY_NET_PORT</span></code></dt><dd><p>Type of <a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_ruleset.root_net_port</span></code></a>'s
+node keys.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.landlock_id">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_id</span></span></span><a class="headerlink" href="#c.landlock_id" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Unique rule identifier for a ruleset</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_id {
+    union landlock_key key;
+    const enum landlock_key_type type;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">key</span></code></dt><dd><p>Identifies either a kernel object (e.g. an inode) or
+a raw value (e.g. a TCP port).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of a landlock_ruleset's root tree.</p>
+</dd>
+</dl>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.landlock_rule">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_rule</span></span></span><a class="headerlink" href="#c.landlock_rule" title="Permalink to this definition">¶</a><br /></dt>
@@ -451,7 +513,7 @@ relative to the object type (e.g. <code class="docutils literal notranslate"><sp
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_rule {
     struct rb_node node;
-    struct landlock_object *object;
+    union landlock_key key;
     u32 num_layers;
     struct landlock_layer layers[] __counted_by(num_layers);
 };
@@ -461,10 +523,11 @@ relative to the object type (e.g. <code class="docutils literal notranslate"><sp
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">node</span></code></dt><dd><p>Node in the ruleset's red-black tree.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">object</span></code></dt><dd><p>Pointer to identify a kernel object (e.g. an inode).  This
-is used as a key for this ruleset element.  This pointer is set once
-and never modified.  It always points to an allocated object because
-each rule increments the refcount of its object.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">key</span></code></dt><dd><p>A union to identify either a kernel object (e.g. an inode) or
+a raw data value (e.g. a network socket port). This is used as a key
+for this ruleset element.  The pointer is set once and never
+modified.  It always points to an allocated object because each rule
+increments the refcount of its object.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_layers</span></code></dt><dd><p>Number of entries in <strong>layers</strong>.</p>
 </dd>
@@ -506,7 +569,10 @@ domain.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_ruleset {
-    struct rb_root root;
+    struct rb_root root_inode;
+#if IS_ENABLED(CONFIG_INET);
+    struct rb_root root_net_port;
+#endif ;
     struct landlock_hierarchy *hierarchy;
     union {
         struct work_struct work_free;
@@ -515,7 +581,7 @@ domain.</p>
             refcount_t usage;
             u32 num_rules;
             u32 num_layers;
-            access_mask_t fs_access_masks[];
+            access_masks_t access_masks[];
         };
     };
 };
@@ -523,9 +589,15 @@ domain.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">root</span></code></dt><dd><p>Root of a red-black tree containing <a class="reference internal" href="#c.landlock_rule" title="landlock_rule"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">landlock_rule</span></code></a>
-nodes.  Once a ruleset is tied to a process (i.e. as a domain), this
-tree is immutable until <strong>usage</strong> reaches zero.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">root_inode</span></code></dt><dd><p>Root of a red-black tree containing <a class="reference internal" href="#c.landlock_rule" title="landlock_rule"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">landlock_rule</span></code></a> nodes with inode object.  Once a ruleset is tied to a
+process (i.e. as a domain), this tree is immutable until <strong>usage</strong>
+reaches zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">root_net_port</span></code></dt><dd><p>Root of a red-black tree containing <a class="reference internal" href="#c.landlock_rule" title="landlock_rule"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">landlock_rule</span></code></a> nodes with network port. Once a ruleset is tied to a
+process (i.e. as a domain), this tree is immutable until <strong>usage</strong>
+reaches zero.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hierarchy</span></code></dt><dd><p>Enables hierarchy identification even when a parent
 domain vanishes.  This is needed for the ptrace protection.</p>
@@ -536,7 +608,7 @@ domain vanishes.  This is needed for the ptrace protection.</p>
 section.  This is only used by
 landlock_put_ruleset_deferred() when <strong>usage</strong> reaches zero.
 The fields <strong>lock</strong>, <strong>usage</strong>, <strong>num_rules</strong>, <strong>num_layers</strong> and
-<strong>fs_access_masks</strong> are then unused.</p>
+<strong>access_masks</strong> are then unused.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_struct}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -554,13 +626,13 @@ ruleset.  This enables to check that all the layers
 allow an access request.  A value of 0 identifies a
 non-merged ruleset (i.e. not a domain).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">fs_access_masks</span></code></dt><dd><p>Contains the subset of filesystem
-actions that are restricted by a ruleset.  A domain
-saves all layers of merged rulesets in a stack
-(FAM), starting from the first layer to the last
-one.  These layers are used when merging rulesets,
-for user space backward compatibility (i.e.
-future-proof), and to properly handle merged
+<dt><code class="docutils literal notranslate"><span class="pre">access_masks</span></code></dt><dd><p>Contains the subset of filesystem and
+network actions that are restricted by a ruleset.
+A domain saves all layers of merged rulesets in a
+stack (FAM), starting from the first layer to the
+last one.  These layers are used when merging
+rulesets, for user space backward compatibility
+(i.e. future-proof), and to properly handle merged
 rulesets without overlapping access rights.  These
 layers are set once and never changed for the
 lifetime of the ruleset.</p>

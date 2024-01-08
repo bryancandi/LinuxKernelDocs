@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -170,24 +170,10 @@
 <li class="toctree-l2"><a class="reference internal" href="zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -1035,7 +1021,6 @@ current PWM hardware state.</p>
     unsigned int hwpwm;
     unsigned int pwm;
     struct pwm_chip *chip;
-    void *chip_data;
     struct pwm_args args;
     struct pwm_state state;
     struct pwm_state last;
@@ -1053,8 +1038,6 @@ current PWM hardware state.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">pwm</span></code></dt><dd><p>global index of the PWM device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">chip</span></code></dt><dd><p>PWM chip providing this PWM device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">chip_data</span></code></dt><dd><p>chip-private data associated with the PWM device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">args</span></code></dt><dd><p>PWM arguments</p>
 </dd>
@@ -1193,7 +1176,6 @@ inconsistent (<strong>scale</strong> == 0 or <strong>duty_cycle</strong> &gt; <s
     int (*capture)(struct pwm_chip *chip, struct pwm_device *pwm, struct pwm_capture *result, unsigned long timeout);
     int (*apply)(struct pwm_chip *chip, struct pwm_device *pwm, const struct pwm_state *state);
     int (*get_state)(struct pwm_chip *chip, struct pwm_device *pwm, struct pwm_state *state);
-    struct module *owner;
 };
 </pre></div>
 </div>
@@ -1211,8 +1193,6 @@ inconsistent (<strong>scale</strong> == 0 or <strong>duty_cycle</strong> &gt; <s
 called once per PWM device when the PWM chip is
 registered.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">owner</span></code></dt><dd><p>helps prevent removal of modules exporting active PWMs</p>
-</dd>
 </dl>
 </div>
 <dl class="c struct">
@@ -1226,6 +1206,7 @@ registered.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pwm_chip {
     struct device *dev;
     const struct pwm_ops *ops;
+    struct module *owner;
     int base;
     unsigned int npwm;
     struct pwm_device * (*of_xlate)(struct pwm_chip *chip, const struct of_phandle_args *args);
@@ -1240,6 +1221,8 @@ registered.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>device providing the PWMs</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p>callbacks for this PWM controller</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">owner</span></code></dt><dd><p>module providing this chip</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">base</span></code></dt><dd><p>number of first PWM controlled by this chip</p>
 </dd>
@@ -1303,40 +1286,8 @@ registered.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.pwm_set_chip_data">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pwm_set_chip_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pwm_device" title="pwm_device"><span class="n"><span class="pre">pwm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pwm</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pwm_set_chip_data" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>set private chip data for a PWM</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pwm_device</span> <span class="pre">*pwm</span></code></dt><dd><p>PWM device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>pointer to chip-specific data</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.pwm_get_chip_data">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">pwm_get_chip_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pwm_device" title="pwm_device"><span class="n"><span class="pre">pwm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pwm</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pwm_get_chip_data" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>get private chip data for a PWM</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pwm_device</span> <span class="pre">*pwm</span></code></dt><dd><p>PWM device</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p>A pointer to the chip-private data for the PWM device.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.pwmchip_add">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pwmchip_add</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pwm_chip" title="pwm_chip"><span class="n"><span class="pre">pwm_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chip</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pwmchip_add" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.__pwmchip_add">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__pwmchip_add</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pwm_chip" title="pwm_chip"><span class="n"><span class="pre">pwm_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chip</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">module</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">owner</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__pwmchip_add" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a new PWM chip</p>
 </dd></dl>
 
@@ -1345,9 +1296,12 @@ registered.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pwm_chip</span> <span class="pre">*chip</span></code></dt><dd><p>the PWM chip to add</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">module</span> <span class="pre">*owner</span></code></dt><dd><p>reference to the module providing the chip.</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Register a new PWM chip.</p>
+<p>Register a new PWM chip. <strong>owner</strong> is supposed to be THIS_MODULE, use the
+pwmchip_add wrapper to do this right.</p>
 <p><strong>Return</strong></p>
 <p>0 on success or a negative error code on failure.</p>
 </div>

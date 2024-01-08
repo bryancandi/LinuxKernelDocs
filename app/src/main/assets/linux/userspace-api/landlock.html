@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -105,6 +105,7 @@
 <li class="toctree-l2"><a class="reference internal" href="unshare.html">unshare system call</a></li>
 <li class="toctree-l2"><a class="reference internal" href="spec_ctrl.html">Speculation Control</a></li>
 <li class="toctree-l2"><a class="reference internal" href="accelerators/ocxl.html">OpenCAPI (Open Coherent Accelerator Processor Interface)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dma-buf-alloc-exchange.html">Exchanging pixel buffers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ebpf/index.html">eBPF Userspace API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ELF.html">Linux-specific ELF idiosyncrasies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ioctl/index.html">IOCTLs</a></li>
@@ -161,14 +162,14 @@
 <dd class="field-odd"><p>Mickaël Salaün</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>October 2022</p>
+<dd class="field-even"><p>October 2023</p>
 </dd>
 </dl>
 <p>The goal of Landlock is to enable to restrict ambient rights (e.g. global
-filesystem access) for a set of processes.  Because Landlock is a stackable
-LSM, it makes possible to create safe security sandboxes as new security layers
-in addition to the existing system-wide access-controls. This kind of sandbox
-is expected to help mitigate the security impact of bugs or
+filesystem or network access) for a set of processes.  Because Landlock
+is a stackable LSM, it makes possible to create safe security sandboxes as new
+security layers in addition to the existing system-wide access-controls. This
+kind of sandbox is expected to help mitigate the security impact of bugs or
 unexpected/malicious behaviors in user space applications.  Landlock empowers
 any process, including unprivileged ones, to securely restrict themselves.</p>
 <p>We can quickly make sure that Landlock is enabled in the running system by
@@ -179,18 +180,29 @@ Landlock is not currently supported, we need to <a class="reference internal" hr
 appropriately</span></a>.</p>
 <section id="landlock-rules">
 <h2>Landlock rules<a class="headerlink" href="#landlock-rules" title="Permalink to this heading">¶</a></h2>
-<p>A Landlock rule describes an action on an object.  An object is currently a
-file hierarchy, and the related filesystem actions are defined with <a class="reference internal" href="#access-rights">access
-rights</a>.  A set of rules is aggregated in a ruleset, which can then restrict
+<p>A Landlock rule describes an action on an object which the process intends to
+perform.  A set of rules is aggregated in a ruleset, which can then restrict
 the thread enforcing it, and its future children.</p>
+<p>The two existing types of rules are:</p>
+<dl class="simple">
+<dt>Filesystem rules</dt><dd><p>For these rules, the object is a file hierarchy,
+and the related filesystem actions are defined with
+<cite>filesystem access rights</cite>.</p>
+</dd>
+<dt>Network rules (since ABI v4)</dt><dd><p>For these rules, the object is a TCP port,
+and the related actions are defined with <cite>network access rights</cite>.</p>
+</dd>
+</dl>
 <section id="defining-and-enforcing-a-security-policy">
 <h3>Defining and enforcing a security policy<a class="headerlink" href="#defining-and-enforcing-a-security-policy" title="Permalink to this heading">¶</a></h3>
-<p>We first need to define the ruleset that will contain our rules.  For this
-example, the ruleset will contain rules that only allow read actions, but write
-actions will be denied.  The ruleset then needs to handle both of these kind of
-actions.  This is required for backward and forward compatibility (i.e. the
-kernel and user space may not know each other's supported restrictions), hence
-the need to be explicit about the denied-by-default access rights.</p>
+<p>We first need to define the ruleset that will contain our rules.</p>
+<p>For this example, the ruleset will contain rules that only allow filesystem
+read actions and establish a specific TCP connection. Filesystem write
+actions and other TCP actions will be denied.</p>
+<p>The ruleset then needs to handle both these kinds of actions.  This is
+required for backward and forward compatibility (i.e. the kernel and user
+space may not know each other's supported restrictions), hence the need
+to be explicit about the denied-by-default access rights.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">landlock_ruleset_attr</span><span class="w"> </span><span class="n">ruleset_attr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">handled_access_fs</span><span class="w"> </span><span class="o">=</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_EXECUTE</span><span class="w"> </span><span class="o">|</span>
@@ -208,6 +220,9 @@ the need to be explicit about the denied-by-default access rights.</p>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_MAKE_SYM</span><span class="w"> </span><span class="o">|</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_REFER</span><span class="w"> </span><span class="o">|</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_TRUNCATE</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">handled_access_net</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">LANDLOCK_ACCESS_NET_BIND_TCP</span><span class="w"> </span><span class="o">|</span>
+<span class="w">        </span><span class="n">LANDLOCK_ACCESS_NET_CONNECT_TCP</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -217,9 +232,7 @@ should try to protect users as much as possible whatever the kernel they are
 using.  To avoid binary enforcement (i.e. either all security features or
 none), we can leverage a dedicated Landlock command to get the current version
 of the Landlock ABI and adapt the handled accesses.  Let's check if we should
-remove the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_REFER</span></code> or <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code>
-access rights, which are only supported starting with the second and third
-version of the ABI.</p>
+remove access rights which are only supported in higher versions of the ABI.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="n">abi</span><span class="p">;</span>
 
 <span class="n">abi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">landlock_create_ruleset</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">LANDLOCK_CREATE_RULESET_VERSION</span><span class="p">);</span>
@@ -236,6 +249,12 @@ version of the ABI.</p>
 <span class="k">case</span><span class="w"> </span><span class="mi">2</span><span class="p">:</span>
 <span class="w">    </span><span class="cm">/* Removes LANDLOCK_ACCESS_FS_TRUNCATE for ABI &lt; 3 */</span>
 <span class="w">    </span><span class="n">ruleset_attr</span><span class="p">.</span><span class="n">handled_access_fs</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="o">~</span><span class="n">LANDLOCK_ACCESS_FS_TRUNCATE</span><span class="p">;</span>
+<span class="w">    </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">fallthrough</span><span class="p">));</span>
+<span class="k">case</span><span class="w"> </span><span class="mi">3</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/* Removes network support for ABI &lt; 4 */</span>
+<span class="w">    </span><span class="n">ruleset_attr</span><span class="p">.</span><span class="n">handled_access_net</span><span class="w"> </span><span class="o">&amp;=</span>
+<span class="w">        </span><span class="o">~</span><span class="p">(</span><span class="n">LANDLOCK_ACCESS_NET_BIND_TCP</span><span class="w"> </span><span class="o">|</span>
+<span class="w">          </span><span class="n">LANDLOCK_ACCESS_NET_CONNECT_TCP</span><span class="p">);</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -283,10 +302,21 @@ descriptor.</p>
 for the ruleset creation, by filtering access rights according to the Landlock
 ABI version.  In this example, this is not required because all of the requested
 <code class="docutils literal notranslate"><span class="pre">allowed_access</span></code> rights are already available in ABI 1.</p>
-<p>We now have a ruleset with one rule allowing read access to <code class="docutils literal notranslate"><span class="pre">/usr</span></code> while
-denying all other handled accesses for the filesystem.  The next step is to
-restrict the current thread from gaining more privileges (e.g. thanks to a SUID
-binary).</p>
+<p>For network access-control, we can add a set of rules that allow to use a port
+number for a specific action: HTTPS connections.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">landlock_net_port_attr</span><span class="w"> </span><span class="n">net_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">allowed_access</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LANDLOCK_ACCESS_NET_CONNECT_TCP</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">443</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">landlock_add_rule</span><span class="p">(</span><span class="n">ruleset_fd</span><span class="p">,</span><span class="w"> </span><span class="n">LANDLOCK_RULE_NET_PORT</span><span class="p">,</span>
+<span class="w">                        </span><span class="o">&amp;</span><span class="n">net_port</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The next step is to restrict the current thread from gaining more privileges
+(e.g. through a SUID binary).  We now have a ruleset with the first rule
+allowing read access to <code class="docutils literal notranslate"><span class="pre">/usr</span></code> while denying all other handled accesses for
+the filesystem, and a second rule allowing HTTPS connections.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">prctl</span><span class="p">(</span><span class="n">PR_SET_NO_NEW_PRIVS</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">perror</span><span class="p">(</span><span class="s">&quot;Failed to restrict privileges&quot;</span><span class="p">);</span>
 <span class="w">    </span><span class="n">close</span><span class="p">(</span><span class="n">ruleset_fd</span><span class="p">);</span>
@@ -548,6 +578,17 @@ accessible through these syscall families: <em class="manpage">chdir(2)</em>,
 Future Landlock evolutions will enable to restrict them.</p>
 </div>
 </section>
+<section id="network-flags">
+<h4>Network flags<a class="headerlink" href="#network-flags" title="Permalink to this heading">¶</a></h4>
+<p>These flags enable to restrict a sandboxed process to a set of network
+actions. This is supported since the Landlock ABI version 4.</p>
+<p>TCP sockets with allowed actions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code>: Bind a TCP socket to a local port.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_CONNECT_TCP</span></code>: Connect an active TCP socket to
+a remote port.</p></li>
+</ul>
+</section>
 </section>
 <section id="creating-a-new-ruleset">
 <h3>Creating a new ruleset<a class="headerlink" href="#creating-a-new-ruleset" title="Permalink to this heading">¶</a></h3>
@@ -593,6 +634,7 @@ related file descriptor on success.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_ruleset_attr {
     __u64 handled_access_fs;
+    __u64 handled_access_net;
 };
 </pre></div>
 </div>
@@ -608,6 +650,10 @@ compatibility reasons.  One exception is the
 <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_REFER</span></code> access right, which is always implicitly
 handled, but must still be explicitly handled to add new rules with
 this access right.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handled_access_net</span></code></dt><dd><p>Bitmask of actions (cf. <a class="reference internal" href="#network-flags">Network flags</a>)
+that is handled by this ruleset and should then be forbidden if no
+rule explicitly allow them.</p>
 </dd>
 </dl>
 </div>
@@ -629,8 +675,8 @@ future versions.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">int</span> <span class="pre">ruleset_fd</span></code></dt><dd><p>File descriptor tied to the ruleset that should be extended
 with the new rule.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">enum</span> <span class="pre">landlock_rule_type</span> <span class="pre">rule_type</span></code></dt><dd><p>Identify the structure type pointed to by <strong>rule_attr</strong> (only
-<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_PATH_BENEATH</span></code> for now).</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">enum</span> <span class="pre">landlock_rule_type</span> <span class="pre">rule_type</span></code></dt><dd><p>Identify the structure type pointed to by <strong>rule_attr</strong>:
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_PATH_BENEATH</span></code> or <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_NET_PORT</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">__user</span> <span class="pre">*const</span> <span class="pre">rule_attr</span></code></dt><dd><p>Pointer to a rule (only of type <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
 <span class="pre">landlock_path_beneath_attr</span></code></a> for now).</p>
@@ -644,9 +690,13 @@ ruleset.</p>
 <p>Possible returned errors are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code>: Landlock is supported by the kernel but disabled at boot time;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EAFNOSUPPORT</span></code>: <strong>rule_type</strong> is <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_NET_PORT</span></code> but TCP/IP is not
+supported by the running kernel;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <strong>flags</strong> is not 0, or inconsistent access in the rule (i.e.
-<a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a> is not a subset of the
-ruleset handled accesses);</p></li>
+<a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a> or
+<a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.allowed_access</span></code></a> is not a subset of the
+ruleset handled accesses), or <a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.port</span></code></a> is
+greater than 65535;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ENOMSG</span></code>: Empty accesses (e.g. <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a>);</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EBADF</span></code>: <strong>ruleset_fd</strong> is not a file descriptor for the current thread, or a
 member of <strong>rule_attr</strong> is not a file descriptor as expected;</p></li>
@@ -667,6 +717,9 @@ member of <strong>rule_attr</strong> is not a file descriptor as expected;</p></
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_PATH_BENEATH</span></code></dt><dd><p>Type of a <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
 <span class="pre">landlock_path_beneath_attr</span></code></a> .</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_NET_PORT</span></code></dt><dd><p>Type of a <a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">landlock_net_port_attr</span></code></a> .</p>
 </dd>
 </dl>
 </div>
@@ -694,6 +747,38 @@ member of <strong>rule_attr</strong> is not a file descriptor as expected;</p></
 <dt><code class="docutils literal notranslate"><span class="pre">parent_fd</span></code></dt><dd><p>File descriptor, preferably opened with <code class="docutils literal notranslate"><span class="pre">O_PATH</span></code>,
 which identifies the parent directory of a file hierarchy, or just a
 file.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Argument of <a class="reference internal" href="#c.sys_landlock_add_rule" title="sys_landlock_add_rule"><code class="xref c c-func docutils literal notranslate"><span class="pre">sys_landlock_add_rule()</span></code></a>.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.landlock_net_port_attr">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_net_port_attr</span></span></span><a class="headerlink" href="#c.landlock_net_port_attr" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Network port definition</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_net_port_attr {
+    __u64 allowed_access;
+    __u64 port;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">allowed_access</span></code></dt><dd><p>Bitmask of allowed access network for a port
+(cf. <a class="reference internal" href="#network-flags">Network flags</a>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>Network port in host endianness.</p>
+<p>It should be noted that port 0 passed to <em class="manpage">bind(2)</em> will
+bind to an available port from a specific port range. This can be
+configured thanks to the <code class="docutils literal notranslate"><span class="pre">/proc/sys/net/ipv4/ip_local_port_range</span></code>
+sysctl (also used for IPv6). A Landlock rule with port 0 and the
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code> right means that requesting to bind
+on port 0 is allowed and it will automatically translate to binding
+on the related port range.</p>
 </dd>
 </dl>
 </div>
@@ -740,9 +825,9 @@ thread.</p></li>
 <h2>Current limitations<a class="headerlink" href="#current-limitations" title="Permalink to this heading">¶</a></h2>
 <section id="filesystem-topology-modification">
 <h3>Filesystem topology modification<a class="headerlink" href="#filesystem-topology-modification" title="Permalink to this heading">¶</a></h3>
-<p>As for file renaming and linking, a sandboxed thread cannot modify its
-filesystem topology, whether via <em class="manpage">mount(2)</em> or
-<em class="manpage">pivot_root(2)</em>.  However, <em class="manpage">chroot(2)</em> calls are not denied.</p>
+<p>Threads sandboxed with filesystem restrictions cannot modify filesystem
+topology, whether via <em class="manpage">mount(2)</em> or <em class="manpage">pivot_root(2)</em>.
+However, <em class="manpage">chroot(2)</em> calls are not denied.</p>
 </section>
 <section id="special-filesystems">
 <h3>Special filesystems<a class="headerlink" href="#special-filesystems" title="Permalink to this heading">¶</a></h3>
@@ -798,6 +883,13 @@ always allowed when using a kernel that only supports the first or second ABI.</
 <p>Starting with the Landlock ABI version 3, it is now possible to securely control
 truncation thanks to the new <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code> access right.</p>
 </section>
+<section id="network-support-abi-4">
+<h3>Network support (ABI &lt; 4)<a class="headerlink" href="#network-support-abi-4" title="Permalink to this heading">¶</a></h3>
+<p>Starting with the Landlock ABI version 4, it is now possible to restrict TCP
+bind and connect actions to only a set of allowed ports thanks to the new
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code> and <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_CONNECT_TCP</span></code>
+access rights.</p>
+</section>
 </section>
 <section id="kernel-support">
 <span id="id2"></span><h2>Kernel support<a class="headerlink" href="#kernel-support" title="Permalink to this heading">¶</a></h2>
@@ -812,6 +904,11 @@ potentially useful security modules for the running system (see the
 still enable it by adding <code class="docutils literal notranslate"><span class="pre">lsm=landlock,[...]</span></code> to
 <a class="reference internal" href="../admin-guide/kernel-parameters.html"><span class="doc">The kernel's command-line parameters</span></a> thanks to the bootloader
 configuration.</p>
+<p>To be able to explicitly allow TCP operations (e.g., adding a network rule with
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code>), the kernel must support TCP
+(<code class="docutils literal notranslate"><span class="pre">CONFIG_INET=y</span></code>).  Otherwise, <a class="reference internal" href="#c.sys_landlock_add_rule" title="sys_landlock_add_rule"><code class="xref c c-func docutils literal notranslate"><span class="pre">sys_landlock_add_rule()</span></code></a> returns an
+<code class="docutils literal notranslate"><span class="pre">EAFNOSUPPORT</span></code> error, which can safely be ignored because this kind of TCP
+operation is already not possible.</p>
 </section>
 <section id="questions-and-answers">
 <h2>Questions and answers<a class="headerlink" href="#questions-and-answers" title="Permalink to this heading">¶</a></h2>

@@ -1,0 +1,265 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>2. Using camera sensor drivers &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="3. MIPI CCS camera sensor driver" href="ccs.html" />
+    <link rel="prev" title="1. ASPEED video driver" href="aspeed-video.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.7.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">The Linux kernel user-space API guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../no_new_privs.html">No New Privileges Flag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../seccomp_filter.html">Seccomp BPF (SECure COMPuting with filters)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../landlock.html">Landlock: unprivileged access control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../unshare.html">unshare system call</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../spec_ctrl.html">Speculation Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../accelerators/ocxl.html">OpenCAPI (Open Coherent Accelerator Processor Interface)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../dma-buf-alloc-exchange.html">Exchanging pixel buffers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ebpf/index.html">eBPF Userspace API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ELF.html">Linux-specific ELF idiosyncrasies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ioctl/index.html">IOCTLs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iommu.html">IOMMU Userspace API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iommufd.html">IOMMUFD</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Linux Media Infrastructure userspace API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../v4l/v4l2.html">Part I - Video for Linux API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../dvb/dvbapi.html">Part II - Digital TV API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../rc/remote_controllers.html">Part III - Remote Controller API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mediactl/media-controller.html">Part IV - Media Controller API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cec/cec-api.html">Part V - Consumer Electronics Control API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../gen-errors.html">Generic Error Codes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fdl-appendix.html">GNU Free Documentation License</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Video4Linux (V4L)  driver-specific documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../netlink/index.html">Netlink Handbook</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sysfs-platform_profile.html">Platform Profile Selection (e.g. /sys/firmware/acpi/platform_profile)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../vduse.html">VDUSE - &quot;vDPA Device in Userspace&quot;</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../futex2.html">futex2</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/userspace-api/media/drivers/camera-sensor.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="using-camera-sensor-drivers">
+<span id="media-using-camera-sensor-drivers"></span><h1><span class="section-number">2. </span>Using camera sensor drivers<a class="headerlink" href="#using-camera-sensor-drivers" title="Permalink to this heading">¶</a></h1>
+<p>This section describes common practices for how the V4L2 sub-device interface is
+used to control the camera sensor drivers.</p>
+<p>You may also find <a class="reference internal" href="../../../driver-api/media/camera-sensor.html#media-writing-camera-sensor-drivers"><span class="std std-ref">Writing camera sensor drivers</span></a> useful.</p>
+<section id="frame-size">
+<h2><span class="section-number">2.1. </span>Frame size<a class="headerlink" href="#frame-size" title="Permalink to this heading">¶</a></h2>
+<p>There are two distinct ways to configure the frame size produced by camera
+sensors.</p>
+<section id="freely-configurable-camera-sensor-drivers">
+<h3><span class="section-number">2.1.1. </span>Freely configurable camera sensor drivers<a class="headerlink" href="#freely-configurable-camera-sensor-drivers" title="Permalink to this heading">¶</a></h3>
+<p>Freely configurable camera sensor drivers expose the device's internal
+processing pipeline as one or more sub-devices with different cropping and
+scaling configurations. The output size of the device is the result of a series
+of cropping and scaling operations from the device's pixel array's size.</p>
+<p>An example of such a driver is the CCS driver.</p>
+</section>
+<section id="register-list-based-drivers">
+<h3><span class="section-number">2.1.2. </span>Register list based drivers<a class="headerlink" href="#register-list-based-drivers" title="Permalink to this heading">¶</a></h3>
+<p>Register list based drivers generally, instead of able to configure the device
+they control based on user requests, are limited to a number of preset
+configurations that combine a number of different parameters that on hardware
+level are independent. How a driver picks such configuration is based on the
+format set on a source pad at the end of the device's internal pipeline.</p>
+<p>Most sensor drivers are implemented this way.</p>
+</section>
+</section>
+<section id="frame-interval-configuration">
+<h2><span class="section-number">2.2. </span>Frame interval configuration<a class="headerlink" href="#frame-interval-configuration" title="Permalink to this heading">¶</a></h2>
+<p>There are two different methods for obtaining possibilities for different frame
+intervals as well as configuring the frame interval. Which one to implement
+depends on the type of the device.</p>
+<section id="raw-camera-sensors">
+<h3><span class="section-number">2.2.1. </span>Raw camera sensors<a class="headerlink" href="#raw-camera-sensors" title="Permalink to this heading">¶</a></h3>
+<p>Instead of a high level parameter such as frame interval, the frame interval is
+a result of the configuration of a number of camera sensor implementation
+specific parameters. Luckily, these parameters tend to be the same for more or
+less all modern raw camera sensors.</p>
+<p>The frame interval is calculated using the following equation:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>frame interval = (analogue crop width + horizontal blanking) *
+                 (analogue crop height + vertical blanking) / pixel rate
+</pre></div>
+</div>
+<p>The formula is bus independent and is applicable for raw timing parameters on
+large variety of devices beyond camera sensors. Devices that have no analogue
+crop, use the full source image size, i.e. pixel array size.</p>
+<p>Horizontal and vertical blanking are specified by <code class="docutils literal notranslate"><span class="pre">V4L2_CID_HBLANK</span></code> and
+<code class="docutils literal notranslate"><span class="pre">V4L2_CID_VBLANK</span></code>, respectively. The unit of the <code class="docutils literal notranslate"><span class="pre">V4L2_CID_HBLANK</span></code> control
+is pixels and the unit of the <code class="docutils literal notranslate"><span class="pre">V4L2_CID_VBLANK</span></code> is lines. The pixel rate in
+the sensor's <strong>pixel array</strong> is specified by <code class="docutils literal notranslate"><span class="pre">V4L2_CID_PIXEL_RATE</span></code> in the same
+sub-device. The unit of that control is pixels per second.</p>
+<p>Register list based drivers need to implement read-only sub-device nodes for the
+purpose. Devices that are not register list based need these to configure the
+device's internal processing pipeline.</p>
+<p>The first entity in the linear pipeline is the pixel array. The pixel array may
+be followed by other entities that are there to allow configuring binning,
+skipping, scaling or digital crop, see <a class="reference internal" href="../v4l/vidioc-subdev-g-selection.html#vidioc-subdev-g-selection"><span class="std std-ref">VIDIOC_SUBDEV_G_SELECTION</span></a>.</p>
+</section>
+<section id="usb-cameras-etc-devices">
+<h3><span class="section-number">2.2.2. </span>USB cameras etc. devices<a class="headerlink" href="#usb-cameras-etc-devices" title="Permalink to this heading">¶</a></h3>
+<p>USB video class hardware, as well as many cameras offering a similar higher
+level interface natively, generally use the concept of frame interval (or frame
+rate) on device level in firmware or hardware. This means lower level controls
+implemented by raw cameras may not be used on uAPI (or even kAPI) to control the
+frame interval on these devices.</p>
+</section>
+</section>
+<section id="rotation-orientation-and-flipping">
+<h2><span class="section-number">2.3. </span>Rotation, orientation and flipping<a class="headerlink" href="#rotation-orientation-and-flipping" title="Permalink to this heading">¶</a></h2>
+<p>Some systems have the camera sensor mounted upside down compared to its natural
+mounting rotation. In such cases, drivers shall expose the information to
+userspace with the <a class="reference internal" href="../v4l/ext-ctrls-camera.html#v4l2-camera-sensor-rotation"><span class="std std-ref">V4L2_CID_CAMERA_SENSOR_ROTATION</span></a> control.</p>
+<p>Sensor drivers shall also report the sensor's mounting orientation with the
+<a class="reference internal" href="../v4l/ext-ctrls-camera.html#v4l2-camera-sensor-orientation"><span class="std std-ref">V4L2_CID_CAMERA_SENSOR_ORIENTATION</span></a>.</p>
+<p>Sensor drivers that have any vertical or horizontal flips embedded in the
+register programming sequences shall initialize the <a class="reference internal" href="../v4l/control.html#v4l2-cid-hflip"><span class="std std-ref">V4L2_CID_HFLIP</span></a> and <a class="reference internal" href="../v4l/control.html#v4l2-cid-vflip"><span class="std std-ref">V4L2_CID_VFLIP</span></a> controls with the
+values programmed by the register sequences. The default values of these
+controls shall be 0 (disabled). Especially these controls shall not be inverted,
+independently of the sensor's mounting rotation.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/userspace-api/media/drivers/camera-sensor.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

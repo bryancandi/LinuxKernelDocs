@@ -1,0 +1,431 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>在Linux內核裏使用gcov做代碼覆蓋率檢查 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="內核地址消毒劑(KASAN)" href="kasan.html" />
+    <link rel="prev" title="Traditional Chinese maintainer: Hu Haowen &lt;src.res.211@gmail.com&gt;" href="sparse.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.7.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../zh_CN/index.html">中文翻译</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">繁體中文翻譯</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">與Linux 內核社區一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#api">內部API文檔</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#id2">開發工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id3">面向用戶的文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相關文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">體系結構文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文檔</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">術語表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_TW/dev-tools/gcov.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是爲讓中文讀者更容易閱讀和理解，而不是作爲一個分支。因此，
+如果您對此文件有任何意見或改動，請先嘗試更新原始英文文件。如果要更改或
+修正某處翻譯文件，請將意見或補丁發送給維護者（聯繫方式見下）。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您發現本文檔與原始文件有任何不同或者有翻譯問題，請聯繫該文件的譯者，
+或者發送電子郵件給胡皓文以獲取幫助：&lt;<a class="reference external" href="mailto:src&#46;res&#46;211&#37;&#52;&#48;gmail&#46;com">src<span>&#46;</span>res<span>&#46;</span>211<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../dev-tools/gcov.html"><span class="doc">Using gcov with the Linux kernel</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>趙軍奎 Bernard Zhao &lt;<a class="reference external" href="mailto:bernard&#37;&#52;&#48;vivo&#46;com">bernard<span>&#64;</span>vivo<span>&#46;</span>com</a>&gt;</p>
+</dd>
+</dl>
+<section id="linuxgcov">
+<h1>在Linux內核裏使用gcov做代碼覆蓋率檢查<a class="headerlink" href="#linuxgcov" title="Permalink to this heading">¶</a></h1>
+<p>gcov分析核心支持在Linux內核中啓用GCC的覆蓋率測試工具 <a class="reference external" href="https://gcc.gnu.org/onlinedocs/gcc/Gcov.html">gcov</a> ，Linux內核
+運行時的代碼覆蓋率數據會以gcov兼容的格式導出到“gcov”debugfs目錄中，可
+以通過gcov的 <code class="docutils literal notranslate"><span class="pre">-o</span></code> 選項（如下示例）獲得指定文件的代碼運行覆蓋率統計數據
+（需要跳轉到內核編譯路徑下並且要有root權限）:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cd /tmp/linux-out
+# gcov -o /sys/kernel/debug/gcov/tmp/linux-out/kernel spinlock.c
+</pre></div>
+</div>
+<p>這將在當前目錄中創建帶有執行計數註釋的源代碼文件。
+在獲得這些統計文件後，可以使用圖形化的gcov前端工具（比如 <a class="reference external" href="http://ltp.sourceforge.net/coverage/lcov.php">lcov</a> ），來實現
+自動化處理Linux內核的覆蓋率運行數據，同時生成易於閱讀的HTML格式文件。</p>
+<p>可能的用途:</p>
+<ul class="simple">
+<li><p>調試（用來判斷每一行的代碼是否已經運行過）</p></li>
+<li><p>測試改進（如何修改測試代碼，儘可能地覆蓋到沒有運行過的代碼）</p></li>
+<li><p>內核最小化配置（對於某一個選項配置，如果關聯的代碼從來沒有運行過，
+是否還需要這個配置）</p></li>
+</ul>
+<section id="id1">
+<h2>準備<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<p>內核打開如下配置:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>CONFIG_DEBUG_FS=y
+CONFIG_GCOV_KERNEL=y
+</pre></div>
+</div>
+<p>獲取整個內核的覆蓋率數據，還需要打開:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>CONFIG_GCOV_PROFILE_ALL=y
+</pre></div>
+</div>
+<p>需要注意的是，整個內核開啓覆蓋率統計會造成內核鏡像文件尺寸的增大，
+同時內核運行也會變慢一些。
+另外，並不是所有的架構都支持整個內核開啓覆蓋率統計。</p>
+<p>代碼運行覆蓋率數據只在debugfs掛載完成後纔可以訪問:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t debugfs none /sys/kernel/debug
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h2>定製化<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h2>
+<p>如果要單獨針對某一個路徑或者文件進行代碼覆蓋率統計，可以在內核相應路
+徑的Makefile中增加如下的配置:</p>
+<ul>
+<li><p>單獨統計單個文件（例如main.o）:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>GCOV_PROFILE_main.o := y
+</pre></div>
+</div>
+</li>
+<li><p>單獨統計某一個路徑:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>GCOV_PROFILE := y
+</pre></div>
+</div>
+</li>
+</ul>
+<p>如果要在整個內核的覆蓋率統計（開啓CONFIG_GCOV_PROFILE_ALL）中單獨排除
+某一個文件或者路徑，可以使用如下的方法:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>GCOV_PROFILE_main.o := n
+</pre></div>
+</div>
+<p>和:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>GCOV_PROFILE := n
+</pre></div>
+</div>
+<p>此機制僅支持鏈接到內核鏡像或編譯爲內核模塊的文件。</p>
+</section>
+<section id="id3">
+<h2>相關文件<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h2>
+<p>gcov功能需要在debugfs中創建如下文件:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/gcov</span></code></dt><dd><p>gcov相關功能的根路徑</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/gcov/reset</span></code></dt><dd><p>全局復位文件:向該文件寫入數據後會將所有的gcov統計數據清0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/gcov/path/to/compile/dir/file.gcda</span></code></dt><dd><dl class="simple">
+<dt>gcov工具可以識別的覆蓋率統計數據文件，向該文件寫入數據後</dt><dd><p>會將本文件的gcov統計數據清0</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/gcov/path/to/compile/dir/file.gcno</span></code></dt><dd><p>gcov工具需要的軟連接文件（指向編譯時生成的信息統計文件），這個文件是
+在gcc編譯時如果配置了選項 <code class="docutils literal notranslate"><span class="pre">-ftest-coverage</span></code> 時生成的。</p>
+</dd>
+</dl>
+</section>
+<section id="id4">
+<h2>針對模塊的統計<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h2>
+<p>內核中的模塊會動態的加載和卸載，模塊卸載時對應的數據會被清除掉。
+gcov提供了一種機制，通過保留相關數據的副本來收集這部分卸載模塊的覆蓋率數據。
+模塊卸載後這些備份數據在debugfs中會繼續存在。
+一旦這個模塊重新加載，模塊關聯的運行統計會被初始化成debugfs中備份的數據。</p>
+<p>可以通過對內核參數gcov_persist的修改來停用gcov對模塊的備份機制:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>gcov_persist = 0
+</pre></div>
+</div>
+<p>在運行時，用戶還可以通過寫入模塊的數據文件或者寫入gcov復位文件來丟棄已卸
+載模塊的數據。</p>
+</section>
+<section id="id5">
+<h2>編譯機和測試機分離<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h2>
+<p>gcov的內核分析插樁支持內核的編譯和運行是在同一臺機器上，也可以編譯和運
+行是在不同的機器上。
+如果內核編譯和運行是不同的機器，那麼需要額外的準備工作，這取決於gcov工具
+是在哪裏使用的:</p>
+<ol class="loweralpha" id="gcov-test-zh">
+<li><p>若gcov運行在測試機上</p>
+<blockquote>
+<div><p>測試機上面gcov工具的版本必須要跟內核編譯機器使用的gcc版本相兼容，
+同時下面的文件要從編譯機拷貝到測試機上:</p>
+<dl class="simple">
+<dt>從源代碼中:</dt><dd><ul class="simple">
+<li><p>所有的C文件和頭文件</p></li>
+</ul>
+</dd>
+<dt>從編譯目錄中:</dt><dd><ul class="simple">
+<li><p>所有的C文件和頭文件</p></li>
+<li><p>所有的.gcda文件和.gcno文件</p></li>
+<li><p>所有目錄的鏈接</p></li>
+</ul>
+</dd>
+</dl>
+<p>特別需要注意，測試機器上面的目錄結構跟編譯機器上面的目錄機構必須
+完全一致。
+如果文件是軟鏈接，需要替換成真正的目錄文件（這是由make的當前工作
+目錄變量CURDIR引起的）。</p>
+</div></blockquote>
+</li>
+</ol>
+<ol class="loweralpha" id="gcov-build-zh" start="2">
+<li><p>若gcov運行在編譯機上</p>
+<blockquote>
+<div><p>測試用例運行結束後，如下的文件需要從測試機中拷貝到編譯機上:</p>
+<dl class="simple">
+<dt>從sysfs中的gcov目錄中:</dt><dd><ul class="simple">
+<li><p>所有的.gcda文件</p></li>
+<li><p>所有的.gcno文件軟鏈接</p></li>
+</ul>
+</dd>
+</dl>
+<p>這些文件可以拷貝到編譯機的任意目錄下，gcov使用-o選項指定拷貝的
+目錄。</p>
+<p>比如一個是示例的目錄結構如下:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/tmp/linux:    內核源碼目錄
+/tmp/out:      內核編譯文件路徑（make O=指定）
+/tmp/coverage: 從測試機器上面拷貝的數據文件路徑
+
+[user@build] cd /tmp/out
+[user@build] gcov -o /tmp/coverage/tmp/out/init main.c
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+</section>
+<section id="id6">
+<h2>關於編譯器的注意事項<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h2>
+<p>GCC和LLVM gcov工具不一定兼容。
+如果編譯器是GCC，使用 <a class="reference external" href="https://gcc.gnu.org/onlinedocs/gcc/Gcov.html">gcov</a> 來處理.gcno和.gcda文件，如果是Clang編譯器，
+則使用 <a class="reference external" href="https://llvm.org/docs/CommandGuide/llvm-cov.html">llvm-cov</a> 。</p>
+<p>GCC和Clang gcov之間的版本差異由Kconfig處理的。
+kconfig會根據編譯工具鏈的檢查自動選擇合適的gcov格式。</p>
+</section>
+<section id="id8">
+<h2>問題定位<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h2>
+<dl class="simple">
+<dt>可能出現的問題1</dt><dd><p>編譯到鏈接階段報錯終止</p>
+</dd>
+<dt>問題原因</dt><dd><p>分析標誌指定在了源文件但是沒有鏈接到主內核，或者客製化了鏈接程序</p>
+</dd>
+<dt>解決方法</dt><dd><p>通過在相應的Makefile中使用 <code class="docutils literal notranslate"><span class="pre">GCOV_PROFILE</span> <span class="pre">:=</span> <span class="pre">n</span></code>
+或者 <code class="docutils literal notranslate"><span class="pre">GCOV_PROFILE_basename.o</span> <span class="pre">:=</span> <span class="pre">n</span></code> 來將鏈接報錯的文件排除掉</p>
+</dd>
+<dt>可能出現的問題2</dt><dd><p>從sysfs複製的文件顯示爲空或不完整</p>
+</dd>
+<dt>問題原因</dt><dd><p>由於seq_file的工作方式，某些工具（例如cp或tar）可能無法正確地從
+sysfs複製文件。</p>
+</dd>
+<dt>解決方法</dt><dd><p>使用 <code class="docutils literal notranslate"><span class="pre">cat</span></code> 讀取 <code class="docutils literal notranslate"><span class="pre">.gcda</span></code> 文件，使用 <code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">-d</span></code> 複製鏈接，或者使用附錄B
+中所示的機制。</p>
+</dd>
+</dl>
+</section>
+<section id="a-collect-on-build-sh">
+<h2>附錄A：collect_on_build.sh<a class="headerlink" href="#a-collect-on-build-sh" title="Permalink to this heading">¶</a></h2>
+<p>用於在編譯機上收集覆蓋率元文件的示例腳本
+（見 <a class="reference internal" href="../../zh_CN/dev-tools/gcov.html#gcov-test-zh"><span class="std std-ref">編譯機和測試機分離 a.</span></a> ）</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+
+<span class="nv">KSRC</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">KOBJ</span><span class="o">=</span><span class="nv">$2</span>
+<span class="nv">DEST</span><span class="o">=</span><span class="nv">$3</span>
+
+<span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$KSRC</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$KOBJ</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DEST</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Usage: </span><span class="nv">$0</span><span class="s2"> &lt;ksrc directory&gt; &lt;kobj directory&gt; &lt;output.tar.gz&gt;&quot;</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span>
+<span class="w">  </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nv">KSRC</span><span class="o">=</span><span class="k">$(</span><span class="nb">cd</span><span class="w"> </span><span class="nv">$KSRC</span><span class="p">;</span><span class="w"> </span><span class="nb">printf</span><span class="w"> </span><span class="s2">&quot;all:\n\t@echo \${CURDIR}\n&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>make<span class="w"> </span>-f<span class="w"> </span>-<span class="k">)</span>
+<span class="nv">KOBJ</span><span class="o">=</span><span class="k">$(</span><span class="nb">cd</span><span class="w"> </span><span class="nv">$KOBJ</span><span class="p">;</span><span class="w"> </span><span class="nb">printf</span><span class="w"> </span><span class="s2">&quot;all:\n\t@echo \${CURDIR}\n&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>make<span class="w"> </span>-f<span class="w"> </span>-<span class="k">)</span>
+
+find<span class="w"> </span><span class="nv">$KSRC</span><span class="w"> </span><span class="nv">$KOBJ</span><span class="w"> </span><span class="se">\(</span><span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;*.gcno&#39;</span><span class="w"> </span>-o<span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;*.[ch]&#39;</span><span class="w"> </span>-o<span class="w"> </span>-type<span class="w"> </span>l<span class="w"> </span><span class="se">\)</span><span class="w"> </span>-a<span class="w"> </span><span class="se">\</span>
+<span class="w">                 </span>-perm<span class="w"> </span>/u+r,g+r<span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>cfz<span class="w"> </span><span class="nv">$DEST</span><span class="w"> </span>-P<span class="w"> </span>-T<span class="w"> </span>-
+
+<span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="nv">$?</span><span class="w"> </span>-eq<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DEST</span><span class="s2"> successfully created, copy to test system and unpack with:&quot;</span>
+<span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  tar xfz </span><span class="nv">$DEST</span><span class="s2"> -P&quot;</span>
+<span class="k">else</span>
+<span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Could not create file </span><span class="nv">$DEST</span><span class="s2">&quot;</span>
+<span class="k">fi</span>
+</pre></div>
+</div>
+</section>
+<section id="b-collect-on-test-sh">
+<h2>附錄B：collect_on_test.sh<a class="headerlink" href="#b-collect-on-test-sh" title="Permalink to this heading">¶</a></h2>
+<p>用於在測試機上收集覆蓋率數據文件的示例腳本
+（見 <a class="reference internal" href="../../zh_CN/dev-tools/gcov.html#gcov-build-zh"><span class="std std-ref">編譯機和測試機分離 b.</span></a> ）</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash -e</span>
+
+<span class="nv">DEST</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">GCDA</span><span class="o">=</span>/sys/kernel/debug/gcov
+
+<span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span>-z<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DEST</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Usage: </span><span class="nv">$0</span><span class="s2"> &lt;output.tar.gz&gt;&quot;</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span>
+<span class="w">  </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">fi</span>
+
+<span class="nv">TEMPDIR</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
+<span class="nb">echo</span><span class="w"> </span>Collecting<span class="w"> </span>data..
+find<span class="w"> </span><span class="nv">$GCDA</span><span class="w"> </span>-type<span class="w"> </span>d<span class="w"> </span>-exec<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$TEMPDIR</span>/<span class="se">\{\}</span><span class="w"> </span><span class="se">\;</span>
+find<span class="w"> </span><span class="nv">$GCDA</span><span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;*.gcda&#39;</span><span class="w"> </span>-exec<span class="w"> </span>sh<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;cat &lt; $0 &gt; &#39;</span><span class="nv">$TEMPDIR</span><span class="s1">&#39;/$0&#39;</span><span class="w"> </span><span class="o">{}</span><span class="w"> </span><span class="se">\;</span>
+find<span class="w"> </span><span class="nv">$GCDA</span><span class="w"> </span>-name<span class="w"> </span><span class="s1">&#39;*.gcno&#39;</span><span class="w"> </span>-exec<span class="w"> </span>sh<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;cp -d $0 &#39;</span><span class="nv">$TEMPDIR</span><span class="s1">&#39;/$0&#39;</span><span class="w"> </span><span class="o">{}</span><span class="w"> </span><span class="se">\;</span>
+tar<span class="w"> </span>czf<span class="w"> </span><span class="nv">$DEST</span><span class="w"> </span>-C<span class="w"> </span><span class="nv">$TEMPDIR</span><span class="w"> </span>sys
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="nv">$TEMPDIR</span>
+
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DEST</span><span class="s2"> successfully created, copy to build system and unpack with:&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;  tar xfz </span><span class="nv">$DEST</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_TW/dev-tools/gcov.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

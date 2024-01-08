@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -141,20 +141,39 @@
             
   <section id="page-pool-api">
 <h1>Page Pool API<a class="headerlink" href="#page-pool-api" title="Permalink to this heading">¶</a></h1>
-<p>The page_pool allocator is optimized for the XDP mode that
-uses one frame per-page, but it can fallback on the
-regular page allocator APIs.</p>
-<p>Basic use involves replacing <a class="reference internal" href="../core-api/mm-api.html#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a> calls with the
-page_pool_alloc_pages() call.  Drivers should use
-<a class="reference internal" href="#c.page_pool_dev_alloc_pages" title="page_pool_dev_alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_dev_alloc_pages()</span></code></a> replacing dev_alloc_pages().</p>
-<p>The API keeps track of in-flight pages, in order to let API users know
-when it is safe to free a page_pool object.  Thus, API users
-must call <a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> to free the page, or attach
-the page to a page_pool-aware object like skbs marked with
+<p>The page_pool allocator is optimized for recycling page or page fragment used
+by skb packet and xdp frame.</p>
+<p>Basic use involves replacing and <a class="reference internal" href="../core-api/mm-api.html#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a> calls with page_pool_alloc(),
+which allocate memory with or without page splitting depending on the
+requested memory size.</p>
+<p>If the driver knows that it always requires full pages or its allocations are
+always smaller than half a page, it can use one of the more specific API
+calls:</p>
+<p>1. page_pool_alloc_pages(): allocate memory without page splitting when
+driver knows that the memory it need is always bigger than half of the page
+allocated from page pool. There is no cache line dirtying for 'struct page'
+when a page is recycled back to the page pool.</p>
+<p>2. page_pool_alloc_frag(): allocate memory with page splitting when driver
+knows that the memory it need is always smaller than or equal to half of the
+page allocated from page pool. Page splitting enables memory saving and thus
+avoids TLB/cache miss for data access, but there also is some cost to
+implement page splitting, mainly some cache line dirtying/bouncing for
+'struct page' and atomic operation for page-&gt;pp_frag_count.</p>
+<p>The API keeps track of in-flight pages, in order to let API users know when
+it is safe to free a page_pool object, the API users must call
+<a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> or <a class="reference internal" href="#c.page_pool_free_va" title="page_pool_free_va"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_free_va()</span></code></a> to free the page_pool object, or
+attach the page_pool object to a page_pool-aware object like skbs marked with
 skb_mark_for_recycle().</p>
-<p>API users must call <a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> once on a page, as it
-will either recycle the page, or in case of refcnt &gt; 1, it will
-release the DMA mapping and in-flight state accounting.</p>
+<p><a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> may be called multi times on the same page if a page is
+split into multi fragments. For the last fragment, it will either recycle the
+page, or in case of page-&gt;_refcount &gt; 1, it will release the DMA mapping and
+in-flight state accounting.</p>
+<p>dma_sync_single_range_for_device() is only called for the last fragment when
+page_pool is created with PP_FLAG_DMA_SYNC_DEV flag, so it depends on the
+last freed fragment to do the sync_for_device operation for all fragments in
+the same page when a page is split, the API user must setup pool-&gt;p.max_len
+and pool-&gt;p.offset correctly and ensure that <a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> is called
+with dma_sync_size being -1 for fragment API.</p>
 <section id="architecture-overview">
 <h2>Architecture overview<a class="headerlink" href="#architecture-overview" title="Permalink to this heading">¶</a></h2>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+------------------+
@@ -232,7 +251,7 @@ a page will cause no race conditions is enough.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>PP_FLAG_DMA_MAP, PP_FLAG_DMA_SYNC_DEV, PP_FLAG_PAGE_FRAG</p>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>PP_FLAG_DMA_MAP, PP_FLAG_DMA_SYNC_DEV</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">order</span></code></dt><dd><p>2^order pages on allocation</p>
 </dd>
@@ -266,6 +285,70 @@ a page will cause no race conditions is enough.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Get a page from the page allocator or page_pool caches.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.page_pool_dev_alloc_frag">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_dev_alloc_frag</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_dev_alloc_frag" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>allocate a page fragment.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which to allocate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*offset</span></code></dt><dd><p>offset to the allocated page</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">size</span></code></dt><dd><p>requested size</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a page fragment from the page allocator or page_pool caches.</p>
+<p><strong>Return</strong></p>
+<p>Return allocated page fragment, otherwise return NULL.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.page_pool_dev_alloc">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_dev_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_dev_alloc" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>allocate a page or a page fragment.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which to allocate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*offset</span></code></dt><dd><p>offset to the allocated page</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*size</span></code></dt><dd><p>in as the requested size, out as the allocated size</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a page or a page fragment from the page allocator or page_pool caches
+depending on the requested size in order to allocate memory with least memory
+utilization and performance penalty.</p>
+<p><strong>Return</strong></p>
+<p>Return allocated page or page fragment, otherwise return NULL.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.page_pool_dev_alloc_va">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_dev_alloc_va</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_dev_alloc_va" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>allocate a page or a page fragment and return its va.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which to allocate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*size</span></code></dt><dd><p>in as the requested size, out as the allocated size</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is just a thin wrapper around the page_pool_alloc() API, and
+it returns va of the allocated page or page fragment.</p>
+<p><strong>Return</strong></p>
+<p>Return the va for the allocated page or page fragment, otherwise return NULL.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.page_pool_get_dma_dir">
@@ -345,6 +428,25 @@ as configured in <a class="reference internal" href="#c.page_pool_params" title=
 <p><strong>Description</strong></p>
 <p>Similar to <a class="reference internal" href="#c.page_pool_put_full_page" title="page_pool_put_full_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_full_page()</span></code></a> but caller must guarantee safe context
 (e.g NAPI), since it will recycle the page directly into the pool fast cache.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.page_pool_free_va">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_free_va</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">va</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">allow_direct</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_free_va" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>free a va into the page_pool</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which va was allocated</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*va</span></code></dt><dd><p>va to be freed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">allow_direct</span></code></dt><dd><p>freed by the consumer, allow lockless caching</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Free a va allocated from page_pool_allo_va().</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.page_pool_get_dma_addr">

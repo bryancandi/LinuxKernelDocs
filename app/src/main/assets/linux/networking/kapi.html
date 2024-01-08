@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -10763,8 +10763,32 @@ addresses for all their ports. addr_assign_type is not changed.</p>
 takes short frames and pads them with zeros up to the 60 byte limit.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.napi_is_scheduled">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_is_scheduled</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_is_scheduled" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>test if NAPI is scheduled</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">napi_struct</span> <span class="pre">*n</span></code></dt><dd><p>NAPI context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This check is &quot;best-effort&quot;. With no locking implemented,
+a NAPI can be scheduled or terminate right after this check
+and produce not precise results.</p>
+<p>NAPI_STATE_SCHED is an internal state, napi_is_scheduled
+should not be used normally and napi_schedule should be
+used instead.</p>
+<p>Use only if the driver really needs to check if a NAPI
+is scheduled for example in the context of delayed timer
+that can be skipped if a NAPI is already scheduled.</p>
+<p>Return True if NAPI is scheduled, False otherwise.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.napi_schedule">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_schedule</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_schedule" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_schedule</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_schedule" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>schedule NAPI poll</p>
 </dd></dl>
 
@@ -10776,7 +10800,10 @@ takes short frames and pads them with zeros up to the 60 byte limit.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Schedule NAPI poll routine to be called if it is not already
-running.</p>
+running.
+Return true if we schedule a NAPI or false if not.
+Refer to <a class="reference internal" href="#c.napi_schedule_prep" title="napi_schedule_prep"><code class="xref c c-func docutils literal notranslate"><span class="pre">napi_schedule_prep()</span></code></a> for additional reason on why
+a NAPI might not be scheduled.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.napi_schedule_irqoff">
@@ -11162,6 +11189,7 @@ during any kernel release.</p>
     possible_net_t nd_net;
     void *ml_priv;
     enum netdev_ml_priv_type        ml_priv_type;
+    enum netdev_stat_type           pcpu_stat_type:8;
     union {
         struct pcpu_lstats __percpu             *lstats;
         struct pcpu_sw_netstats __percpu        *tstats;
@@ -11222,6 +11250,9 @@ during any kernel release.</p>
     netdevice_tracker dev_registered_tracker;
     struct rtnl_hw_stats64  *offload_xstats_l3;
     struct devlink_port     *devlink_port;
+#if IS_ENABLED(CONFIG_DPLL);
+    struct dpll_pin         *dpll_pin;
+#endif;
 };
 </pre></div>
 </div>
@@ -11530,13 +11561,18 @@ a new link</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ml_priv_type</span></code></dt><dd><p>Mid-layer private type</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pcpu_stat_type</span></code></dt><dd><p>Type of device statistics which the core should
+allocate/free: none, lstats, tstats, dstats. none
+means the driver is handling statistics allocation/
+freeing internally.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">lstats</span></code></dt><dd><p>Loopback statistics</p>
+<dt><code class="docutils literal notranslate"><span class="pre">lstats</span></code></dt><dd><p>Loopback statistics: packets, bytes</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tstats</span></code></dt><dd><p>Tunnel statistics</p>
+<dt><code class="docutils literal notranslate"><span class="pre">tstats</span></code></dt><dd><p>Tunnel statistics: RX/TX packets, RX/TX bytes</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">dstats</span></code></dt><dd><p>Dummy statistics</p>
+<dt><code class="docutils literal notranslate"><span class="pre">dstats</span></code></dt><dd><p>Dummy statistics: RX/TX/drop packets, RX/TX bytes</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">garp_port</span></code></dt><dd><p>GARP</p>
 </dd>
@@ -11620,6 +11656,9 @@ registered</p>
 Assigned by a driver before netdev registration using
 SET_NETDEV_DEVLINK_PORT macro. This pointer is static
 during the time netdevice is registered.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dpll_pin</span></code></dt><dd><p>Pointer to the SyncE source pin of a DPLL subsystem,
+where the clock is recovered.</p>
 <blockquote>
 <div><p>FIXME: cleanup <a class="reference internal" href="#c.net_device" title="net_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span></code></a> such that network protocol info
 moves out.</p>
@@ -12647,6 +12686,26 @@ handling the ioctl.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c._phy_start_aneg">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">_phy_start_aneg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c._phy_start_aneg" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>start auto-negotiation for this PHY device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>Sanitizes the settings (if we're not autonegotiating</dt><dd><p>them), and then calls the driver's config_aneg function.
+If the PHYCONTROL Layer is operating, we change the state to
+reflect the beginning of Auto-negotiation or forcing.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_start_aneg">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_start_aneg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_start_aneg" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>start auto-negotiation for this PHY device</p>
@@ -13149,26 +13208,6 @@ negative value if an error occurred.</p>
 <p><strong>Description</strong></p>
 <p>Check for link and whether autoneg was triggered / is running
 and set state accordingly</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c._phy_start_aneg">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">_phy_start_aneg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c._phy_start_aneg" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>start auto-negotiation for this PHY device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<dl class="simple">
-<dt>Sanitizes the settings (if we're not autonegotiating</dt><dd><p>them), and then calls the driver's config_aneg function.
-If the PHYCONTROL Layer is operating, we change the state to
-reflect the beginning of Auto-negotiation or forcing.</p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phy_stop_machine">
@@ -17553,7 +17592,7 @@ are supported by the MAC/PCS.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct phylink_mac_ops {
-    void (*validate)(struct phylink_config *config,unsigned long *supported, struct phylink_link_state *state);
+    unsigned long (*mac_get_caps)(struct phylink_config *config, phy_interface_t interface);
     struct phylink_pcs *(*mac_select_pcs)(struct phylink_config *config, phy_interface_t interface);
     int (*mac_prepare)(struct phylink_config *config, unsigned int mode, phy_interface_t iface);
     void (*mac_config)(struct phylink_config *config, unsigned int mode, const struct phylink_link_state *state);
@@ -17565,7 +17604,7 @@ are supported by the MAC/PCS.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">validate</span></code></dt><dd><p>Validate and update the link configuration.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">mac_get_caps</span></code></dt><dd><p>Get MAC capabilities for interface mode.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mac_select_pcs</span></code></dt><dd><p>Select a PCS for the interface mode.</p>
 </dd>
@@ -17584,9 +17623,9 @@ are supported by the MAC/PCS.</p>
 <p><strong>Description</strong></p>
 <p>The individual methods are described more fully below.</p>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.validate">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">validate</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">supported</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><span class="n"><span class="pre">phylink_link_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.validate" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Validate and update the link configuration</p>
+<dt class="sig sig-object c" id="c.mac_get_caps">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mac_get_caps</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">interface</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mac_get_caps" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Get MAC capabilities for interface mode.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -17594,32 +17633,14 @@ are supported by the MAC/PCS.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span> <span class="pre">*config</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_config" title="phylink_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*supported</span></code></dt><dd><p>ethtool bitmask for supported link modes.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_link_state</span> <span class="pre">*state</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_link_state</span></code></a>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">phy_interface_t</span> <span class="pre">interface</span></code></dt><dd><p>PHY interface mode.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Clear bits in the <strong>supported</strong> and <strong>state-&gt;advertising</strong> masks that
-are not supportable by the MAC.</p>
-<p>Note that the PHY may be able to transform from one connection
-technology to another, so, eg, don't clear 1000BaseX just
-because the MAC is unable to BaseX mode. This is more about
-clearing unsupported speeds and duplex settings. The port modes
-should not be cleared; <a class="reference internal" href="#c.phylink_set_port_modes" title="phylink_set_port_modes"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_set_port_modes()</span></code></a> will help with this.</p>
-<p>When <strong>config-&gt;supported_interfaces</strong> has been set, phylink will iterate
-over the supported interfaces to determine the full capability of the
-MAC. The validation function must not print errors if <strong>state-&gt;interface</strong>
-is set to an unexpected value.</p>
-<p>When <strong>config-&gt;supported_interfaces</strong> is empty, phylink will call this
-function with <strong>state-&gt;interface</strong> set to <code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_NA</span></code>, and
-expects the MAC driver to return all supported link modes.</p>
-<p>If the <strong>state-&gt;interface</strong> mode is not supported, then the <strong>supported</strong>
-mask must be cleared.</p>
-<p>This member is optional; if not set, the generic validator will be
-used making use of <strong>config-&gt;mac_capabilities</strong> and
-<strong>config-&gt;supported_interfaces</strong> to determine which link modes are
-supported.</p>
+<p>Optional method. When not provided, config-&gt;mac_capabilities will be used.
+When implemented, this returns the MAC capabilities for the specified
+interface mode where there is some special handling required by the MAC
+driver (e.g. not supporting half-duplex in certain interface modes.)</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mac_select_pcs">
@@ -17930,7 +17951,7 @@ the PCS driver.</p>
 <p>Validate the interface mode, and advertising's autoneg bit, removing any
 media ethtool link modes that would not be supportable from the supported
 mask. Phylink will propagate the changes to the advertising mask. See the
-<a class="reference internal" href="#c.phylink_mac_ops" title="phylink_mac_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_mac_ops</span></code></a> <a class="reference internal" href="#c.validate" title="validate"><code class="xref c c-func docutils literal notranslate"><span class="pre">validate()</span></code></a> method.</p>
+<a class="reference internal" href="#c.phylink_mac_ops" title="phylink_mac_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_mac_ops</span></code></a> validate() method.</p>
 <p>Returns -EINVAL if the interface mode/autoneg mode is not supported.
 Returns non-zero positive if the link state can be supported.</p>
 </div>
@@ -18226,26 +18247,6 @@ Any further motifications of config.mac_capabilities will override this.</p>
 <p>Calculate the supported link modes based on <strong>mac_capabilities</strong>, and restrict
 <strong>supported</strong> and <strong>state</strong> based on that. Use this function if your capabiliies
 aren't constant, such as if they vary depending on the interface.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phylink_generic_validate">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_generic_validate</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">supported</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><span class="n"><span class="pre">phylink_link_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_generic_validate" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>generic <a class="reference internal" href="#c.validate" title="validate"><code class="xref c c-func docutils literal notranslate"><span class="pre">validate()</span></code></a> callback implementation</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span> <span class="pre">*config</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_config" title="phylink_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span></code></a>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*supported</span></code></dt><dd><p>ethtool bitmask for supported link modes.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_link_state</span> <span class="pre">*state</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_link_state</span></code></a>.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Generic implementation of the <a class="reference internal" href="#c.validate" title="validate"><code class="xref c c-func docutils literal notranslate"><span class="pre">validate()</span></code></a> callback that MAC drivers can
-use when they pass the range of supported interfaces and MAC capabilities.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_create">
