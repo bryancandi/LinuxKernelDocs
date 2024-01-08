@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -77,6 +77,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../sound/index.html">Sound Subsystem Documentation</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">GPU Driver Developer's Guide</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fb/index.html">Frame Buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../leds/index.html">LEDs</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
@@ -1552,6 +1553,7 @@ not need to consider this.)</p>
     int (*mmap)(struct drm_gem_object *obj, struct vm_area_struct *vma);
     int (*evict)(struct drm_gem_object *obj);
     enum drm_gem_object_status (*status)(struct drm_gem_object *obj);
+    size_t (*rss)(struct drm_gem_object *obj);
     const struct vm_operations_struct *vm_ops;
 };
 </pre></div>
@@ -1615,6 +1617,9 @@ which determines which stats the object is counted against.  The
 callback is called under table_lock.  Racing against object status
 change is &quot;harmless&quot;, and the callback can expect to not race
 against object destruction.</p>
+<p>Called by <a class="reference internal" href="drm-internals.html#c.drm_show_memory_stats" title="drm_show_memory_stats"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_memory_stats()</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rss</span></code></dt><dd><p>Return resident size of the object in physical memory.</p>
 <p>Called by <a class="reference internal" href="drm-internals.html#c.drm_show_memory_stats" title="drm_show_memory_stats"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_memory_stats()</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vm_ops</span></code></dt><dd><p>Virtual memory operations used with mmap.</p>
@@ -1893,7 +1898,7 @@ dma-resv lock, but with a custom lock.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This iterator walks over all <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structures associated with the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>.</p>
+<code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code>.</p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.drm_gem_for_each_gpuva_safe">
@@ -2752,7 +2757,7 @@ If the buffer is imported and the virtual address is set, it is released.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_dma_dumb_create_internal">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_dma_dumb_create_internal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_mode_create_dumb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_dma_dumb_create_internal" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_dma_dumb_create_internal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_dma_dumb_create_internal" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>create a dumb buffer object</p>
 </dd></dl>
 
@@ -2776,7 +2781,7 @@ as their <a class="reference internal" href="drm-internals.html#c.drm_driver" ti
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_dma_dumb_create">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_dma_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_mode_create_dumb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_dma_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_dma_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_dma_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>create a dumb buffer object</p>
 </dd></dl>
 
@@ -3220,7 +3225,7 @@ memory.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_shmem_dumb_create">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_shmem_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_mode_create_dumb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_shmem_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_shmem_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_shmem_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Create a dumb shmem buffer object</p>
 </dd></dl>
 
@@ -3719,7 +3724,7 @@ the documentation for <a class="reference internal" href="#c.drm_gem_vram_vmap" 
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_vram_fill_create_dumb">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_fill_create_dumb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">pg_align</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">pitch_align</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_mode_create_dumb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_fill_create_dumb" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_fill_create_dumb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">pg_align</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">pitch_align</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_fill_create_dumb" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Helper for implementing <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a>.dumb_create</p>
 </dd></dl>
 
@@ -3738,7 +3743,7 @@ the documentation for <a class="reference internal" href="#c.drm_gem_vram_vmap" 
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This helper function fills <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_mode_create_dumb</span></code>, which is used
+<p>This helper function fills <a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_mode_create_dumb</span></code></a>, which is used
 by <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a>.dumb_create. Implementations of this interface
 should forwards their arguments to this helper, plus the driver-specific
 parameters.</p>
@@ -3748,7 +3753,7 @@ a negative error code otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_vram_driver_dumb_create">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_driver_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_mode_create_dumb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_driver_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_driver_dumb_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_mode_create_dumb" title="drm_mode_create_dumb"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_driver_dumb_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Implements <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a>.dumb_create</p>
 </dd></dl>
 
@@ -4609,6 +4614,57 @@ must use this in their <a class="reference internal" href="../driver-api/dma-buf
 <a class="reference internal" href="#c.drm_gem_dmabuf_export" title="drm_gem_dmabuf_export"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_dmabuf_export()</span></code></a>.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_gem_prime_fd_to_handle">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_prime_fd_to_handle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">prime_fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">handle</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_prime_fd_to_handle" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>PRIME import function for GEM drivers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>drm_device to import into</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_file</span> <span class="pre">*file_priv</span></code></dt><dd><p>drm file-private structure</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">prime_fd</span></code></dt><dd><p>fd id of the dma-buf which should be imported</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">*handle</span></code></dt><dd><p>pointer to storage for the handle of the imported buffer object</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is the PRIME import function which must be used mandatorily by GEM
+drivers to ensure correct lifetime management of the underlying GEM object.
+The actual importing of GEM object from the dma-buf is done through the
+<a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.gem_prime_import</span></code></a> driver callback.</p>
+<p>Returns 0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_gem_prime_handle_to_fd">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_prime_handle_to_fd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">handle</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">prime_fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_prime_handle_to_fd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>PRIME export function for GEM drivers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>dev to export the buffer from</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_file</span> <span class="pre">*file_priv</span></code></dt><dd><p>drm file-private structure</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">handle</span></code></dt><dd><p>buffer handle to export</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">flags</span></code></dt><dd><p>flags like DRM_CLOEXEC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">*prime_fd</span></code></dt><dd><p>pointer to storage for the fd id of the create dma-buf</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is the PRIME export function which must be used mandatorily by GEM
+drivers to ensure correct lifetime management of the underlying GEM object.
+The actual exporting from GEM object to a dma-buf is done through the
+<a class="reference internal" href="#c.drm_gem_object_funcs" title="drm_gem_object_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object_funcs.export</span></code></a> callback.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_map_attach">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_map_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_map_attach" title="dma_buf"><span class="n"><span class="pre">dma_buf</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dma_buf</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/dma-buf.html#c.dma_buf_attachment" title="dma_buf_attachment"><span class="n"><span class="pre">dma_buf_attachment</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attach</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_map_attach" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>dma_buf attach implementation for GEM</p>
@@ -4820,9 +4876,9 @@ of the buffer described by the provided sg_table.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This is the implementation of the <a class="reference internal" href="#c.drm_gem_object_funcs" title="drm_gem_object_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object_funcs.export</span></code></a> functions
-for GEM drivers using the PRIME helpers. It is used as the default for
-drivers that do not set their own.</p>
+<p>This is the implementation of the <a class="reference internal" href="#c.drm_gem_object_funcs" title="drm_gem_object_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object_funcs.export</span></code></a> functions for GEM drivers
+using the PRIME helpers. It is used as the default in
+<a class="reference internal" href="#c.drm_gem_prime_handle_to_fd" title="drm_gem_prime_handle_to_fd"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_prime_handle_to_fd()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_prime_import_dev">
@@ -4863,9 +4919,10 @@ attaching via dma_buf. This function calls
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This is the implementation of the gem_prime_import functions for GEM
-drivers using the PRIME helpers. It is the default for drivers that do
-not set their own <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.gem_prime_import</span></code></a>.</p>
+<p>This is the implementation of the gem_prime_import functions for GEM drivers
+using the PRIME helpers. Drivers can use this as their
+<a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.gem_prime_import</span></code></a> implementation. It is used as the default
+implementation in <a class="reference internal" href="#c.drm_gem_prime_fd_to_handle" title="drm_gem_prime_fd_to_handle"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_prime_fd_to_handle()</span></code></a>.</p>
 <p>Drivers must arrange to call <a class="reference internal" href="#c.drm_prime_gem_destroy" title="drm_prime_gem_destroy"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_prime_gem_destroy()</span></code></a> from their
 <a class="reference internal" href="#c.drm_gem_object_funcs" title="drm_gem_object_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object_funcs.free</span></code></a> hook when using this function.</p>
 </div>
@@ -5701,12 +5758,12 @@ clean.</p>
 </div>
 </section>
 </section>
-<section id="drm-gpu-va-manager">
-<h2>DRM GPU VA Manager<a class="headerlink" href="#drm-gpu-va-manager" title="Permalink to this heading">¶</a></h2>
+<section id="drm-gpuvm">
+<h2>DRM GPUVM<a class="headerlink" href="#drm-gpuvm" title="Permalink to this heading">¶</a></h2>
 <section id="id2">
 <h3>Overview<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
-<p>The DRM GPU VA Manager, represented by <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span></code></a> keeps track
-of a GPU's virtual address (VA) space and manages the corresponding virtual
+<p>The DRM GPU VA Manager, represented by <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span></code></a> keeps track of a
+GPU's virtual address (VA) space and manages the corresponding virtual
 mappings represented by <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> objects. It also keeps track of the
 mapping's backing <a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object</span></code></a> buffers.</p>
 <p><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object</span></code></a> buffers maintain a list of <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> objects representing
@@ -5715,38 +5772,38 @@ all existent GPU VA mappings using this <a class="reference internal" href="#c.d
 keep track of sparse PTEs in order to support Vulkan 'Sparse Resources'.</p>
 <p>The GPU VA manager internally uses a rb-tree to manage the
 <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> mappings within a GPU's virtual address space.</p>
-<p>The <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> contains a special <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> representing the
+<p>The <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> structure contains a special <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> representing the
 portion of VA space reserved by the kernel. This node is initialized together
 with the GPU VA manager instance and removed when the GPU VA manager is
 destroyed.</p>
-<p>In a typical application drivers would embed <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span></code></a> and
+<p>In a typical application drivers would embed <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span></code></a> and
 <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva</span></code></a> within their own driver specific structures, there won't be
 any memory allocations of its own nor memory allocations of <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>
 entries.</p>
-<p>The data structures needed to store <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> within the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>
-are contained within <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva</span></code></a> already. Hence, for inserting
-<a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> entries from within dma-fence signalling critical sections it is
-enough to pre-allocate the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structures.</p>
+<p>The data structures needed to store <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> within the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> are
+contained within <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva</span></code></a> already. Hence, for inserting <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>
+entries from within dma-fence signalling critical sections it is enough to
+pre-allocate the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structures.</p>
 </section>
 <section id="split-and-merge">
 <h3>Split and Merge<a class="headerlink" href="#split-and-merge" title="Permalink to this heading">¶</a></h3>
 <p>Besides its capability to manage and represent a GPU VA space, the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> also provides functions to let the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>
-calculate a sequence of operations to satisfy a given map or unmap request.</p>
+GPU VA manager also provides functions to let the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> calculate a
+sequence of operations to satisfy a given map or unmap request.</p>
 <p>Therefore the DRM GPU VA manager provides an algorithm implementing splitting
 and merging of existent GPU VA mappings with the ones that are requested to
 be mapped or unmapped. This feature is required by the Vulkan API to
 implement Vulkan 'Sparse Memory Bindings' - drivers UAPIs often refer to this
 as VM BIND.</p>
-<p>Drivers can call <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> to receive a sequence of callbacks
+<p>Drivers can call <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> to receive a sequence of callbacks
 containing map, unmap and remap operations for a given newly requested
 mapping. The sequence of callbacks represents the set of operations to
 execute in order to integrate the new mapping cleanly into the current state
 of the GPU VA space.</p>
 <p>Depending on how the new GPU VA mapping intersects with the existent mappings
-of the GPU VA space the <a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> callbacks contain an arbitrary
-amount of unmap operations, a maximum of two remap operations and a single
-map operation. The caller might receive no callback at all if no operation is
+of the GPU VA space the <a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> callbacks contain an arbitrary amount
+of unmap operations, a maximum of two remap operations and a single map
+operation. The caller might receive no callback at all if no operation is
 required, e.g. if the requested mapping already exists in the exact same way.</p>
 <p>The single map operation represents the original map operation requested by
 the caller.</p>
@@ -5754,7 +5811,7 @@ the caller.</p>
 <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to unmap is physically contiguous with the original mapping
 request. Optionally, if 'keep' is set, drivers may keep the actual page table
 entries for this <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>, adding the missing page table entries only and
-update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of things accordingly.</p>
+update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of things accordingly.</p>
 <p>Drivers may do the same optimization, namely delta page table updates, also
 for remap operations. This is possible since <a class="reference internal" href="#c.drm_gpuva_op_remap" title="drm_gpuva_op_remap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op_remap</span></code></a> consists of
 one unmap operation and one or two map operations, such that drivers can
@@ -5762,31 +5819,31 @@ derive the page table update delta accordingly.</p>
 <p>Note that there can't be more than two existent mappings to split up, one at
 the beginning and one at the end of the new mapping, hence there is a
 maximum of two remap operations.</p>
-<p>Analogous to <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap()</span></code></a> uses <a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a>
-to call back into the driver in order to unmap a range of GPU VA space. The
+<p>Analogous to <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap()</span></code></a> uses <a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> to
+call back into the driver in order to unmap a range of GPU VA space. The
 logic behind this function is way simpler though: For all existent mappings
 enclosed by the given range unmap operations are created. For mappings which
 are only partically located within the given range, remap operations are
 created such that those mappings are split up and re-mapped partically.</p>
-<p>As an alternative to <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> and <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap()</span></code></a>,
-<a class="reference internal" href="#c.drm_gpuva_sm_map_ops_create" title="drm_gpuva_sm_map_ops_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map_ops_create()</span></code></a> and <a class="reference internal" href="#c.drm_gpuva_sm_unmap_ops_create" title="drm_gpuva_sm_unmap_ops_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap_ops_create()</span></code></a> can be used
+<p>As an alternative to <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> and <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap()</span></code></a>,
+<a class="reference internal" href="#c.drm_gpuvm_sm_map_ops_create" title="drm_gpuvm_sm_map_ops_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map_ops_create()</span></code></a> and <a class="reference internal" href="#c.drm_gpuvm_sm_unmap_ops_create" title="drm_gpuvm_sm_unmap_ops_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap_ops_create()</span></code></a> can be used
 to directly obtain an instance of <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_ops</span></code></a> containing a list of
 <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op</span></code></a>, which can be iterated with <a class="reference internal" href="#c.drm_gpuva_for_each_op" title="drm_gpuva_for_each_op"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_for_each_op()</span></code></a>. This list
 contains the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> analogous to the callbacks one would receive when
-calling <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> or <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap()</span></code></a>. While this way requires
+calling <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> or <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap()</span></code></a>. While this way requires
 more memory (to allocate the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a>), it provides drivers a way to
 iterate the <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op</span></code></a> multiple times, e.g. once in a context where memory
 allocations are possible (e.g. to allocate GPU page tables) and once in the
 dma-fence signalling critical path.</p>
-<p>To update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space
-<a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a> and <a class="reference internal" href="#c.drm_gpuva_remove" title="drm_gpuva_remove"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_remove()</span></code></a> may be used. These functions can
-safely be used from <a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> callbacks originating from
-<a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> or <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap()</span></code></a>. However, it might be more
-convenient to use the provided helper functions <a class="reference internal" href="#c.drm_gpuva_map" title="drm_gpuva_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_map()</span></code></a>,
-<a class="reference internal" href="#c.drm_gpuva_remap" title="drm_gpuva_remap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_remap()</span></code></a> and <a class="reference internal" href="#c.drm_gpuva_unmap" title="drm_gpuva_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_unmap()</span></code></a> instead.</p>
+<p>To update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuva_remove" title="drm_gpuva_remove"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_remove()</span></code></a> may be used. These functions can safely be used from
+<a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> callbacks originating from <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> or
+<a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap()</span></code></a>. However, it might be more convenient to use the
+provided helper functions <a class="reference internal" href="#c.drm_gpuva_map" title="drm_gpuva_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_map()</span></code></a>, <a class="reference internal" href="#c.drm_gpuva_remap" title="drm_gpuva_remap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_remap()</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuva_unmap" title="drm_gpuva_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_unmap()</span></code></a> instead.</p>
 <p>The following diagram depicts the basic relationships of existent GPU VA
 mappings, a newly requested mapping and the resulting mappings as implemented
-by <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_sm_map()</span></code></a> - it doesn't cover any arbitrary combinations of these.</p>
+by <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map()</span></code></a> - it doesn't cover any arbitrary combinations of these.</p>
 <ol class="arabic">
 <li><p>Requested mapping is identical. Replace it, but indicate the backing PTEs
 could be kept.</p>
@@ -6043,10 +6100,10 @@ previously taken locks.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>// Allocates a new &amp;drm_gpuva.
 struct drm_gpuva * driver_gpuva_alloc(void);
 
-// Typically drivers would embedd the &amp;drm_gpuva_manager and &amp;drm_gpuva
+// Typically drivers would embedd the &amp;drm_gpuvm and &amp;drm_gpuva
 // structure in individual driver structures and lock the dma-resv with
 // drm_exec or similar helpers.
-int driver_mapping_create(struct drm_gpuva_manager *mgr,
+int driver_mapping_create(struct drm_gpuvm *gpuvm,
                           u64 addr, u64 range,
                           struct drm_gem_object *obj, u64 offset)
 {
@@ -6054,7 +6111,7 @@ int driver_mapping_create(struct drm_gpuva_manager *mgr,
         struct drm_gpuva_op *op
 
         driver_lock_va_space();
-        ops = drm_gpuva_sm_map_ops_create(mgr, addr, range,
+        ops = drm_gpuvm_sm_map_ops_create(gpuvm, addr, range,
                                           obj, offset);
         if (IS_ERR(ops))
                 return PTR_ERR(ops);
@@ -6070,7 +6127,7 @@ int driver_mapping_create(struct drm_gpuva_manager *mgr,
                                   // free memory and unlock
 
                         driver_vm_map();
-                        drm_gpuva_map(mgr, va, &amp;op-&gt;map);
+                        drm_gpuva_map(gpuvm, va, &amp;op-&gt;map);
                         drm_gpuva_link(va);
 
                         break;
@@ -6127,23 +6184,23 @@ int driver_mapping_create(struct drm_gpuva_manager *mgr,
 </li>
 <li><p>Receive a callback for each <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op</span></code></a> to create a new mapping:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct driver_context {
-        struct drm_gpuva_manager *mgr;
+        struct drm_gpuvm *gpuvm;
         struct drm_gpuva *new_va;
         struct drm_gpuva *prev_va;
         struct drm_gpuva *next_va;
 };
 
-// ops to pass to drm_gpuva_manager_init()
-static const struct drm_gpuva_fn_ops driver_gpuva_ops = {
+// ops to pass to drm_gpuvm_init()
+static const struct drm_gpuvm_ops driver_gpuvm_ops = {
         .sm_step_map = driver_gpuva_map,
         .sm_step_remap = driver_gpuva_remap,
         .sm_step_unmap = driver_gpuva_unmap,
 };
 
-// Typically drivers would embedd the &amp;drm_gpuva_manager and &amp;drm_gpuva
+// Typically drivers would embedd the &amp;drm_gpuvm and &amp;drm_gpuva
 // structure in individual driver structures and lock the dma-resv with
 // drm_exec or similar helpers.
-int driver_mapping_create(struct drm_gpuva_manager *mgr,
+int driver_mapping_create(struct drm_gpuvm *gpuvm,
                           u64 addr, u64 range,
                           struct drm_gem_object *obj, u64 offset)
 {
@@ -6152,7 +6209,7 @@ int driver_mapping_create(struct drm_gpuva_manager *mgr,
         struct drm_gpuva_op *op;
         int ret = 0;
 
-        ctx.mgr = mgr;
+        ctx.gpuvm = gpuvm;
 
         ctx.new_va = kzalloc(sizeof(*ctx.new_va), GFP_KERNEL);
         ctx.prev_va = kzalloc(sizeof(*ctx.prev_va), GFP_KERNEL);
@@ -6163,7 +6220,7 @@ int driver_mapping_create(struct drm_gpuva_manager *mgr,
         }
 
         driver_lock_va_space();
-        ret = drm_gpuva_sm_map(mgr, &amp;ctx, addr, range, obj, offset);
+        ret = drm_gpuvm_sm_map(gpuvm, &amp;ctx, addr, range, obj, offset);
         driver_unlock_va_space();
 
 out:
@@ -6177,7 +6234,7 @@ int driver_gpuva_map(struct drm_gpuva_op *op, void *__ctx)
 {
         struct driver_context *ctx = __ctx;
 
-        drm_gpuva_map(ctx-&gt;mgr, ctx-&gt;new_va, &amp;op-&gt;map);
+        drm_gpuva_map(ctx-&gt;vm, ctx-&gt;new_va, &amp;op-&gt;map);
 
         drm_gpuva_link(ctx-&gt;new_va);
 
@@ -6223,8 +6280,8 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 </li>
 </ol>
 </section>
-<section id="drm-gpu-va-manager-function-references">
-<h3>DRM GPU VA Manager Function References<a class="headerlink" href="#drm-gpu-va-manager-function-references" title="Permalink to this heading">¶</a></h3>
+<section id="drm-gpuvm-function-references">
+<h3>DRM GPUVM Function References<a class="headerlink" href="#drm-gpuvm-function-references" title="Permalink to this heading">¶</a></h3>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.drm_gpuva_flags">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_flags</span></span></span><a class="headerlink" href="#c.drm_gpuva_flags" title="Permalink to this definition">¶</a><br /></dt>
@@ -6251,7 +6308,7 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gpuva {
-    struct drm_gpuva_manager *mgr;
+    struct drm_gpuvm *vm;
     enum drm_gpuva_flags flags;
     struct {
         u64 addr;
@@ -6272,7 +6329,7 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> this object is associated with</p>
+<dt><code class="docutils literal notranslate"><span class="pre">vm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> this object is associated with</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_flags" title="drm_gpuva_flags"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_flags</span></code></a> for this mapping</p>
 </dd>
@@ -6286,7 +6343,7 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 </div>
 <p><strong>Description</strong></p>
 <p>This structure represents a GPU VA mapping and is associated with a
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>.</p>
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>.</p>
 <p>Typically, this structure is embedded in bigger driver structures.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_invalidate">
@@ -6317,14 +6374,14 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 </dl>
 </div>
 <dl class="c struct">
-<dt class="sig sig-object c" id="c.drm_gpuva_manager">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_manager</span></span></span><a class="headerlink" href="#c.drm_gpuva_manager" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm</span></span></span><a class="headerlink" href="#c.drm_gpuvm" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>DRM GPU VA Manager</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gpuva_manager {
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gpuvm {
     const char *name;
     u64 mm_start;
     u64 mm_range;
@@ -6333,7 +6390,7 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
         struct list_head list;
     } rb;
     struct drm_gpuva kernel_alloc_node;
-    const struct drm_gpuva_fn_ops *ops;
+    const struct drm_gpuvm_ops *ops;
 };
 </pre></div>
 </div>
@@ -6350,7 +6407,7 @@ int driver_gpuva_unmap(struct drm_gpuva_op *op, void *__ctx)
 <dt><code class="docutils literal notranslate"><span class="pre">kernel_alloc_node</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> representing the address space cutout reserved for
 the kernel</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> providing the split/merge steps to drivers</p>
+<dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> providing the split/merge steps to drivers</p>
 </dd>
 </dl>
 </div>
@@ -6362,11 +6419,11 @@ driver structures.</p>
 pages.</p>
 <p>There should be one manager instance per GPU virtual address space.</p>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.drm_gpuva_for_each_va_range">
-<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_for_each_va_range</span></span></span><a class="headerlink" href="#c.drm_gpuva_for_each_va_range" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_for_each_va_range">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_for_each_va_range</span></span></span><a class="headerlink" href="#c.drm_gpuvm_for_each_va_range" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_range</span> <span class="pre">(va__,</span> <span class="pre">mgr__,</span> <span class="pre">start__,</span> <span class="pre">end__)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_range</span> <span class="pre">(va__,</span> <span class="pre">gpuvm__,</span> <span class="pre">start__,</span> <span class="pre">end__)</span></code></p>
 <blockquote>
 <div><p>iterate over a range of <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code></p>
 </div></blockquote>
@@ -6375,7 +6432,7 @@ pages.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">va__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structure to assign to in each iteration step</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mgr__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to walk over</p>
+<dt><code class="docutils literal notranslate"><span class="pre">gpuvm__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to walk over</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">start__</span></code></dt><dd><p>starting offset, the first gpuva will overlap this</p>
 </dd>
@@ -6384,20 +6441,20 @@ overlap)</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This iterator walks over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> in the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> that lie
+<p>This iterator walks over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> in the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> that lie
 between <strong>start__</strong> and <strong>end__</strong>. It is implemented similarly to <a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each" title="list_for_each"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each()</span></code></a>,
-but is using the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s internal interval tree to accelerate
+but is using the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s internal interval tree to accelerate
 the search for the starting <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>, and hence isn't safe against removal
 of elements. It assumes that <strong>end__</strong> is within (or is the upper limit of) the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>. This iterator does not skip over the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>. This iterator does not skip over the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s
 <strong>kernel_alloc_node</strong>.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.drm_gpuva_for_each_va_range_safe">
-<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_for_each_va_range_safe</span></span></span><a class="headerlink" href="#c.drm_gpuva_for_each_va_range_safe" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_for_each_va_range_safe">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_for_each_va_range_safe</span></span></span><a class="headerlink" href="#c.drm_gpuvm_for_each_va_range_safe" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_range_safe</span> <span class="pre">(va__,</span> <span class="pre">next__,</span> <span class="pre">mgr__,</span> <span class="pre">start__,</span> <span class="pre">end__)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_range_safe</span> <span class="pre">(va__,</span> <span class="pre">next__,</span> <span class="pre">gpuvm__,</span> <span class="pre">start__,</span> <span class="pre">end__)</span></code></p>
 <blockquote>
 <div><p>safely iterate over a range of <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code></p>
 </div></blockquote>
@@ -6408,7 +6465,7 @@ of elements. It assumes that <strong>end__</strong> is within (or is the upper l
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">next__</span></code></dt><dd><p>another <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to use as temporary storage</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mgr__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to walk over</p>
+<dt><code class="docutils literal notranslate"><span class="pre">gpuvm__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to walk over</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">start__</span></code></dt><dd><p>starting offset, the first gpuva will overlap this</p>
 </dd>
@@ -6417,20 +6474,20 @@ overlap)</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This iterator walks over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> in the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> that lie
+<p>This iterator walks over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> in the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> that lie
 between <strong>start__</strong> and <strong>end__</strong>. It is implemented similarly to
-<a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each_safe" title="list_for_each_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_safe()</span></code></a>, but is using the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s internal interval
+<a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each_safe" title="list_for_each_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_safe()</span></code></a>, but is using the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s internal interval
 tree to accelerate the search for the starting <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>, and hence is safe
 against removal of elements. It assumes that <strong>end__</strong> is within (or is the
-upper limit of) the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>. This iterator does not skip over the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s <strong>kernel_alloc_node</strong>.</p>
+upper limit of) the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>. This iterator does not skip over the
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s <strong>kernel_alloc_node</strong>.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.drm_gpuva_for_each_va">
-<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_for_each_va</span></span></span><a class="headerlink" href="#c.drm_gpuva_for_each_va" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_for_each_va">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_for_each_va</span></span></span><a class="headerlink" href="#c.drm_gpuvm_for_each_va" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va</span> <span class="pre">(va__,</span> <span class="pre">mgr__)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va</span> <span class="pre">(va__,</span> <span class="pre">gpuvm__)</span></code></p>
 <blockquote>
 <div><p>iterate over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code></p>
 </div></blockquote>
@@ -6439,19 +6496,19 @@ upper limit of) the <a class="reference internal" href="#c.drm_gpuva_manager" ti
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">va__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to assign to in each iteration step</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mgr__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to walk over</p>
+<dt><code class="docutils literal notranslate"><span class="pre">gpuvm__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to walk over</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This iterator walks over all <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structures associated with the given
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>.</p>
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.drm_gpuva_for_each_va_safe">
-<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_for_each_va_safe</span></span></span><a class="headerlink" href="#c.drm_gpuva_for_each_va_safe" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_for_each_va_safe">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_for_each_va_safe</span></span></span><a class="headerlink" href="#c.drm_gpuvm_for_each_va_safe" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_safe</span> <span class="pre">(va__,</span> <span class="pre">next__,</span> <span class="pre">mgr__)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_safe</span> <span class="pre">(va__,</span> <span class="pre">next__,</span> <span class="pre">gpuvm__)</span></code></p>
 <blockquote>
 <div><p>safely iterate over all <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code></p>
 </div></blockquote>
@@ -6462,12 +6519,12 @@ upper limit of) the <a class="reference internal" href="#c.drm_gpuva_manager" ti
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">next__</span></code></dt><dd><p>another <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to use as temporary storage</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mgr__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to walk over</p>
+<dt><code class="docutils literal notranslate"><span class="pre">gpuvm__</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to walk over</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This iterator walks over all <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> structures associated with the given
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>. It is implemented with <a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each_entry_safe" title="list_for_each_entry_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_entry_safe()</span></code></a>, and
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>. It is implemented with <a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each_entry_safe" title="list_for_each_entry_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_entry_safe()</span></code></a>, and
 hence safe against the removal of elements.</p>
 </div>
 <dl class="c enum">
@@ -6490,7 +6547,7 @@ hence safe against the removal of elements.</p>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>Operations to alter the GPU VA mappings tracked by the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>.</p>
+<p>Operations to alter the GPU VA mappings tracked by the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_gpuva_op_map">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_op_map</span></span></span><a class="headerlink" href="#c.drm_gpuva_op_map" title="Permalink to this definition">¶</a><br /></dt>
@@ -6545,7 +6602,7 @@ DRM GPU VA manager.</p>
 original mapping request.</p>
 <p>Optionally, if <code class="xref c c-type docutils literal notranslate"><span class="pre">keep</span></code> is set, drivers may keep the actual page table
 mappings for this <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a>, adding the missing page table entries
-only and update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> accordingly.</p>
+only and update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> accordingly.</p>
 </dd>
 </dl>
 </div>
@@ -6805,14 +6862,14 @@ from the given operation in reverse order.</p>
 </dl>
 </div>
 <dl class="c struct">
-<dt class="sig sig-object c" id="c.drm_gpuva_fn_ops">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_fn_ops</span></span></span><a class="headerlink" href="#c.drm_gpuva_fn_ops" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_ops">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_ops</span></span></span><a class="headerlink" href="#c.drm_gpuvm_ops" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>callbacks for split/merge steps</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gpuva_fn_ops {
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gpuvm_ops {
     struct drm_gpuva_op *(*op_alloc)(void);
     void (*op_free)(struct drm_gpuva_op *op);
     int (*sm_step_map)(struct drm_gpuva_op *op, void *priv);
@@ -6823,63 +6880,63 @@ from the given operation in reverse order.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">op_alloc</span></code></dt><dd><p>called when the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> allocates
+<dt><code class="docutils literal notranslate"><span class="pre">op_alloc</span></code></dt><dd><p>called when the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> allocates
 a <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_op</span></code></a></p>
 <p>Some drivers may want to embed <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_op</span></code></a> into driver
 specific structures. By implementing this callback drivers can
 allocate memory accordingly.</p>
 <p>This callback is optional.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">op_free</span></code></dt><dd><p>called when the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> frees a
+<dt><code class="docutils literal notranslate"><span class="pre">op_free</span></code></dt><dd><p>called when the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> frees a
 <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_op</span></code></a></p>
 <p>Some drivers may want to embed <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_op</span></code></a> into driver
 specific structures. By implementing this callback drivers can
 free the previously allocated memory accordingly.</p>
 <p>This callback is optional.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sm_step_map</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> to finally insert the
+<dt><code class="docutils literal notranslate"><span class="pre">sm_step_map</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> to finally insert the
 mapping once all previous steps were completed</p>
 <p>The <code class="xref c c-type docutils literal notranslate"><span class="pre">priv</span></code> pointer matches the one the driver passed to
-<a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a>, respectively.</p>
-<p>Can be NULL if <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> is used.</p>
+<a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a>, respectively.</p>
+<p>Can be NULL if <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> is used.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sm_step_remap</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> and
-<a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> to split up an existent mapping</p>
+<dt><code class="docutils literal notranslate"><span class="pre">sm_step_remap</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> to split up an existent mapping</p>
 <p>This callback is called when existent mapping needs to be split up.
 This is the case when either a newly requested mapping overlaps or
 is enclosed by an existent mapping or a partial unmap of an existent
 mapping is requested.</p>
 <p>The <code class="xref c c-type docutils literal notranslate"><span class="pre">priv</span></code> pointer matches the one the driver passed to
-<a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a>, respectively.</p>
-<p>Can be NULL if neither <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> nor <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> is
+<a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a>, respectively.</p>
+<p>Can be NULL if neither <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> nor <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> is
 used.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sm_step_unmap</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> and
-<a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> to unmap an existent mapping</p>
+<dt><code class="docutils literal notranslate"><span class="pre">sm_step_unmap</span></code></dt><dd><p>called from <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> to unmap an existent mapping</p>
 <p>This callback is called when existent mapping needs to be unmapped.
 This is the case when either a newly requested mapping encloses an
 existent mapping or an unmap of an existent mapping is requested.</p>
 <p>The <code class="xref c c-type docutils literal notranslate"><span class="pre">priv</span></code> pointer matches the one the driver passed to
-<a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a>, respectively.</p>
-<p>Can be NULL if neither <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> nor <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> is
+<a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> or <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a>, respectively.</p>
+<p>Can be NULL if neither <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> nor <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> is
 used.</p>
 </dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>This structure defines the callbacks used by <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> and
-<a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> to provide the split/merge steps for map and unmap
+<p>This structure defines the callbacks used by <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> to provide the split/merge steps for map and unmap
 operations to drivers.</p>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_manager_init">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_manager_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start_offset</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">reserve_offset</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">reserve_range</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><span class="n"><span class="pre">drm_gpuva_fn_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_manager_init" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>initialize a <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a></p>
+<dt class="sig sig-object c" id="c.drm_gpuvm_init">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start_offset</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">reserve_offset</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">reserve_range</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><span class="n"><span class="pre">drm_gpuvm_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_init" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>initialize a <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to initialize</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to initialize</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>the name of the GPU VA space</p>
 </dd>
@@ -6891,24 +6948,24 @@ operations to drivers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">reserve_range</span></code></dt><dd><p>the size of the kernel reserved GPU VA area</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_gpuva_fn_ops</span> <span class="pre">*ops</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> called on <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> / <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a></p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_gpuvm_ops</span> <span class="pre">*ops</span></code></dt><dd><p><a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> called on <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> / <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> must be initialized with this function before use.</p>
-<p>Note that <strong>mgr</strong> must be cleared to 0 before calling this function. The given
+<p>The <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> must be initialized with this function before use.</p>
+<p>Note that <strong>gpuvm</strong> must be cleared to 0 before calling this function. The given
 <code class="xref c c-type docutils literal notranslate"><span class="pre">name</span></code> is expected to be managed by the surrounding driver structures.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_manager_destroy">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_manager_destroy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_manager_destroy" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>cleanup a <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a></p>
+<dt class="sig sig-object c" id="c.drm_gpuvm_destroy">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_destroy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_destroy" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>cleanup a <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to clean up</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>pointer to the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to clean up</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -6917,24 +6974,24 @@ holds GPU VA mappings.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_insert">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_insert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">va</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_insert" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_insert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">va</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_insert" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>insert a <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to insert the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> in</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to insert the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> in</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva</span> <span class="pre">*va</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to insert</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>Insert a <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> with a given address and range into a
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>.</p>
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>.</p>
 <p>It is safe to use this function using the safe versions of iterating the GPU
-VA space, such as <a class="reference internal" href="#c.drm_gpuva_for_each_va_safe" title="drm_gpuva_for_each_va_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_safe()</span></code></a> and
-<a class="reference internal" href="#c.drm_gpuva_for_each_va_range_safe" title="drm_gpuva_for_each_va_range_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_range_safe()</span></code></a>.</p>
+VA space, such as <a class="reference internal" href="#c.drm_gpuvm_for_each_va_safe" title="drm_gpuvm_for_each_va_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_safe()</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuvm_for_each_va_range_safe" title="drm_gpuvm_for_each_va_range_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_range_safe()</span></code></a>.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative error code on failure.</p>
 </div>
@@ -6953,8 +7010,8 @@ VA space, such as <a class="reference internal" href="#c.drm_gpuva_for_each_va_s
 <p><strong>Description</strong></p>
 <p>This removes the given <code class="xref c c-type docutils literal notranslate"><span class="pre">va</span></code> from the underlaying tree.</p>
 <p>It is safe to use this function using the safe versions of iterating the GPU
-VA space, such as <a class="reference internal" href="#c.drm_gpuva_for_each_va_safe" title="drm_gpuva_for_each_va_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_safe()</span></code></a> and
-<a class="reference internal" href="#c.drm_gpuva_for_each_va_range_safe" title="drm_gpuva_for_each_va_range_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_for_each_va_range_safe()</span></code></a>.</p>
+VA space, such as <a class="reference internal" href="#c.drm_gpuvm_for_each_va_safe" title="drm_gpuvm_for_each_va_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_safe()</span></code></a> and
+<a class="reference internal" href="#c.drm_gpuvm_for_each_va_range_safe" title="drm_gpuvm_for_each_va_range_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuvm_for_each_va_range_safe()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_link">
@@ -6994,14 +7051,14 @@ concurrent access using the GEMs dma_resv lock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_find_first">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_first</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_first" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_first</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_first" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>find the first <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> in the given range</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to search in</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to search in</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">addr</span></code></dt><dd><p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> address</p>
 </dd>
@@ -7013,14 +7070,14 @@ concurrent access using the GEMs dma_resv lock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_find">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>find a <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to search in</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to search in</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">addr</span></code></dt><dd><p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvas</span></code> address</p>
 </dd>
@@ -7032,14 +7089,14 @@ concurrent access using the GEMs dma_resv lock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_find_prev">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_prev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_prev" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_prev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_prev" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>find the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> before the given address</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to search in</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to search in</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">start</span></code></dt><dd><p>the given GPU VA's start address</p>
 </dd>
@@ -7053,14 +7110,14 @@ is returned.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_find_next">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_next</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">end</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_next" title="Permalink to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_find_next</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">end</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_find_next" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>find the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> after the given address</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to search in</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to search in</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">end</span></code></dt><dd><p>the given GPU VA's end address</p>
 </dd>
@@ -7073,15 +7130,15 @@ is returned.</p>
 <p>a pointer to the found <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> or NULL if none was found</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_interval_empty">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_interval_empty</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_interval_empty" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_interval_empty">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_interval_empty</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_interval_empty" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>indicate whether a given interval of the VA space is empty</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> to check the range for</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> to check the range for</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">addr</span></code></dt><dd><p>the start address of the range</p>
 </dd>
@@ -7093,14 +7150,14 @@ is returned.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_map">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">va</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_op_map" title="drm_gpuva_op_map"><span class="n"><span class="pre">drm_gpuva_op_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">op</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_map" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><span class="n"><span class="pre">drm_gpuva</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">va</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_op_map" title="drm_gpuva_op_map"><span class="n"><span class="pre">drm_gpuva_op_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">op</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_map" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>helper to insert a <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> according to a <a class="reference internal" href="#c.drm_gpuva_op_map" title="drm_gpuva_op_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op_map</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a></p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva</span> <span class="pre">*va</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> to insert</p>
 </dd>
@@ -7108,7 +7165,7 @@ is returned.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Initializes the <strong>va</strong> from the <strong>op</strong> and inserts it into the given <strong>mgr</strong>.</p>
+<p>Initializes the <strong>va</strong> from the <strong>op</strong> and inserts it into the given <strong>gpuvm</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_remap">
@@ -7146,15 +7203,15 @@ is returned.</p>
 <p>Removes the <a class="reference internal" href="#c.drm_gpuva" title="drm_gpuva"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva</span></code></a> associated with the <a class="reference internal" href="#c.drm_gpuva_op_unmap" title="drm_gpuva_op_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op_unmap</span></code></a>.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_sm_map">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_sm_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">req_obj</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_sm_map" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_sm_map">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_sm_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">req_obj</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_sm_map" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_op" title="drm_gpuva_op"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_op</span></code></a> split/merge steps</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*priv</span></code></dt><dd><p>pointer to a driver private data structure</p>
 </dd>
@@ -7169,14 +7226,14 @@ is returned.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function iterates the given range of the GPU VA space. It utilizes the
-<a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> to call back into the driver providing the split and merge
+<a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> to call back into the driver providing the split and merge
 steps.</p>
 <p>Drivers may use these callbacks to update the GPU VA space right away within
 the callback. In case the driver decides to copy and store the operations for
-later processing neither this function nor <a class="reference internal" href="#c.drm_gpuva_sm_unmap" title="drm_gpuva_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_unmap</span></code></a> is allowed to
-be called before the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space was
+later processing neither this function nor <a class="reference internal" href="#c.drm_gpuvm_sm_unmap" title="drm_gpuvm_sm_unmap"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_unmap</span></code></a> is allowed to
+be called before the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space was
 updated with the previous set of operations. To update the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
 drm_gpuva_destroy_locked() and/or drm_gpuva_destroy_unlocked() should be
 used.</p>
 <p>A sequence of callbacks can contain map, unmap and remap operations, but
@@ -7189,15 +7246,15 @@ map operation requested by the caller.</p>
 <p>0 on success or a negative error code</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_sm_unmap">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_sm_unmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_sm_unmap" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_sm_unmap">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_sm_unmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_sm_unmap" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to split on unmap</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*priv</span></code></dt><dd><p>pointer to a driver private data structure</p>
 </dd>
@@ -7208,13 +7265,13 @@ map operation requested by the caller.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function iterates the given range of the GPU VA space. It utilizes the
-<a class="reference internal" href="#c.drm_gpuva_fn_ops" title="drm_gpuva_fn_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_fn_ops</span></code></a> to call back into the driver providing the operations to
+<a class="reference internal" href="#c.drm_gpuvm_ops" title="drm_gpuvm_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_ops</span></code></a> to call back into the driver providing the operations to
 unmap and, if required, split existent mappings.</p>
 <p>Drivers may use these callbacks to update the GPU VA space right away within
 the callback. In case the driver decides to copy and store the operations for
-later processing neither this function nor <a class="reference internal" href="#c.drm_gpuva_sm_map" title="drm_gpuva_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_sm_map</span></code></a> is allowed to be
-called before the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space was updated
-with the previous set of operations. To update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view
+later processing neither this function nor <a class="reference internal" href="#c.drm_gpuvm_sm_map" title="drm_gpuvm_sm_map"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_sm_map</span></code></a> is allowed to be
+called before the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space was updated
+with the previous set of operations. To update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view
 of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>, drm_gpuva_destroy_locked() and/or
 drm_gpuva_destroy_unlocked() should be used.</p>
 <p>A sequence of callbacks can contain unmap and remap operations, depending on
@@ -7225,15 +7282,15 @@ remap operations.</p>
 <p>0 on success or a negative error code</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_sm_map_ops_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_sm_map_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">req_obj</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_sm_map_ops_create" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_sm_map_ops_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_sm_map_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">req_obj</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_sm_map_ops_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to split and merge</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">req_addr</span></code></dt><dd><p>the start address of the new mapping</p>
 </dd>
@@ -7255,9 +7312,9 @@ already exists is the exact same way.</p>
 operations and a single map operation. The latter one represents the original
 map operation requested by the caller.</p>
 <p>Note that before calling this function again with another mapping request it
-is necessary to update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space. The
+is necessary to update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space. The
 previously obtained operations must be either processed or abandoned. To
-update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
+update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
 drm_gpuva_destroy_locked() and/or drm_gpuva_destroy_unlocked() should be
 used.</p>
 <p>After the caller finished processing the returned <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a>, they must
@@ -7266,15 +7323,15 @@ be freed with <a class="reference internal" href="#c.drm_gpuva_ops_free" title="
 <p>a pointer to the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> on success, an ERR_PTR on failure</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_sm_unmap_ops_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_sm_unmap_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_sm_unmap_ops_create" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_sm_unmap_ops_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_sm_unmap_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">req_range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_sm_unmap_ops_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to split on unmap</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">req_addr</span></code></dt><dd><p>the start address of the range to unmap</p>
 </dd>
@@ -7290,9 +7347,9 @@ whether there are actual overlapping mappings to split.</p>
 <p>There can be an arbitrary amount of unmap operations and a maximum of two
 remap operations.</p>
 <p>Note that before calling this function again with another range to unmap it
-is necessary to update the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space. The
+is necessary to update the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space. The
 previously obtained operations must be processed or abandoned. To update the
-<a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
+<a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a>'s view of the GPU VA space <a class="reference internal" href="#c.drm_gpuva_insert" title="drm_gpuva_insert"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gpuva_insert()</span></code></a>,
 drm_gpuva_destroy_locked() and/or drm_gpuva_destroy_unlocked() should be
 used.</p>
 <p>After the caller finished processing the returned <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a>, they must
@@ -7301,15 +7358,15 @@ be freed with <a class="reference internal" href="#c.drm_gpuva_ops_free" title="
 <p>a pointer to the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> on success, an ERR_PTR on failure</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_prefetch_ops_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_prefetch_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_prefetch_ops_create" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_prefetch_ops_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_prefetch_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">range</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_prefetch_ops_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to prefetch</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">addr</span></code></dt><dd><p>the start address of the range to prefetch</p>
 </dd>
@@ -7327,15 +7384,15 @@ be freed with <a class="reference internal" href="#c.drm_gpuva_ops_free" title="
 <p>a pointer to the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> on success, an ERR_PTR on failure</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gpuva_gem_unmap_ops_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_gem_unmap_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_gem_unmap_ops_create" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gpuvm_gem_unmap_ops_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuvm_gem_unmap_ops_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuvm_gem_unmap_ops_create" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to unmap a GEM</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> representing the GPU VA space</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> representing the GPU VA space</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gem_object</span> <span class="pre">*obj</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object</span></code></a> to unmap</p>
 </dd>
@@ -7354,14 +7411,14 @@ concurrent access using the GEMs dma_resv lock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gpuva_ops_free">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_ops_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><span class="n"><span class="pre">drm_gpuva_manager</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_ops_free" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpuva_ops_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><span class="n"><span class="pre">drm_gpuvm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gpuvm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><span class="n"><span class="pre">drm_gpuva_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gpuva_ops_free" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>free the given <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_manager</span> <span class="pre">*mgr</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_manager" title="drm_gpuva_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_manager</span></code></a> the ops were created for</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuvm</span> <span class="pre">*gpuvm</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuvm" title="drm_gpuvm"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm</span></code></a> the ops were created for</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpuva_ops</span> <span class="pre">*ops</span></code></dt><dd><p>the <a class="reference internal" href="#c.drm_gpuva_ops" title="drm_gpuva_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuva_ops</span></code></a> to free</p>
 </dd>
@@ -7489,7 +7546,7 @@ portions are unused and can be optionally freed with this function</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_buddy_alloc_blocks">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_buddy_alloc_blocks</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_buddy</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">end</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">min_page_size</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">list_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">blocks</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_buddy_alloc_blocks" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_buddy_alloc_blocks</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_buddy</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mm</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">end</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">min_block_size</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">list_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">blocks</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_buddy_alloc_blocks" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>allocate power-of-two blocks</p>
 </dd></dl>
 
@@ -7504,7 +7561,7 @@ portions are unused and can be optionally freed with this function</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">size</span></code></dt><dd><p>size of the allocation</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">min_page_size</span></code></dt><dd><p>alignment of the allocation</p>
+<dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">min_block_size</span></code></dt><dd><p>alignment of the allocation</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">list_head</span> <span class="pre">*blocks</span></code></dt><dd><p>output list head to add allocated blocks</p>
 </dd>
@@ -8765,7 +8822,8 @@ and it's time to clean it up.</p>
     uint32_t hw_submission_limit;
     long timeout;
     const char                      *name;
-    struct drm_sched_rq             sched_rq[DRM_SCHED_PRIORITY_COUNT];
+    u32 num_rqs;
+    struct drm_sched_rq             **sched_rq;
     wait_queue_head_t wake_up_worker;
     wait_queue_head_t job_scheduled;
     atomic_t hw_rq_count;
@@ -8794,7 +8852,10 @@ and it's time to clean it up.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>name of the ring for which this scheduler is being used.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sched_rq</span></code></dt><dd><p>priority wise array of run queues.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">num_rqs</span></code></dt><dd><p>Number of run-queues. This is at most DRM_SCHED_PRIORITY_COUNT,
+as there's usually one run-queue per priority, but could be less.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sched_rq</span></code></dt><dd><p>An allocated array of run-queues of size <strong>num_rqs</strong>;</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wake_up_worker</span></code></dt><dd><p>the wait queue on which the scheduler sleeps until a job
 is ready to be scheduled.</p>
@@ -9119,7 +9180,7 @@ drm_gpu_schedulers are ready</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><span class="n"><span class="pre">drm_sched_backend_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="n"><span class="pre">hw_submission</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="n"><span class="pre">hang_limit</span></span>, <span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timeout_wq</span></span>, <span class="n"><span class="pre">atomic_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">score</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_init" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><span class="n"><span class="pre">drm_sched_backend_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">num_rqs</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">hw_submission</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hang_limit</span></span>, <span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timeout_wq</span></span>, <span class="n"><span class="pre">atomic_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">score</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_init" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Init a gpu scheduler instance</p>
 </dd></dl>
 
@@ -9130,9 +9191,11 @@ drm_gpu_schedulers are ready</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_sched_backend_ops</span> <span class="pre">*ops</span></code></dt><dd><p>backend operations for this scheduler</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">hw_submission</span></code></dt><dd><p>number of hw submissions that can be in flight</p>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">num_rqs</span></code></dt><dd><p>number of runqueues, one for each priority, up to DRM_SCHED_PRIORITY_COUNT</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">hang_limit</span></code></dt><dd><p>number of times to allow a job to hang before dropping it</p>
+<dt><code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">hw_submission</span></code></dt><dd><p>number of hw submissions that can be in flight</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">hang_limit</span></code></dt><dd><p>number of times to allow a job to hang before dropping it</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">timeout</span></code></dt><dd><p>timeout value in jiffies for the scheduler</p>
 </dd>

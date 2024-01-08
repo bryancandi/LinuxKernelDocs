@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -272,16 +272,17 @@ clears the results.  This can be described in below simple pseudo-code:</p>
 size of the target workload grows.</p>
 </section>
 <section id="region-based-sampling">
-<h4>Region Based Sampling<a class="headerlink" href="#region-based-sampling" title="Permalink to this heading">¶</a></h4>
+<span id="damon-design-region-based-sampling"></span><h4>Region Based Sampling<a class="headerlink" href="#region-based-sampling" title="Permalink to this heading">¶</a></h4>
 <p>To avoid the unbounded increase of the overhead, DAMON groups adjacent pages
 that assumed to have the same access frequencies into a region.  As long as the
 assumption (pages in a region have the same access frequencies) is kept, only
 one page in the region is required to be checked.  Thus, for each <code class="docutils literal notranslate"><span class="pre">sampling</span>
 <span class="pre">interval</span></code>, DAMON randomly picks one page in each region, waits for one
 <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code>, checks whether the page is accessed meanwhile, and
-increases the access frequency of the region if so.  Therefore, the monitoring
-overhead is controllable by setting the number of regions.  DAMON allows users
-to set the minimum and the maximum number of regions for the trade-off.</p>
+increases the access frequency counter of the region if so.  The counter is
+called <code class="docutils literal notranslate"><span class="pre">nr_regions</span></code> of the region.  Therefore, the monitoring overhead is
+controllable by setting the number of regions.  DAMON allows users to set the
+minimum and the maximum number of regions for the trade-off.</p>
 <p>This scheme, however, cannot preserve the quality of the output if the
 assumption is not guaranteed.</p>
 </section>
@@ -301,7 +302,7 @@ will not exceed the user-specified maximum number of regions after the split.</p
 keeping the bounds users set for their trade-off.</p>
 </section>
 <section id="age-tracking">
-<h4>Age Tracking<a class="headerlink" href="#age-tracking" title="Permalink to this heading">¶</a></h4>
+<span id="damon-design-age-tracking"></span><h4>Age Tracking<a class="headerlink" href="#age-tracking" title="Permalink to this heading">¶</a></h4>
 <p>By analyzing the monitoring results, users can also find how long the current
 access pattern of a region has maintained.  That could be used for good
 understanding of the access pattern.  For example, page placement algorithm
@@ -355,7 +356,8 @@ works, DAMON provides a feature called Data Access Monitoring-based Operation
 Schemes (DAMOS).  It lets users specify their desired schemes at a high
 level.  For such specifications, DAMON starts monitoring, finds regions having
 the access pattern of interest, and applies the user-desired operation actions
-to the regions as soon as found.</p>
+to the regions, for every user-specified time interval called
+<code class="docutils literal notranslate"><span class="pre">apply_interval</span></code>.</p>
 <section id="operation-action">
 <span id="damon-design-damos-action"></span><h4>Operation Action<a class="headerlink" href="#operation-action" title="Permalink to this heading">¶</a></h4>
 <p>The management action that the users desire to apply to the regions of their
@@ -526,6 +528,14 @@ more detail, please read the usage documents for those
 (<a class="reference internal" href="../../admin-guide/mm/damon/reclaim.html"><span class="doc">DAMON-based Reclamation</span></a> and
 <a class="reference internal" href="../../admin-guide/mm/damon/lru_sort.html"><span class="doc">DAMON-based LRU-lists Sorting</span></a>).</p>
 </section>
+</section>
+<section id="execution-model-and-data-structures">
+<span id="damon-design-execution-model-and-data-structures"></span><h2>Execution Model and Data Structures<a class="headerlink" href="#execution-model-and-data-structures" title="Permalink to this heading">¶</a></h2>
+<p>The monitoring-related information including the monitoring request
+specification and DAMON-based operation schemes are stored in a data structure
+called DAMON <code class="docutils literal notranslate"><span class="pre">context</span></code>.  DAMON executes each context with a kernel thread
+called <code class="docutils literal notranslate"><span class="pre">kdamond</span></code>.  Multiple kdamonds could run in parallel, for different
+types of monitoring.</p>
 </section>
 </section>
 

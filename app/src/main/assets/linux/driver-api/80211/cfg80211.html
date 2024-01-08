@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -176,24 +176,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -291,6 +277,9 @@ structures here describe these capabilities in detail.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_NO_IR</span></code></dt><dd><p>do not initiate radiation, this includes
 sending probe requests or beaconing.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_PSD</span></code></dt><dd><p>Power spectral density (in dBm) is set for this
+channel.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_RADAR</span></code></dt><dd><p>Radar detection is required on this channel.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_NO_HT40PLUS</span></code></dt><dd><p>extension channel above this channel
@@ -375,6 +364,7 @@ restrictions.</p>
     enum nl80211_dfs_state dfs_state;
     unsigned long dfs_state_entered;
     unsigned int dfs_cac_ms;
+    s8 psd;
 };
 </pre></div>
 </div>
@@ -413,6 +403,8 @@ on this channel.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dfs_state_entered</span></code></dt><dd><p>timestamp (jiffies) when the dfs state was entered.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dfs_cac_ms</span></code></dt><dd><p>DFS CAC time in milliseconds, this is valid for DFS channels.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">psd</span></code></dt><dd><p>power spectral density (in dBm)</p>
 </dd>
 </dl>
 </div>
@@ -542,7 +534,7 @@ to describe 802.11n HT capabilities for an STA.</p>
     struct ieee80211_sta_s1g_cap s1g_cap;
     struct ieee80211_edmg edmg_cap;
     u16 n_iftype_data;
-    const struct ieee80211_sband_iftype_data *iftype_data;
+    const struct ieee80211_sband_iftype_data __iftd *iftype_data;
 };
 </pre></div>
 </div>
@@ -729,6 +721,9 @@ beaconing mode (AP, IBSS, Mesh, ...).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">WIPHY_FLAG_NOTIFY_REGDOM_BY_DRIVER</span></code></dt><dd><p>The device could handle reg notify for
 NL80211_REGDOM_SET_BY_DRIVER.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">WIPHY_FLAG_CHANNEL_CHANGE_ON_BEACON</span></code></dt><dd><p>reg_call_notifier() is called if driver
+set this flag to update channels on beacon hints.</p>
 </dd>
 </dl>
 </div>
@@ -1404,7 +1399,6 @@ request that is being handled.</p>
     u32 identifier;
     struct list_head mgmt_registrations;
     u8 mgmt_registrations_need_update:1;
-    struct mutex mtx;
     bool use_4addr, is_running, registered, registering;
     u8 address[ETH_ALEN] ;
     struct cfg80211_conn *conn;
@@ -1506,9 +1500,6 @@ wireless device if it has no netdev</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mgmt_registrations_need_update</span></code></dt><dd><p>mgmt registrations were updated,
 need to propagate the update to the driver</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mtx</span></code></dt><dd><p>mutex used to lock data in this struct, may be used by drivers
-and some API functions require it held</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">use_4addr</span></code></dt><dd><p>indicates 4addr mode is used on this interface, must be
 set by driver (if supported) on add_interface BEFORE registering the
@@ -3225,7 +3216,7 @@ caching.</p>
     int (*set_default_mgmt_key)(struct wiphy *wiphy,struct net_device *netdev, int link_id, u8 key_index);
     int (*set_default_beacon_key)(struct wiphy *wiphy,struct net_device *netdev,int link_id, u8 key_index);
     int (*start_ap)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_ap_settings *settings);
-    int (*change_beacon)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_beacon_data *info);
+    int (*change_beacon)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_ap_update *info);
     int (*stop_ap)(struct wiphy *wiphy, struct net_device *dev, unsigned int link_id);
     int (*add_station)(struct wiphy *wiphy, struct net_device *dev,const u8 *mac, struct station_parameters *params);
     int (*del_station)(struct wiphy *wiphy, struct net_device *dev, struct station_del_parameters *params);
@@ -3843,55 +3834,9 @@ cfg80211_rx_unprot_mlme_mgmt() instead.</p>
 <p>This function may sleep. The caller must hold the corresponding wdev's
 mutex.</p>
 </div>
-<dl class="c struct">
-<dt class="sig sig-object c" id="c.cfg80211_rx_assoc_resp">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cfg80211_rx_assoc_resp</span></span></span><a class="headerlink" href="#c.cfg80211_rx_assoc_resp" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>association response data</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cfg80211_rx_assoc_resp {
-    const u8 *buf;
-    size_t len;
-    const u8 *req_ies;
-    size_t req_ies_len;
-    int uapsd_queues;
-    const u8 *ap_mld_addr;
-    struct {
-        u8 addr[ETH_ALEN] ;
-        struct cfg80211_bss *bss;
-        u16 status;
-    } links[IEEE80211_MLD_MAX_NUM_LINKS];
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">buf</span></code></dt><dd><p>(Re)Association Response frame (header + body)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">len</span></code></dt><dd><p>length of the frame data</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">req_ies</span></code></dt><dd><p>information elements from the (Re)Association Request frame</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">req_ies_len</span></code></dt><dd><p>length of req_ies data</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">uapsd_queues</span></code></dt><dd><p>bitmap of queues configured for uapsd. Same format
-as the AC bitmap in the QoS info field</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ap_mld_addr</span></code></dt><dd><p>AP MLD address (in case of MLO)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">links</span></code></dt><dd><p>per-link information indexed by link ID, use links[0] for
-non-MLO connections</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">links.status</span></code></dt><dd><p>Set this (along with a BSS pointer) for links that
-were rejected by the AP.</p>
-</dd>
-</dl>
-</div>
 <dl class="c function">
-<dt class="sig sig-object c">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cfg80211_rx_assoc_resp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../networking/kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cfg80211_rx_assoc_resp" title="cfg80211_rx_assoc_resp"><span class="n"><span class="pre">cfg80211_rx_assoc_resp</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><br /></dt>
+<dt class="sig sig-object c" id="c.cfg80211_rx_assoc_resp">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cfg80211_rx_assoc_resp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../networking/kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cfg80211_rx_assoc_resp_data</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cfg80211_rx_assoc_resp" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>notification of processed association response</p>
 </dd></dl>
 
@@ -3900,7 +3845,7 @@ were rejected by the AP.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>network device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_rx_assoc_resp</span> <span class="pre">*data</span></code></dt><dd><p>association response data, <a class="reference internal" href="#c.cfg80211_rx_assoc_resp" title="cfg80211_rx_assoc_resp"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_rx_assoc_resp</span></code></a></p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_rx_assoc_resp_data</span> <span class="pre">*data</span></code></dt><dd><p>association response data, <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_rx_assoc_resp_data</span></code></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -4483,7 +4428,6 @@ to userspace.</p>
     struct cfg80211_ssid *ssids;
     int n_ssids;
     u32 n_channels;
-    enum nl80211_bss_scan_width scan_width;
     const u8 *ie;
     size_t ie_len;
     u16 duration;
@@ -4513,8 +4457,6 @@ to userspace.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">n_ssids</span></code></dt><dd><p>number of SSIDs</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">n_channels</span></code></dt><dd><p>total number of channels to scan</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_width</span></code></dt><dd><p>channel width for scanning</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ie</span></code></dt><dd><p>optional information element(s) to add into Probe Request or <code class="docutils literal notranslate"><span class="pre">NULL</span></code></p>
 </dd>
@@ -4572,7 +4514,6 @@ true if this is the second scan request</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cfg80211_inform_bss {
     struct ieee80211_channel *chan;
-    enum nl80211_bss_scan_width scan_width;
     s32 signal;
     u64 boottime_ns;
     u64 parent_tsf;
@@ -4586,8 +4527,6 @@ true if this is the second scan request</p>
 <p><strong>Members</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">chan</span></code></dt><dd><p>channel the frame was received on</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_width</span></code></dt><dd><p>scan width that was used</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">signal</span></code></dt><dd><p>signal strength value, according to the wiphy's
 signal type</p>
@@ -4624,7 +4563,6 @@ the BSS that requested the scan in which the beacon/probe was received.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cfg80211_bss {
     struct ieee80211_channel *channel;
-    enum nl80211_bss_scan_width scan_width;
     const struct cfg80211_bss_ies __rcu *ies;
     const struct cfg80211_bss_ies __rcu *beacon_ies;
     const struct cfg80211_bss_ies __rcu *proberesp_ies;
@@ -4646,8 +4584,6 @@ the BSS that requested the scan in which the beacon/probe was received.</p>
 <p><strong>Members</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">channel</span></code></dt><dd><p>channel this BSS is on</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_width</span></code></dt><dd><p>width of the control channel</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ies</span></code></dt><dd><p>the information elements (Note that there is no guarantee that these
 are well-formed!); this is a pointer to either the beacon_ies or

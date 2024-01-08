@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -189,24 +189,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -1161,6 +1147,10 @@ other descriptors. (The pxa250 allows only configurations 1, 2, or 3).</p>
 and should also implement set_interface, get_configuration, and
 get_interface.  Setting a configuration (or interface) is where
 endpoints should be activated or (config 0) shut down.</p>
+<p>The gadget driver's setup() callback does not have to queue a response to
+ep0 within the setup() call, the driver can do it after setup() returns.
+The UDC driver must wait until such a response is queued before proceeding
+with the data/status stages of the control transfer.</p>
 <p>(Note that only the default control endpoint is supported.  Neither
 hosts nor devices generally support control traffic except to ep0.)</p>
 <p>Most devices will ignore USB suspend/resume operations, and so will
@@ -1170,6 +1160,10 @@ local controls (buttons, dials, etc) may need to be re-enabled since
 the (remote) host can't do that any longer; or an error state might
 be cleared, to make the device behave identically whether or not
 power is maintained.</p>
+<p><strong>NOTE</strong></p>
+<p>Currently, a number of UDC drivers rely on USB_GADGET_DELAYED_STATUS
+being returned from the setup() callback, which is a bug. See the comment
+next to USB_GADGET_DELAYED_STATUS for details.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.usb_gadget_register_driver_owner">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">usb_gadget_register_driver_owner</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.usb_gadget_driver" title="usb_gadget_driver"><span class="n"><span class="pre">usb_gadget_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">driver</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">module</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">owner</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mod_name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.usb_gadget_register_driver_owner" title="Permalink to this definition">¶</a><br /></dt>

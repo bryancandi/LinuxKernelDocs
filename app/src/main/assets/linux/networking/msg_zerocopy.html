@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -144,7 +144,8 @@
 <section id="intro">
 <h2>Intro<a class="headerlink" href="#intro" title="Permalink to this heading">¶</a></h2>
 <p>The MSG_ZEROCOPY flag enables copy avoidance for socket send calls.
-The feature is currently implemented for TCP and UDP sockets.</p>
+The feature is currently implemented for TCP, UDP and VSOCK (with
+virtio transport) sockets.</p>
 <section id="opportunity-and-caveats">
 <h3>Opportunity and Caveats<a class="headerlink" href="#opportunity-and-caveats" title="Permalink to this heading">¶</a></h3>
 <p>Copying large buffers between user process and kernel can be
@@ -277,7 +278,9 @@ may arrive out of order on retransmission and socket teardown.</p>
 read_notification() call in the previous snippet. A notification
 is encoded in the standard error format, sock_extended_err.</p>
 <p>The level and type fields in the control data are protocol family
-specific, IP_RECVERR or IPV6_RECVERR.</p>
+specific, IP_RECVERR or IPV6_RECVERR (for TCP or UDP socket).
+For VSOCK socket, cmsg_level will be SOL_VSOCK and cmsg_type will be
+VSOCK_RECVERR.</p>
 <p>Error origin is the new type SO_EE_ORIGIN_ZEROCOPY. ee_errno is zero,
 as explained before, to avoid blocking read and write system calls on
 the socket.</p>
@@ -329,11 +332,14 @@ subsequent requests on the same socket.</p>
 <h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this heading">¶</a></h2>
 <section id="loopback">
 <h3>Loopback<a class="headerlink" href="#loopback" title="Permalink to this heading">¶</a></h3>
-<p>Data sent to local sockets can be queued indefinitely if the receive
+<p>For TCP and UDP:
+Data sent to local sockets can be queued indefinitely if the receive
 process does not read its socket. Unbound notification latency is not
 acceptable. For this reason all packets generated with MSG_ZEROCOPY
 that are looped to a local socket will incur a deferred copy. This
 includes looping onto packet sockets (e.g., tcpdump) and tun devices.</p>
+<p>For VSOCK:
+Data path sent to local sockets is the same as for non-local sockets.</p>
 </section>
 </section>
 <section id="testing">
@@ -346,6 +352,8 @@ instance when run with msg_zerocopy.sh between a veth pair across
 namespaces, the test will not show any improvement. For testing, the
 loopback restriction can be temporarily relaxed by making
 skb_orphan_frags_rx identical to skb_orphan_frags.</p>
+<p>For VSOCK type of socket example can be found in
+tools/testing/vsock/vsock_test_zerocopy.c.</p>
 </section>
 </section>
 

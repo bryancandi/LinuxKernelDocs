@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -441,6 +441,36 @@ respectively, it may be desirable for the new page / mapping to be
 write-protected (so future writes will also result in a WP fault). These ioctls
 support a mode flag (<code class="docutils literal notranslate"><span class="pre">UFFDIO_COPY_MODE_WP</span></code> or <code class="docutils literal notranslate"><span class="pre">UFFDIO_CONTINUE_MODE_WP</span></code>
 respectively) to configure the mapping this way.</p>
+<p>If the userfaultfd context has <code class="docutils literal notranslate"><span class="pre">UFFD_FEATURE_WP_ASYNC</span></code> feature bit set,
+any vma registered with write-protection will work in async mode rather
+than the default sync mode.</p>
+<p>In async mode, there will be no message generated when a write operation
+happens, meanwhile the write-protection will be resolved automatically by
+the kernel.  It can be seen as a more accurate version of soft-dirty
+tracking and it can be different in a few ways:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The dirty result will not be affected by vma changes (e.g. vma
+merging) because the dirty is only tracked by the pte.</p></li>
+<li><p>It supports range operations by default, so one can enable tracking on
+any range of memory as long as page aligned.</p></li>
+<li><p>Dirty information will not get lost if the pte was zapped due to
+various reasons (e.g. during split of a shmem transparent huge page).</p></li>
+<li><p>Due to a reverted meaning of soft-dirty (page clean when uffd-wp bit
+set; dirty when uffd-wp bit cleared), it has different semantics on
+some of the memory operations.  For example: <code class="docutils literal notranslate"><span class="pre">MADV_DONTNEED</span></code> on
+anonymous (or <code class="docutils literal notranslate"><span class="pre">MADV_REMOVE</span></code> on a file mapping) will be treated as
+dirtying of memory by dropping uffd-wp bit during the procedure.</p></li>
+</ul>
+</div></blockquote>
+<p>The user app can collect the &quot;written/dirty&quot; status by looking up the
+uffd-wp bit for the pages being interested in /proc/pagemap.</p>
+<p>The page will not be under track of uffd-wp async mode until the page is
+explicitly write-protected by <code class="docutils literal notranslate"><span class="pre">ioctl(UFFDIO_WRITEPROTECT)</span></code> with the mode
+flag <code class="docutils literal notranslate"><span class="pre">UFFDIO_WRITEPROTECT_MODE_WP</span></code> set.  Trying to resolve a page fault
+that was tracked by async mode userfaultfd-wp is invalid.</p>
+<p>When userfaultfd-wp async mode is used alone, it can be applied to all
+kinds of memory.</p>
 </section>
 <section id="memory-poisioning-emulation">
 <h3>Memory Poisioning Emulation<a class="headerlink" href="#memory-poisioning-emulation" title="Permalink to this heading">¶</a></h3>

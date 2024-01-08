@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -176,24 +176,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -795,6 +781,7 @@ information for an 802.11 PHY.</p>
     int (*sta_add)(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_sta *sta);
     int (*sta_remove)(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_sta *sta);
 #ifdef CONFIG_MAC80211_DEBUGFS;
+    void (*vif_add_debugfs)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
     void (*link_add_debugfs)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_bss_conf *link_conf, struct dentry *dir);
     void (*sta_add_debugfs)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_sta *sta, struct dentry *dir);
     void (*link_sta_add_debugfs)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_link_sta *link_sta, struct dentry *dir);
@@ -839,7 +826,7 @@ information for an 802.11 PHY.</p>
     void (*get_et_strings)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, u32 sset, u8 *data);
     void (*mgd_prepare_tx)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_prep_tx_info *info);
     void (*mgd_complete_tx)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_prep_tx_info *info);
-    void (*mgd_protect_tdls_discover)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
+    void (*mgd_protect_tdls_discover)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, unsigned int link_id);
     int (*add_chanctx)(struct ieee80211_hw *hw, struct ieee80211_chanctx_conf *ctx);
     void (*remove_chanctx)(struct ieee80211_hw *hw, struct ieee80211_chanctx_conf *ctx);
     void (*change_chanctx)(struct ieee80211_hw *hw,struct ieee80211_chanctx_conf *ctx, u32 changed);
@@ -852,7 +839,7 @@ information for an 802.11 PHY.</p>
 #endif;
     void (*channel_switch_beacon)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct cfg80211_chan_def *chandef);
     int (*pre_channel_switch)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_channel_switch *ch_switch);
-    int (*post_channel_switch)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
+    int (*post_channel_switch)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_bss_conf *link_conf);
     void (*abort_channel_switch)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
     void (*channel_switch_rx_beacon)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_channel_switch *ch_switch);
     int (*join_ibss)(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
@@ -1113,6 +1100,10 @@ no RCU grace period is guaranteed between returning here and freeing
 the station. See <strong>sta_pre_rcu_remove</strong> if needed.
 This callback can sleep.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vif_add_debugfs</span></code></dt><dd><p>Drivers can use this callback to add a debugfs vif
+directory with its files. This callback should be within a
+CONFIG_MAC80211_DEBUGFS conditional. This callback can sleep.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">link_add_debugfs</span></code></dt><dd><p>Drivers can use this callback to add debugfs files
 when a link is added to a mac80211 vif. This callback should be within
 a CONFIG_MAC80211_DEBUGFS conditional. This callback can sleep.
@@ -1348,12 +1339,16 @@ on the last frame in the SP. Alternatively, it may call the function
 <a class="reference internal" href="mac80211-advanced.html#c.ieee80211_sta_eosp" title="ieee80211_sta_eosp"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_sta_eosp()</span></code></a> to inform mac80211 of the end of the SP.
 This callback must be atomic.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">get_et_sset_count</span></code></dt><dd><p>Ethtool API to get string-set count.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">get_et_sset_count</span></code></dt><dd><p>Ethtool API to get string-set count.
+Note that the wiphy mutex is not held for this callback since it's
+expected to return a static value.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_et_stats</span></code></dt><dd><p>Ethtool API to get a set of u64 stats.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_et_strings</span></code></dt><dd><p>Ethtool API to get a set of strings to describe stats
-and perhaps other supported types of ethtool data-sets.</p>
+and perhaps other supported types of ethtool data-sets.
+Note that the wiphy mutex is not held for this callback since it's
+expected to return a static value.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mgd_prepare_tx</span></code></dt><dd><p>Prepare for transmitting a management frame for association
 before associated. In multi-channel scenarios, a virtual interface is
@@ -2218,7 +2213,7 @@ and once at rate 1 after which we received an acknowledgement.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ieee80211_tx_info {
     u32 flags;
-    u32 band:3,ack_frame_id:13,hw_queue:4, tx_time_est:10;
+    u32 band:3,status_data_idr:1,status_data:13,hw_queue:4, tx_time_est:10;
     union {
         struct {
             union {
@@ -2229,6 +2224,7 @@ and once at rate 1 after which we received an acknowledgement.</p>
                     u8 use_cts_prot:1;
                     u8 short_preamble:1;
                     u8 skip_table:1;
+                    u8 antennas:2;
                 };
                 unsigned long jiffies;
             };
@@ -2270,7 +2266,10 @@ and once at rate 1 after which we received an acknowledgement.</p>
 not valid if the interface is an MLD since we won't know which
 link the frame will be transmitted on</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ack_frame_id</span></code></dt><dd><p>internal frame ID for TX status, used internally</p>
+<dt><code class="docutils literal notranslate"><span class="pre">status_data_idr</span></code></dt><dd><p>indicates status data is IDR allocated ID for ack frame</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">status_data</span></code></dt><dd><p>internal data for TX status handling, assigned privately,
+see also <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ieee80211_status_data</span></code> for the internal documentation</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hw_queue</span></code></dt><dd><p>HW queue to put the frame on, skb_get_queue_mapping() gives the AC</p>
 </dd>
@@ -2350,45 +2349,6 @@ used for WMM AC, not for airtime fairness</p>
 </ol>
 </dd>
 </dl>
-<dl class="c struct">
-<dt class="sig sig-object c" id="c.ieee80211_tx_status">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ieee80211_tx_status</span></span></span><a class="headerlink" href="#c.ieee80211_tx_status" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>extended tx status info for rate control</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ieee80211_tx_status {
-    struct ieee80211_sta *sta;
-    struct ieee80211_tx_info *info;
-    struct sk_buff *skb;
-    struct ieee80211_rate_status *rates;
-    ktime_t ack_hwtstamp;
-    u8 n_rates;
-    struct list_head *free_list;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">sta</span></code></dt><dd><p>Station that the packet was transmitted for</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">info</span></code></dt><dd><p>Basic tx status information</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">skb</span></code></dt><dd><p>Packet skb (can be NULL if not provided by the driver)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rates</span></code></dt><dd><p>Mrr stages that were used when sending the packet</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ack_hwtstamp</span></code></dt><dd><p>Hardware timestamp of the received ack in nanoseconds
-Only needed for Timing measurement and Fine timing measurement action
-frames. Only reported by devices that have timestamping enabled.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">n_rates</span></code></dt><dd><p>Number of mrr stages (count of instances for <strong>rates</strong>)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">free_list</span></code></dt><dd><p>list where processed skbs are stored to be free'd by the driver</p>
-</dd>
-</dl>
-</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ieee80211_tx_info_clear_status">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ieee80211_tx_info_clear_status</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ieee80211_tx_info" title="ieee80211_tx_info"><span class="n"><span class="pre">ieee80211_tx_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ieee80211_tx_info_clear_status" title="Permalink to this definition">¶</a><br /></dt>
@@ -2734,7 +2694,7 @@ allocation and/or memcpy by the stack.</p>
 for a single hardware must be synchronized against each other. Calls to
 this function, <a class="reference internal" href="#c.ieee80211_rx_ni" title="ieee80211_rx_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx_ni()</span></code></a> and <a class="reference internal" href="#c.ieee80211_rx_irqsafe" title="ieee80211_rx_irqsafe"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx_irqsafe()</span></code></a> may not be
 mixed for a single hardware. Must not run concurrently with
-<a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
+<a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
 <p>In process context use instead <a class="reference internal" href="#c.ieee80211_rx_ni" title="ieee80211_rx_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx_ni()</span></code></a>.</p>
 </div>
 <dl class="c function">
@@ -2756,7 +2716,7 @@ mixed for a single hardware. Must not run concurrently with
 (internally defers to a tasklet.)</p>
 <p>Calls to this function, <a class="reference internal" href="#c.ieee80211_rx" title="ieee80211_rx"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx()</span></code></a> or <a class="reference internal" href="#c.ieee80211_rx_ni" title="ieee80211_rx_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx_ni()</span></code></a> may not
 be mixed for a single hardware.Must not run concurrently with
-<a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
+<a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ieee80211_rx_ni">
@@ -2777,11 +2737,11 @@ be mixed for a single hardware.Must not run concurrently with
 (internally disables bottom halves).</p>
 <p>Calls to this function, <a class="reference internal" href="#c.ieee80211_rx" title="ieee80211_rx"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx()</span></code></a> and <a class="reference internal" href="#c.ieee80211_rx_irqsafe" title="ieee80211_rx_irqsafe"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_rx_irqsafe()</span></code></a> may
 not be mixed for a single hardware. Must not run concurrently with
-<a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
+<a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> or <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a>.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ieee80211_tx_status</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ieee80211_hw" title="ieee80211_hw"><span class="n"><span class="pre">ieee80211_hw</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hw</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../networking/kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span><span class="sig-paren">)</span><br /></dt>
+<dt class="sig sig-object c" id="c.ieee80211_tx_status_skb">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ieee80211_tx_status_skb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ieee80211_hw" title="ieee80211_hw"><span class="n"><span class="pre">ieee80211_hw</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hw</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../networking/kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ieee80211_tx_status_skb" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>transmit status callback</p>
 </dd></dl>
 
@@ -2818,8 +2778,8 @@ may not be mixed for a single hardware. Must not run concurrently with
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Like <a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> but can be called in process context.</p>
-<p>Calls to this function, <a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> and
+<p>Like <a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> but can be called in process context.</p>
+<p>Calls to this function, <a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> and
 <a class="reference internal" href="#c.ieee80211_tx_status_irqsafe" title="ieee80211_tx_status_irqsafe"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_irqsafe()</span></code></a> may not be mixed
 for a single hardware.</p>
 </div>
@@ -2838,9 +2798,9 @@ for a single hardware.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Like <a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> but can be called in IRQ context
+<p>Like <a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> but can be called in IRQ context
 (internally defers to a tasklet.)</p>
-<p>Calls to this function, <a class="reference internal" href="#c.ieee80211_tx_status" title="ieee80211_tx_status"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status()</span></code></a> and
+<p>Calls to this function, <a class="reference internal" href="#c.ieee80211_tx_status_skb" title="ieee80211_tx_status_skb"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_skb()</span></code></a> and
 <a class="reference internal" href="#c.ieee80211_tx_status_ni" title="ieee80211_tx_status_ni"><code class="xref c c-func docutils literal notranslate"><span class="pre">ieee80211_tx_status_ni()</span></code></a> may not be mixed for a single hardware.</p>
 </div>
 <dl class="c function">
@@ -3143,7 +3103,7 @@ but this has negative impact on power consumption.</p>
 The workqueue is a single threaded workqueue and can only be accessed by
 helpers for sanity checking. Drivers must ensure all work added onto the
 mac80211 workqueue should be cancelled on the driver <a class="reference internal" href="../../networking/ieee802154.html#c.stop" title="stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">stop()</span></code></a> callback.</p>
-<p>mac80211 will flushed the workqueue upon interface removal and during
+<p>mac80211 will flush the workqueue upon interface removal and during
 suspend.</p>
 <p>All work performed on the mac80211 workqueue must not acquire the RTNL lock.</p>
 <dl class="c function">

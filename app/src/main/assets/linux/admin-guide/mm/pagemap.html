@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -458,6 +458,98 @@ into the file), or if the size of the read is not a multiple of 8 bytes.</p>
 always 12 at most architectures). Since Linux 3.11 their meaning changes
 after first clear of soft-dirty bits. Since Linux 4.2 they are used for
 flags unconditionally.</p>
+</section>
+<section id="pagemap-scan-ioctl">
+<h2>Pagemap Scan IOCTL<a class="headerlink" href="#pagemap-scan-ioctl" title="Permalink to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">PAGEMAP_SCAN</span></code> IOCTL on the pagemap file can be used to get or optionally
+clear the info about page table entries. The following operations are supported
+in this IOCTL:</p>
+<ul class="simple">
+<li><p>Scan the address range and get the memory ranges matching the provided criteria.
+This is performed when the output buffer is specified.</p></li>
+<li><p>Write-protect the pages. The <code class="docutils literal notranslate"><span class="pre">PM_SCAN_WP_MATCHING</span></code> is used to write-protect
+the pages of interest. The <code class="docutils literal notranslate"><span class="pre">PM_SCAN_CHECK_WPASYNC</span></code> aborts the operation if
+non-Async Write Protected pages are found. The <code class="docutils literal notranslate"><span class="pre">PM_SCAN_WP_MATCHING</span></code> can be
+used with or without <code class="docutils literal notranslate"><span class="pre">PM_SCAN_CHECK_WPASYNC</span></code>.</p></li>
+<li><p>Both of those operations can be combined into one atomic operation where we can
+get and write protect the pages as well.</p></li>
+</ul>
+<p>Following flags about pages are currently supported:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_WPALLOWED</span></code> - Page has async-write-protection enabled</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_WRITTEN</span></code> - Page has been written to from the time it was write protected</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_FILE</span></code> - Page is file backed</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_PRESENT</span></code> - Page is present in the memory</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_SWAPPED</span></code> - Page is in swapped</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_PFNZERO</span></code> - Page has zero PFN</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PAGE_IS_HUGE</span></code> - Page is THP or Hugetlb backed</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pm_scan_arg</span></code> is used as the argument of the IOCTL.</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>The size of the <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pm_scan_arg</span></code> must be specified in the <code class="docutils literal notranslate"><span class="pre">size</span></code>
+field. This field will be helpful in recognizing the structure if extensions
+are done later.</p></li>
+<li><p>The flags can be specified in the <code class="docutils literal notranslate"><span class="pre">flags</span></code> field. The <code class="docutils literal notranslate"><span class="pre">PM_SCAN_WP_MATCHING</span></code>
+and <code class="docutils literal notranslate"><span class="pre">PM_SCAN_CHECK_WPASYNC</span></code> are the only added flags at this time. The get
+operation is optionally performed depending upon if the output buffer is
+provided or not.</p></li>
+<li><p>The range is specified through <code class="docutils literal notranslate"><span class="pre">start</span></code> and <code class="docutils literal notranslate"><span class="pre">end</span></code>.</p></li>
+<li><p>The walk can abort before visiting the complete range such as the user buffer
+can get full etc. The walk ending address is specified in``end_walk``.</p></li>
+<li><p>The output buffer of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_region</span></code> array and size is specified in
+<code class="docutils literal notranslate"><span class="pre">vec</span></code> and <code class="docutils literal notranslate"><span class="pre">vec_len</span></code>.</p></li>
+<li><p>The optional maximum requested pages are specified in the <code class="docutils literal notranslate"><span class="pre">max_pages</span></code>.</p></li>
+<li><p>The masks are specified in <code class="docutils literal notranslate"><span class="pre">category_mask</span></code>, <code class="docutils literal notranslate"><span class="pre">category_anyof_mask</span></code>,
+<code class="docutils literal notranslate"><span class="pre">category_inverted</span></code> and <code class="docutils literal notranslate"><span class="pre">return_mask</span></code>.</p></li>
+</ol>
+</div></blockquote>
+<p>Find pages which have been written and WP them as well:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pm_scan_arg arg = {
+.size = sizeof(arg),
+.flags = PM_SCAN_CHECK_WPASYNC | PM_SCAN_CHECK_WPASYNC,
+..
+.category_mask = PAGE_IS_WRITTEN,
+.return_mask = PAGE_IS_WRITTEN,
+};
+</pre></div>
+</div>
+<p>Find pages which have been written, are file backed, not swapped and either
+present or huge:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pm_scan_arg arg = {
+.size = sizeof(arg),
+.flags = 0,
+..
+.category_mask = PAGE_IS_WRITTEN | PAGE_IS_SWAPPED,
+.category_inverted = PAGE_IS_SWAPPED,
+.category_anyof_mask = PAGE_IS_PRESENT | PAGE_IS_HUGE,
+.return_mask = PAGE_IS_WRITTEN | PAGE_IS_SWAPPED |
+               PAGE_IS_PRESENT | PAGE_IS_HUGE,
+};
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">PAGE_IS_WRITTEN</span></code> flag can be considered as a better-performing alternative
+of soft-dirty flag. It doesn't get affected by VMA merging of the kernel and hence
+the user can find the true soft-dirty pages in case of normal pages. (There may
+still be extra dirty pages reported for THP or Hugetlb pages.)</p>
+<p>&quot;PAGE_IS_WRITTEN&quot; category is used with uffd write protect-enabled ranges to
+implement memory dirty tracking in userspace:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>The userfaultfd file descriptor is created with <code class="docutils literal notranslate"><span class="pre">userfaultfd</span></code> syscall.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">UFFD_FEATURE_WP_UNPOPULATED</span></code> and <code class="docutils literal notranslate"><span class="pre">UFFD_FEATURE_WP_ASYNC</span></code> features
+are set by <code class="docutils literal notranslate"><span class="pre">UFFDIO_API</span></code> IOCTL.</p></li>
+<li><p>The memory range is registered with <code class="docutils literal notranslate"><span class="pre">UFFDIO_REGISTER_MODE_WP</span></code> mode
+through <code class="docutils literal notranslate"><span class="pre">UFFDIO_REGISTER</span></code> IOCTL.</p></li>
+<li><p>Then any part of the registered memory or the whole memory region must
+be write protected using <code class="docutils literal notranslate"><span class="pre">PAGEMAP_SCAN</span></code> IOCTL with flag <code class="docutils literal notranslate"><span class="pre">PM_SCAN_WP_MATCHING</span></code>
+or the <code class="docutils literal notranslate"><span class="pre">UFFDIO_WRITEPROTECT</span></code> IOCTL can be used. Both of these perform the
+same operation. The former is better in terms of performance.</p></li>
+<li><p>Now the <code class="docutils literal notranslate"><span class="pre">PAGEMAP_SCAN</span></code> IOCTL can be used to either just find pages which
+have been written to since they were last marked and/or optionally write protect
+the pages as well.</p></li>
+</ol>
+</div></blockquote>
 </section>
 </section>
 

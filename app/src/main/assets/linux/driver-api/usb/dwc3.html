@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -189,24 +189,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -1230,6 +1216,8 @@ or unaligned OUT)</p>
     struct clk              *bus_clk;
     struct clk              *ref_clk;
     struct clk              *susp_clk;
+    struct clk              *utmi_clk;
+    struct clk              *pipe_clk;
     struct reset_control    *reset;
     struct usb_phy          *usb2_phy;
     struct usb_phy          *usb3_phy;
@@ -1323,6 +1311,10 @@ or unaligned OUT)</p>
     u8 test_mode_nr;
     u8 lpm_nyet_threshold;
     u8 hird_threshold;
+    u8 rx_thr_num_pkt;
+    u8 rx_max_burst;
+    u8 tx_thr_num_pkt;
+    u8 tx_max_burst;
     u8 rx_thr_num_pkt_prd;
     u8 rx_max_burst_prd;
     u8 tx_thr_num_pkt_prd;
@@ -1429,6 +1421,10 @@ or unaligned OUT)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">susp_clk</span></code></dt><dd><p>clock used when the SS phy is in low power (S3) state</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">utmi_clk</span></code></dt><dd><p>clock used for USB2 PHY communication</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pipe_clk</span></code></dt><dd><p>clock used for USB3 PHY communication</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">reset</span></code></dt><dd><p>reset control</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">usb2_phy</span></code></dt><dd><p>pointer to USB2 PHY</p>
@@ -1532,6 +1528,14 @@ rate and lane count.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">lpm_nyet_threshold</span></code></dt><dd><p>LPM NYET response threshold</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hird_threshold</span></code></dt><dd><p>HIRD threshold</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_thr_num_pkt</span></code></dt><dd><p>USB receive packet count</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_max_burst</span></code></dt><dd><p>max USB receive burst size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_thr_num_pkt</span></code></dt><dd><p>USB transmit packet count</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_max_burst</span></code></dt><dd><p>max USB transmit burst size</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_thr_num_pkt_prd</span></code></dt><dd><p>periodic ESS receive packet count</p>
 </dd>
@@ -1637,6 +1641,9 @@ instances in park mode.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">parkmode_disable_hs_quirk</span></code></dt><dd><p>set if we need to disable all HishSpeed
 instances in park mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfladj_refclk_lpm_sel</span></code></dt><dd><p>set if we need to enable SOF/ITP counter
+running based on ref_clk</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_de_emphasis_quirk</span></code></dt><dd><p>set if we enable Tx de-emphasis quirk</p>
 </dd>

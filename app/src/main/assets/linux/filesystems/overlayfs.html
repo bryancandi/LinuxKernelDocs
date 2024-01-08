@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -84,7 +84,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../iio/index.html">Industrial I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../leds/index.html">LEDs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../pcmcia/index.html">PCMCIA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../spi/index.html">Serial Peripheral Interface (SPI)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../w1/index.html">1-Wire Subsystem</a></li>
@@ -540,10 +539,11 @@ escaping the colons with a single backslash.  For example:</p>
 <blockquote>
 <div><p>mount -t overlay overlay -olowerdir=/a:lower::dir /merged</p>
 </div></blockquote>
-<p>Since kernel version v6.5, directory names containing colons can also
-be provided as lower layer using the fsconfig syscall from new mount api:</p>
+<p>Since kernel version v6.8, directory names containing colons can also
+be configured as lower layer using the &quot;lowerdir+&quot; mount options and the
+fsconfig syscall from new mount api.  For example:</p>
 <blockquote>
-<div><p>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir&quot;, &quot;/a:lower::dir&quot;, 0);</p>
+<div><p>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/a:lower::dir&quot;, 0);</p>
 </div></blockquote>
 <p>In the latter case, colons in lower layer directory names will be escaped
 as an octal characters (072) when displayed in /proc/self/mountinfo.</p>
@@ -599,6 +599,16 @@ in the &quot;data-only&quot; lower layers are not visible in overlayfs inodes.</
 <p>Only the data of the files in the &quot;data-only&quot; lower layers may be visible
 when a &quot;metacopy&quot; file in one of the lower layers above it, has a &quot;redirect&quot;
 to the absolute path of the &quot;lower data&quot; file in the &quot;data-only&quot; lower layer.</p>
+<p>Since kernel version v6.8, &quot;data-only&quot; lower layers can also be added using
+the &quot;datadir+&quot; mount options and the fsconfig syscall from new mount api.
+For example:</p>
+<blockquote>
+<div><p>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l1&quot;, 0);
+fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l2&quot;, 0);
+fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l3&quot;, 0);
+fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;datadir+&quot;, &quot;/do1&quot;, 0);
+fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;datadir+&quot;, &quot;/do2&quot;, 0);</p>
+</div></blockquote>
 </section>
 <section id="fs-verity-support">
 <h2>fs-verity support<a class="headerlink" href="#fs-verity-support" title="Permalink to this heading">¶</a></h2>
@@ -685,6 +695,27 @@ probably will succeed but expect the unexpected later on. So don't do it.</p>
 directory tree on the same or different underlying filesystem, and even
 to a different machine.  With the &quot;inodes index&quot; feature, trying to mount
 the copied layers will fail the verification of the lower root file handle.</p>
+</section>
+<section id="nesting-overlayfs-mounts">
+<h2>Nesting overlayfs mounts<a class="headerlink" href="#nesting-overlayfs-mounts" title="Permalink to this heading">¶</a></h2>
+<p>It is possible to use a lower directory that is stored on an overlayfs
+mount. For regular files this does not need any special care. However, files
+that have overlayfs attributes, such as whiteouts or &quot;overlay.*&quot; xattrs will be
+interpreted by the underlying overlayfs mount and stripped out. In order to
+allow the second overlayfs mount to see the attributes they must be escaped.</p>
+<p>Overlayfs specific xattrs are escaped by using a special prefix of
+&quot;overlay.overlay.&quot;. So, a file with a &quot;trusted.overlay.overlay.metacopy&quot; xattr
+in the lower dir will be exposed as a regular file with a
+&quot;trusted.overlay.metacopy&quot; xattr in the overlayfs mount. This can be nested by
+repeating the prefix multiple time, as each instance only removes one prefix.</p>
+<p>A lower dir with a regular whiteout will always be handled by the overlayfs
+mount, so to support storing an effective whiteout file in an overlayfs mount an
+alternative form of whiteout is supported. This form is a regular, zero-size
+file with the &quot;overlay.whiteout&quot; xattr set, inside a directory with the
+&quot;overlay.whiteouts&quot; xattr set. Such whiteouts are never created by overlayfs,
+but can be used by userspace tools (like containers) that generate lower layers.
+These alternative whiteouts can be escaped using the standard xattr escape
+mechanism in order to properly nest to any depth.</p>
 </section>
 <section id="non-standard-behavior">
 <h2>Non-standard behavior<a class="headerlink" href="#non-standard-behavior" title="Permalink to this heading">¶</a></h2>

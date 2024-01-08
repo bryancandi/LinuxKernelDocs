@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -154,6 +154,36 @@ the devlink instance lock is already held. Drivers can take the instance
 lock by calling <code class="docutils literal notranslate"><span class="pre">devl_lock()</span></code>. It is also held all callbacks of devlink
 netlink commands.</p>
 <p>Drivers are encouraged to use the devlink instance lock for their own needs.</p>
+<p>Drivers need to be cautious when taking devlink instance lock and
+taking RTNL lock at the same time. Devlink instance lock needs to be taken
+first, only after that RTNL lock could be taken.</p>
+</section>
+<section id="nested-instances">
+<h2>Nested instances<a class="headerlink" href="#nested-instances" title="Permalink to this heading">¶</a></h2>
+<p>Some objects, like linecards or port functions, could have another
+devlink instances created underneath. In that case, drivers should make
+sure to respect following rules:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Lock ordering should be maintained. If driver needs to take instance
+lock of both nested and parent instances at the same time, devlink
+instance lock of the parent instance should be taken first, only then
+instance lock of the nested instance could be taken.</p></li>
+<li><p>Driver should use object-specific helpers to setup the
+nested relationship:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">devl_nested_devlink_set()</span></code> - called to setup devlink -&gt; nested
+devlink relationship (could be user for multiple nested instances.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devl_port_fn_devlink_set()</span></code> - called to setup port function -&gt;
+nested devlink relationship.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devlink_linecard_nested_dl_set()</span></code> - called to setup linecard -&gt;
+nested devlink relationship.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<p>The nested devlink info is exposed to the userspace over object-specific
+attributes of devlink netlink.</p>
 </section>
 <section id="interface-documentation">
 <h2>Interface documentation<a class="headerlink" href="#interface-documentation" title="Permalink to this heading">¶</a></h2>
@@ -185,6 +215,7 @@ parameters, info versions, and other features it supports.</p>
 <li class="toctree-l1"><a class="reference internal" href="bnxt.html">bnxt devlink support</a></li>
 <li class="toctree-l1"><a class="reference internal" href="etas_es58x.html">etas_es58x devlink support</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hns3.html">hns3 devlink support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="i40e.html">i40e devlink support</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ionic.html">ionic devlink support</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ice.html">ice devlink support</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mlx4.html">mlx4 devlink support</a></li>

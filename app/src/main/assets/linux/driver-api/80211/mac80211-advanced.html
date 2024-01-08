@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -176,24 +176,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../zorro.html">Writing Device Drivers for Zorro Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../wmi.html">WMI Driver API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dpll.html">The Linux kernel dpll subsystem</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../mm/index.html">Memory Management Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../power/index.html">Power Management</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../scheduler/index.html">Scheduler</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../timers/index.html">Timers</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -424,14 +410,14 @@ pointed to by the <strong>key</strong> parameter to the set_key() function.</p>
 <p>The set_key() call for the <code class="docutils literal notranslate"><span class="pre">SET_KEY</span></code> command should return 0 if
 the key is now in use, -<code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code> or -<code class="docutils literal notranslate"><span class="pre">ENOSPC</span></code> if it couldn't be
 added; if you return 0 then hw_key_idx must be assigned to the
-hardware key index, you are free to use the full u8 range.</p>
+hardware key index. You are free to use the full u8 range.</p>
 <p>Note that in the case that the <strong>IEEE80211_HW_SW_CRYPTO_CONTROL</strong> flag is
 set, mac80211 will not automatically fall back to software crypto if
 enabling hardware crypto failed. The set_key() call may also return the
 value 1 to permit this specific key/algorithm to be done in software.</p>
 <p>When the cmd is <code class="docutils literal notranslate"><span class="pre">DISABLE_KEY</span></code> then it must succeed.</p>
 <p>Note that it is permissible to not decrypt a frame even if a key
-for it has been uploaded to hardware, the stack will not make any
+for it has been uploaded to hardware. The stack will not make any
 decision based on whether a key has been uploaded or not but rather
 based on the receive flags.</p>
 <p>The <a class="reference internal" href="#c.ieee80211_key_conf" title="ieee80211_key_conf"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ieee80211_key_conf</span></code></a> structure pointed to by the <strong>key</strong>
@@ -444,7 +430,7 @@ handler.
 The update_tkip_key() call updates the driver with the new phase 1 key.
 This happens every time the iv16 wraps around (every 65536 packets). The
 set_key() call will happen only once for each key (unless the AP did
-rekeying), it will not include a valid phase 1 key. The valid phase 1 key is
+rekeying); it will not include a valid phase 1 key. The valid phase 1 key is
 provided by update_tkip_key only. The trigger that makes mac80211 call this
 handler is software decryption with wrap around of iv16.</p>
 <p>The set_default_unicast_key() call updates the default WEP key index
@@ -656,7 +642,7 @@ in the packet.</p>
 <section id="powersave-support">
 <h2>Powersave support<a class="headerlink" href="#powersave-support" title="Permalink to this heading">¶</a></h2>
 <p>mac80211 has support for various powersave implementations.</p>
-<p>First, it can support hardware that handles all powersaving by itself,
+<p>First, it can support hardware that handles all powersaving by itself;
 such hardware should simply set the <code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_SUPPORTS_PS</span></code> hardware
 flag. In that case, it will be told about the desired powersave mode
 with the <code class="docutils literal notranslate"><span class="pre">IEEE80211_CONF_PS</span></code> flag depending on the association status.
@@ -678,11 +664,11 @@ by mac80211 by combining the <code class="docutils literal notranslate"><span cl
 <code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_PS_NULLFUNC_STACK</span></code> flags. The hardware is of course still
 required to pass up beacons. The hardware is still required to handle
 waking up for multicast traffic; if it cannot the driver must handle that
-as best as it can, mac80211 is too slow to do that.</p>
+as best as it can; mac80211 is too slow to do that.</p>
 <p>Dynamic powersave is an extension to normal powersave in which the
 hardware stays awake for a user-specified period of time after sending a
 frame so that reply frames need not be buffered and therefore delayed to
-the next wakeup. It's compromise of getting good enough latency when
+the next wakeup. It's a compromise of getting good enough latency when
 there's data traffic and still saving significantly power in idle
 periods.</p>
 <p>Dynamic powersave is simply supported by mac80211 enabling and disabling
@@ -739,7 +725,7 @@ doesn't support checking for OUIs it should pass up all changes in all
 vendor information elements.</p>
 <p>Note that change, for the sake of simplification, also includes information
 elements appearing or disappearing from the beacon.</p>
-<p>Some hardware supports an &quot;ignore list&quot; instead, just make sure nothing
+<p>Some hardware supports an &quot;ignore list&quot; instead. Just make sure nothing
 that was requested is on the ignore list, and include commonly changing
 information element IDs in the ignore list, for example 11 (BSS load) and
 the various vendor-assigned IEs with unknown contents (128, 129, 133-136,
@@ -748,7 +734,7 @@ it could also include some currently unused IDs.</p>
 <p>In addition to these capabilities, hardware should support notifying the
 host of changes in the beacon RSSI. This is relevant to implement roaming
 when no traffic is flowing (when traffic is flowing we see the RSSI of
-the received data packets). This can consist in notifying the host when
+the received data packets). This can consist of notifying the host when
 the RSSI changes significantly or when it drops below or rises above
 configurable thresholds. In the future these thresholds will also be
 configured by mac80211 (which gets them from userspace) to implement
@@ -891,8 +877,8 @@ informed of the station going to sleep). Then, when a service
 period starts for any reason, <strong>release_buffered_frames</strong> is called
 with the number of frames to be released and which TIDs they are
 to come from. In this case, the driver is responsible for setting
-the EOSP (for uAPSD) and MORE_DATA bits in the released frames,
-to help the <strong>more_data</strong> parameter is passed to tell the driver if
+the EOSP (for uAPSD) and MORE_DATA bits in the released frames.
+To help the <strong>more_data</strong> parameter is passed to tell the driver if
 there is more data on other TIDs -- the TIDs to release frames
 from are ignored since mac80211 doesn't know how many frames the
 buffers for those TIDs contain.</p>
@@ -2228,7 +2214,6 @@ dialog token being used only for debugging).</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct sta_ampdu_mlme {
-    struct mutex mtx;
     struct tid_ampdu_rx __rcu *tid_rx[IEEE80211_NUM_TIDS];
     u8 tid_rx_token[IEEE80211_NUM_TIDS];
     unsigned long tid_rx_timer_expired[BITS_TO_LONGS(IEEE80211_NUM_TIDS)];
@@ -2236,7 +2221,7 @@ dialog token being used only for debugging).</p>
     unsigned long tid_rx_manage_offl[BITS_TO_LONGS(2 * IEEE80211_NUM_TIDS)];
     unsigned long agg_session_valid[BITS_TO_LONGS(IEEE80211_NUM_TIDS)];
     unsigned long unexpected_agg[BITS_TO_LONGS(IEEE80211_NUM_TIDS)];
-    struct work_struct work;
+    struct wiphy_work work;
     struct tid_ampdu_tx __rcu *tid_tx[IEEE80211_NUM_TIDS];
     struct tid_ampdu_tx *tid_start_tx[IEEE80211_NUM_TIDS];
     unsigned long last_addba_req_time[IEEE80211_NUM_TIDS];
@@ -2247,10 +2232,6 @@ dialog token being used only for debugging).</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">mtx</span></code></dt><dd><p>mutex to protect all TX data (except non-NULL assignments
-to tid_tx[idx], which are protected by the sta spinlock)
-tid_start_tx is also protected by sta-&gt;lock.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tid_rx</span></code></dt><dd><p>aggregation info for Rx per TID -- RCU protected</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tid_rx_token</span></code></dt><dd><p>dialog tokens for valid aggregation sessions</p>
@@ -2273,7 +2254,8 @@ unexpected aggregation related frames outside a session</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tid_tx</span></code></dt><dd><p>aggregation info for Tx per TID</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tid_start_tx</span></code></dt><dd><p>sessions where start was requested</p>
+<dt><code class="docutils literal notranslate"><span class="pre">tid_start_tx</span></code></dt><dd><p>sessions where start was requested, not just protected
+by wiphy mutex but also sta-&gt;lock</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">last_addba_req_time</span></code></dt><dd><p>timestamp of the last addBA request.</p>
 </dd>

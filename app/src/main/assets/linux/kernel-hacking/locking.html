@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -1780,7 +1780,7 @@ corresponding hash bucket in the global hash.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.get_futex_key">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_futex_key</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">fshared</span></span>, <span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">futex_key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">futex_access</span></span><span class="w"> </span><span class="n"><span class="pre">rw</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_futex_key" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_futex_key</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">futex_key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">futex_access</span></span><span class="w"> </span><span class="n"><span class="pre">rw</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_futex_key" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Get parameters which are the keys for a futex</p>
 </dd></dl>
 
@@ -1789,7 +1789,7 @@ corresponding hash bucket in the global hash.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">__user</span> <span class="pre">*uaddr</span></code></dt><dd><p>virtual address of the futex</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">fshared</span></code></dt><dd><p>false for a PROCESS_PRIVATE futex, true for PROCESS_SHARED</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>FLAGS_*</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">union</span> <span class="pre">futex_key</span> <span class="pre">*key</span></code></dt><dd><p>address where result is stored.</p>
 </dd>
@@ -1942,6 +1942,8 @@ block forever, but there is nothing which can be done about that.</p>
     struct plist_node list;
     struct task_struct *task;
     spinlock_t *lock_ptr;
+    futex_wake_fn *wake;
+    void *wake_data;
     union futex_key key;
     struct futex_pi_state *pi_state;
     struct rt_mutex_waiter *rt_waiter;
@@ -1961,6 +1963,10 @@ block forever, but there is nothing which can be done about that.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">task</span></code></dt><dd><p>the task waiting on the futex</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">lock_ptr</span></code></dt><dd><p>the hash bucket lock</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wake</span></code></dt><dd><p>the wake handler for this queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wake_data</span></code></dt><dd><p>data associated with the wake handler</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">key</span></code></dt><dd><p>the key the futex is hashed on</p>
 </dd>
@@ -2219,7 +2225,7 @@ after waiting for the exit to complete.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.futex_requeue">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_requeue</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr1</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr2</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_wake</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_requeue</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cmpval</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requeue_pi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_requeue" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_requeue</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr1</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags1</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr2</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags2</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_wake</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_requeue</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cmpval</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requeue_pi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_requeue" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Requeue waiters from uaddr1 to uaddr2</p>
 </dd></dl>
 
@@ -2228,9 +2234,11 @@ after waiting for the exit to complete.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">__user</span> <span class="pre">*uaddr1</span></code></dt><dd><p>source futex user address</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>futex flags (FLAGS_SHARED, etc.)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags1</span></code></dt><dd><p>futex flags (FLAGS_SHARED, etc.)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">__user</span> <span class="pre">*uaddr2</span></code></dt><dd><p>target futex user address</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags2</span></code></dt><dd><p>futex flags (FLAGS_SHARED, etc.)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nr_wake</span></code></dt><dd><p>number of waiters to wake (must be 1 for requeue_pi)</p>
 </dd>
@@ -2346,8 +2354,8 @@ via the following--
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.unqueue_multiple">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">unqueue_multiple</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_vector" title="futex_vector"><span class="n"><span class="pre">futex_vector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">v</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.unqueue_multiple" title="Permalink to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.futex_unqueue_multiple">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_unqueue_multiple</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_vector" title="futex_vector"><span class="n"><span class="pre">futex_vector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">v</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_unqueue_multiple" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Remove various futexes from their hash bucket</p>
 </dd></dl>
 

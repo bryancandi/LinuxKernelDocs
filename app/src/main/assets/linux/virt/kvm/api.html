@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -84,7 +84,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../iio/index.html">Industrial I/O</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../leds/index.html">LEDs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../pcmcia/index.html">PCMCIA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../spi/index.html">Serial Peripheral Interface (SPI)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../w1/index.html">1-Wire Subsystem</a></li>
@@ -641,6 +640,13 @@ struct kvm_regs {
       __u64 lo;
       __u64 pc;
 };
+
+/* LoongArch */
+struct kvm_regs {
+      /* out (KVM_GET_REGS) / in (KVM_SET_REGS) */
+      unsigned long gpr[32];
+      unsigned long pc;
+};
 </pre></div>
 </div>
 </section>
@@ -768,7 +774,7 @@ translation mode.</p>
 <dd class="field-odd"><p>basic</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>x86, ppc, mips, riscv</p>
+<dd class="field-even"><p>x86, ppc, mips, riscv, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -818,7 +824,7 @@ ioctl is useful if the in-kernel PIC is not used.</p>
 </section>
 <section id="ppc">
 <h4>PPC:<a class="headerlink" href="#ppc" title="Permalink to this heading">¶</a></h4>
-<p>Queues an external interrupt to be injected. This ioctl is overleaded
+<p>Queues an external interrupt to be injected. This ioctl is overloaded
 with 3 different irq values:</p>
 <ol class="loweralpha">
 <li><p>KVM_INTERRUPT_SET</p>
@@ -859,6 +865,12 @@ once it is ready.</p>
 <p>This clears pending external interrupt for a virtual CPU.</p>
 </li>
 </ol>
+<p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
+</section>
+<section id="loongarch">
+<h4>LOONGARCH:<a class="headerlink" href="#loongarch" title="Permalink to this heading">¶</a></h4>
+<p>Queues an external interrupt to be injected into the virtual CPU. A negative
+interrupt number dequeues the interrupt.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
 </section>
 </section>
@@ -1049,7 +1061,7 @@ struct kvm_signal_mask {
 <dd class="field-odd"><p>basic</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>x86</p>
+<dd class="field-even"><p>x86, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -1062,7 +1074,7 @@ struct kvm_signal_mask {
 </dd>
 </dl>
 <p>Reads the floating point state from the vcpu.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* for KVM_GET_FPU and KVM_SET_FPU */
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* x86: for KVM_GET_FPU and KVM_SET_FPU */
 struct kvm_fpu {
       __u8  fpr[8][16];
       __u16 fcw;
@@ -1076,6 +1088,15 @@ struct kvm_fpu {
       __u32 mxcsr;
       __u32 pad2;
 };
+
+/* LoongArch: for KVM_GET_FPU and KVM_SET_FPU */
+struct kvm_fpu {
+      __u32 fcsr;
+      __u64 fcc;
+      struct kvm_fpureg {
+              __u64 val64[4];
+      }fpr[32];
+};
 </pre></div>
 </div>
 </section>
@@ -1086,7 +1107,7 @@ struct kvm_fpu {
 <dd class="field-odd"><p>basic</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>x86</p>
+<dd class="field-even"><p>x86, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -1099,7 +1120,7 @@ struct kvm_fpu {
 </dd>
 </dl>
 <p>Writes the floating point state to the vcpu.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* for KVM_GET_FPU and KVM_SET_FPU */
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* x86: for KVM_GET_FPU and KVM_SET_FPU */
 struct kvm_fpu {
       __u8  fpr[8][16];
       __u16 fcw;
@@ -1112,6 +1133,15 @@ struct kvm_fpu {
       __u8  xmm[16][16];
       __u32 mxcsr;
       __u32 pad2;
+};
+
+/* LoongArch: for KVM_GET_FPU and KVM_SET_FPU */
+struct kvm_fpu {
+      __u32 fcsr;
+      __u64 fcc;
+      struct kvm_fpureg {
+              __u64 val64[4];
+      }fpr[32];
 };
 </pre></div>
 </div>
@@ -1331,7 +1361,7 @@ be set in the flags field of this ioctl:</p>
 <p>The KVM_XEN_HVM_CONFIG_INTERCEPT_HCALL flag requests KVM to generate
 the contents of the hypercall page automatically; hypercalls will be
 intercepted and passed to userspace through KVM_EXIT_XEN.  In this
-ase, all of the blob size and address fields must be zero.</p>
+case, all of the blob size and address fields must be zero.</p>
 <p>The KVM_XEN_HVM_CONFIG_EVTCHN_SEND flag indicates to KVM that userspace
 will always use the KVM_XEN_HVM_EVTCHN_SEND ioctl to deliver event
 channel interrupts rather than manipulating the guest's shared_info
@@ -1455,7 +1485,7 @@ kvmclock value that will be provided to guests.</p>
 <dd class="field-even"><p>vcpu ioctl</p>
 </dd>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p>struct kvm_vcpu_event (out)</p>
+<dd class="field-odd"><p>struct kvm_vcpu_events (out)</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>0 on success, -1 on error</p>
@@ -1578,7 +1608,7 @@ directly to the virtual CPU).</p>
 <dd class="field-even"><p>vcpu ioctl</p>
 </dd>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p>struct kvm_vcpu_event (in)</p>
+<dd class="field-odd"><p>struct kvm_vcpu_events (in)</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>0 on success, -1 on error</p>
@@ -1799,7 +1829,7 @@ documentation when it pops into existence).</p>
 <dd class="field-odd"><p>KVM_CAP_ENABLE_CAP</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>mips, ppc, s390, x86</p>
+<dd class="field-even"><p>mips, ppc, s390, x86, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -1864,7 +1894,7 @@ for vm-wide capabilities.</p>
 <dd class="field-odd"><p>KVM_CAP_MP_STATE</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>x86, s390, arm64, riscv</p>
+<dd class="field-even"><p>x86, s390, arm64, riscv, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -1889,7 +1919,7 @@ uniprocessor guests).</p>
 <tbody>
 <tr class="row-odd"><td><p>KVM_MP_STATE_RUNNABLE</p></td>
 <td><p>the vcpu is currently running
-[x86,arm64,riscv]</p></td>
+[x86,arm64,riscv,loongarch]</p></td>
 </tr>
 <tr class="row-even"><td><p>KVM_MP_STATE_UNINITIALIZED</p></td>
 <td><p>the vcpu is an application processor (AP)
@@ -1959,6 +1989,8 @@ guest.</p>
 <h4>For riscv:<a class="headerlink" href="#for-riscv" title="Permalink to this heading">¶</a></h4>
 <p>The only states that are valid are KVM_MP_STATE_STOPPED and
 KVM_MP_STATE_RUNNABLE which reflect if the vcpu is paused or not.</p>
+<p>On LoongArch, only the KVM_MP_STATE_RUNNABLE state is used to reflect
+whether the vcpu is runnable.</p>
 </section>
 </section>
 <section id="kvm-set-mp-state">
@@ -1968,7 +2000,7 @@ KVM_MP_STATE_RUNNABLE which reflect if the vcpu is paused or not.</p>
 <dd class="field-odd"><p>KVM_CAP_MP_STATE</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>x86, s390, arm64, riscv</p>
+<dd class="field-even"><p>x86, s390, arm64, riscv, loongarch</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>vcpu ioctl</p>
@@ -1989,6 +2021,8 @@ these architectures.</p>
 <h4>For arm64/riscv:<a class="headerlink" href="#for-arm64-riscv" title="Permalink to this heading">¶</a></h4>
 <p>The only states that are valid are KVM_MP_STATE_STOPPED and
 KVM_MP_STATE_RUNNABLE which reflect if the vcpu should be paused or not.</p>
+<p>On LoongArch, only the KVM_MP_STATE_RUNNABLE state is used to reflect
+whether the vcpu is runnable.</p>
 </section>
 </section>
 <section id="kvm-set-identity-map-addr">
@@ -4300,6 +4334,18 @@ state of a Guest VCPU and it has the following id bit patterns:</p>
 </tr>
 </tbody>
 </table>
+<p>LoongArch registers are mapped using the lower 32 bits. The upper 16 bits of
+that is the register group type.</p>
+<p>LoongArch csr registers are used to control guest cpu or get status of guest
+cpu, and they have the following id bit patterns:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>0x9030 0000 0001 00 &lt;reg:5&gt; &lt;sel:3&gt;   (64-bit)
+</pre></div>
+</div>
+<p>LoongArch KVM control registers are used to implement some new defined functions
+such as set vcpu counter or reset vcpu, and they have the following id bit patterns:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>0x9030 0000 0002 &lt;reg:16&gt;
+</pre></div>
+</div>
 </section>
 <section id="kvm-get-one-reg">
 <h3>4.69 KVM_GET_ONE_REG<a class="headerlink" href="#kvm-get-one-reg" title="Permalink to this heading">¶</a></h3>
@@ -4594,7 +4640,7 @@ as follow:</p>
 </pre></div>
 </div>
 <p>An entry with a &quot;page_shift&quot; of 0 is unused. Because the array is
-organized in increasing order, a lookup can stop when encoutering
+organized in increasing order, a lookup can stop when encountering
 such an entry.</p>
 <p>The &quot;slb_enc&quot; field provides the encoding to use in the SLB for the
 page size. The bits are in positions such as the value can directly
@@ -4994,7 +5040,7 @@ indicate that the attribute can be read or written in the device's
 current state.  &quot;addr&quot; is ignored.</p>
 </section>
 <section id="kvm-arm-vcpu-init">
-<h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Permalink to this heading">¶</a></h3>
+<span id="id10"></span><h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Permalink to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic</p>
@@ -5101,7 +5147,7 @@ vector lengths possible for a vcpu on this host.</p></li>
 <div><ul class="simple">
 <li><p>KVM_RUN and KVM_GET_REG_LIST are not available;</p></li>
 <li><p>KVM_GET_ONE_REG and KVM_SET_ONE_REG cannot be used to access
-the scalable archietctural SVE registers
+the scalable architectural SVE registers
 KVM_REG_ARM64_SVE_ZREG(), KVM_REG_ARM64_SVE_PREG() or
 KVM_REG_ARM64_SVE_FFR;</p></li>
 <li><p>KVM_REG_ARM64_SVE_VLS may optionally be written using
@@ -6233,7 +6279,7 @@ but failed).</p>
 <p>This will have undefined effects on the guest if it has not already
 placed itself in a quiescent state where no vcpu will make MMU enabled
 memory accesses.</p>
-<p>On succsful completion, the pending HPT will become the guest's active
+<p>On successful completion, the pending HPT will become the guest's active
 HPT and the previous HPT will be discarded.</p>
 <p>On failure, the guest will still be operating on its previous HPT.</p>
 </section>
@@ -6987,7 +7033,7 @@ features[].</p>
 before the vcpu is fully usable.</p>
 <p>Between KVM_ARM_VCPU_INIT and KVM_ARM_VCPU_FINALIZE, the feature may be
 configured by use of ioctls such as KVM_SET_ONE_REG.  The exact configuration
-that should be performaned and how to do it are feature-dependent.</p>
+that should be performed and how to do it are feature-dependent.</p>
 <p>Other calls that depend on a particular feature being finalized, such as
 KVM_RUN, KVM_GET_REG_LIST, KVM_GET_ONE_REG and KVM_SET_ONE_REG, will fail with
 -EPERM unless the feature has already been finalized by means of a
@@ -7110,6 +7156,21 @@ select are set when called on Intel.</p>
 #define KVM_PMU_EVENT_DENY 1
 </pre></div>
 </div>
+<p>Via this API, KVM userspace can also control the behavior of the VM's fixed
+counters (if any) by configuring the &quot;action&quot; and &quot;fixed_counter_bitmap&quot; fields.</p>
+<p>Specifically, KVM follows the following pseudo-code when determining whether to
+allow the guest FixCtr[i] to count its pre-defined fixed event:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>FixCtr[i]_is_allowed = (action == ALLOW) &amp;&amp; (bitmap &amp; BIT(i)) ||
+  (action == DENY) &amp;&amp; !(bitmap &amp; BIT(i));
+FixCtr[i]_is_denied = !FixCtr[i]_is_allowed;
+</pre></div>
+</div>
+<p>KVM always consumes fixed_counter_bitmap, it's userspace's responsibility to
+ensure fixed_counter_bitmap is set correctly, e.g. if userspace wants to define
+a filter that only affects general purpose counters.</p>
+<p>Note, the &quot;events&quot; field also applies to fixed counters' hardcoded event_select
+and unit_mask values.  &quot;fixed_counter_bitmap&quot; has higher priority than &quot;events&quot;
+if there is a contradiction between the two.</p>
 </section>
 <section id="kvm-ppc-svm-off">
 <h3>4.121 KVM_PPC_SVM_OFF<a class="headerlink" href="#kvm-ppc-svm-off" title="Permalink to this heading">¶</a></h3>
@@ -7516,7 +7577,7 @@ an outbound port number for interception of EVTCHNOP_send requests
 from the guest. A given sending port number may be directed back to
 a specified vCPU (by APIC ID) / port / priority on the guest, or to
 trigger events on an eventfd. The vCPU and priority can be changed
-by setting KVM_XEN_EVTCHN_UPDATE in a subsequent call, but but other
+by setting KVM_XEN_EVTCHN_UPDATE in a subsequent call, but other
 fields cannot change for a given sending port. A port mapping is
 removed by using KVM_XEN_EVTCHN_DEASSIGN in the flags field. Passing
 KVM_XEN_EVTCHN_RESET in the flags field removes all interception of
@@ -8197,6 +8258,57 @@ writes to the CNTVCT_EL0 and CNTPCT_EL0 registers using the SET_ONE_REG
 interface. No error will be returned, but the resulting offset will not be
 applied.</p>
 </section>
+<section id="kvm-arm-get-reg-writable-masks">
+<span id="id11"></span><h3>4.139 KVM_ARM_GET_REG_WRITABLE_MASKS<a class="headerlink" href="#kvm-arm-get-reg-writable-masks" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Capability<span class="colon">:</span></dt>
+<dd class="field-odd"><p>KVM_CAP_ARM_SUPPORTED_REG_MASK_RANGES</p>
+</dd>
+<dt class="field-even">Architectures<span class="colon">:</span></dt>
+<dd class="field-even"><p>arm64</p>
+</dd>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>vm ioctl</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p>struct reg_mask_range (in/out)</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0 on success, &lt; 0 on error</p>
+</dd>
+</dl>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#define KVM_ARM_FEATURE_ID_RANGE        0
+#define KVM_ARM_FEATURE_ID_RANGE_SIZE   (3 * 8 * 8)
+
+struct reg_mask_range {
+        __u64 addr;             /* Pointer to mask array */
+        __u32 range;            /* Requested range */
+        __u32 reserved[13];
+};
+</pre></div>
+</div>
+<p>This ioctl copies the writable masks for a selected range of registers to
+userspace.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">addr</span></code> field is a pointer to the destination array where KVM copies
+the writable masks.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">range</span></code> field indicates the requested range of registers.
+<code class="docutils literal notranslate"><span class="pre">KVM_CHECK_EXTENSION</span></code> for the <code class="docutils literal notranslate"><span class="pre">KVM_CAP_ARM_SUPPORTED_REG_MASK_RANGES</span></code>
+capability returns the supported ranges, expressed as a set of flags. Each
+flag's bit index represents a possible value for the <code class="docutils literal notranslate"><span class="pre">range</span></code> field.
+All other values are reserved for future use and KVM may return an error.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">reserved[13]</span></code> array is reserved for future use and should be 0, or
+KVM may return an error.</p>
+<section id="kvm-arm-feature-id-range-0">
+<h4>KVM_ARM_FEATURE_ID_RANGE (0)<a class="headerlink" href="#kvm-arm-feature-id-range-0" title="Permalink to this heading">¶</a></h4>
+<p>The Feature ID range is defined as the AArch64 System register space with
+op0==3, op1=={0, 1, 3}, CRn==0, CRm=={0-7}, op2=={0-7}.</p>
+<p>The mask returned array pointed to by <code class="docutils literal notranslate"><span class="pre">addr</span></code> is indexed by the macro
+<code class="docutils literal notranslate"><span class="pre">ARM64_FEATURE_ID_RANGE_IDX(op0,</span> <span class="pre">op1,</span> <span class="pre">crn,</span> <span class="pre">crm,</span> <span class="pre">op2)</span></code>, allowing userspace
+to know what fields can be changed for the system register described by
+<code class="docutils literal notranslate"><span class="pre">op0,</span> <span class="pre">op1,</span> <span class="pre">crn,</span> <span class="pre">crm,</span> <span class="pre">op2</span></code>. KVM rejects ID register values that describe a
+superset of the features supported by the system.</p>
+</section>
+</section>
 </section>
 <section id="the-kvm-run-structure">
 <h2>5. The kvm_run structure<a class="headerlink" href="#the-kvm-run-structure" title="Permalink to this heading">¶</a></h2>
@@ -8364,8 +8476,8 @@ requires a guest to interact with host userspace.</p>
 <p class="admonition-title">Note</p>
 <p>KVM_EXIT_IO is significantly faster than KVM_EXIT_MMIO.</p>
 </div>
-<section id="id10">
-<h3>For arm64:<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h3>
+<section id="id12">
+<h3>For arm64:<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h3>
 <p>SMCCC exits can be enabled depending on the configuration of the SMCCC
 filter. See the <a class="reference internal" href="devices/vm.html"><span class="doc">Generic vm interface</span></a>
 <code class="docutils literal notranslate"><span class="pre">KVM_ARM_SMCCC_FILTER</span></code> for more details.</p>
@@ -9512,13 +9624,13 @@ faulting address (or the new DR6 bits*) will be reported in the
 exception_payload field. Similarly, when userspace injects a #PF (or
 #DB) into L2 using KVM_SET_VCPU_EVENTS, it is expected to set
 exception.has_payload and to put the faulting address - or the new DR6
-bits<a class="footnote-reference brackets" href="#id12" id="id11" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
+bits<a class="footnote-reference brackets" href="#id14" id="id13" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
 <p>This capability also enables exception.pending in struct
 kvm_vcpu_events, which allows userspace to distinguish between pending
 and injected exceptions.</p>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id12" role="note">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">3</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id14" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id13">3</a><span class="fn-bracket">]</span></span>
 <p>For the new DR6 bits, note that bit 16 is set iff the #DB exception
 will clear DR6.RTM.</p>
 </aside>
@@ -10388,8 +10500,8 @@ distribution...)</p>
 <p>If this capability is available, then the CPNC and CPVC can be synchronized
 between KVM and userspace via the sync regs mechanism (KVM_SYNC_DIAG318).</p>
 </section>
-<section id="id13">
-<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h3>
+<section id="id15">
+<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>x86</p>
@@ -10824,8 +10936,8 @@ that userspace need to be aware of.  This section details some of
 these issues.</p>
 <p>Most of them are architecture specific, so the section is split by
 architecture.</p>
-<section id="id14">
-<h3>9.1. x86<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h3>
+<section id="id16">
+<h3>9.1. x86<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h3>
 <section id="kvm-get-supported-cpuid-issues">
 <h4><code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> issues<a class="headerlink" href="#kvm-get-supported-cpuid-issues" title="Permalink to this heading">¶</a></h4>
 <p>In general, <code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> is designed so that it is possible

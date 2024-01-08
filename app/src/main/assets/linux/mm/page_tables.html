@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.6.0</p>
+<p class="blurb">6.7.0</p>
 
 
 
@@ -271,6 +271,106 @@ level.</p>
 virtual memory manager, will need to be written so that it traverses all of the
 currently five levels. This style should also be preferred for
 architecture-specific code, so as to be robust to future changes.</p>
+</section>
+<section id="mmu-tlb-and-page-faults">
+<h2>MMU, TLB, and Page Faults<a class="headerlink" href="#mmu-tlb-and-page-faults" title="Permalink to this heading">¶</a></h2>
+<p>The <cite>Memory Management Unit (MMU)</cite> is a hardware component that handles virtual
+to physical address translations. It may use relatively small caches in hardware
+called <cite>Translation Lookaside Buffers (TLBs)</cite> and <cite>Page Walk Caches</cite> to speed up
+these translations.</p>
+<p>When CPU accesses a memory location, it provides a virtual address to the MMU,
+which checks if there is the existing translation in the TLB or in the Page
+Walk Caches (on architectures that support them). If no translation is found,
+MMU uses the page walks to determine the physical address and create the map.</p>
+<p>The dirty bit for a page is set (i.e., turned on) when the page is written to.
+Each page of memory has associated permission and dirty bits. The latter
+indicate that the page has been modified since it was loaded into memory.</p>
+<p>If nothing prevents it, eventually the physical memory can be accessed and the
+requested operation on the physical frame is performed.</p>
+<p>There are several reasons why the MMU can't find certain translations. It could
+happen because the CPU is trying to access memory that the current task is not
+permitted to, or because the data is not present into physical memory.</p>
+<p>When these conditions happen, the MMU triggers page faults, which are types of
+exceptions that signal the CPU to pause the current execution and run a special
+function to handle the mentioned exceptions.</p>
+<p>There are common and expected causes of page faults. These are triggered by
+process management optimization techniques called &quot;Lazy Allocation&quot; and
+&quot;Copy-on-Write&quot;. Page faults may also happen when frames have been swapped out
+to persistent storage (swap partition or file) and evicted from their physical
+locations.</p>
+<p>These techniques improve memory efficiency, reduce latency, and minimize space
+occupation. This document won't go deeper into the details of &quot;Lazy Allocation&quot;
+and &quot;Copy-on-Write&quot; because these subjects are out of scope as they belong to
+Process Address Management.</p>
+<p>Swapping differentiates itself from the other mentioned techniques because it's
+undesirable since it's performed as a means to reduce memory under heavy
+pressure.</p>
+<p>Swapping can't work for memory mapped by kernel logical addresses. These are a
+subset of the kernel virtual space that directly maps a contiguous range of
+physical memory. Given any logical address, its physical address is determined
+with simple arithmetic on an offset. Accesses to logical addresses are fast
+because they avoid the need for complex page table lookups at the expenses of
+frames not being evictable and pageable out.</p>
+<p>If the kernel fails to make room for the data that must be present in the
+physical frames, the kernel invokes the out-of-memory (OOM) killer to make room
+by terminating lower priority processes until pressure reduces under a safe
+threshold.</p>
+<p>Additionally, page faults may be also caused by code bugs or by maliciously
+crafted addresses that the CPU is instructed to access. A thread of a process
+could use instructions to address (non-shared) memory which does not belong to
+its own address space, or could try to execute an instruction that want to write
+to a read-only location.</p>
+<p>If the above-mentioned conditions happen in user-space, the kernel sends a
+<cite>Segmentation Fault</cite> (SIGSEGV) signal to the current thread. That signal usually
+causes the termination of the thread and of the process it belongs to.</p>
+<p>This document is going to simplify and show an high altitude view of how the
+Linux kernel handles these page faults, creates tables and tables' entries,
+check if memory is present and, if not, requests to load data from persistent
+storage or from other devices, and updates the MMU and its caches.</p>
+<p>The first steps are architecture dependent. Most architectures jump to
+<cite>do_page_fault()</cite>, whereas the x86 interrupt handler is defined by the
+<cite>DEFINE_IDTENTRY_RAW_ERRORCODE()</cite> macro which calls <cite>handle_page_fault()</cite>.</p>
+<p>Whatever the routes, all architectures end up to the invocation of
+<cite>handle_mm_fault()</cite> which, in turn, (likely) ends up calling
+<cite>__handle_mm_fault()</cite> to carry out the actual work of allocating the page
+tables.</p>
+<p>The unfortunate case of not being able to call <cite>__handle_mm_fault()</cite> means
+that the virtual address is pointing to areas of physical memory which are not
+permitted to be accessed (at least from the current context). This
+condition resolves to the kernel sending the above-mentioned SIGSEGV signal
+to the process and leads to the consequences already explained.</p>
+<p><cite>__handle_mm_fault()</cite> carries out its work by calling several functions to
+find the entry's offsets of the upper layers of the page tables and allocate
+the tables that it may need.</p>
+<p>The functions that look for the offset have names like <cite>*_offset()</cite>, where the
+&quot;*&quot; is for pgd, p4d, pud, pmd, pte; instead the functions to allocate the
+corresponding tables, layer by layer, are called <cite>*_alloc</cite>, using the
+above-mentioned convention to name them after the corresponding types of tables
+in the hierarchy.</p>
+<p>The page table walk may end at one of the middle or upper layers (PMD, PUD).</p>
+<p>Linux supports larger page sizes than the usual 4KB (i.e., the so called
+<cite>huge pages</cite>). When using these kinds of larger pages, higher level pages can
+directly map them, with no need to use lower level page entries (PTE). Huge
+pages contain large contiguous physical regions that usually span from 2MB to
+1GB. They are respectively mapped by the PMD and PUD page entries.</p>
+<p>The huge pages bring with them several benefits like reduced TLB pressure,
+reduced page table overhead, memory allocation efficiency, and performance
+improvement for certain workloads. However, these benefits come with
+trade-offs, like wasted memory and allocation challenges.</p>
+<p>At the very end of the walk with allocations, if it didn't return errors,
+<cite>__handle_mm_fault()</cite> finally calls <cite>handle_pte_fault()</cite>, which via <cite>do_fault()</cite>
+performs one of <cite>do_read_fault()</cite>, <cite>do_cow_fault()</cite>, <cite>do_shared_fault()</cite>.
+&quot;read&quot;, &quot;cow&quot;, &quot;shared&quot; give hints about the reasons and the kind of fault it's
+handling.</p>
+<p>The actual implementation of the workflow is very complex. Its design allows
+Linux to handle page faults in a way that is tailored to the specific
+characteristics of each architecture, while still sharing a common overall
+structure.</p>
+<p>To conclude this high altitude view of how Linux handles page faults, let's
+add that the page faults handler can be disabled and enabled respectively with
+<cite>pagefault_disable()</cite> and <cite>pagefault_enable()</cite>.</p>
+<p>Several code path make use of the latter two functions because they need to
+disable traps into the page faults handler, mostly to prevent deadlocks.</p>
 </section>
 </section>
 
