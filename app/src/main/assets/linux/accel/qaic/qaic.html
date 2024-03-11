@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,12 +166,18 @@
 
           <div class="body" role="main">
             
-  <section id="qaic-driver">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="qaic-driver">
 <h1>QAIC driver<a class="headerlink" href="#qaic-driver" title="Permalink to this heading">¶</a></h1>
 <p>The QAIC driver is the Kernel Mode Driver (KMD) for the AIC100 family of AI
 accelerator products.</p>
 <section id="interrupts">
 <h2>Interrupts<a class="headerlink" href="#interrupts" title="Permalink to this heading">¶</a></h2>
+<section id="irq-storm-mitigation">
+<h3>IRQ Storm Mitigation<a class="headerlink" href="#irq-storm-mitigation" title="Permalink to this heading">¶</a></h3>
 <p>While the AIC100 DMA Bridge hardware implements an IRQ storm mitigation
 mechanism, it is still possible for an IRQ storm to occur. A storm can happen
 if the workload is particularly quick, and the host is responsive. If the host
@@ -187,6 +200,24 @@ polling mode and reenables the IRQ line.</p>
 generates 100k IRQs per second (per /proc/interrupts) is reduced to roughly 64
 IRQs over 5 minutes while keeping the host system stable, and having the same
 workload throughput performance (within run to run noise variation).</p>
+</section>
+<section id="single-msi-mode">
+<h3>Single MSI Mode<a class="headerlink" href="#single-msi-mode" title="Permalink to this heading">¶</a></h3>
+<p>MultiMSI is not well supported on all systems; virtualized ones even less so
+(circa 2023). Between hypervisors masking the PCIe MSI capability structure to
+large memory requirements for vIOMMUs (required for supporting MultiMSI), it is
+useful to be able to fall back to a single MSI when needed.</p>
+<p>To support this fallback, we allow the case where only one MSI is able to be
+allocated, and share that one MSI between MHI and the DBCs. The device detects
+when only one MSI has been configured and directs the interrupts for the DBCs
+to the interrupt normally used for MHI. Unfortunately this means that the
+interrupt handlers for every DBC and MHI wake up for every interrupt that
+arrives; however, the DBC threaded irq handlers only are started when work to be
+done is detected (MHI will always start its threaded handler).</p>
+<p>If the DBC is configured to force MSI interrupts, this can circumvent the
+software IRQ storm mitigation mentioned above. Since the MSI is shared it is
+never disabled, allowing each new entry to the FIFO to trigger a new interrupt.</p>
+</section>
 </section>
 <section id="neural-network-control-nnc-protocol">
 <h2>Neural Network Control (NNC) Protocol<a class="headerlink" href="#neural-network-control-nnc-protocol" title="Permalink to this heading">¶</a></h2>
@@ -215,8 +246,13 @@ commands (does not impact QAIC).</p>
 </section>
 <section id="uapi">
 <h2>uAPI<a class="headerlink" href="#uapi" title="Permalink to this heading">¶</a></h2>
-<p>QAIC defines a number of driver specific IOCTLs as part of the userspace API.
-This section describes those APIs.</p>
+<p>QAIC creates an accel device per phsyical PCIe device. This accel device exists
+for as long as the PCIe device is known to Linux.</p>
+<p>The PCIe device may not be in the state to accept requests from userspace at
+all times. QAIC will trigger KOBJ_ONLINE/OFFLINE uevents to advertise when the
+device can accept requests (ONLINE) and when the device is no longer accepting
+requests (OFFLINE) because of a reset or other state transition.</p>
+<p>QAIC defines a number of driver specific IOCTLs as part of the userspace API.</p>
 <dl class="simple">
 <dt>DRM_IOCTL_QAIC_MANAGE</dt><dd><p>This IOCTL allows userspace to send a NNC request to the QSM. The call will
 block until a response is received, or the request has timed out.</p>
@@ -302,6 +338,9 @@ overrides this for that call. Default is 5000 (5 seconds).</p>
 <p><strong>datapath_poll_interval_us (unsigned int)</strong></p>
 <p>Sets the polling interval in microseconds (us) when datapath polling is active.
 Takes effect at the next polling interval. Default is 100 (100 us).</p>
+<p><strong>timesync_delay_ms (unsigned int)</strong></p>
+<p>Sets the time interval in milliseconds (ms) between two consecutive timesync
+operations. Default is 1000 (1000 ms).</p>
 </section>
 </section>
 

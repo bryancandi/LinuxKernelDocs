@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,10 +115,10 @@
 <li class="toctree-l2"><a class="reference internal" href="speculation.html">Speculation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="speculation.html#mitigating-speculation-side-channels">Mitigating speculation side-channels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="static-keys.html">Static Keys</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tee.html">TEE subsystem</a></li>
 <li class="toctree-l2"><a class="reference internal" href="xz.html">XZ data compression in Linux</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -126,7 +129,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -143,7 +148,11 @@
 
           <div class="body" role="main">
             
-  <section id="remote-processor-messaging-rpmsg-framework">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="remote-processor-messaging-rpmsg-framework">
 <h1>Remote Processor Messaging (rpmsg) Framework<a class="headerlink" href="#remote-processor-messaging-rpmsg-framework" title="Permalink to this heading">¶</a></h1>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -198,14 +207,15 @@ with the payload of the inbound message).</p>
 </section>
 <section id="user-api">
 <h2>User API<a class="headerlink" href="#user-api" title="Permalink to this heading">¶</a></h2>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_send(struct rpmsg_channel *rpdev, void *data, int len);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len);
 </pre></div>
 </div>
-<p>sends a message across to the remote processor on a given channel.
-The caller should specify the channel, the data it wants to send,
+<p>sends a message across to the remote processor from the given endpoint.
+The caller should specify the endpoint, the data it wants to send,
 and its length (in bytes). The message will be sent on the specified
-channel, i.e. its source and destination address fields will be
-set to the channel's src and dst addresses.</p>
+endpoint's channel, i.e. its source and destination address fields will be
+respectively set to the endpoint's src address and its parent channel
+dst addresses.</p>
 <p>In case there are no TX buffers available, the function will block until
 one becomes available (i.e. until the remote processor consumes
 a tx buffer and puts it back on virtio's used descriptor ring),
@@ -213,16 +223,17 @@ or a timeout of 15 seconds elapses. When the latter happens,
 -ERESTARTSYS is returned.</p>
 <p>The function can only be called from a process context (for now).
 Returns 0 on success and an appropriate error value on failure.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_sendto(struct rpmsg_channel *rpdev, void *data, int len, u32 dst);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_sendto(struct rpmsg_endpoint *ept, void *data, int len, u32 dst);
 </pre></div>
 </div>
-<p>sends a message across to the remote processor on a given channel,
+<p>sends a message across to the remote processor from a given endpoint,
 to a destination address provided by the caller.</p>
-<p>The caller should specify the channel, the data it wants to send,
+<p>The caller should specify the endpoint, the data it wants to send,
 its length (in bytes), and an explicit destination address.</p>
 <p>The message will then be sent to the remote processor to which the
-channel belongs, using the channel's src address, and the user-provided
-dst address (thus the channel's dst address will be ignored).</p>
+endpoints's channel belongs, using the endpoints's src address,
+and the user-provided dst address (thus the channel's dst address
+will be ignored).</p>
 <p>In case there are no TX buffers available, the function will block until
 one becomes available (i.e. until the remote processor consumes
 a tx buffer and puts it back on virtio's used descriptor ring),
@@ -230,17 +241,18 @@ or a timeout of 15 seconds elapses. When the latter happens,
 -ERESTARTSYS is returned.</p>
 <p>The function can only be called from a process context (for now).
 Returns 0 on success and an appropriate error value on failure.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_send_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_send_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
                                                       void *data, int len);
 </pre></div>
 </div>
 <p>sends a message across to the remote processor, using the src and dst
 addresses provided by the user.</p>
-<p>The caller should specify the channel, the data it wants to send,
+<p>The caller should specify the endpoint, the data it wants to send,
 its length (in bytes), and explicit source and destination addresses.
 The message will then be sent to the remote processor to which the
-channel belongs, but the channel's src and dst addresses will be
-ignored (and the user-provided addresses will be used instead).</p>
+endpoint's channel belongs, but the endpoint's src and channel dst
+addresses will be ignored (and the user-provided addresses will
+be used instead).</p>
 <p>In case there are no TX buffers available, the function will block until
 one becomes available (i.e. until the remote processor consumes
 a tx buffer and puts it back on virtio's used descriptor ring),
@@ -248,22 +260,23 @@ or a timeout of 15 seconds elapses. When the latter happens,
 -ERESTARTSYS is returned.</p>
 <p>The function can only be called from a process context (for now).
 Returns 0 on success and an appropriate error value on failure.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysend(struct rpmsg_channel *rpdev, void *data, int len);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysend(struct rpmsg_endpoint *ept, void *data, int len);
 </pre></div>
 </div>
-<p>sends a message across to the remote processor on a given channel.
-The caller should specify the channel, the data it wants to send,
+<p>sends a message across to the remote processor from a given endpoint.
+The caller should specify the endpoint, the data it wants to send,
 and its length (in bytes). The message will be sent on the specified
-channel, i.e. its source and destination address fields will be
-set to the channel's src and dst addresses.</p>
+endpoint's channel, i.e. its source and destination address fields will be
+respectively set to the endpoint's src address and its parent channel
+dst addresses.</p>
 <p>In case there are no TX buffers available, the function will immediately
 return -ENOMEM without waiting until one becomes available.</p>
 <p>The function can only be called from a process context (for now).
 Returns 0 on success and an appropriate error value on failure.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysendto(struct rpmsg_channel *rpdev, void *data, int len, u32 dst)
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysendto(struct rpmsg_endpoint *ept, void *data, int len, u32 dst)
 </pre></div>
 </div>
-<p>sends a message across to the remote processor on a given channel,
+<p>sends a message across to the remote processor from a given endoint,
 to a destination address provided by the user.</p>
 <p>The user should specify the channel, the data it wants to send,
 its length (in bytes), and an explicit destination address.</p>
@@ -274,7 +287,7 @@ dst address (thus the channel's dst address will be ignored).</p>
 return -ENOMEM without waiting until one becomes available.</p>
 <p>The function can only be called from a process context (for now).
 Returns 0 on success and an appropriate error value on failure.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysend_offchannel(struct rpmsg_channel *rpdev, u32 src, u32 dst,
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
                                                       void *data, int len);
 </pre></div>
 </div>
@@ -363,7 +376,7 @@ static int rpmsg_sample_probe(struct rpmsg_channel *rpdev)
       dev_info(&amp;rpdev-&gt;dev, &quot;chnl: 0x%x -&gt; 0x%x\n&quot;, rpdev-&gt;src, rpdev-&gt;dst);
 
       /* send a message on our channel */
-      err = rpmsg_send(rpdev, &quot;hello!&quot;, 6);
+      err = rpmsg_send(rpdev-&gt;ept, &quot;hello!&quot;, 6);
       if (err) {
               pr_err(&quot;rpmsg_send failed: %d\n&quot;, err);
               return err;

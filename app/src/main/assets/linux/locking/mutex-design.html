@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -69,7 +72,22 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Locking in the kernel</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="locktypes.html">Lock types and their rules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="lockdep-design.html">Runtime locking correctness validator</a></li>
@@ -126,6 +144,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -136,7 +155,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -153,7 +174,21 @@
 
           <div class="body" role="main">
             
-  <section id="generic-mutex-subsystem">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../translations/zh_CN/locking/mutex-design.html">Chinese (Simplified)</a></li>
+
+</ul>
+</div>
+<section id="generic-mutex-subsystem">
 <h1>Generic Mutex Subsystem<a class="headerlink" href="#generic-mutex-subsystem" title="Permalink to this heading">¶</a></h1>
 <p>started by Ingo Molnar &lt;<a class="reference external" href="mailto:mingo&#37;&#52;&#48;redhat&#46;com">mingo<span>&#64;</span>redhat<span>&#46;</span>com</a>&gt;</p>
 <p>updated by Davidlohr Bueso &lt;<a class="reference external" href="mailto:davidlohr&#37;&#52;&#48;hp&#46;com">davidlohr<span>&#64;</span>hp<span>&#46;</span>com</a>&gt;</p>
@@ -248,6 +283,23 @@ list of all locks held in the system, printout of them.</p></li>
 locks and tasks (and only those tasks).</p></li>
 </ul>
 </div></blockquote>
+<p>Mutexes - and most other sleeping locks like rwsems - do not provide an
+implicit reference for the memory they occupy, which reference is released
+with <a class="reference internal" href="../kernel-hacking/locking.html#c.mutex_unlock" title="mutex_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">mutex_unlock()</span></code></a>.</p>
+<dl class="simple">
+<dt>[ This is in contrast with spin_unlock() [or completion_done()], which</dt><dd><p>APIs can be used to guarantee that the memory is not touched by the
+lock implementation after spin_unlock()/completion_done() releases
+the lock. ]</p>
+</dd>
+</dl>
+<p><a class="reference internal" href="../kernel-hacking/locking.html#c.mutex_unlock" title="mutex_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">mutex_unlock()</span></code></a> may access the mutex structure even after it has internally
+released the lock already - so it's not safe for another context to
+acquire the mutex and assume that the <a class="reference internal" href="../kernel-hacking/locking.html#c.mutex_unlock" title="mutex_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">mutex_unlock()</span></code></a> context is not using
+the structure anymore.</p>
+<p>The mutex user must ensure that the mutex is not destroyed while a
+release operation is still in progress - in other words, callers of
+<a class="reference internal" href="../kernel-hacking/locking.html#c.mutex_unlock" title="mutex_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">mutex_unlock()</span></code></a> must ensure that the mutex stays alive until <a class="reference internal" href="../kernel-hacking/locking.html#c.mutex_unlock" title="mutex_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">mutex_unlock()</span></code></a>
+has returned.</p>
 </section>
 <section id="interfaces">
 <h2>Interfaces<a class="headerlink" href="#interfaces" title="Permalink to this heading">¶</a></h2>

@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="linux-filesystems-api-summary">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="linux-filesystems-api-summary">
 <h1>Linux Filesystems API summary<a class="headerlink" href="#linux-filesystems-api-summary" title="Permalink to this heading">¶</a></h1>
 <p>This section contains API-level documentation, mostly taken from the source
 code itself.</p>
@@ -224,9 +235,9 @@ given page.</p>
     unsigned long           flags;
     struct rw_semaphore     i_mmap_rwsem;
     errseq_t wb_err;
-    spinlock_t private_lock;
-    struct list_head        private_list;
-    void *private_data;
+    spinlock_t i_private_lock;
+    struct list_head        i_private_list;
+    void *                  i_private_data;
 };
 </pre></div>
 </div>
@@ -261,11 +272,11 @@ memory mappings.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wb_err</span></code></dt><dd><p>The most recent error which has occurred.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">private_lock</span></code></dt><dd><p>For use by the owner of the address_space.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">i_private_lock</span></code></dt><dd><p>For use by the owner of the address_space.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">private_list</span></code></dt><dd><p>For use by the owner of the address_space.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">i_private_list</span></code></dt><dd><p>For use by the owner of the address_space.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">private_data</span></code></dt><dd><p>For use by the owner of the address_space.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">i_private_data</span></code></dt><dd><p>For use by the owner of the address_space.</p>
 </dd>
 </dl>
 </div>
@@ -505,6 +516,91 @@ the caller's fsuid and fsgid according to the <strong>idmap</strong> first.</p>
 <p>Set the ctime in <strong>inode</strong> to { <strong>sec</strong>, <strong>nsec</strong> }</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.__sb_write_started">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__sb_write_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">level</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__sb_write_started" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>check if sb freeze level is held</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">super_block</span> <span class="pre">*sb</span></code></dt><dd><p>the super we write to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">level</span></code></dt><dd><p>the freeze level</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<ul class="simple">
+<li><p>&gt; 0 - sb freeze level is held</p></li>
+<li><p>0 - sb freeze level is not held</p></li>
+<li><p>&lt; 0 - !CONFIG_LOCKDEP/LOCK_STATE_UNKNOWN</p></li>
+</ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.sb_write_started">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sb_write_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sb_write_started" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>check if SB_FREEZE_WRITE is held</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">super_block</span> <span class="pre">*sb</span></code></dt><dd><p>the super we write to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>May be false positive with !CONFIG_LOCKDEP/LOCK_STATE_UNKNOWN.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.sb_write_not_started">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sb_write_not_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sb_write_not_started" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>check if SB_FREEZE_WRITE is not held</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">super_block</span> <span class="pre">*sb</span></code></dt><dd><p>the super we write to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>May be false positive with !CONFIG_LOCKDEP/LOCK_STATE_UNKNOWN.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.file_write_started">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">file_write_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.file_write_started" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.file_write_started" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>check if SB_FREEZE_WRITE is held</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>the file we write to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>May be false positive with !CONFIG_LOCKDEP/LOCK_STATE_UNKNOWN.
+May be false positive with !S_ISREG, because <a class="reference internal" href="#c.file_start_write" title="file_start_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">file_start_write()</span></code></a> has
+no effect on !S_ISREG.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.file_write_not_started">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">file_write_not_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.file_write_not_started" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.file_write_not_started" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>check if SB_FREEZE_WRITE is not held</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>the file we write to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>May be false positive with !CONFIG_LOCKDEP/LOCK_STATE_UNKNOWN.
+May be false positive with !S_ISREG, because <a class="reference internal" href="#c.file_start_write" title="file_start_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">file_start_write()</span></code></a> has
+no effect on !S_ISREG.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.sb_end_write">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sb_end_write</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sb_end_write" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>drop write access to a superblock</p>
@@ -669,6 +765,31 @@ close, etc.).</p>
 </dd>
 </dl>
 </div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.freeze_holder">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">freeze_holder</span></span></span><a class="headerlink" href="#c.freeze_holder" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>holder of the freeze</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_KERNEL</span></code></dt><dd><p>kernel wants to freeze or thaw filesystem</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_USERSPACE</span></code></dt><dd><p>userspace wants to freeze or thaw filesystem</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">FREEZE_MAY_NEST</span></code></dt><dd><p>whether nesting freeze and thaw requests is allowed</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Indicate who the owner of the freeze or thaw request is and whether
+the freeze needs to be exclusive or can nest.
+Without <strong>FREEZE_MAY_NEST</strong>, multiple freeze and thaw requests from the
+same holder aren't allowed. It is however allowed to hold a single
+<strong>FREEZE_HOLDER_USERSPACE</strong> and a single <strong>FREEZE_HOLDER_KERNEL</strong> freeze at
+the same time. This is relied upon by some filesystems during online
+repair or similar.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.is_idmapped_mnt">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_idmapped_mnt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mnt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.is_idmapped_mnt" title="Permalink to this definition">¶</a><br /></dt>
@@ -1194,6 +1315,51 @@ Returns false otherwise.
 Caller must ensure that &quot;new_dentry&quot; is pinned before calling <a class="reference internal" href="#c.is_subdir" title="is_subdir"><code class="xref c c-func docutils literal notranslate"><span class="pre">is_subdir()</span></code></a></p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.dget_dlock">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dget_dlock" title="dentry"><span class="n"><span class="pre">dentry</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dget_dlock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dget_dlock" title="dentry"><span class="n"><span class="pre">dentry</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dentry</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dget_dlock" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>get a reference to a dentry</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dentry</span> <span class="pre">*dentry</span></code></dt><dd><p>dentry to get a reference to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Given a live dentry, increment the reference count and return the dentry.
+Caller must hold <strong>dentry-&gt;d_lock</strong>.  Making sure that dentry is alive is
+caller's resonsibility.  There are many conditions sufficient to guarantee
+that; e.g. anything with non-negative refcount is alive, so's anything
+hashed, anything positive, anyone's parent, etc.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dget">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dget" title="dentry"><span class="n"><span class="pre">dentry</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dget</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dget" title="dentry"><span class="n"><span class="pre">dentry</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dentry</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dget" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>get a reference to a dentry</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dentry</span> <span class="pre">*dentry</span></code></dt><dd><p>dentry to get a reference to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Given a dentry or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> pointer increment the reference count
+if appropriate and return the dentry.  A dentry will not be
+destroyed when it has references.  Conversely, a dentry with
+no references can disappear for any number of reasons, starting
+with memory pressure.  In other words, that primitive is
+used to clone an existing reference; using it on something with
+zero refcount is a bug.</p>
+<p><strong>NOTE</strong></p>
+<p>it will spin if <strong>dentry-&gt;d_lock</strong> is held.  From the deadlock
+avoidance point of view it is equivalent to spin_lock()/increment
+refcount/spin_unlock(), so calling it under <strong>dentry-&gt;d_lock</strong> is
+always a bug; so's calling it under -&gt;d_lock on any of its descendents.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.d_unhashed">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">d_unhashed</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.d_unhashed" title="dentry"><span class="n"><span class="pre">dentry</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dentry</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.d_unhashed" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>is dentry hashed</p>
@@ -1201,11 +1367,12 @@ Caller must ensure that &quot;new_dentry&quot; is pinned before calling <a class
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
-<dl>
+<dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">dentry</span> <span class="pre">*dentry</span></code></dt><dd><p>entry to check</p>
-<p>Returns true if the dentry passed is not currently hashed.</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>Returns true if the dentry passed is not currently hashed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.d_really_is_negative">
@@ -1300,24 +1467,6 @@ in their own dentries and ignore the layering superimposed upon them.</p>
 if this dentry were to be opened as a file.  The inode may be on the upper
 dentry or it may be on a lower dentry pinned by the upper.</p>
 <p>Normal filesystems should not use this to access their own inodes.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.d_backing_dentry">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dentry</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">d_backing_dentry</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dentry</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">upper</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.d_backing_dentry" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Get upper or lower dentry we should be using</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dentry</span> <span class="pre">*upper</span></code></dt><dd><p>The upper layer</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This is the helper that should be used to get the dentry of the inode that
-will be used if this dentry were opened as a file.  It may be the upper
-dentry or it may be a lower dentry pinned by the upper.</p>
-<p>Normal filesystems should not use this to access their own dentries.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.d_real">
@@ -2058,7 +2207,7 @@ inode owner uid mapped, or owns the file.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.inode_dio_wait">
@@ -2448,7 +2597,7 @@ used for mounting in <strong>fc-&gt;root</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.freeze_super">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">freeze_super</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">freeze_holder</span></span><span class="w"> </span><span class="n"><span class="pre">who</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.freeze_super" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">freeze_super</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.freeze_holder" title="freeze_holder"><span class="n"><span class="pre">freeze_holder</span></span></a><span class="w"> </span><span class="n"><span class="pre">who</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.freeze_super" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>lock the filesystem and force it into a consistent state</p>
 </dd></dl>
 
@@ -2466,12 +2615,19 @@ freeze_fs.  Subsequent calls to this without first thawing the fs may return
 -EBUSY.</p>
 <p><strong>who</strong> should be:
 * <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_USERSPACE</span></code> if userspace wants to freeze the fs;
-* <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_KERNEL</span></code> if the kernel wants to freeze the fs.</p>
+* <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_KERNEL</span></code> if the kernel wants to freeze the fs.
+* <code class="docutils literal notranslate"><span class="pre">FREEZE_MAY_NEST</span></code> whether nesting freeze and thaw requests is allowed.</p>
 <p>The <strong>who</strong> argument distinguishes between the kernel and userspace trying to
 freeze the filesystem.  Although there cannot be multiple kernel freezes or
 multiple userspace freezes in effect at any given time, the kernel and
 userspace can both hold a filesystem frozen.  The filesystem remains frozen
 until there are no kernel or userspace freezes in effect.</p>
+<p>A filesystem may hold multiple devices and thus a filesystems may be
+frozen through the block layer via multiple block devices. In this
+case the request is marked as being allowed to nest by passing
+FREEZE_MAY_NEST. The filesystem remains frozen until all block
+devices are unfrozen. If multiple freezes are attempted without
+FREEZE_MAY_NEST -EBUSY will be returned.</p>
 <p>During this function, sb-&gt;s_writers.frozen goes through these values:</p>
 <p>SB_UNFROZEN: File system is normal, all writes progress as usual.</p>
 <p>SB_FREEZE_WRITE: The file system is in the process of being frozen.  New
@@ -2491,10 +2647,15 @@ internal writers are finished we call -&gt;freeze_fs() to finish filesystem
 freezing. Then we transition to SB_FREEZE_COMPLETE state. This state is
 mostly auxiliary for filesystems to verify they do not modify frozen fs.</p>
 <p>sb-&gt;s_writers.frozen is protected by sb-&gt;s_umount.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>If the freeze was successful zero is returned. If the freeze</dt><dd><p>failed a negative error code is returned.</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.thaw_super">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">thaw_super</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">freeze_holder</span></span><span class="w"> </span><span class="n"><span class="pre">who</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.thaw_super" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">thaw_super</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">super_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.freeze_holder" title="freeze_holder"><span class="n"><span class="pre">freeze_holder</span></span></a><span class="w"> </span><span class="n"><span class="pre">who</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.thaw_super" title="Permalink to this definition">¶</a><br /></dt>
 <dd><ul class="simple">
 <li><p>unlock filesystem</p></li>
 </ul>
@@ -2513,7 +2674,11 @@ mostly auxiliary for filesystems to verify they do not modify frozen fs.</p>
 if there are no remaining freezes on the filesystem.</p>
 <p><strong>who</strong> should be:
 * <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_USERSPACE</span></code> if userspace wants to thaw the fs;
-* <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_KERNEL</span></code> if the kernel wants to thaw the fs.</p>
+* <code class="docutils literal notranslate"><span class="pre">FREEZE_HOLDER_KERNEL</span></code> if the kernel wants to thaw the fs.
+* <code class="docutils literal notranslate"><span class="pre">FREEZE_MAY_NEST</span></code> whether nesting freeze and thaw requests is allowed</p>
+<p>A filesystem may hold multiple devices and thus a filesystems may
+have been frozen through the block layer via multiple block devices.
+The filesystem remains frozen until all block devices are unfrozen.</p>
 </div>
 </section>
 <section id="file-locks">
@@ -3023,7 +3188,7 @@ It would then be called again in ref-walk mode.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.inode_permission">
@@ -3288,7 +3453,7 @@ i_mutex held, and will take the i_mutex itself if necessary.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kernel_tmpfile_open">
@@ -3341,7 +3506,7 @@ file tables or such.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_mkdir">
@@ -3367,7 +3532,7 @@ raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_rmdir">
@@ -3391,7 +3556,7 @@ raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_unlink">
@@ -3425,7 +3590,7 @@ to be NFS exported.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_symlink">
@@ -3451,7 +3616,7 @@ raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_link">
@@ -3487,7 +3652,7 @@ to be NFS exported.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then take
 care to map the inode according to <strong>idmap</strong> before checking permissions.
 On non-idmapped mounts or if permission checking is to be performed on the
-raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vfs_rename">
@@ -3519,11 +3684,12 @@ Problems:</p>
 <div><ol class="loweralpha simple">
 <li><p>we can get into loop creation.</p></li>
 <li><p>race potential - two innocent renames can create a loop together.
-That's where 4.4 screws up. Current fix: serialization on
+That's where 4.4BSD screws up. Current fix: serialization on
 sb-&gt;s_vfs_rename_mutex. We might be more accurate, but that's another
 story.</p></li>
-<li><p>we have to lock _four_ objects - parents and victim (if it exists),
-and source.
+<li><p>we may have to lock up to _four_ objects - parents and victim (if it exists),
+and source (if it's a non-directory or a subdirectory that moves to
+different parent).
 And that - after we got -&gt;i_mutex on parents (until then we don't know
 whether the target exists).  Solution: try to be smart with locking
 order for inodes.  We rely on the fact that tree topology may change
@@ -3595,7 +3761,7 @@ locking].</p></li>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Starts I/O against the buffers at mapping-&gt;private_list, and waits upon
+<p>Starts I/O against the buffers at mapping-&gt;i_private_list, and waits upon
 that I/O.</p>
 <p>Basically, this is a convenience function for fsync().
 <strong>mapping</strong> is a file or directory which needs those buffers to be written for
@@ -3665,7 +3831,7 @@ a device cache flush operation is called at the end.</p>
 its backing page dirty, then tag the page as dirty in the page cache
 and then attach the address_space's inode to its superblock's dirty
 inode list.</p>
-<p><a class="reference internal" href="#c.mark_buffer_dirty" title="mark_buffer_dirty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mark_buffer_dirty()</span></code></a> is atomic.  It takes bh-&gt;b_folio-&gt;mapping-&gt;private_lock,
+<p><a class="reference internal" href="#c.mark_buffer_dirty" title="mark_buffer_dirty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mark_buffer_dirty()</span></code></a> is atomic.  It takes bh-&gt;b_folio-&gt;mapping-&gt;i_private_lock,
 i_pages lock and mapping-&gt;host-&gt;i_lock.</p>
 </div>
 <dl class="c function">
@@ -4938,6 +5104,41 @@ hence saving memory and avoiding code duplication for the file/inode/dentry
 setup.  Returns the newly created file* or an error pointer.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.anon_inode_create_getfile">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">anon_inode_create_getfile</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file_operations</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fops</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">inode</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">context_inode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.anon_inode_create_getfile" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Like <a class="reference internal" href="#c.anon_inode_getfile" title="anon_inode_getfile"><code class="xref c c-func docutils literal notranslate"><span class="pre">anon_inode_getfile()</span></code></a>, but creates a new !S_PRIVATE anon inode rather than reuse the singleton anon inode and calls the inode_init_security_anon() LSM hook.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>[in]    name of the &quot;class&quot; of the new file</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">file_operations</span> <span class="pre">*fops</span></code></dt><dd><p>[in]    file operations for the new file</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*priv</span></code></dt><dd><p>[in]    private data for the new file (will be file's private_data)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>[in]    flags</p>
+</dd>
+</dl>
+<p><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*context_inode</span></code></p>
+<blockquote>
+<div><p>[in]    the logical relationship with the new inode (optional)</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>Create a new anonymous inode and file pair.  This can be done for two
+reasons:</p>
+<ul class="simple">
+<li><p>for the inode to have its own security context, so that LSMs can enforce
+policy on the inode's creation;</p></li>
+<li><p>if the caller needs a unique inode, for example in order to customize
+the size returned by fstat()</p></li>
+</ul>
+<p>The LSM may use <strong>context_inode</strong> in inode_init_security_anon(), but a
+reference to it is not held.</p>
+<p>Returns the newly created file* or an error pointer.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.anon_inode_getfd">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">anon_inode_getfd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file_operations</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fops</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.anon_inode_getfd" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>creates a new file instance by hooking it up to an anonymous inode and a dentry that describe the &quot;class&quot; of the file</p>
@@ -4962,32 +5163,6 @@ order to operate correctly.  All the files created with
 <a class="reference internal" href="#c.anon_inode_getfd" title="anon_inode_getfd"><code class="xref c c-func docutils literal notranslate"><span class="pre">anon_inode_getfd()</span></code></a> will use the same singleton inode, reducing
 memory use and avoiding code duplication for the file/inode/dentry
 setup.  Returns a newly created file descriptor or an error code.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.anon_inode_getfd_secure">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">anon_inode_getfd_secure</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file_operations</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fops</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">priv</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">inode</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">context_inode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.anon_inode_getfd_secure" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Like <a class="reference internal" href="#c.anon_inode_getfd" title="anon_inode_getfd"><code class="xref c c-func docutils literal notranslate"><span class="pre">anon_inode_getfd()</span></code></a>, but creates a new !S_PRIVATE anon inode rather than reuse the singleton anon inode, and calls the inode_init_security_anon() LSM hook. This allows the inode to have its own security context and for a LSM to reject creation of the inode.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>[in]    name of the &quot;class&quot; of the new file</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">file_operations</span> <span class="pre">*fops</span></code></dt><dd><p>[in]    file operations for the new file</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*priv</span></code></dt><dd><p>[in]    private data for the new file (will be file's private_data)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>[in]    flags</p>
-</dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*context_inode</span></code></p>
-<blockquote>
-<div><p>[in]    the logical relationship with the new inode (optional)</p>
-</div></blockquote>
-<p><strong>Description</strong></p>
-<p>The LSM may use <strong>context_inode</strong> in inode_init_security_anon(), but a
-reference to it is not held.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.setattr_should_drop_sgid">
@@ -5061,7 +5236,7 @@ and IMA extended attributes are cleared if ATTR_KILL_PRIV is set.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then
 take care to map the inode according to <strong>idmap</strong> before checking
 permissions. On non-idmapped mounts or if permission checking is to be
-performed on the raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+performed on the raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 <p>Should be called as the first thing in -&gt;setattr implementations,
 possibly after taking additional locks.</p>
 </div>
@@ -5699,7 +5874,7 @@ current time. Add a helper to do this.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then
 take care to map the inode according to <strong>idmap</strong> before checking
 permissions. On non-idmapped mounts or if permission checking is to be
-performed on the raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+performed on the raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.posix_acl_update_mode">
@@ -5729,7 +5904,7 @@ or capable of CAP_FSETID (see inode_change_ok).</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then
 take care to map the inode according to <strong>idmap</strong> before checking
 permissions. On non-idmapped mounts or if permission checking is to be
-performed on the raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+performed on the raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 <p>Called from set_acl inode operations.</p>
 </div>
 <dl class="c function">
@@ -5860,7 +6035,7 @@ operation is supplied.</p>
 the vfsmount must be passed through <strong>idmap</strong>. This function will then
 take care to map the inode according to <strong>idmap</strong> before filling in the
 uid and gid filds. On non-idmapped mounts or if permission checking is to be
-performed on the raw inode simply passs <strong>nop_mnt_idmap</strong>.</p>
+performed on the raw inode simply pass <strong>nop_mnt_idmap</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.generic_fill_statx_attr">
@@ -6662,9 +6837,9 @@ it just makes it very unlikely that any will persist.</p>
 <section id="events-based-on-file-descriptors">
 <h2>Events based on file descriptors<a class="headerlink" href="#events-based-on-file-descriptors" title="Permalink to this heading">¶</a></h2>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.eventfd_signal">
-<span class="n"><span class="pre">__u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">eventfd_signal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">eventfd_ctx</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="n"><span class="pre">__u64</span></span><span class="w"> </span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.eventfd_signal" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Adds <strong>n</strong> to the eventfd counter.</p>
+<dt class="sig sig-object c" id="c.eventfd_signal_mask">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">eventfd_signal_mask</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">eventfd_ctx</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="n"><span class="pre">__poll_t</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.eventfd_signal_mask" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Increment the event counter</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -6672,8 +6847,7 @@ it just makes it very unlikely that any will persist.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">eventfd_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>[in] Pointer to the eventfd context.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">__u64</span> <span class="pre">n</span></code></dt><dd><p>[in] Value of the counter to be added to the eventfd internal counter.
-The value cannot be negative.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">__poll_t</span> <span class="pre">mask</span></code></dt><dd><p>[in] poll mask</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -6681,8 +6855,6 @@ The value cannot be negative.</p>
 allow sleeping. In this function we allow the counter to reach the ULLONG_MAX
 value, and we signal this as overflow condition by returning a EPOLLERR
 to poll(2).</p>
-<p>Returns the amount by which the counter was incremented.  This will be less
-than <strong>n</strong> if the counter has overflowed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.eventfd_ctx_put">
@@ -7951,7 +8123,7 @@ set, it can be read from, and written to.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.debugfs_create_blob">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dentry</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">debugfs_create_blob</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">umode_t</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dentry</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">parent</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">debugfs_blob_wrapper</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">blob</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.debugfs_create_blob" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>create a debugfs file that is used to read a binary blob</p>
+<dd><p>create a debugfs file that is used to read and write a binary blob</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -7959,8 +8131,7 @@ set, it can be read from, and written to.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>a pointer to a string containing the name of the file to create.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">umode_t</span> <span class="pre">mode</span></code></dt><dd><p>the read permission that the file should have (other permissions are
-masked out)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">umode_t</span> <span class="pre">mode</span></code></dt><dd><p>the permission that the file should have</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dentry</span> <span class="pre">*parent</span></code></dt><dd><p>a pointer to the parent dentry for this file.  This should be a
 directory dentry if set.  If this parameter is <code class="docutils literal notranslate"><span class="pre">NULL</span></code>, then the
@@ -7973,7 +8144,7 @@ to the blob data and the size of the data.</p>
 <p><strong>Description</strong></p>
 <p>This function creates a file in debugfs with the given name that exports
 <strong>blob-&gt;data</strong> as a binary blob. If the <strong>mode</strong> variable is so set it can be
-read from. Writing is not supported.</p>
+read from and written to.</p>
 <p>This function will return a pointer to a dentry if it succeeds.  This
 pointer must be passed to the <a class="reference internal" href="#c.debugfs_remove" title="debugfs_remove"><code class="xref c c-func docutils literal notranslate"><span class="pre">debugfs_remove()</span></code></a> function when the file is
 to be removed (no automatic cleanup happens if your module is unloaded,

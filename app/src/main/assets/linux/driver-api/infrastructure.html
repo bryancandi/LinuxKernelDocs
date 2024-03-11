@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -143,10 +146,8 @@
 <li class="toctree-l2"><a class="reference internal" href="backlight/lp855x-driver.html">Kernel driver lp855x</a></li>
 <li class="toctree-l2"><a class="reference internal" href="connector.html">Kernel Connector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="console.html">Console Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html">Dell Systems Management Base Driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html">EISA bus support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="isa.html">ISA Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html">ISA Plug &amp; Play support by Jaroslav Kysela &lt;perex&#64;suse.cz&gt;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io-mapping.html">The io_mapping functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io_ordering.html">Ordering I/O writes to memory-mapped addresses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generic-counter.html">Generic Counter Interface</a></li>
@@ -178,9 +179,27 @@
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html">WBRF - Wifi Band RFI Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -210,6 +229,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -220,7 +240,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -237,7 +259,11 @@
 
           <div class="body" role="main">
             
-  <section id="device-drivers-infrastructure">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="device-drivers-infrastructure">
 <h1>Device drivers infrastructure<a class="headerlink" href="#device-drivers-infrastructure" title="Permalink to this heading">¶</a></h1>
 <section id="the-basic-device-driver-model-structures">
 <h2>The Basic Device Driver-Model Structures<a class="headerlink" href="#the-basic-device-driver-model-structures" title="Permalink to this heading">¶</a></h2>
@@ -251,7 +277,7 @@
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct subsys_interface {
     const char *name;
-    struct bus_type *subsys;
+    const struct bus_type *subsys;
     struct list_head node;
     int (*add_dev)(struct device *dev, struct subsys_interface *sif);
     void (*remove_dev)(struct device *dev, struct subsys_interface *sif);
@@ -1145,7 +1171,6 @@ from driver -&gt;remove().</p>
     int (*dma_configure)(struct device *dev);
     void (*dma_cleanup)(struct device *dev);
     const struct dev_pm_ops *pm;
-    const struct iommu_ops *iommu_ops;
     bool need_parent_lock;
 };
 </pre></div>
@@ -1206,10 +1231,6 @@ this bus.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pm</span></code></dt><dd><p>Power management operations of this bus, callback the specific
 device driver's pm-ops.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">iommu_ops</span></code></dt><dd><p>IOMMU specific operations for this bus, used to attach IOMMU
-driver implementations to a bus and allow the driver to do
-bus-specific setup</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">need_parent_lock</span></code></dt><dd><p>When probing or removing a device on this bus, the
 device core should lock the device's parent.</p>
@@ -2492,10 +2513,12 @@ return err;
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>return dev_err_probe(dev, err, ...);
 </pre></div>
 </div>
-<p>Note that it is deemed acceptable to use this function for error
-prints during probe even if the <strong>err</strong> is known to never be -EPROBE_DEFER.
+<p>Using this helper in your probe function is totally fine even if <strong>err</strong> is
+known to never be -EPROBE_DEFER.
 The benefit compared to a normal dev_err() is the standardized format
-of the error code and the fact that the error code is returned.</p>
+of the error code, it being emitted symbolically (i.e. you get &quot;EAGAIN&quot;
+instead of &quot;-35&quot;) and the fact that the error code is returned which allows
+more compact error paths.</p>
 <p>Returns <strong>err</strong>.</p>
 </div>
 <dl class="c function">
@@ -2941,7 +2964,7 @@ to determine if the specific class has been registered yet or not).</p>
     struct list_head        list_node;
     unsigned int            access;
 #ifdef CONFIG_HMEM_REPORTING;
-    struct node_hmem_attrs  hmem_attrs;
+    struct access_coordinate        coord;
 #endif;
 };
 </pre></div>
@@ -2954,13 +2977,13 @@ to determine if the specific class has been registered yet or not).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">access</span></code></dt><dd><p>The access class rank</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hmem_attrs</span></code></dt><dd><p>Heterogeneous memory performance attributes</p>
+<dt><code class="docutils literal notranslate"><span class="pre">coord</span></code></dt><dd><p>Heterogeneous memory performance coordinates</p>
 </dd>
 </dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.node_set_perf_attrs">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">node_set_perf_attrs</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nid</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">node_hmem_attrs</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hmem_attrs</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">access</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.node_set_perf_attrs" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">node_set_perf_attrs</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nid</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_coordinate</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">coord</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">access</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.node_set_perf_attrs" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set the performance values for given access class</p>
 </dd></dl>
 
@@ -2969,7 +2992,7 @@ to determine if the specific class has been registered yet or not).</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">nid</span></code></dt><dd><p>Node identifier to be set</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">node_hmem_attrs</span> <span class="pre">*hmem_attrs</span></code></dt><dd><p>Heterogeneous memory performance attributes</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">access_coordinate</span> <span class="pre">*coord</span></code></dt><dd><p>Heterogeneous memory performance coordinates</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">access</span></code></dt><dd><p>The access class the for the given attributes</p>
 </dd>
@@ -4247,14 +4270,14 @@ Finally, we call bus_put() to release the refcount</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.subsys_system_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_system_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_system_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_system_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_system_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a subsystem at /sys/devices/system/</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*subsys</span></code></dt><dd><p>system subsystem</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*subsys</span></code></dt><dd><p>system subsystem</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">attribute_group</span> <span class="pre">**groups</span></code></dt><dd><p>default attributes for the root device</p>
 </dd>
@@ -4274,14 +4297,14 @@ directory itself and not some create fake root-device placed in
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.subsys_virtual_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_virtual_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_virtual_register" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">subsys_virtual_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.bus_type" title="bus_type"><span class="n"><span class="pre">bus_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subsys</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">attribute_group</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">groups</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.subsys_virtual_register" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>register a subsystem at /sys/devices/virtual/</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*subsys</span></code></dt><dd><p>virtual subsystem</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">bus_type</span> <span class="pre">*subsys</span></code></dt><dd><p>virtual subsystem</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">attribute_group</span> <span class="pre">**groups</span></code></dt><dd><p>default attributes for the root device</p>
 </dd>

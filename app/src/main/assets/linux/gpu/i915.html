@@ -17,7 +17,7 @@
     <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="drm/mcde ST-Ericsson MCDE Multi-channel display engine" href="mcde.html" />
+    <link rel="next" title="drm/imagination PowerVR Graphics Driver" href="imagination/index.html" />
     <link rel="prev" title="AMDGPU Glossary" href="amdgpu/amdgpu-glossary.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -113,6 +116,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -123,7 +127,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -140,7 +146,11 @@
 
           <div class="body" role="main">
             
-  <section id="drm-i915-intel-gfx-driver">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="drm-i915-intel-gfx-driver">
 <h1>drm/i915 Intel GFX Driver<a class="headerlink" href="#drm-i915-intel-gfx-driver" title="Permalink to this heading">¶</a></h1>
 <p>The drm/i915 driver supports all (with the exception of some very early
 models) integrated GFX chipsets with both Intel display and rendering
@@ -735,7 +745,7 @@ seamlessly in a virtual machine.</p>
 <p>To virtualize GPU resources GVT-g driver depends on hypervisor technology
 e.g KVM/VFIO/mdev, Xen, etc. to provide resource access trapping capability
 and be virtualized within GVT-g device module. More architectural design
-doc is available on <a class="reference external" href="https://01.org/group/2230/documentation-list">https://01.org/group/2230/documentation-list</a>.</p>
+doc is available on <a class="reference external" href="https://github.com/intel/gvt-linux/wiki">https://github.com/intel/gvt-linux/wiki</a>.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.intel_gvt_init">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">intel_gvt_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_i915_private</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev_priv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.intel_gvt_init" title="Permalink to this definition">¶</a><br /></dt>
@@ -3190,6 +3200,7 @@ a struct <code class="xref c c-type docutils literal notranslate"><span class="p
     const char *name;
     const struct intel_shared_dpll_funcs *funcs;
     enum intel_dpll_id id;
+    enum intel_display_power_domain power_domain;
 #define INTEL_DPLL_ALWAYS_ON    (1 &lt;&lt; 0);
     u32 flags;
 };
@@ -3202,6 +3213,8 @@ a struct <code class="xref c c-type docutils literal notranslate"><span class="p
 <dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>platform specific hooks</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>unique indentifier for this DPLL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">power_domain</span></code></dt><dd><p>extra power domain required by the DPLL</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><dl class="simple">
 <dt>INTEL_DPLL_ALWAYS_ON</dt><dd><p>Inform the state checker that the DPLL is kept enabled even if
@@ -4318,6 +4331,7 @@ i915_gem_proto_engine::siblings.</p></li>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct i915_gem_proto_context {
+    struct drm_i915_file_private *fpriv;
     struct i915_address_space *vm;
     unsigned long user_flags;
     struct i915_sched_attr sched;
@@ -4332,6 +4346,8 @@ i915_gem_proto_engine::siblings.</p></li>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fpriv</span></code></dt><dd><p>Client which creates the context</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vm</span></code></dt><dd><p>See <a class="reference internal" href="#c.i915_gem_context" title="i915_gem_context"><code class="xref c c-type docutils literal notranslate"><span class="pre">i915_gem_context.vm</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">user_flags</span></code></dt><dd><p>See <a class="reference internal" href="#c.i915_gem_context" title="i915_gem_context"><code class="xref c c-type docutils literal notranslate"><span class="pre">i915_gem_context.user_flags</span></code></a></p>
@@ -4460,7 +4476,21 @@ CONTEXT_CREATE_SET_PARAM during GEM_CONTEXT_CREATE.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">file_priv</span></code></dt><dd><p>owning file descriptor</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">engines</span></code></dt><dd><p>list of stale engines</p>
+<dt><code class="docutils literal notranslate"><span class="pre">engines</span></code></dt><dd><p>User defined engines for this context</p>
+<p>Various uAPI offer the ability to lookup up an
+index from this array to select an engine operate on.</p>
+<p>Multiple logically distinct instances of the same engine
+may be defined in the array, as well as composite virtual
+engines.</p>
+<p>Execbuf uses the I915_EXEC_RING_MASK as an index into this
+array to select which HW context + engine to execute on. For
+the default array, the user_ring_map[] is used to translate
+the legacy uABI onto the approprate index (e.g. both
+I915_EXEC_DEFAULT and I915_EXEC_RENDER select the same
+context, and I915_EXEC_BSD is weird). For a use defined
+array, execbuf uses I915_EXEC_RING_MASK as a plain index.</p>
+<p>User defined by I915_CONTEXT_PARAM_ENGINE (when the
+CONTEXT_USER_ENGINES flag is set).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">engines_mutex</span></code></dt><dd><p>guards writes to engines</p>
 </dd>
@@ -5391,6 +5421,7 @@ performed via the mei_pxp component module.</p>
 #define PXP_TERMINATION_REQUEST  BIT(0);
 #define PXP_TERMINATION_COMPLETE BIT(1);
 #define PXP_INVAL_REQUIRED       BIT(2);
+#define PXP_EVENT_TYPE_IRQ       BIT(3);
 };
 </pre></div>
 </div>
@@ -5598,6 +5629,7 @@ just the HuC, but more are expected to land in the future).</p>
     unsigned long last_dead_guc_jiffies;
 #ifdef CONFIG_DRM_I915_SELFTEST;
     int number_guc_id_stolen;
+    u32 fast_response_selftest;
 #endif;
 };
 </pre></div>
@@ -5644,6 +5676,45 @@ which is used only when failed to allocate new waiter.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">submission_state</span></code></dt><dd><p>sub-structure for submission state protected by
 single lock</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.lock</span></code></dt><dd><p>protects everything in
+submission_state, ce-&gt;guc_id.id, and ce-&gt;guc_id.ref
+when transitioning in and out of zero</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.guc_ids</span></code></dt><dd><p>used to allocate new
+guc_ids, single-lrc</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.num_guc_ids</span></code></dt><dd><p>Number of guc_ids, selftest
+feature to be able to reduce this number while testing.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.guc_ids_bitmap</span></code></dt><dd><p>used to allocate
+new guc_ids, multi-lrc</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.guc_id_list</span></code></dt><dd><p>list of intel_context
+with valid guc_ids but no refs</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.guc_ids_in_use</span></code></dt><dd><p>Number single-lrc
+guc_ids in use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.destroyed_contexts</span></code></dt><dd><p>list of contexts
+waiting to be destroyed (deregistered with the GuC)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.destroyed_worker</span></code></dt><dd><p>worker to deregister
+contexts, need as we need to take a GT PM reference and
+can't from destroy function as it might be in an atomic
+context (no sleeping)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.reset_fail_worker</span></code></dt><dd><p>worker to trigger
+a GT reset after an engine reset fails</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.reset_fail_mask</span></code></dt><dd><p>mask of engines that
+failed to reset</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.sched_disable_delay_ms</span></code></dt><dd><p>schedule
+disable delay, in ms, for contexts</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submission_state.sched_disable_gucid_threshold</span></code></dt><dd><p>threshold of min remaining available guc_ids before
+we start bypassing the schedule disable delay</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">submission_supported</span></code></dt><dd><p>tracks whether we support GuC submission on
 the current platform</p>
@@ -5697,6 +5768,26 @@ channel is back up.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></dt><dd><p>GT timestamp object that stores a copy of the timestamp
 and adjusts it for overflow using a worker.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.lock</span></code></dt><dd><p>Lock protecting the below fields and
+the engine stats.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.gt_stamp</span></code></dt><dd><p>64-bit extended value of the GT
+timestamp.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.ping_delay</span></code></dt><dd><p>Period for polling the GT
+timestamp for overflow.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.work</span></code></dt><dd><p>Periodic work to adjust GT timestamp,
+engine and context usage for overflows.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.shift</span></code></dt><dd><p>Right shift value for the gpm timestamp</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timestamp.last_stat_jiffies</span></code></dt><dd><p>jiffies at last actual
+stats collection time. We use this timestamp to ensure
+we don't oversample the stats because runtime power
+management events can trigger stats collection at much
+higher rates than required.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dead_guc_worker</span></code></dt><dd><p>Asynchronous worker thread for forcing a GuC reset.
 Specifically used when the G2H handler wants to issue a reset. Resets
 require flushing the G2H queue. So, the G2H processing itself must not
@@ -5707,6 +5798,8 @@ used to prevent a fundamentally broken system from continuously
 reloading the GuC.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">number_guc_id_stolen</span></code></dt><dd><p>The number of guc_ids that have been stolen</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fast_response_selftest</span></code></dt><dd><p>Backdoor to CT handler for fast response selftest</p>
 </dd>
 </dl>
 </div>
@@ -7074,7 +7167,7 @@ for representing an i915 perf stream FD and associated file operations.</p>
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">perf</span></code></dt><dd><p>i915_perf backpointer</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">uncore</span></code></dt><dd><p>mmio access path</p>
@@ -7131,6 +7224,33 @@ sees data ready to read in the circular OA buffer.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">period_exponent</span></code></dt><dd><p>The OA unit sampling frequency is derived from this.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">oa_buffer</span></code></dt><dd><p>State of the OA buffer.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_buffer.ptr_lock</span></code></dt><dd><p>Locks reads and writes to all
+head/tail state</p>
+<p>Consider: the head and tail pointer state needs to be read
+consistently from a hrtimer callback (atomic context) and
+read() fop (user context) with tail pointer updates happening
+in atomic context and head updates in user context and the
+(unlikely) possibility of read() errors needing to reset all
+head/tail state.</p>
+<p>Note: Contention/performance aren't currently a significant
+concern here considering the relatively low frequency of
+hrtimer callbacks (5ms period) and that reads typically only
+happen in response to a hrtimer event and likely complete
+before the next callback.</p>
+<p>Note: This lock is not held <em>while</em> reading and copying data
+to userspace so the value of head observed in htrimer
+callbacks won't represent any partial consumption of data.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_buffer.head</span></code></dt><dd><p>Although we can always read back
+the head pointer register,
+we prefer to avoid trusting the HW state, just to avoid any
+risk that some hardware condition could * somehow bump the
+head pointer unpredictably and cause us to forward the wrong
+OA buffer data to userspace.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_buffer.tail</span></code></dt><dd><p>The last verified tail that can be
+read by userspace.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">noa_wait</span></code></dt><dd><p>A batch buffer doing a wait on the GPU for the NOA logic to be
 reprogrammed.</p>

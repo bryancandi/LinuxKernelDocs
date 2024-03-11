@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -172,6 +175,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pm/index.html">Power Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ras.html">Reliability, Availability and Serviceability</a></li>
@@ -203,6 +207,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -213,7 +218,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -230,7 +237,11 @@
 
           <div class="body" role="main">
             
-  <section id="zswap">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="zswap">
 <h1>zswap<a class="headerlink" href="#zswap" title="Permalink to this heading">¶</a></h1>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
@@ -369,6 +380,24 @@ attribute, e. g.:</p>
 </pre></div>
 </div>
 <p>Setting this parameter to 100 will disable the hysteresis.</p>
+<p>Some users cannot tolerate the swapping that comes with zswap store failures
+and zswap writebacks. Swapping can be disabled entirely (without disabling
+zswap itself) on a cgroup-basis as follows:</p>
+<blockquote>
+<div><p>echo 0 &gt; /sys/fs/cgroup/&lt;cgroup-name&gt;/memory.zswap.writeback</p>
+</div></blockquote>
+<p>Note that if the store failures are recurring (for e.g if the pages are
+incompressible), users can observe reclaim inefficiency after disabling
+writeback (because the same pages might be rejected again and again).</p>
+<p>When there is a sizable amount of cold memory residing in the zswap pool, it
+can be advantageous to proactively write these cold pages to swap and reclaim
+the memory for other use cases. By default, the zswap shrinker is disabled.
+User can enable it as follows:</p>
+<blockquote>
+<div><p>echo Y &gt; /sys/module/zswap/parameters/shrinker_enabled</p>
+</div></blockquote>
+<p>This can be enabled at the boot time if <code class="docutils literal notranslate"><span class="pre">CONFIG_ZSWAP_SHRINKER_DEFAULT_ON</span></code> is
+selected.</p>
 <p>A debugfs interface is provided for various statistic about pool size, number
 of pages stored, same-value filled pages and various counters for the reasons
 pages are rejected.</p>

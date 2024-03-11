@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -108,6 +111,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../ktap.html">The Kernel Test Anything Protocol (KTAP), version 1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../checkuapi.html">UAPI Checker</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../testing-overview.html">Kernel Testing Guide</a></li>
@@ -133,6 +137,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -143,7 +148,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -160,7 +167,11 @@
 
           <div class="body" role="main">
             
-  <section id="writing-tests">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="writing-tests">
 <h1>Writing Tests<a class="headerlink" href="#writing-tests" title="Permalink to this heading">¶</a></h1>
 <section id="test-cases">
 <h2>Test Cases<a class="headerlink" href="#test-cases" title="Permalink to this heading">¶</a></h2>
@@ -673,13 +684,9 @@ support for it.</p>
 <span class="w">        </span><span class="p">},</span>
 <span class="p">};</span>
 
-<span class="c1">// Need a helper function to generate a name for each test case.</span>
-<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">case_to_desc</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">sha1_test_case</span><span class="w"> </span><span class="o">*</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">desc</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="w">        </span><span class="n">strcpy</span><span class="p">(</span><span class="n">desc</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="o">-&gt;</span><span class="n">str</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="c1">// Creates `sha1_gen_params()` to iterate over `cases`.</span>
-<span class="n">KUNIT_ARRAY_PARAM</span><span class="p">(</span><span class="n">sha1</span><span class="p">,</span><span class="w"> </span><span class="n">cases</span><span class="p">,</span><span class="w"> </span><span class="n">case_to_desc</span><span class="p">);</span>
+<span class="c1">// Creates `sha1_gen_params()` to iterate over `cases` while using</span>
+<span class="c1">// the struct member `str` for the case description.</span>
+<span class="n">KUNIT_ARRAY_PARAM_DESC</span><span class="p">(</span><span class="n">sha1</span><span class="p">,</span><span class="w"> </span><span class="n">cases</span><span class="p">,</span><span class="w"> </span><span class="n">str</span><span class="p">);</span>
 
 <span class="c1">// Looks no different from a normal test.</span>
 <span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">sha1_test</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit</span><span class="w"> </span><span class="o">*</span><span class="n">test</span><span class="p">)</span>
@@ -695,7 +702,7 @@ support for it.</p>
 <span class="p">}</span>
 
 <span class="c1">// Instead of KUNIT_CASE, we use KUNIT_CASE_PARAM and pass in the</span>
-<span class="c1">// function declared by KUNIT_ARRAY_PARAM.</span>
+<span class="c1">// function declared by KUNIT_ARRAY_PARAM or KUNIT_ARRAY_PARAM_DESC.</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit_case</span><span class="w"> </span><span class="n">sha1_test_cases</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">KUNIT_CASE_PARAM</span><span class="p">(</span><span class="n">sha1_test</span><span class="p">,</span><span class="w"> </span><span class="n">sha1_gen_params</span><span class="p">),</span>
 <span class="w">        </span><span class="p">{}</span>
@@ -752,11 +759,14 @@ files or other resources, or freeing resources.</p>
 </pre></div>
 </div>
 <p>Note that, for functions like device_unregister which only accept a single
-pointer-sized argument, it's possible to directly cast that function to
-a <code class="docutils literal notranslate"><span class="pre">kunit_action_t</span></code> rather than writing a wrapper function, for example:</p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="n">kunit_add_action</span><span class="p">(</span><span class="n">test</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="n">kunit_action_t</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">device_unregister</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dev</span><span class="p">);</span>
+pointer-sized argument, it's possible to automatically generate a wrapper
+with the <code class="docutils literal notranslate"><span class="pre">KUNIT_DEFINE_ACTION_WRAPPER()</span></code> macro, for example:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="n">KUNIT_DEFINE_ACTION_WRAPPER</span><span class="p">(</span><span class="n">device_unregister</span><span class="p">,</span><span class="w"> </span><span class="n">device_unregister_wrapper</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="p">);</span>
+<span class="n">kunit_add_action</span><span class="p">(</span><span class="n">test</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device_unregister_wrapper</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dev</span><span class="p">);</span>
 </pre></div>
 </div>
+<p>You should do this in preference to manually casting to the <code class="docutils literal notranslate"><span class="pre">kunit_action_t</span></code> type,
+as casting function pointers will break Control Flow Integrity (CFI).</p>
 <p><code class="docutils literal notranslate"><span class="pre">kunit_add_action</span></code> can fail if, for example, the system is out of memory.
 You can use <code class="docutils literal notranslate"><span class="pre">kunit_add_action_or_reset</span></code> instead which runs the action
 immediately if it cannot be deferred.</p>
@@ -767,8 +777,21 @@ with <code class="docutils literal notranslate"><span class="pre">kunit_remove_a
 <section id="testing-static-functions">
 <h2>Testing Static Functions<a class="headerlink" href="#testing-static-functions" title="Permalink to this heading">¶</a></h2>
 <p>If we do not want to expose functions or variables for testing, one option is to
-conditionally <code class="docutils literal notranslate"><span class="pre">#include</span></code> the test file at the end of your .c file. For
-example:</p>
+conditionally export the used symbol. For example:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In my_file.c */</span>
+
+<span class="n">VISIBLE_IF_KUNIT</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">do_interesting_thing</span><span class="p">();</span>
+<span class="n">EXPORT_SYMBOL_IF_KUNIT</span><span class="p">(</span><span class="n">do_interesting_thing</span><span class="p">);</span>
+
+<span class="cm">/* In my_file.h */</span>
+
+<span class="cp">#if IS_ENABLED(CONFIG_KUNIT)</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="nf">do_interesting_thing</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="cp">#endif</span>
+</pre></div>
+</div>
+<p>Alternatively, you could conditionally <code class="docutils literal notranslate"><span class="pre">#include</span></code> the test file at the end of
+your .c file. For example:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In my_file.c */</span>
 
 <span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">do_interesting_thing</span><span class="p">();</span>
@@ -876,6 +899,49 @@ structures as shown below:</p>
 KUnit is not enabled, or if no test is running in the current task, it will do
 nothing. This compiles down to either a no-op or a static key check, so will
 have a negligible performance impact when no test is running.</p>
+</section>
+<section id="managing-fake-devices-and-drivers">
+<h2>Managing Fake Devices and Drivers<a class="headerlink" href="#managing-fake-devices-and-drivers" title="Permalink to this heading">¶</a></h2>
+<p>When testing drivers or code which interacts with drivers, many functions will
+require a <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code>. In many cases, setting
+up a real device is not required to test any given function, so a fake device
+can be used instead.</p>
+<p>KUnit provides helper functions to create and manage these fake devices, which
+are internally of type <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kunit_device</span></code>, and are attached to a special
+<code class="docutils literal notranslate"><span class="pre">kunit_bus</span></code>. These devices support managed device resources (devres), as
+described in <a class="reference internal" href="../../driver-api/driver-model/devres.html"><span class="doc">Devres - Managed Device Resource</span></a></p>
+<p>To create a KUnit-managed <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code>, use <code class="docutils literal notranslate"><span class="pre">kunit_driver_create()</span></code>,
+which will create a driver with the given name, on the <code class="docutils literal notranslate"><span class="pre">kunit_bus</span></code>. This driver
+will automatically be destroyed when the corresponding test finishes, but can also
+be manually destroyed with <code class="docutils literal notranslate"><span class="pre">driver_unregister()</span></code>.</p>
+<p>To create a fake device, use the <code class="docutils literal notranslate"><span class="pre">kunit_device_register()</span></code>, which will create
+and register a device, using a new KUnit-managed driver created with <code class="docutils literal notranslate"><span class="pre">kunit_driver_create()</span></code>.
+To provide a specific, non-KUnit-managed driver, use <code class="docutils literal notranslate"><span class="pre">kunit_device_register_with_driver()</span></code>
+instead. Like with managed drivers, KUnit-managed fake devices are automatically
+cleaned up when the test finishes, but can be manually cleaned up early with
+<code class="docutils literal notranslate"><span class="pre">kunit_device_unregister()</span></code>.</p>
+<p>The KUnit devices should be used in preference to <code class="docutils literal notranslate"><span class="pre">root_device_register()</span></code>, and
+instead of <code class="docutils literal notranslate"><span class="pre">platform_device_register()</span></code> in cases where the device is not otherwise
+a platform device.</p>
+<p>For example:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;kunit/device.h&gt;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">test_my_device</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">kunit</span><span class="w"> </span><span class="o">*</span><span class="n">test</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="k">struct</span><span class="w"> </span><span class="nc">device</span><span class="w"> </span><span class="o">*</span><span class="n">fake_device</span><span class="p">;</span>
+<span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">dev_managed_string</span><span class="p">;</span>
+
+<span class="w">        </span><span class="c1">// Create a fake device.</span>
+<span class="w">        </span><span class="n">fake_device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kunit_device_register</span><span class="p">(</span><span class="n">test</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;my_device&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">KUNIT_ASSERT_NOT_ERR_OR_NULL</span><span class="p">(</span><span class="n">test</span><span class="p">,</span><span class="w"> </span><span class="n">fake_device</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">// Pass it to functions which need a device.</span>
+<span class="w">        </span><span class="n">dev_managed_string</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">devm_kstrdup</span><span class="p">(</span><span class="n">fake_device</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Hello, World!&quot;</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// Everything is cleaned up automatically when the test ends.</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 

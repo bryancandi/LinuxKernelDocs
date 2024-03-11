@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <p>Written by: Neil Brown
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<p>Written by: Neil Brown
 Please see MAINTAINERS file for where to send questions.</p>
 <section id="overlay-filesystem">
 <h1>Overlay Filesystem<a class="headerlink" href="#overlay-filesystem" title="Permalink to this heading">¶</a></h1>
@@ -190,7 +201,7 @@ objects in the original filesystem.</p>
 <p>On 64bit systems, even if all overlay layers are not on the same
 underlying filesystem, the same compliant behavior could be achieved
 with the &quot;xino&quot; feature.  The &quot;xino&quot; feature composes a unique object
-identifier from the real object st_ino and an underlying fsid index.
+identifier from the real object st_ino and an underlying fsid number.
 The &quot;xino&quot; feature uses the high inode number bits for fsid, because the
 underlying filesystems rarely use the high inode number bits.  In case
 the underlying inode number does overflow into the high xino bits, overlay
@@ -311,9 +322,10 @@ object.</p>
 is formed.</p>
 <p>At mount time, the two directories given as mount options &quot;lowerdir&quot; and
 &quot;upperdir&quot; are combined into a merged directory:</p>
-<blockquote>
-<div><p>mount -t overlay overlay -olowerdir=/lower,upperdir=/upper,workdir=/work /merged</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t overlay overlay -olowerdir=/lower,upperdir=/upper,\
+workdir=/work /merged
+</pre></div>
+</div>
 <p>The &quot;workdir&quot; needs to be an empty directory on the same filesystem
 as upperdir.</p>
 <p>Then whenever a lookup is requested in such a merged directory, the
@@ -332,13 +344,20 @@ directory only.  These attributes of the lower directory are hidden.</p>
 filesystem, an overlay filesystem needs to record in the upper filesystem
 that files have been removed.  This is done using whiteouts and opaque
 directories (non-directories are always opaque).</p>
-<p>A whiteout is created as a character device with 0/0 device number.
-When a whiteout is found in the upper level of a merged directory, any
+<p>A whiteout is created as a character device with 0/0 device number or
+as a zero-size regular file with the xattr &quot;trusted.overlay.whiteout&quot;.</p>
+<p>When a whiteout is found in the upper level of a merged directory, any
 matching name in the lower level is ignored, and the whiteout itself
 is also hidden.</p>
 <p>A directory is made opaque by setting the xattr &quot;trusted.overlay.opaque&quot;
 to &quot;y&quot;.  Where the upper filesystem contains an opaque directory, any
 directory in the lower filesystem with the same name is ignored.</p>
+<p>An opaque directory should not conntain any whiteouts, because they do not
+serve any purpose.  A merge directory containing regular files with the xattr
+&quot;trusted.overlay.whiteout&quot;, should be additionally marked by setting the xattr
+&quot;trusted.overlay.opaque&quot; to &quot;x&quot; on the merge directory itself.
+This is needed to avoid the overhead of checking the &quot;trusted.overlay.whiteout&quot;
+on all entries during readdir in the common case.</p>
 </section>
 <section id="readdir">
 <h2>readdir<a class="headerlink" href="#readdir" title="Permalink to this heading">¶</a></h2>
@@ -355,7 +374,7 @@ discarded and rebuilt.</p>
 directory is being read.  This is unlikely to be noticed by many
 programs.</p>
 <p>seek offsets are assigned sequentially when the directories are read.
-Thus if</p>
+Thus if:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>read part of a directory</p></li>
@@ -488,11 +507,11 @@ rename or unlink will of course be noticed and handled).</p>
 <div><ol class="arabic simple">
 <li><p>permission check SHOULD return the same result before and after copy up</p></li>
 <li><p>task creating the overlay mount MUST NOT gain additional privileges</p></li>
+<li><p>non-mounting task MAY gain additional privileges through the overlay,
+compared to direct access on underlying lower or upper filesystems</p></li>
 </ol>
-<p>3) non-mounting task MAY gain additional privileges through the overlay,
-compared to direct access on underlying lower or upper filesystems</p>
 </div></blockquote>
-<p>This is achieved by performing two permission checks on each access</p>
+<p>This is achieved by performing two permission checks on each access:</p>
 <blockquote>
 <div><ol class="loweralpha simple">
 <li><p>check if current task is allowed access based on local DAC (owner,
@@ -510,15 +529,15 @@ the mounting task does not have (2).  This also means that it is possible
 to create setups where the consistency rule (1) does not hold; normally,
 however, the mounting task will have sufficient privileges to perform all
 operations.</p>
-<p>Another way to demonstrate this model is drawing parallels between</p>
-<blockquote>
-<div><p>mount -t overlay overlay -olowerdir=/lower,upperdir=/upper,... /merged</p>
-</div></blockquote>
-<p>and</p>
-<blockquote>
-<div><p>cp -a /lower /upper
-mount --bind /upper /merged</p>
-</div></blockquote>
+<p>Another way to demonstrate this model is drawing parallels between:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t overlay overlay -olowerdir=/lower,upperdir=/upper,... /merged
+</pre></div>
+</div>
+<p>and:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cp -a /lower /upper
+mount --bind /upper /merged
+</pre></div>
+</div>
 <p>The resulting access permissions should be the same.  The difference is in
 the time of copy (on-demand vs. up-front).</p>
 </section>
@@ -526,9 +545,9 @@ the time of copy (on-demand vs. up-front).</p>
 <h2>Multiple lower layers<a class="headerlink" href="#multiple-lower-layers" title="Permalink to this heading">¶</a></h2>
 <p>Multiple lower layers can now be given using the colon (&quot;:&quot;) as a
 separator character between the directory names.  For example:</p>
-<blockquote>
-<div><p>mount -t overlay overlay -olowerdir=/lower1:/lower2:/lower3 /merged</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t overlay overlay -olowerdir=/lower1:/lower2:/lower3 /merged
+</pre></div>
+</div>
 <p>As the example shows, &quot;upperdir=&quot; and &quot;workdir=&quot; may be omitted.  In
 that case the overlay will be read-only.</p>
 <p>The specified lower directories will be stacked beginning from the
@@ -536,21 +555,21 @@ rightmost one and going left.  In the above example lower1 will be the
 top, lower2 the middle and lower3 the bottom layer.</p>
 <p>Note: directory names containing colons can be provided as lower layer by
 escaping the colons with a single backslash.  For example:</p>
-<blockquote>
-<div><p>mount -t overlay overlay -olowerdir=/a:lower::dir /merged</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t overlay overlay -olowerdir=/a\:lower\:\:dir /merged
+</pre></div>
+</div>
 <p>Since kernel version v6.8, directory names containing colons can also
 be configured as lower layer using the &quot;lowerdir+&quot; mount options and the
 fsconfig syscall from new mount api.  For example:</p>
-<blockquote>
-<div><p>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/a:lower::dir&quot;, 0);</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/a:lower::dir&quot;, 0);
+</pre></div>
+</div>
 <p>In the latter case, colons in lower layer directory names will be escaped
 as an octal characters (072) when displayed in /proc/self/mountinfo.</p>
 </section>
 <section id="metadata-only-copy-up">
 <h2>Metadata only copy up<a class="headerlink" href="#metadata-only-copy-up" title="Permalink to this heading">¶</a></h2>
-<p>When metadata only copy up feature is enabled, overlayfs will only copy
+<p>When the &quot;metacopy&quot; feature is enabled, overlayfs will only copy
 up metadata (as opposed to whole file), when a metadata specific operation
 like chown/chmod is performed. Full file will be copied up later when
 file is opened for WRITE operation.</p>
@@ -590,9 +609,9 @@ as &quot;data-only&quot; lower layers, using double colon (&quot;::&quot;) separ
 A normal lower layer is not allowed to be below a data-only layer, so single
 colon separators are not allowed to the right of double colon (&quot;::&quot;) separators.</p>
 <p>For example:</p>
-<blockquote>
-<div><p>mount -t overlay overlay -olowerdir=/l1:/l2:/l3::/do1::/do2 /merged</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>mount -t overlay overlay -olowerdir=/l1:/l2:/l3::/do1::/do2 /merged
+</pre></div>
+</div>
 <p>The paths of files in the &quot;data-only&quot; lower layers are not visible in the
 merged overlayfs directories and the metadata and st_ino/st_dev of files
 in the &quot;data-only&quot; lower layers are not visible in overlayfs inodes.</p>
@@ -602,13 +621,13 @@ to the absolute path of the &quot;lower data&quot; file in the &quot;data-only&q
 <p>Since kernel version v6.8, &quot;data-only&quot; lower layers can also be added using
 the &quot;datadir+&quot; mount options and the fsconfig syscall from new mount api.
 For example:</p>
-<blockquote>
-<div><p>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l1&quot;, 0);
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l1&quot;, 0);
 fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l2&quot;, 0);
 fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;lowerdir+&quot;, &quot;/l3&quot;, 0);
 fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;datadir+&quot;, &quot;/do1&quot;, 0);
-fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;datadir+&quot;, &quot;/do2&quot;, 0);</p>
-</div></blockquote>
+fsconfig(fs_fd, FSCONFIG_SET_STRING, &quot;datadir+&quot;, &quot;/do2&quot;, 0);
+</pre></div>
+</div>
 </section>
 <section id="fs-verity-support">
 <h2>fs-verity support<a class="headerlink" href="#fs-verity-support" title="Permalink to this heading">¶</a></h2>
@@ -676,24 +695,24 @@ upper layer and/or workdir path the behavior of the overlay is undefined,
 though it will not result in a crash or deadlock.</p>
 <p>Mounting an overlay using an upper layer path, where the upper layer path
 was previously used by another mounted overlay in combination with a
-different lower layer path, is allowed, unless the &quot;inodes index&quot; feature
-or &quot;metadata only copy up&quot; feature is enabled.</p>
-<p>With the &quot;inodes index&quot; feature, on the first time mount, an NFS file
+different lower layer path, is allowed, unless the &quot;index&quot; or &quot;metacopy&quot;
+features are enabled.</p>
+<p>With the &quot;index&quot; feature, on the first time mount, an NFS file
 handle of the lower layer root directory, along with the UUID of the lower
 filesystem, are encoded and stored in the &quot;trusted.overlay.origin&quot; extended
 attribute on the upper layer root directory.  On subsequent mount attempts,
 the lower root directory file handle and lower filesystem UUID are compared
 to the stored origin in upper root directory.  On failure to verify the
 lower root origin, mount will fail with ESTALE.  An overlayfs mount with
-&quot;inodes index&quot; enabled will fail with EOPNOTSUPP if the lower filesystem
+&quot;index&quot; enabled will fail with EOPNOTSUPP if the lower filesystem
 does not support NFS export, lower filesystem does not have a valid UUID or
 if the upper filesystem does not support extended attributes.</p>
-<p>For &quot;metadata only copy up&quot; feature there is no verification mechanism at
+<p>For the &quot;metacopy&quot; feature, there is no verification mechanism at
 mount time. So if same upper is mounted with different set of lower, mount
 probably will succeed but expect the unexpected later on. So don't do it.</p>
 <p>It is quite a common practice to copy overlay layers to a different
 directory tree on the same or different underlying filesystem, and even
-to a different machine.  With the &quot;inodes index&quot; feature, trying to mount
+to a different machine.  With the &quot;index&quot; feature, trying to mount
 the copied layers will fail the verification of the lower root file handle.</p>
 </section>
 <section id="nesting-overlayfs-mounts">
@@ -712,8 +731,9 @@ repeating the prefix multiple time, as each instance only removes one prefix.</p
 mount, so to support storing an effective whiteout file in an overlayfs mount an
 alternative form of whiteout is supported. This form is a regular, zero-size
 file with the &quot;overlay.whiteout&quot; xattr set, inside a directory with the
-&quot;overlay.whiteouts&quot; xattr set. Such whiteouts are never created by overlayfs,
-but can be used by userspace tools (like containers) that generate lower layers.
+&quot;overlay.opaque&quot; xattr set to &quot;x&quot; (see <a class="reference internal" href="#whiteouts-and-opaque-directories">whiteouts and opaque directories</a>).
+These alternative whiteouts are never created by overlayfs, but can be used by
+userspace tools (like containers) that generate lower layers.
 These alternative whiteouts can be escaped using the standard xattr escape
 mechanism in order to properly nest to any depth.</p>
 </section>
@@ -722,33 +742,36 @@ mechanism in order to properly nest to any depth.</p>
 <p>Current version of overlayfs can act as a mostly POSIX compliant
 filesystem.</p>
 <p>This is the list of cases that overlayfs doesn't currently handle:</p>
-<p>a) POSIX mandates updating st_atime for reads.  This is currently not
-done in the case when the file resides on a lower layer.</p>
-<p>b) If a file residing on a lower layer is opened for read-only and then
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>POSIX mandates updating st_atime for reads.  This is currently not
+done in the case when the file resides on a lower layer.</p></li>
+<li><p>If a file residing on a lower layer is opened for read-only and then
 memory mapped with MAP_SHARED, then subsequent changes to the file are not
-reflected in the memory mapping.</p>
-<p>c) If a file residing on a lower layer is being executed, then opening that
-file for write or truncating the file will not be denied with ETXTBSY.</p>
+reflected in the memory mapping.</p></li>
+<li><p>If a file residing on a lower layer is being executed, then opening that
+file for write or truncating the file will not be denied with ETXTBSY.</p></li>
+</ol>
+</div></blockquote>
 <p>The following options allow overlayfs to act more like a standards
 compliant filesystem:</p>
-<ol class="arabic simple">
-<li><p>&quot;redirect_dir&quot;</p></li>
-</ol>
+<section id="redirect-dir">
+<h3>redirect_dir<a class="headerlink" href="#redirect-dir" title="Permalink to this heading">¶</a></h3>
 <p>Enabled with the mount option or module option: &quot;redirect_dir=on&quot; or with
 the kernel config option CONFIG_OVERLAY_FS_REDIRECT_DIR=y.</p>
 <p>If this feature is disabled, then rename(2) on a lower or merged directory
 will fail with EXDEV (&quot;Invalid cross-device link&quot;).</p>
-<ol class="arabic simple" start="2">
-<li><p>&quot;inode index&quot;</p></li>
-</ol>
+</section>
+<section id="index">
+<h3>index<a class="headerlink" href="#index" title="Permalink to this heading">¶</a></h3>
 <p>Enabled with the mount option or module option &quot;index=on&quot; or with the
 kernel config option CONFIG_OVERLAY_FS_INDEX=y.</p>
 <p>If this feature is disabled and a file with multiple hard links is copied
 up, then this will &quot;break&quot; the link.  Changes will not be propagated to
 other names referring to the same inode.</p>
-<ol class="arabic simple" start="3">
-<li><p>&quot;xino&quot;</p></li>
-</ol>
+</section>
+<section id="xino">
+<h3>xino<a class="headerlink" href="#xino" title="Permalink to this heading">¶</a></h3>
 <p>Enabled with the mount option &quot;xino=auto&quot; or &quot;xino=on&quot;, with the module
 option &quot;xino_auto=on&quot; or with the kernel config option
 CONFIG_OVERLAY_FS_XINO_AUTO=y.  Also implicitly enabled by using the same
@@ -762,6 +785,7 @@ overlay filesystem and the value of st_ino for filesystem objects may not be
 persistent and could change even while the overlay filesystem is mounted, as
 summarized in the <a class="reference internal" href="#inode-properties">Inode properties</a> table above.</p>
 </section>
+</section>
 <section id="changes-to-underlying-filesystems">
 <h2>Changes to underlying filesystems<a class="headerlink" href="#changes-to-underlying-filesystems" title="Permalink to this heading">¶</a></h2>
 <p>Changes to the underlying filesystems while part of a mounted overlay
@@ -770,7 +794,7 @@ the behavior of the overlay is undefined, though it will not result in
 a crash or deadlock.</p>
 <p>Offline changes, when the overlay is not mounted, are allowed to the
 upper tree.  Offline changes to the lower tree are only allowed if the
-&quot;metadata only copy up&quot;, &quot;inode index&quot;, &quot;xino&quot; and &quot;redirect_dir&quot; features
+&quot;metacopy&quot;, &quot;index&quot;, &quot;xino&quot; and &quot;redirect_dir&quot; features
 have not been used.  If the lower tree is modified and any of these
 features has been used, the behavior of the overlay is undefined,
 though it will not result in a crash or deadlock.</p>
@@ -801,24 +825,27 @@ For a directory object, the index entry has an extended attribute
 directory inode.</p>
 <p>When encoding a file handle from an overlay filesystem object, the
 following rules apply:</p>
-<ol class="arabic simple">
+<blockquote>
+<div><ol class="arabic simple">
 <li><p>For a non-upper object, encode a lower file handle from lower inode</p></li>
 <li><p>For an indexed object, encode a lower file handle from copy_up origin</p></li>
 <li><p>For a pure-upper object and for an existing non-indexed upper object,
 encode an upper file handle from upper inode</p></li>
 </ol>
-<dl class="simple">
-<dt>The encoded overlay file handle includes:</dt><dd><ul class="simple">
+</div></blockquote>
+<p>The encoded overlay file handle includes:</p>
+<blockquote>
+<div><ul class="simple">
 <li><p>Header including path type information (e.g. lower/upper)</p></li>
 <li><p>UUID of the underlying filesystem</p></li>
 <li><p>Underlying filesystem encoding of underlying inode</p></li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 <p>This encoding format is identical to the encoding format file handles that
 are stored in extended attribute &quot;trusted.overlay.origin&quot;.</p>
 <p>When decoding an overlay file handle, the following steps are followed:</p>
-<ol class="arabic simple">
+<blockquote>
+<div><ol class="arabic simple">
 <li><p>Find underlying layer by UUID and path type information.</p></li>
 <li><p>Decode the underlying filesystem file handle to underlying dentry.</p></li>
 <li><p>For a lower file handle, lookup the handle in index directory by name.</p></li>
@@ -829,6 +856,7 @@ decoded underlying dentry, the path type and index inode, if found.</p></li>
 <li><p>For a directory, use the connected underlying decoded dentry, path type
 and index, to lookup a connected overlay dentry.</p></li>
 </ol>
+</div></blockquote>
 <p>Decoding a non-directory file handle may return a disconnected dentry.
 copy_up of that disconnected dentry will create an upper index entry with
 no upper alias.</p>
@@ -926,14 +954,12 @@ useful for unprivileged mounting of overlayfs.</p>
 <h2>Testsuite<a class="headerlink" href="#testsuite" title="Permalink to this heading">¶</a></h2>
 <p>There's a testsuite originally developed by David Howells and currently
 maintained by Amir Goldstein at:</p>
-<blockquote>
-<div><p><a class="reference external" href="https://github.com/amir73il/unionmount-testsuite.git">https://github.com/amir73il/unionmount-testsuite.git</a></p>
-</div></blockquote>
+<p><a class="reference external" href="https://github.com/amir73il/unionmount-testsuite.git">https://github.com/amir73il/unionmount-testsuite.git</a></p>
 <p>Run as root:</p>
-<blockquote>
-<div><p># cd unionmount-testsuite
-# ./run --ov --verify</p>
-</div></blockquote>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cd unionmount-testsuite
+# ./run --ov --verify
+</pre></div>
+</div>
 </section>
 </section>
 

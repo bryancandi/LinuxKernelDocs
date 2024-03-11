@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="network-filesystem-helper-library">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="network-filesystem-helper-library">
 <h1>Network Filesystem Helper Library<a class="headerlink" href="#network-filesystem-helper-library" title="Permalink to this heading">¶</a></h1>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
@@ -407,7 +418,6 @@ through which it can issue requests and negotiate:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct netfs_request_ops {
         void (*init_request)(struct netfs_io_request *rreq, struct file *file);
         void (*free_request)(struct netfs_io_request *rreq);
-        int (*begin_cache_operation)(struct netfs_io_request *rreq);
         void (*expand_readahead)(struct netfs_io_request *rreq);
         bool (*clamp_length)(struct netfs_io_subrequest *subreq);
         void (*issue_read)(struct netfs_io_subrequest *subreq);
@@ -428,17 +438,6 @@ the file for reference.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">free_request()</span></code></p>
 <p>[Optional] This is called as the request is being deallocated so that the
 filesystem can clean up any state it has attached there.</p>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">begin_cache_operation()</span></code></p>
-<p>[Optional] This is called to ask the network filesystem to call into the
-cache (if present) to initialise the caching state for this read.  The netfs
-library module cannot access the cache directly, so the cache should call
-something like <a class="reference internal" href="caching/netfs-api.html#c.fscache_begin_read_operation" title="fscache_begin_read_operation"><code class="xref c c-func docutils literal notranslate"><span class="pre">fscache_begin_read_operation()</span></code></a> to do this.</p>
-<p>The cache gets to store its state in -&gt;cache_resources and must set a table
-of operations of its own there (though of a different type).</p>
-<p>This should return 0 on success and an error code otherwise.  If an error is
-reported, the operation may proceed anyway, just without local caching (only
-out of memory and interruption errors cause failure here).</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">expand_readahead()</span></code></p>
 <p>[Optional] This is called to allow the filesystem to expand the size of a
@@ -549,14 +548,14 @@ PG_fscache mark removed when that completes.</p></li>
 <p>When implementing a local cache to be used by the read helpers, two things are
 required: some way for the network filesystem to initialise the caching for a
 read request and a table of operations for the helpers to call.</p>
-<p>The network filesystem's -&gt;begin_cache_operation() method is called to set up a
-cache and this must call into the cache to do the work.  If using fscache, for
-example, the cache would call:</p>
+<p>To begin a cache operation on an fscache object, the following function is
+called:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int fscache_begin_read_operation(struct netfs_io_request *rreq,
                                  struct fscache_cookie *cookie);
 </pre></div>
 </div>
-<p>passing in the request pointer and the cookie corresponding to the file.</p>
+<p>passing in the request pointer and the cookie corresponding to the file.  This
+fills in the cache resources mentioned below.</p>
 <p>The netfs_io_request object contains a place for the cache to hang its
 state:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct netfs_cache_resources {
@@ -774,7 +773,7 @@ context struct is expected to directly follow on from the VFS inode struct.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.netfs_inode_init">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_inode_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.netfs_inode" title="netfs_inode"><span class="n"><span class="pre">netfs_inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netfs_request_ops</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_inode_init" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_inode_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.netfs_inode" title="netfs_inode"><span class="n"><span class="pre">netfs_inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netfs_request_ops</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">use_zero_point</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_inode_init" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Initialise a netfslib inode context</p>
 </dd></dl>
 
@@ -785,6 +784,8 @@ context struct is expected to directly follow on from the VFS inode struct.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">netfs_request_ops</span> <span class="pre">*ops</span></code></dt><dd><p>The netfs's operations list</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">use_zero_point</span></code></dt><dd><p>True to use the zero_point read optimisation</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>Initialise the netfs library context struct.  This is expected to follow on
@@ -792,7 +793,7 @@ directly from the VFS inode struct.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.netfs_resize_file">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_resize_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.netfs_inode" title="netfs_inode"><span class="n"><span class="pre">netfs_inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">new_i_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_resize_file" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_resize_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.netfs_inode" title="netfs_inode"><span class="n"><span class="pre">netfs_inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">new_i_size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">changed_on_server</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_resize_file" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Note that a file got resized</p>
 </dd></dl>
 
@@ -802,6 +803,8 @@ directly from the VFS inode struct.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netfs_inode</span> <span class="pre">*ctx</span></code></dt><dd><p>The netfs inode being resized</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">loff_t</span> <span class="pre">new_i_size</span></code></dt><dd><p>The new file size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">changed_on_server</span></code></dt><dd><p>The change was applied to the server</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -909,6 +912,66 @@ will cause the folio to be re-got and the process to be retried.</p>
 <p>The calling netfs must initialise a netfs context contiguous to the vfs
 inode before calling this.</p>
 <p>This is usable whether or not caching is enabled.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.netfs_buffered_read_iter">
+<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_buffered_read_iter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kiocb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iocb</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iov_iter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iter</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_buffered_read_iter" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Filesystem buffered I/O read routine</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kiocb</span> <span class="pre">*iocb</span></code></dt><dd><p>kernel I/O control block</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iov_iter</span> <span class="pre">*iter</span></code></dt><dd><p>destination for the data read</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is the -&gt;read_iter() routine for all filesystems that can use the page
+cache directly.</p>
+<p>The IOCB_NOWAIT flag in iocb-&gt;ki_flags indicates that -EAGAIN shall be
+returned when no data can be read without waiting for I/O requests to
+complete; it doesn't prevent readahead.</p>
+<p>The IOCB_NOIO flag in iocb-&gt;ki_flags indicates that no new I/O requests
+shall be made for the read or for readahead.  When no data can be read,
+-EAGAIN shall be returned.  When readahead would be triggered, a partial,
+possibly empty read shall be returned.</p>
+<p><strong>Return</strong></p>
+<ul class="simple">
+<li><p>number of bytes copied, even for partial reads</p></li>
+<li><p>negative error code (or 0 if IOCB_NOIO) if nothing was read</p></li>
+</ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.netfs_file_read_iter">
+<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_file_read_iter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kiocb</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iocb</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iov_iter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iter</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_file_read_iter" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Generic filesystem read routine</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kiocb</span> <span class="pre">*iocb</span></code></dt><dd><p>kernel I/O control block</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iov_iter</span> <span class="pre">*iter</span></code></dt><dd><p>destination for the data read</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is the -&gt;read_iter() routine for all filesystems that can use the page
+cache directly.</p>
+<p>The IOCB_NOWAIT flag in iocb-&gt;ki_flags indicates that -EAGAIN shall be
+returned when no data can be read without waiting for I/O requests to
+complete; it doesn't prevent readahead.</p>
+<p>The IOCB_NOIO flag in iocb-&gt;ki_flags indicates that no new I/O requests
+shall be made for the read or for readahead.  When no data can be read,
+-EAGAIN shall be returned.  When readahead would be triggered, a partial,
+possibly empty read shall be returned.</p>
+<p><strong>Return</strong></p>
+<ul class="simple">
+<li><p>number of bytes copied, even for partial reads</p></li>
+<li><p>negative error code (or 0 if IOCB_NOIO) if nothing was read</p></li>
+</ul>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.netfs_subreq_terminated">

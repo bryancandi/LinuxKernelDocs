@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="squashfs-4-0-filesystem">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="squashfs-4-0-filesystem">
 <h1>Squashfs 4.0 Filesystem<a class="headerlink" href="#squashfs-4-0-filesystem" title="Permalink to this heading">¶</a></h1>
 <p>Squashfs is a compressed read-only filesystem for Linux.</p>
 <p>It uses zlib, lz4, lzo, or xz compression to compress files, inodes and
@@ -273,6 +284,88 @@ obtained from this site also.</p>
 <dt>The squashfs-tools development tree is now located on kernel.org</dt><dd><p>git://git.kernel.org/pub/scm/fs/squashfs/squashfs-tools.git</p>
 </dd>
 </dl>
+</section>
+<section id="mount-options">
+<h2>2.1 Mount options<a class="headerlink" href="#mount-options" title="Permalink to this heading">¶</a></h2>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>errors=%s</p></td>
+<td><p>Specify whether squashfs errors trigger a kernel panic
+or not</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>continue</p></td>
+<td><p>errors don't trigger a panic (default)</p></td>
+</tr>
+<tr class="row-even"><td><p>panic</p></td>
+<td><p>trigger a panic when errors are encountered,
+similar to several other filesystems (e.g.
+btrfs, ext4, f2fs, GFS2, jfs, ntfs, ubifs)</p>
+<p>This allows a kernel dump to be saved,
+useful for analyzing and debugging the
+corruption.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr class="row-even"><td><p>threads=%s</p></td>
+<td><p>Select the decompression mode or the number of threads</p>
+<p>If SQUASHFS_CHOICE_DECOMP_BY_MOUNT is set:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>single</p></td>
+<td><p>use single-threaded decompression (default)</p>
+<p>Only one block (data or metadata) can be
+decompressed at any one time. This limits
+CPU and memory usage to a minimum, but it
+also gives poor performance on parallel I/O
+workloads when using multiple CPU machines
+due to waiting on decompressor availability.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>multi</p></td>
+<td><p>use up to two parallel decompressors per core</p>
+<p>If you have a parallel I/O workload and your
+system has enough memory, using this option
+may improve overall I/O performance. It
+dynamically allocates decompressors on a
+demand basis.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>percpu</p></td>
+<td><p>use a maximum of one decompressor per core</p>
+<p>It uses percpu variables to ensure
+decompression is load-balanced across the
+cores.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>1|2|3|...</p></td>
+<td><p>configure the number of threads used for
+decompression</p>
+<p>The upper limit is num_online_cpus() * 2.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>If SQUASHFS_CHOICE_DECOMP_BY_MOUNT is <strong>not</strong> set and
+SQUASHFS_DECOMP_MULTI, SQUASHFS_MOUNT_DECOMP_THREADS are
+both set:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>2|3|...</p></td>
+<td><p>configure the number of threads used for
+decompression</p>
+<p>The upper limit is num_online_cpus() * 2.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <section id="squashfs-filesystem-design">
 <h2>3. Squashfs Filesystem Design<a class="headerlink" href="#squashfs-filesystem-design" title="Permalink to this heading">¶</a></h2>

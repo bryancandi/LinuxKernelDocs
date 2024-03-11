@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -108,6 +111,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../ktap.html">The Kernel Test Anything Protocol (KTAP), version 1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../checkuapi.html">UAPI Checker</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../testing-overview.html">Kernel Testing Guide</a></li>
@@ -133,6 +137,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -143,7 +148,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -160,7 +167,11 @@
 
           <div class="body" role="main">
             
-  <section id="run-tests-without-kunit-tool">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="run-tests-without-kunit-tool">
 <h1>Run Tests without kunit_tool<a class="headerlink" href="#run-tests-without-kunit-tool" title="Permalink to this heading">¶</a></h1>
 <p>If we do not want to use kunit_tool (For example: we want to integrate
 with other systems, or run tests on real hardware), we can
@@ -202,12 +213,45 @@ loaded.</p>
 </pre></div>
 </div>
 <p>The results will appear in TAP format in <code class="docutils literal notranslate"><span class="pre">dmesg</span></code>.</p>
+</section>
+<section id="debugfs">
+<h2>debugfs<a class="headerlink" href="#debugfs" title="Permalink to this heading">¶</a></h2>
+<p>KUnit can be accessed from userspace via the debugfs filesystem (See more
+information about debugfs at <a class="reference internal" href="../../filesystems/debugfs.html"><span class="doc">DebugFS</span></a>).</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">CONFIG_KUNIT_DEBUGFS</span></code> is enabled, the KUnit debugfs filesystem is
+mounted at /sys/kernel/debug/kunit. You can use this filesystem to perform
+the following actions.</p>
+</section>
+<section id="retrieve-test-results">
+<h2>Retrieve Test Results<a class="headerlink" href="#retrieve-test-results" title="Permalink to this heading">¶</a></h2>
+<p>You can use debugfs to retrieve KUnit test results. The test results are
+accessible from the debugfs filesystem in the following read-only file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/kunit/&lt;test_suite&gt;/results
+</pre></div>
+</div>
+<p>The test results are printed in a KTAP document. Note this document is separate
+to the kernel log and thus, may have different test suite numbering.</p>
+</section>
+<section id="run-tests-after-kernel-has-booted">
+<h2>Run Tests After Kernel Has Booted<a class="headerlink" href="#run-tests-after-kernel-has-booted" title="Permalink to this heading">¶</a></h2>
+<p>You can use the debugfs filesystem to trigger built-in tests to run after
+boot. To run the test suite, you can use the following command to write to
+the <code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/kunit/&lt;test_suite&gt;/run</span></code> file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;any string&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/debugfs/kunit/&lt;test_suite&gt;/run
+</pre></div>
+</div>
+<p>As a result, the test suite runs and the results are printed to the kernel
+log.</p>
+<p>However, this feature is not available with KUnit suites that use init data,
+because init data may have been discarded after the kernel boots. KUnit
+suites that use init data should be defined using the
+<a class="reference internal" href="api/test.html#c.kunit_test_init_section_suites" title="kunit_test_init_section_suites"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunit_test_init_section_suites()</span></code></a> macro.</p>
+<p>Also, you cannot use this feature to run tests concurrently. Instead a test
+will wait to run until other tests have completed or failed.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">CONFIG_KUNIT_DEBUGFS</span></code> is enabled, KUnit test results will
-be accessible from the <code class="docutils literal notranslate"><span class="pre">debugfs</span></code> filesystem (if mounted).
-They will be in <code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/kunit/&lt;test_suite&gt;/results</span></code>, in
-TAP format.</p>
+<p>For test authors, to use this feature, tests will need to correctly initialise
+and/or clean up any data, so the test runs correctly a second time.</p>
 </div>
 </section>
 </section>

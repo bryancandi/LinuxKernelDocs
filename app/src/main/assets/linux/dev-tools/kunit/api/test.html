@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../translations/index.html">Translations</a></li>
@@ -109,7 +113,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -126,7 +132,11 @@
 
           <div class="body" role="main">
             
-  <section id="test-api">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="test-api">
 <h1>Test API<a class="headerlink" href="#test-api" title="Permalink to this heading">¶</a></h1>
 <p>This file documents all of the standard testing API.</p>
 <dl class="c enum">
@@ -414,16 +424,16 @@ built as a module, they run on module load.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This functions identically as <a class="reference internal" href="#c.kunit_test_suites" title="kunit_test_suites"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunit_test_suites()</span></code></a> except that it suppresses
-modpost warnings for referencing functions marked __init or data marked
-__initdata; this is OK because currently KUnit only runs tests upon boot
-during the init phase or upon loading a module during the init phase.</p>
-<p>NOTE TO KUNIT DEVS: If we ever allow KUnit tests to be run after boot, these
-tests must be excluded.</p>
-<p>The only thing this macro does that's different from kunit_test_suites is
-that it suffixes the array and suite declarations it makes with _probe;
-modpost suppresses warnings about referencing init data for symbols named in
-this manner.</p>
+<p>This functions similar to <a class="reference internal" href="#c.kunit_test_suites" title="kunit_test_suites"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunit_test_suites()</span></code></a> except that it compiles the
+list of suites during init phase.</p>
+<p>This macro also suffixes the array and suite declarations it makes with
+_probe; so that modpost suppresses warnings about referencing init data
+for symbols named in this manner.</p>
+<p>Also, do not mark the suite or test case structs with __initdata because
+they will be used after the init phase with debugfs.</p>
+<p><strong>Note</strong></p>
+<p>these init tests are not able to be run after boot so there is no
+&quot;run&quot; debugfs file generated for these tests.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kunit_kmalloc_array">
@@ -1484,6 +1494,28 @@ an errno stored in a pointer. This is the same as
 <dt><code class="docutils literal notranslate"><span class="pre">array</span></code></dt><dd><p>array of test parameters.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_desc</span></code></dt><dd><p>function to convert param to description; NULL to use default</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Define function <strong>name_gen_params</strong> which uses <strong>array</strong> to generate parameters.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.KUNIT_ARRAY_PARAM_DESC">
+<span class="sig-name descname"><span class="n"><span class="pre">KUNIT_ARRAY_PARAM_DESC</span></span></span><a class="headerlink" href="#c.KUNIT_ARRAY_PARAM_DESC" title="Permalink to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">KUNIT_ARRAY_PARAM_DESC</span> <span class="pre">(name,</span> <span class="pre">array,</span> <span class="pre">desc_member)</span></code></p>
+<blockquote>
+<div><p>Define test parameter generator from an array.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>prefix for the test parameter generator function.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">array</span></code></dt><dd><p>array of test parameters.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">desc_member</span></code></dt><dd><p>structure member from array element to use as description</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

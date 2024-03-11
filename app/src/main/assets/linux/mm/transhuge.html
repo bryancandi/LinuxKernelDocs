@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -114,6 +117,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -124,7 +128,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -141,7 +147,11 @@
 
           <div class="body" role="main">
             
-  <section id="transparent-hugepage-support">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="transparent-hugepage-support">
 <h1>Transparent Hugepage Support<a class="headerlink" href="#transparent-hugepage-support" title="Permalink to this heading">¶</a></h1>
 <p>This document describes design principles for Transparent Hugepage (THP)
 support and its interaction with other parts of the memory management
@@ -249,7 +259,7 @@ pages:</p>
 succeeds on tail pages.</p></li>
 <li><p>map/unmap of a PMD entry for the whole THP increment/decrement
 folio-&gt;_entire_mapcount and also increment/decrement
-folio-&gt;_nr_pages_mapped by COMPOUND_MAPPED when _entire_mapcount
+folio-&gt;_nr_pages_mapped by ENTIRELY_MAPPED when _entire_mapcount
 goes from -1 to 0 or 0 to -1.</p></li>
 <li><p>map/unmap of individual pages with PTE entry increment/decrement
 page-&gt;_mapcount and also increment/decrement folio-&gt;_nr_pages_mapped
@@ -282,7 +292,7 @@ pmd can be split at any point and never fails.</p>
 <h2>Partial unmap and deferred_split_folio()<a class="headerlink" href="#partial-unmap-and-deferred-split-folio" title="Permalink to this heading">¶</a></h2>
 <p>Unmapping part of THP (with munmap() or other way) is not going to free
 memory immediately. Instead, we detect that a subpage of THP is not in use
-in <a class="reference internal" href="../core-api/mm-api.html#c.page_remove_rmap" title="page_remove_rmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_remove_rmap()</span></code></a> and queue the THP for splitting if memory pressure
+in folio_remove_rmap_*() and queue the THP for splitting if memory pressure
 comes. Splitting will free up unused subpages.</p>
 <p>Splitting the page right away is not an option due to locking context in
 the place where we can detect partial unmap. It also might be

@@ -1042,6 +1042,7 @@ videodev2.h
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_ORPHANED_BUFS <v4l2-buf-cap-supports-orphaned-bufs>`             (1 \<\< 4)
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF <v4l2-buf-cap-supports-m2m-hold-capture-buf>`      (1 \<\< 5)
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS <v4l2-buf-cap-supports-mmap-cache-hints>`          (1 \<\< 6)
+    \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_MAX_NUM_BUFFERS <v4l2-buf-cap-supports-max-num-buffers>`           (1 \<\< 7)
 
     \/\*\*
      \* struct v4l2_plane - plane info for multi-planar buffers
@@ -1820,7 +1821,7 @@ videodev2.h
                     \_\_s64 \_\_user \*p\_s64;
                     struct v4l2_area \_\_user \*p\_area;
                     struct v4l2\_ctrl\_h264\_sps \_\_user \*p\_h264\_sps;
-                    struct v4l2\_ctrl\_h264\_pps \*p\_h264\_pps;
+                    struct v4l2\_ctrl\_h264\_pps \_\_user \*p\_h264\_pps;
                     struct v4l2\_ctrl\_h264\_scaling\_matrix \_\_user \*p\_h264\_scaling\_matrix;
                     struct v4l2\_ctrl\_h264\_pred\_weights \_\_user \*p\_h264\_pred\_weights;
                     struct v4l2\_ctrl\_h264\_slice\_params \_\_user \*p\_h264\_slice\_params;
@@ -1841,6 +1842,8 @@ videodev2.h
                     struct v4l2\_ctrl\_av1\_tile\_group\_entry \_\_user \*p\_av1\_tile\_group\_entry;
                     struct v4l2\_ctrl\_av1\_frame \_\_user \*p\_av1\_frame;
                     struct v4l2\_ctrl\_av1\_film\_grain \_\_user \*p\_av1\_film\_grain;
+                    struct v4l2\_ctrl\_hdr10\_cll\_info \_\_user \*p\_hdr10\_cll\_info;
+                    struct v4l2\_ctrl\_hdr10\_mastering\_display \_\_user \*p\_hdr10\_mastering\_display;
                     void \_\_user \*ptr;
             \};
     \} \_\_attribute\_\_ ((packed));
@@ -2606,6 +2609,9 @@ videodev2.h
      \* @flags\:      additional buffer management attributes (ignored unless the
      \*              queue has \ :ref:`V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS <v4l2-buf-cap-supports-mmap-cache-hints>` capability
      \*              and configured for MMAP streaming I\/O).
+     \* @max\_num\_buffers\: if \ :ref:`V4L2_BUF_CAP_SUPPORTS_MAX_NUM_BUFFERS <v4l2-buf-cap-supports-max-num-buffers>` capability flag is set
+     \*              this field indicate the maximum possible number of buffers
+     \*              for this queue.
      \* @reserved\:   future extensions
      \*\/
     struct v4l2_create_buffers \{
@@ -2615,7 +2621,8 @@ videodev2.h
             struct v4l2_format      format;
             \_\_u32                   capabilities;
             \_\_u32                   flags;
-            \_\_u32                   reserved[6];
+            \_\_u32                   max\_num\_buffers;
+            \_\_u32                   reserved[5];
     \};
 
     \/\*

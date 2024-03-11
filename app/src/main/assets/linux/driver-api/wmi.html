@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -136,10 +139,8 @@
 <li class="toctree-l2"><a class="reference internal" href="backlight/lp855x-driver.html">Kernel driver lp855x</a></li>
 <li class="toctree-l2"><a class="reference internal" href="connector.html">Kernel Connector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="console.html">Console Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html">Dell Systems Management Base Driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html">EISA bus support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="isa.html">ISA Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html">ISA Plug &amp; Play support by Jaroslav Kysela &lt;perex&#64;suse.cz&gt;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io-mapping.html">The io_mapping functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io_ordering.html">Ordering I/O writes to memory-mapped addresses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generic-counter.html">Generic Counter Interface</a></li>
@@ -171,9 +172,27 @@
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">WMI Driver API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html">WBRF - Wifi Band RFI Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -203,6 +222,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -213,7 +233,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -230,7 +252,11 @@
 
           <div class="body" role="main">
             
-  <section id="wmi-driver-api">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="wmi-driver-api">
 <h1>WMI Driver API<a class="headerlink" href="#wmi-driver-api" title="Permalink to this heading">¶</a></h1>
 <p>The WMI driver core supports a more modern bus-based interface for interacting
 with WMI devices, and an older GUID-based interface. The latter interface is
@@ -251,6 +277,7 @@ WMI devices by the driver core.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct wmi_device {
     struct device dev;
+    bool setable;
 };
 </pre></div>
 </div>
@@ -258,10 +285,30 @@ WMI devices by the driver core.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>Device associated with this WMI device</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">setable</span></code></dt><dd><p>True for devices implementing the Set Control Method</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
 <p>This represents WMI devices discovered by the WMI driver core.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.to_wmi_device">
+<span class="sig-name descname"><span class="n"><span class="pre">to_wmi_device</span></span></span><a class="headerlink" href="#c.to_wmi_device" title="Permalink to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">to_wmi_device</span> <span class="pre">(device)</span></code></p>
+<blockquote>
+<div><p>Helper macro to cast a device to a wmi_device</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">device</span></code></dt><dd><p>device struct</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Cast a <a class="reference internal" href="infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> to a <a class="reference internal" href="#c.wmi_device" title="wmi_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">wmi_device</span></code></a>.</p>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.wmi_driver">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wmi_driver</span></span></span><a class="headerlink" href="#c.wmi_driver" title="Permalink to this definition">¶</a><br /></dt>
@@ -277,7 +324,6 @@ WMI devices by the driver core.</p>
     int (*probe)(struct wmi_device *wdev, const void *context);
     void (*remove)(struct wmi_device *wdev);
     void (*notify)(struct wmi_device *device, union acpi_object *data);
-    long (*filter_callback)(struct wmi_device *wdev, unsigned int cmd, struct wmi_ioctl_buffer *arg);
 };
 </pre></div>
 </div>
@@ -295,14 +341,10 @@ WMI devices by the driver core.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">notify</span></code></dt><dd><p>Callback for receiving WMI events</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">filter_callback</span></code></dt><dd><p>Callback for filtering device IOCTLs</p>
-</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>This represents WMI drivers which handle WMI devices.
-<strong>filter_callback</strong> is only necessary for drivers which
-want to set up a WMI IOCTL interface.</p>
+<p>This represents WMI drivers which handle WMI devices.</p>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.wmi_driver_register">
 <span class="sig-name descname"><span class="n"><span class="pre">wmi_driver_register</span></span></span><a class="headerlink" href="#c.wmi_driver_register" title="Permalink to this definition">¶</a><br /></dt>
@@ -341,25 +383,6 @@ THIS_MODULE to the underlying function.</p>
 <p>Helper macro for WMI drivers which do not do anything special in module
 init/exit. This eliminates a lot of boilerplate. Each module may only
 use this macro once, and calling it replaces <a class="reference internal" href="basics.html#c.module_init" title="module_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_init()</span></code></a> and <a class="reference internal" href="basics.html#c.module_exit" title="module_exit"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_exit()</span></code></a>.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.set_required_buffer_size">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_required_buffer_size</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.wmi_device" title="wmi_device"><span class="n"><span class="pre">wmi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wdev</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">length</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.set_required_buffer_size" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Sets the buffer size needed for performing IOCTL</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">wmi_device</span> <span class="pre">*wdev</span></code></dt><dd><p>A wmi bus device from a driver</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">length</span></code></dt><dd><p>Required buffer size</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Allocates memory needed for buffer, stores the buffer size in that memory.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code for failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.wmi_instance_count">
@@ -503,6 +526,27 @@ use this macro once, and calling it replaces <a class="reference internal" href=
 </dl>
 <p><strong>Description</strong></p>
 <p>Write the contents of the input buffer to an ACPI-WMI data block.</p>
+<p><strong>Return</strong></p>
+<p>acpi_status signaling success or error.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.wmidev_block_set">
+<span class="n"><span class="pre">acpi_status</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wmidev_block_set</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.wmi_device" title="wmi_device"><span class="n"><span class="pre">wmi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wdev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">instance</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">acpi_buffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">in</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.wmidev_block_set" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Write to a WMI block</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">wmi_device</span> <span class="pre">*wdev</span></code></dt><dd><p>A wmi bus device from a driver</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">instance</span></code></dt><dd><p>Instance index</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">acpi_buffer</span> <span class="pre">*in</span></code></dt><dd><p>Buffer containing new values for the data block</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Write contents of the input buffer to an ACPI-WMI data block.</p>
 <p><strong>Return</strong></p>
 <p>acpi_status signaling success or error.</p>
 </div>

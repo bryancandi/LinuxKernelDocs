@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="bpf-kernel-functions-kfuncs">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="bpf-kernel-functions-kfuncs">
 <span id="kfuncs-header-label"></span><h1>BPF Kernel Functions (kfuncs)<a class="headerlink" href="#bpf-kernel-functions-kfuncs" title="Permalink to this heading">¶</a></h1>
 <section id="introduction">
 <h2>1. Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
@@ -274,6 +285,31 @@ responsible for checking if this buffer is null before using it.</p>
 Either way, the returned buffer is either NULL, or of size buffer_szk. Without this
 annotation, the verifier will reject the program if a null pointer is passed in with
 a nonzero size.</p>
+</section>
+<section id="str-annotation">
+<h3>2.2.5 __str Annotation<a class="headerlink" href="#str-annotation" title="Permalink to this heading">¶</a></h3>
+<p>This annotation is used to indicate that the argument is a constant string.</p>
+<p>An example is given below:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>__bpf_kfunc bpf_get_file_xattr(..., const char *name__str, ...)
+{
+...
+}
+</pre></div>
+</div>
+<p>In this case, <code class="docutils literal notranslate"><span class="pre">bpf_get_file_xattr()</span></code> can be called as:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>bpf_get_file_xattr(..., &quot;xattr_name&quot;, ...);
+</pre></div>
+</div>
+<p>Or:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>const char name[] = &quot;xattr_name&quot;;  /* This need to be global */
+int BPF_PROG(...)
+{
+        ...
+        bpf_get_file_xattr(..., name, ...);
+        ...
+}
+</pre></div>
+</div>
 </section>
 <section id="using-an-existing-kernel-function">
 <span id="bpf-kfunc-nodef"></span><h3>2.3 Using an existing kernel function<a class="headerlink" href="#using-an-existing-kernel-function" title="Permalink to this heading">¶</a></h3>

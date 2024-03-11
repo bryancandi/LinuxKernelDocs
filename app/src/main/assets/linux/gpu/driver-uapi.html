@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -113,6 +116,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -123,7 +127,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -140,7 +146,11 @@
 
           <div class="body" role="main">
             
-  <section id="drm-driver-uapi">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="drm-driver-uapi">
 <h1>DRM Driver uAPI<a class="headerlink" href="#drm-driver-uapi" title="Permalink to this heading">¶</a></h1>
 <section id="drm-i915-uapi">
 <h2>drm/i915 uAPI<a class="headerlink" href="#drm-i915-uapi" title="Permalink to this heading">¶</a></h2>
@@ -1352,7 +1362,7 @@ where not all instances were always completely functionally equivalent.</p>
 <span class="c1">// enough to hold our array of engines. The kernel will fill out the</span>
 <span class="c1">// item.length for us, which is the number of bytes we need.</span>
 <span class="c1">//</span>
-<span class="c1">// Alternatively a large buffer can be allocated straight away enabling</span>
+<span class="c1">// Alternatively a large buffer can be allocated straightaway enabling</span>
 <span class="c1">// querying in one pass, in which case item.length should contain the</span>
 <span class="c1">// length of the provided buffer.</span>
 <span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_I915_QUERY</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">query</span><span class="p">);</span>
@@ -1362,7 +1372,7 @@ where not all instances were always completely functionally equivalent.</p>
 <span class="c1">// Now that we allocated the required number of bytes, we call the ioctl</span>
 <span class="c1">// again, this time with the data_ptr pointing to our newly allocated</span>
 <span class="c1">// blob, which the kernel can then populate with info on all engines.</span>
-<span class="n">item</span><span class="p">.</span><span class="n">data_ptr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">info</span><span class="p">,</span>
+<span class="n">item</span><span class="p">.</span><span class="n">data_ptr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">info</span><span class="p">;</span>
 
 <span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_I915_QUERY</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">query</span><span class="p">);</span>
 <span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="w"> </span><span class="p">...</span>
@@ -1426,7 +1436,7 @@ engine maps configured.</p>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>Describes one engine and it's capabilities as known to the driver.</p>
+<p>Describes one engine and its capabilities as known to the driver.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_i915_query_engine_info">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_i915_query_engine_info</span></span></span><a class="headerlink" href="#c.drm_i915_query_engine_info" title="Permalink to this definition">¶</a><br /></dt>
@@ -2251,6 +2261,1507 @@ array of this structure via <a class="reference internal" href="#c.drm_nouveau_e
 </dl>
 </div>
 </section>
+</section>
+<section id="drm-xe-uapi">
+<h2>drm/xe uAPI<a class="headerlink" href="#drm-xe-uapi" title="Permalink to this heading">¶</a></h2>
+<p id="xe-device-block-diagram"><strong>Xe Device Block Diagram</strong></p>
+<p>The diagram below represents a high-level simplification of a discrete
+GPU supported by the Xe driver. It shows some device components which
+are necessary to understand this API, as well as how their relations
+to each other. This diagram does not represent real hardware:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>┌──────────────────────────────────────────────────────────────────┐
+│ ┌──────────────────────────────────────────────────┐ ┌─────────┐ │
+│ │        ┌───────────────────────┐   ┌─────┐       │ │ ┌─────┐ │ │
+│ │        │         VRAM0         ├───┤ ... │       │ │ │VRAM1│ │ │
+│ │        └───────────┬───────────┘   └─GT1─┘       │ │ └──┬──┘ │ │
+│ │ ┌──────────────────┴───────────────────────────┐ │ │ ┌──┴──┐ │ │
+│ │ │ ┌─────────────────────┐  ┌─────────────────┐ │ │ │ │     │ │ │
+│ │ │ │ ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │ ┌─────┐ ┌─────┐ │ │ │ │ │     │ │ │
+│ │ │ │ │EU│ │EU│ │EU│ │EU│ │  │ │RCS0 │ │BCS0 │ │ │ │ │ │     │ │ │
+│ │ │ │ └──┘ └──┘ └──┘ └──┘ │  │ └─────┘ └─────┘ │ │ │ │ │     │ │ │
+│ │ │ │ ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │ ┌─────┐ ┌─────┐ │ │ │ │ │     │ │ │
+│ │ │ │ │EU│ │EU│ │EU│ │EU│ │  │ │VCS0 │ │VCS1 │ │ │ │ │ │     │ │ │
+│ │ │ │ └──┘ └──┘ └──┘ └──┘ │  │ └─────┘ └─────┘ │ │ │ │ │     │ │ │
+│ │ │ │ ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │ ┌─────┐ ┌─────┐ │ │ │ │ │     │ │ │
+│ │ │ │ │EU│ │EU│ │EU│ │EU│ │  │ │VECS0│ │VECS1│ │ │ │ │ │ ... │ │ │
+│ │ │ │ └──┘ └──┘ └──┘ └──┘ │  │ └─────┘ └─────┘ │ │ │ │ │     │ │ │
+│ │ │ │ ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │ ┌─────┐ ┌─────┐ │ │ │ │ │     │ │ │
+│ │ │ │ │EU│ │EU│ │EU│ │EU│ │  │ │CCS0 │ │CCS1 │ │ │ │ │ │     │ │ │
+│ │ │ │ └──┘ └──┘ └──┘ └──┘ │  │ └─────┘ └─────┘ │ │ │ │ │     │ │ │
+│ │ │ └─────────DSS─────────┘  │ ┌─────┐ ┌─────┐ │ │ │ │ │     │ │ │
+│ │ │                          │ │CCS2 │ │CCS3 │ │ │ │ │ │     │ │ │
+│ │ │ ┌─────┐ ┌─────┐ ┌─────┐  │ └─────┘ └─────┘ │ │ │ │ │     │ │ │
+│ │ │ │ ... │ │ ... │ │ ... │  │                 │ │ │ │ │     │ │ │
+│ │ │ └─DSS─┘ └─DSS─┘ └─DSS─┘  └─────Engines─────┘ │ │ │ │     │ │ │
+│ │ └───────────────────────────GT0────────────────┘ │ │ └─GT2─┘ │ │
+│ └────────────────────────────Tile0─────────────────┘ └─ Tile1──┘ │
+└─────────────────────────────Device0───────┬──────────────────────┘
+                                            │
+                     ───────────────────────┴────────── PCI bus
+</pre></div>
+</div>
+<p id="xe-uapi-overview"><strong>Xe uAPI Overview</strong></p>
+<p>This section aims to describe the Xe's IOCTL entries, its structs, and other
+Xe related uAPI such as uevents and PMU (Platform Monitoring Unit) related
+entries and usage.</p>
+<dl class="simple">
+<dt>List of supported IOCTLs:</dt><dd><ul class="simple">
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_DEVICE_QUERY</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_GEM_CREATE</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_GEM_MMAP_OFFSET</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_CREATE</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_DESTROY</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_BIND</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_CREATE</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_DESTROY</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_GET_PROPERTY</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_WAIT_USER_FENCE</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p id="xe-ioctl-extensions"><strong>Xe IOCTL Extensions</strong></p>
+<p>Before detailing the IOCTLs and its structs, it is important to highlight
+that every IOCTL in Xe is extensible.</p>
+<p>Many interfaces need to grow over time. In most cases we can simply
+extend the struct and have userspace pass in more data. Another option,
+as demonstrated by Vulkan's approach to providing extensions for forward
+and backward compatibility, is to use a list of optional structs to
+provide those extra details.</p>
+<p>The key advantage to using an extension chain is that it allows us to
+redefine the interface more easily than an ever growing struct of
+increasing complexity, and for large parts of that interface to be
+entirely optional. The downside is more pointer chasing; chasing across
+the __user boundary with pointers encapsulated inside u64.</p>
+<p>Example chaining:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_user_extension</span><span class="w"> </span><span class="n">ext3</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">next_extension</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="c1">// end</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...,</span>
+<span class="p">};</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_user_extension</span><span class="w"> </span><span class="n">ext2</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">next_extension</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ext3</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...,</span>
+<span class="p">};</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_user_extension</span><span class="w"> </span><span class="n">ext1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">next_extension</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ext2</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Typically the <a class="reference internal" href="#c.drm_xe_user_extension" title="drm_xe_user_extension"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_user_extension</span></code></a> would be embedded in some uAPI
+struct, and in this case we would feed it the head of the chain(i.e ext1),
+which would then apply all of the above extensions.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_user_extension">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_user_extension</span></span></span><a class="headerlink" href="#c.drm_xe_user_extension" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Base class for defining a chain of extensions</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_user_extension {
+    __u64 next_extension;
+    __u32 name;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">next_extension</span></code></dt><dd><p>Pointer to the next <a class="reference internal" href="#c.drm_xe_user_extension" title="drm_xe_user_extension"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_user_extension</span></code></a>, or zero if the end.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>Name of the extension.</p>
+<p>Note that the name here is just some integer.</p>
+<p>Also note that the name space for this is not global for the whole
+driver, but rather its scope/meaning is limited to the specific piece
+of uAPI which has embedded the <a class="reference internal" href="#c.drm_xe_user_extension" title="drm_xe_user_extension"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_user_extension</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+<p>All undefined bits must be zero.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_ext_set_property">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_ext_set_property</span></span></span><a class="headerlink" href="#c.drm_xe_ext_set_property" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Generic set property extension</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_ext_set_property {
+    struct drm_xe_user_extension base;
+    __u32 property;
+    __u32 pad;
+    __u64 value;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">base</span></code></dt><dd><p>base user extension</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">property</span></code></dt><dd><p>property to set</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">value</span></code></dt><dd><p>property value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>A generic struct that allows any of the Xe's IOCTL to be extended
+with a set_property operation.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_engine_class_instance">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_engine_class_instance</span></span></span><a class="headerlink" href="#c.drm_xe_engine_class_instance" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>instance of an engine class</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_engine_class_instance {
+#define DRM_XE_ENGINE_CLASS_RENDER              0;
+#define DRM_XE_ENGINE_CLASS_COPY                1;
+#define DRM_XE_ENGINE_CLASS_VIDEO_DECODE        2;
+#define DRM_XE_ENGINE_CLASS_VIDEO_ENHANCE       3;
+#define DRM_XE_ENGINE_CLASS_COMPUTE             4;
+#define DRM_XE_ENGINE_CLASS_VM_BIND             5;
+    __u16 engine_class;
+    __u16 engine_instance;
+    __u16 gt_id;
+    __u16 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">engine_class</span></code></dt><dd><p>engine class id</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">engine_instance</span></code></dt><dd><p>engine instance id</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gt_id</span></code></dt><dd><p>Unique ID of this GT within the PCI Device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>It is returned as part of the <strong>drm_xe_engine</strong>, but it also is used as
+the input of engine selection for both <strong>drm_xe_exec_queue_create</strong> and
+<strong>drm_xe_query_engine_cycles</strong></p>
+<dl class="simple">
+<dt>The <strong>engine_class</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_RENDER</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_COPY</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_VIDEO_DECODE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_VIDEO_ENHANCE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_COMPUTE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_VM_BIND</span></code> - Kernel only classes (not actual
+hardware engine class). Used for creating ordered queues of VM
+bind operations.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_engine">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_engine</span></span></span><a class="headerlink" href="#c.drm_xe_engine" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe hardware engine</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_engine {
+    struct drm_xe_engine_class_instance instance;
+    __u64 reserved[3];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">instance</span></code></dt><dd><p>The <strong>drm_xe_engine_class_instance</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_engines">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_engines</span></span></span><a class="headerlink" href="#c.drm_xe_query_engines" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe engines</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_engines {
+    __u32 num_engines;
+    __u32 pad;
+    struct drm_xe_engine engines[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">num_engines</span></code></dt><dd><p>number of engines returned in <strong>engines</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">engines</span></code></dt><dd><p>The returned engines for this device</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a struct <strong>drm_xe_device_query</strong> where .query
+is equal to <code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_ENGINES</span></code>, then the reply uses an array of
+struct <strong>drm_xe_query_engines</strong> in .data.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_memory_class">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_memory_class</span></span></span><a class="headerlink" href="#c.drm_xe_memory_class" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Supported memory classes.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_MEM_REGION_CLASS_SYSMEM</span></code></dt><dd><p>Represents system memory.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_MEM_REGION_CLASS_VRAM</span></code></dt><dd><p>On discrete platforms, this
+represents the memory that is local to the device, which we
+call VRAM. Not valid on integrated platforms.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_mem_region">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_mem_region</span></span></span><a class="headerlink" href="#c.drm_xe_mem_region" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Describes some region as known to the driver.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_mem_region {
+    __u16 mem_class;
+    __u16 instance;
+    __u32 min_page_size;
+    __u64 total_size;
+    __u64 used;
+    __u64 cpu_visible_size;
+    __u64 cpu_visible_used;
+    __u64 reserved[6];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">mem_class</span></code></dt><dd><p>The memory class describing this region.</p>
+<p>See <a class="reference internal" href="#c.drm_xe_memory_class" title="drm_xe_memory_class"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_xe_memory_class</span></code></a> for supported values.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">instance</span></code></dt><dd><p>The unique ID for this region, which serves as the
+index in the placement bitmask used as argument for
+<code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_GEM_CREATE</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">min_page_size</span></code></dt><dd><p>Min page-size in bytes for this region.</p>
+<p>When the kernel allocates memory for this region, the
+underlying pages will be at least <strong>min_page_size</strong> in size.
+Buffer objects with an allowable placement in this region must be
+created with a size aligned to this value.
+GPU virtual address mappings of (parts of) buffer objects that
+may be placed in this region must also have their GPU virtual
+address and range aligned to this value.
+Affected IOCTLS will return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code> if alignment restrictions are
+not met.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">total_size</span></code></dt><dd><p>The usable size in bytes for this region.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">used</span></code></dt><dd><p>Estimate of the memory used in bytes for this region.</p>
+<p>Requires CAP_PERFMON or CAP_SYS_ADMIN to get reliable
+accounting.  Without this the value here will always equal
+zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu_visible_size</span></code></dt><dd><p>How much of this region can be CPU
+accessed, in bytes.</p>
+<p>This will always be &lt;= <strong>total_size</strong>, and the remainder (if
+any) will not be CPU accessible. If the CPU accessible part
+is smaller than <strong>total_size</strong> then this is referred to as a
+small BAR system.</p>
+<p>On systems without small BAR (full BAR), the probed_size will
+always equal the <strong>total_size</strong>, since all of it will be CPU
+accessible.</p>
+<p>Note this is only tracked for DRM_XE_MEM_REGION_CLASS_VRAM
+regions (for other types the value here will always equal
+zero).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu_visible_used</span></code></dt><dd><p>Estimate of CPU visible memory used, in
+bytes.</p>
+<p>Requires CAP_PERFMON or CAP_SYS_ADMIN to get reliable
+accounting. Without this the value here will always equal
+zero.  Note this is only currently tracked for
+DRM_XE_MEM_REGION_CLASS_VRAM regions (for other types the value
+here will always be zero).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_mem_regions">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_mem_regions</span></span></span><a class="headerlink" href="#c.drm_xe_query_mem_regions" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe memory regions</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_mem_regions {
+    __u32 num_mem_regions;
+    __u32 pad;
+    struct drm_xe_mem_region mem_regions[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">num_mem_regions</span></code></dt><dd><p>number of memory regions returned in <strong>mem_regions</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mem_regions</span></code></dt><dd><p>The returned memory regions for this device</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query
+is equal to DRM_XE_DEVICE_QUERY_MEM_REGIONS, then the reply uses
+<a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_mem_regions</span></code></a> in .data.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_config">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_config</span></span></span><a class="headerlink" href="#c.drm_xe_query_config" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe the device configuration</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_config {
+    __u32 num_params;
+    __u32 pad;
+#define DRM_XE_QUERY_CONFIG_REV_AND_DEVICE_ID   0;
+#define DRM_XE_QUERY_CONFIG_FLAGS                       1;
+#define DRM_XE_QUERY_CONFIG_FLAG_HAS_VRAM       (1 &lt;&lt; 0);
+#define DRM_XE_QUERY_CONFIG_MIN_ALIGNMENT               2;
+#define DRM_XE_QUERY_CONFIG_VA_BITS                     3;
+#define DRM_XE_QUERY_CONFIG_MAX_EXEC_QUEUE_PRIORITY     4;
+    __u64 info[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">num_params</span></code></dt><dd><p>number of parameters returned in info</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">info</span></code></dt><dd><p>array of elements containing the config info</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query
+is equal to DRM_XE_DEVICE_QUERY_CONFIG, then the reply uses
+<a class="reference internal" href="#c.drm_xe_query_config" title="drm_xe_query_config"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_config</span></code></a> in .data.</p>
+<dl class="simple">
+<dt>The index in <strong>info</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_REV_AND_DEVICE_ID</span></code> - Device ID (lower 16 bits)
+and the device revision (next 8 bits)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_FLAGS</span></code> - Flags describing the device
+configuration, see list below</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_FLAG_HAS_VRAM</span></code> - Flag is set if the device
+has usable VRAM</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_MIN_ALIGNMENT</span></code> - Minimal memory alignment
+required by this device, typically SZ_4K or SZ_64K</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_VA_BITS</span></code> - Maximum bits of a virtual address</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_CONFIG_MAX_EXEC_QUEUE_PRIORITY</span></code> - Value of the highest
+available exec queue priority</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_gt">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_gt</span></span></span><a class="headerlink" href="#c.drm_xe_gt" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe an individual GT.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_gt {
+#define DRM_XE_QUERY_GT_TYPE_MAIN               0;
+#define DRM_XE_QUERY_GT_TYPE_MEDIA              1;
+    __u16 type;
+    __u16 tile_id;
+    __u16 gt_id;
+    __u16 pad[3];
+    __u32 reference_clock;
+    __u64 near_mem_regions;
+    __u64 far_mem_regions;
+    __u64 reserved[8];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>GT type: Main or Media</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tile_id</span></code></dt><dd><p>Tile ID where this GT lives (Information only)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gt_id</span></code></dt><dd><p>Unique ID of this GT within the PCI Device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reference_clock</span></code></dt><dd><p>A clock frequency for timestamp</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">near_mem_regions</span></code></dt><dd><p>Bit mask of instances from
+drm_xe_query_mem_regions that are nearest to the current engines
+of this GT.
+Each index in this mask refers directly to the <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_mem_regions</span></code></a>' instance, no assumptions should
+be made about order. The type of each region is described
+by <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_mem_regions</span></code></a>' mem_class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">far_mem_regions</span></code></dt><dd><p>Bit mask of instances from
+drm_xe_query_mem_regions that are far from the engines of this GT.
+In general, they have extra indirections when compared to the
+<strong>near_mem_regions</strong>. For a discrete device this could mean system
+memory and memory living in a different tile.
+Each index in this mask refers directly to the <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_mem_regions</span></code></a>' instance, no assumptions should
+be made about order. The type of each region is described
+by <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_mem_regions</span></code></a>' mem_class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>To be used with drm_xe_query_gt_list, which will return a list with all the
+existing GT individual descriptions.
+Graphics Technology (GT) is a subset of a GPU/tile that is responsible for
+implementing graphics and/or media operations.</p>
+<dl class="simple">
+<dt>The index in <strong>type</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_GT_TYPE_MAIN</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_QUERY_GT_TYPE_MEDIA</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_gt_list">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_gt_list</span></span></span><a class="headerlink" href="#c.drm_xe_query_gt_list" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>A list with GT description items.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_gt_list {
+    __u32 num_gt;
+    __u32 pad;
+    struct drm_xe_gt gt_list[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">num_gt</span></code></dt><dd><p>number of GT items returned in gt_list</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gt_list</span></code></dt><dd><p>The GT list returned for this device</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query
+is equal to DRM_XE_DEVICE_QUERY_GT_LIST, then the reply uses <a class="reference internal" href="#c.drm_xe_query_gt_list" title="drm_xe_query_gt_list"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_gt_list</span></code></a> in .data.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_topology_mask">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_topology_mask</span></span></span><a class="headerlink" href="#c.drm_xe_query_topology_mask" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>describe the topology mask of a GT</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_topology_mask {
+    __u16 gt_id;
+#define DRM_XE_TOPO_DSS_GEOMETRY        (1 &lt;&lt; 0);
+#define DRM_XE_TOPO_DSS_COMPUTE         (1 &lt;&lt; 1);
+#define DRM_XE_TOPO_EU_PER_DSS          (1 &lt;&lt; 2);
+    __u16 type;
+    __u32 num_bytes;
+    __u8 mask[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">gt_id</span></code></dt><dd><p>GT ID the mask is associated with</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>type of mask</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_bytes</span></code></dt><dd><p>number of bytes in requested mask</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mask</span></code></dt><dd><p>little-endian mask of <strong>num_bytes</strong></p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This is the hardware topology which reflects the internal physical
+structure of the GPU.</p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query
+is equal to DRM_XE_DEVICE_QUERY_GT_TOPOLOGY, then the reply uses
+<a class="reference internal" href="#c.drm_xe_query_topology_mask" title="drm_xe_query_topology_mask"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_topology_mask</span></code></a> in .data.</p>
+<dl class="simple">
+<dt>The <strong>type</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_TOPO_DSS_GEOMETRY</span></code> - To query the mask of Dual Sub Slices
+(DSS) available for geometry operations. For example a query response
+containing the following in mask:
+<code class="docutils literal notranslate"><span class="pre">DSS_GEOMETRY</span>&#160;&#160;&#160; <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span></code>
+means 32 DSS are available for geometry.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_TOPO_DSS_COMPUTE</span></code> - To query the mask of Dual Sub Slices
+(DSS) available for compute operations. For example a query response
+containing the following in mask:
+<code class="docutils literal notranslate"><span class="pre">DSS_COMPUTE</span>&#160;&#160;&#160; <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span></code>
+means 32 DSS are available for compute.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_TOPO_EU_PER_DSS</span></code> - To query the mask of Execution Units (EU)
+available per Dual Sub Slices (DSS). For example a query response
+containing the following in mask:
+<code class="docutils literal notranslate"><span class="pre">EU_PER_DSS</span>&#160;&#160;&#160; <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span></code>
+means each DSS has 16 EU.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_engine_cycles">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_engine_cycles</span></span></span><a class="headerlink" href="#c.drm_xe_query_engine_cycles" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>correlate CPU and GPU timestamps</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_engine_cycles {
+    struct drm_xe_engine_class_instance eci;
+    __s32 clockid;
+    __u32 width;
+    __u64 engine_cycles;
+    __u64 cpu_timestamp;
+    __u64 cpu_delta;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">eci</span></code></dt><dd><p>This is input by the user and is the engine for which command
+streamer cycles is queried.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">clockid</span></code></dt><dd><p>This is input by the user and is the reference clock id for
+CPU timestamp. For definition, see clock_gettime(2) and
+perf_event_open(2). Supported clock ids are CLOCK_MONOTONIC,
+CLOCK_MONOTONIC_RAW, CLOCK_REALTIME, CLOCK_BOOTTIME, CLOCK_TAI.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">width</span></code></dt><dd><p>Width of the engine cycle counter in bits.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">engine_cycles</span></code></dt><dd><p>Engine cycles as read from its register
+at 0x358 offset.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu_timestamp</span></code></dt><dd><p>CPU timestamp in ns. The timestamp is captured before
+reading the engine_cycles register using the reference clockid set by the
+user.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu_delta</span></code></dt><dd><p>Time delta in ns captured around reading the lower dword
+of the engine_cycles register.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query is equal to
+DRM_XE_DEVICE_QUERY_ENGINE_CYCLES, then the reply uses <a class="reference internal" href="#c.drm_xe_query_engine_cycles" title="drm_xe_query_engine_cycles"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_engine_cycles</span></code></a>
+in .data. <a class="reference internal" href="#c.drm_xe_query_engine_cycles" title="drm_xe_query_engine_cycles"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_engine_cycles</span></code></a> is allocated by the user and
+.data points to this allocated structure.</p>
+<p>The query returns the engine cycles, which along with GT's <strong>reference_clock</strong>,
+can be used to calculate the engine timestamp. In addition the
+query returns a set of cpu timestamps that indicate when the command
+streamer cycle count was captured.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_device_query">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_device_query</span></span></span><a class="headerlink" href="#c.drm_xe_device_query" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_DEVICE_QUERY</span></code> - main structure to query device information</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_device_query {
+    __u64 extensions;
+#define DRM_XE_DEVICE_QUERY_ENGINES             0;
+#define DRM_XE_DEVICE_QUERY_MEM_REGIONS         1;
+#define DRM_XE_DEVICE_QUERY_CONFIG              2;
+#define DRM_XE_DEVICE_QUERY_GT_LIST             3;
+#define DRM_XE_DEVICE_QUERY_HWCONFIG            4;
+#define DRM_XE_DEVICE_QUERY_GT_TOPOLOGY         5;
+#define DRM_XE_DEVICE_QUERY_ENGINE_CYCLES       6;
+    __u32 query;
+    __u32 size;
+    __u64 data;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">query</span></code></dt><dd><p>The type of data to query</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of the queried data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Queried data is placed here</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The user selects the type of data to query among DRM_XE_DEVICE_QUERY_*
+and sets the value in the query member. This determines the type of
+the structure provided by the driver in data, among struct drm_xe_query_*.</p>
+<dl class="simple">
+<dt>The <strong>query</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_ENGINES</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_MEM_REGIONS</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_CONFIG</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_GT_LIST</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_HWCONFIG</span></code> - Query type to retrieve the hardware
+configuration of the device such as information on slices, memory,
+caches, and so on. It is provided as a table of key / value
+attributes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_GT_TOPOLOGY</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_ENGINE_CYCLES</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p>If size is set to 0, the driver fills it with the required size for
+the requested type of data to query. If size is equal to the required
+size, the queried information is copied into data. If size is set to
+a value different from 0 and different from the required size, the
+IOCTL call returns -EINVAL.</p>
+<p>For example the following code snippet allows retrieving and printing
+information about the device engines with DRM_XE_DEVICE_QUERY_ENGINES:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_query_engines</span><span class="w"> </span><span class="o">*</span><span class="n">engines</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_device_query</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">extensions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DRM_XE_DEVICE_QUERY_ENGINES</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_XE_DEVICE_QUERY</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">query</span><span class="p">);</span>
+<span class="n">engines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">malloc</span><span class="p">(</span><span class="n">query</span><span class="p">.</span><span class="n">size</span><span class="p">);</span>
+<span class="n">query</span><span class="p">.</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">uintptr_t</span><span class="p">)</span><span class="n">engines</span><span class="p">;</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_XE_DEVICE_QUERY</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">query</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">num_engines</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;Engine %d: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">,</span>
+<span class="w">        </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">engines</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">instance</span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">==</span>
+<span class="w">            </span><span class="n">DRM_XE_ENGINE_CLASS_RENDER</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;RENDER&quot;</span><span class="o">:</span>
+<span class="w">        </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">engines</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">instance</span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">==</span>
+<span class="w">            </span><span class="n">DRM_XE_ENGINE_CLASS_COPY</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;COPY&quot;</span><span class="o">:</span>
+<span class="w">        </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">engines</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">instance</span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">==</span>
+<span class="w">            </span><span class="n">DRM_XE_ENGINE_CLASS_VIDEO_DECODE</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;VIDEO_DECODE&quot;</span><span class="o">:</span>
+<span class="w">        </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">engines</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">instance</span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">==</span>
+<span class="w">            </span><span class="n">DRM_XE_ENGINE_CLASS_VIDEO_ENHANCE</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;VIDEO_ENHANCE&quot;</span><span class="o">:</span>
+<span class="w">        </span><span class="n">engines</span><span class="o">-&gt;</span><span class="n">engines</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">instance</span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">==</span>
+<span class="w">            </span><span class="n">DRM_XE_ENGINE_CLASS_COMPUTE</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s">&quot;COMPUTE&quot;</span><span class="o">:</span>
+<span class="w">        </span><span class="s">&quot;UNKNOWN&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">free</span><span class="p">(</span><span class="n">engines</span><span class="p">);</span>
+</pre></div>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_gem_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_gem_create</span></span></span><a class="headerlink" href="#c.drm_xe_gem_create" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_GEM_CREATE</span></code> - A structure for gem creation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_gem_create {
+    __u64 extensions;
+    __u64 size;
+    __u32 placement;
+#define DRM_XE_GEM_CREATE_FLAG_DEFER_BACKING            (1 &lt;&lt; 0);
+#define DRM_XE_GEM_CREATE_FLAG_SCANOUT                  (1 &lt;&lt; 1);
+#define DRM_XE_GEM_CREATE_FLAG_NEEDS_VISIBLE_VRAM       (1 &lt;&lt; 2);
+    __u32 flags;
+    __u32 vm_id;
+    __u32 handle;
+#define DRM_XE_GEM_CPU_CACHING_WB                      1;
+#define DRM_XE_GEM_CPU_CACHING_WC                      2;
+    __u16 cpu_caching;
+    __u16 pad[3];
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of the object to be created, must match region
+(system or vram) minimum alignment (<code class="xref c c-type docutils literal notranslate"><span class="pre">min_page_size</span></code>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">placement</span></code></dt><dd><p>A mask of memory instances of where BO can be placed.
+Each index in this mask refers directly to the <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_mem_regions</span></code></a>' instance, no assumptions should
+be made about order. The type of each region is described
+by <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_mem_regions</span></code></a>' mem_class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Flags, currently a mask of memory instances of where BO can
+be placed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>Attached VM, if any</p>
+<p>If a VM is specified, this BO must:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Only ever be bound to that VM.</p></li>
+<li><p>Cannot be exported as a PRIME fd.</p></li>
+</ol>
+</div></blockquote>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Returned handle for the object.</p>
+<p>Object handles are nonzero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cpu_caching</span></code></dt><dd><p>The CPU caching mode to select for this object. If
+mmaping the object the mode selected here will also be used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>The <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_GEM_CREATE_FLAG_DEFER_BACKING</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_GEM_CREATE_FLAG_SCANOUT</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_GEM_CREATE_FLAG_NEEDS_VISIBLE_VRAM</span></code> - When using VRAM as a
+possible placement, ensure that the corresponding VRAM allocation
+will always use the CPU accessible part of VRAM. This is important
+for small-bar systems (on full-bar systems this gets turned into a
+noop).
+Note1: System memory can be used as an extra placement if the kernel
+should spill the allocation to system memory, if space can't be made
+available in the CPU accessible part of VRAM (giving the same
+behaviour as the i915 interface, see
+I915_GEM_CREATE_EXT_FLAG_NEEDS_CPU_ACCESS).
+Note2: For clear-color CCS surfaces the kernel needs to read the
+clear-color value stored in the buffer, and on discrete platforms we
+need to use VRAM for display surfaces, therefore the kernel requires
+setting this flag for such objects, otherwise an error is thrown on
+small-bar systems.</p></li>
+</ul>
+</dd>
+<dt><strong>cpu_caching</strong> supports the following values:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_GEM_CPU_CACHING_WB</span></code> - Allocate the pages with write-back
+caching. On iGPU this can't be used for scanout surfaces. Currently
+not allowed for objects placed in VRAM.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_GEM_CPU_CACHING_WC</span></code> - Allocate the pages as write-combined. This
+is uncached. Scanout surfaces should likely use this. All objects
+that can be placed in VRAM must use this.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_gem_mmap_offset">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_gem_mmap_offset</span></span></span><a class="headerlink" href="#c.drm_xe_gem_mmap_offset" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_GEM_MMAP_OFFSET</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_gem_mmap_offset {
+    __u64 extensions;
+    __u32 handle;
+    __u32 flags;
+    __u64 offset;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle for the object being mapped.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Must be zero</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>The fake offset to use for subsequent mmap call</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_vm_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_vm_create</span></span></span><a class="headerlink" href="#c.drm_xe_vm_create" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_CREATE</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_vm_create {
+    __u64 extensions;
+#define DRM_XE_VM_CREATE_FLAG_SCRATCH_PAGE      (1 &lt;&lt; 0);
+#define DRM_XE_VM_CREATE_FLAG_LR_MODE           (1 &lt;&lt; 1);
+#define DRM_XE_VM_CREATE_FLAG_FAULT_MODE        (1 &lt;&lt; 2);
+    __u32 flags;
+    __u32 vm_id;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>Returned VM ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>The <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_SCRATCH_PAGE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_LR_MODE</span></code> - An LR, or Long Running VM accepts
+exec submissions to its exec_queues that don't have an upper time
+limit on the job execution time. But exec submissions to these
+don't allow any of the flags DRM_XE_SYNC_FLAG_SYNCOBJ,
+DRM_XE_SYNC_FLAG_TIMELINE_SYNCOBJ, DRM_XE_SYNC_FLAG_DMA_BUF,
+used as out-syncobjs, that is, together with DRM_XE_SYNC_FLAG_SIGNAL.
+LR VMs can be created in recoverable page-fault mode using
+DRM_XE_VM_CREATE_FLAG_FAULT_MODE, if the device supports it.
+If that flag is omitted, the UMD can not rely on the slightly
+different per-VM overcommit semantics that are enabled by
+DRM_XE_VM_CREATE_FLAG_FAULT_MODE (see below), but KMD may
+still enable recoverable pagefaults if supported by the device.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_FAULT_MODE</span></code> - Requires also
+DRM_XE_VM_CREATE_FLAG_LR_MODE. It allows memory to be allocated on
+demand when accessed, and also allows per-VM overcommit of memory.
+The xe driver internally uses recoverable pagefaults to implement
+this.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_vm_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_vm_destroy</span></span></span><a class="headerlink" href="#c.drm_xe_vm_destroy" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_DESTROY</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_vm_destroy {
+    __u32 vm_id;
+    __u32 pad;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_vm_bind_op">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_vm_bind_op</span></span></span><a class="headerlink" href="#c.drm_xe_vm_bind_op" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>run bind operations</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_vm_bind_op {
+    __u64 extensions;
+    __u32 obj;
+    __u16 pat_index;
+    __u16 pad;
+    union {
+        __u64 obj_offset;
+        __u64 userptr;
+    };
+    __u64 range;
+    __u64 addr;
+#define DRM_XE_VM_BIND_OP_MAP           0x0;
+#define DRM_XE_VM_BIND_OP_UNMAP         0x1;
+#define DRM_XE_VM_BIND_OP_MAP_USERPTR   0x2;
+#define DRM_XE_VM_BIND_OP_UNMAP_ALL     0x3;
+#define DRM_XE_VM_BIND_OP_PREFETCH      0x4;
+    __u32 op;
+#define DRM_XE_VM_BIND_FLAG_NULL        (1 &lt;&lt; 2);
+#define DRM_XE_VM_BIND_FLAG_DUMPABLE    (1 &lt;&lt; 3);
+    __u32 flags;
+    __u32 prefetch_mem_region_instance;
+    __u32 pad2;
+    __u64 reserved[3];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">obj</span></code></dt><dd><p>GEM object to operate on, MBZ for MAP_USERPTR, MBZ for UNMAP</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pat_index</span></code></dt><dd><p>The platform defined <strong>pat_index</strong> to use for this mapping.
+The index basically maps to some predefined memory attributes,
+including things like caching, coherency, compression etc.  The exact
+meaning of the pat_index is platform specific and defined in the
+Bspec and PRMs.  When the KMD sets up the binding the index here is
+encoded into the ppGTT PTE.</p>
+<p>For coherency the <strong>pat_index</strong> needs to be at least 1way coherent when
+drm_xe_gem_create.cpu_caching is DRM_XE_GEM_CPU_CACHING_WB. The KMD
+will extract the coherency mode from the <strong>pat_index</strong> and reject if
+there is a mismatch (see note below for pre-MTL platforms).</p>
+<p>Note: On pre-MTL platforms there is only a caching mode and no
+explicit coherency mode, but on such hardware there is always a
+shared-LLC (or is dgpu) so all GT memory accesses are coherent with
+CPU caches even with the caching mode set as uncached.  It's only the
+display engine that is incoherent (on dgpu it must be in VRAM which
+is always mapped as WC on the CPU). However to keep the uapi somewhat
+consistent with newer platforms the KMD groups the different cache
+levels into the following coherency buckets on all pre-MTL platforms:</p>
+<blockquote>
+<div><p>ppGTT UC -&gt; COH_NONE
+ppGTT WC -&gt; COH_NONE
+ppGTT WT -&gt; COH_NONE
+ppGTT WB -&gt; COH_AT_LEAST_1WAY</p>
+</div></blockquote>
+<p>In practice UC/WC/WT should only ever used for scanout surfaces on
+such platforms (or perhaps in general for dma-buf if shared with
+another device) since it is only the display engine that is actually
+incoherent.  Everything else should typically use WB given that we
+have a shared-LLC.  On MTL+ this completely changes and the HW
+defines the coherency mode as part of the <strong>pat_index</strong>, where
+incoherent GT access is possible.</p>
+<p>Note: For userptr and externally imported dma-buf the kernel expects
+either 1WAY or 2WAY for the <strong>pat_index</strong>.</p>
+<p>For DRM_XE_VM_BIND_FLAG_NULL bindings there are no KMD restrictions
+on the <strong>pat_index</strong>. For such mappings there is no actual memory being
+mapped (the address in the PTE is invalid), so the various PAT memory
+attributes likely do not apply.  Simply leaving as zero is one
+option (still a valid pat_index).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">obj_offset</span></code></dt><dd><p>Offset into the object, MBZ for CLEAR_RANGE,
+ignored for unbind</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">userptr</span></code></dt><dd><p>user pointer to bind on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">range</span></code></dt><dd><p>Number of bytes from the object to bind to addr, MBZ for UNMAP_ALL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>Address to operate on, MBZ for UNMAP_ALL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">op</span></code></dt><dd><p>Bind operation to perform</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Bind flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">prefetch_mem_region_instance</span></code></dt><dd><p>Memory region to prefetch VMA to.
+It is a region instance, not a mask.
+To be used only with <code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_PREFETCH</span></code> operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad2</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>The <strong>op</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_MAP</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_UNMAP</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_MAP_USERPTR</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_UNMAP_ALL</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_OP_PREFETCH</span></code></p></li>
+</ul>
+</dd>
+<dt>and the <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_FLAG_NULL</span></code> - When the NULL flag is set, the page
+tables are setup with a special bit which indicates writes are
+dropped and all reads return zero. In the future, the NULL flags
+will only be valid for DRM_XE_VM_BIND_OP_MAP operations, the BO
+handle MBZ, and the BO offset MBZ. This flag is intended to
+implement VK sparse bindings.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_vm_bind">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_vm_bind</span></span></span><a class="headerlink" href="#c.drm_xe_vm_bind" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_VM_BIND</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_vm_bind {
+    __u64 extensions;
+    __u32 vm_id;
+    __u32 exec_queue_id;
+    __u32 pad;
+    __u32 num_binds;
+    union {
+        struct drm_xe_vm_bind_op bind;
+        __u64 vector_of_binds;
+    };
+    __u32 pad2;
+    __u32 num_syncs;
+    __u64 syncs;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>The ID of the VM to bind to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>exec_queue_id, must be of class DRM_XE_ENGINE_CLASS_VM_BIND
+and exec queue must have same vm_id. If zero, the default VM bind engine
+is used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_binds</span></code></dt><dd><p>number of binds in this IOCTL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bind</span></code></dt><dd><p>used if num_binds == 1</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vector_of_binds</span></code></dt><dd><p>userptr to array of <a class="reference internal" href="#c.drm_xe_vm_bind_op" title="drm_xe_vm_bind_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_vm_bind_op</span></code></a> if num_binds &gt; 1</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad2</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_syncs</span></code></dt><dd><p>amount of syncs to wait on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">syncs</span></code></dt><dd><p>pointer to <a class="reference internal" href="#c.drm_xe_sync" title="drm_xe_sync"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_sync</span></code></a> array</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Below is an example of a minimal use of <strong>drm_xe_vm_bind</strong> to
+asynchronously bind the buffer <cite>data</cite> at address <cite>BIND_ADDRESS</cite> to
+illustrate <cite>userptr</cite>. It can be synchronized by using the example
+provided for <strong>drm_xe_sync</strong>.</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">aligned_alloc</span><span class="p">(</span><span class="n">ALIGNMENT</span><span class="p">,</span><span class="w"> </span><span class="n">BO_SIZE</span><span class="p">);</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_vm_bind</span><span class="w"> </span><span class="n">bind</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">vm_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vm</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_binds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">obj_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_user_pointer</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BO_SIZE</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">addr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BIND_ADDRESS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">op</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DRM_XE_VM_BIND_OP_MAP_USERPTR</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">bind</span><span class="p">.</span><span class="n">flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_syncs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">syncs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sync</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">exec_queue_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_XE_VM_BIND</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bind</span><span class="p">);</span>
+</pre></div>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_exec_queue_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_exec_queue_create</span></span></span><a class="headerlink" href="#c.drm_xe_exec_queue_create" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_CREATE</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_exec_queue_create {
+#define DRM_XE_EXEC_QUEUE_EXTENSION_SET_PROPERTY                0;
+#define DRM_XE_EXEC_QUEUE_SET_PROPERTY_PRIORITY               0;
+#define DRM_XE_EXEC_QUEUE_SET_PROPERTY_TIMESLICE              1;
+    __u64 extensions;
+    __u16 width;
+    __u16 num_placements;
+    __u32 vm_id;
+    __u32 flags;
+    __u32 exec_queue_id;
+    __u64 instances;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">width</span></code></dt><dd><p>submission width (number BB per exec) for this exec queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_placements</span></code></dt><dd><p>number of valid placements for this exec queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM to use for this exec queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>Returned exec queue ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">instances</span></code></dt><dd><p>user pointer to a 2-d array of <a class="reference internal" href="#c.drm_xe_engine_class_instance" title="drm_xe_engine_class_instance"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_engine_class_instance</span></code></a></p>
+<p>length = width (i) * num_placements (j)
+index = j + i * width</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The example below shows how to use <strong>drm_xe_exec_queue_create</strong> to create
+a simple exec_queue (no parallel submission) of class
+<code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_XE_ENGINE_CLASS_RENDER</span></code>.</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_engine_class_instance</span><span class="w"> </span><span class="n">instance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">engine_class</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DRM_XE_ENGINE_CLASS_RENDER</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_exec_queue_create</span><span class="w"> </span><span class="n">exec_queue_create</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="p">.</span><span class="n">extensions</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">     </span><span class="p">.</span><span class="n">vm_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vm</span><span class="p">,</span>
+<span class="w">     </span><span class="p">.</span><span class="n">num_bb_per_exec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">     </span><span class="p">.</span><span class="n">num_eng_per_bb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">     </span><span class="p">.</span><span class="n">instances</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">to_user_pointer</span><span class="p">(</span><span class="o">&amp;</span><span class="n">instance</span><span class="p">),</span>
+<span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_XE_EXEC_QUEUE_CREATE</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">exec_queue_create</span><span class="p">);</span>
+</pre></div>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_exec_queue_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_exec_queue_destroy</span></span></span><a class="headerlink" href="#c.drm_xe_exec_queue_destroy" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_DESTROY</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_exec_queue_destroy {
+    __u32 exec_queue_id;
+    __u32 pad;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>Exec queue ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_exec_queue_get_property">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_exec_queue_get_property</span></span></span><a class="headerlink" href="#c.drm_xe_exec_queue_get_property" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_GET_PROPERTY</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_exec_queue_get_property {
+    __u64 extensions;
+    __u32 exec_queue_id;
+#define DRM_XE_EXEC_QUEUE_GET_PROPERTY_BAN      0;
+    __u32 property;
+    __u64 value;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>Exec queue ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">property</span></code></dt><dd><p>property to get</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">value</span></code></dt><dd><p>property value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>The <strong>property</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_EXEC_QUEUE_GET_PROPERTY_BAN</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_sync">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_sync</span></span></span><a class="headerlink" href="#c.drm_xe_sync" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>sync object</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_sync {
+    __u64 extensions;
+#define DRM_XE_SYNC_TYPE_SYNCOBJ                0x0;
+#define DRM_XE_SYNC_TYPE_TIMELINE_SYNCOBJ       0x1;
+#define DRM_XE_SYNC_TYPE_USER_FENCE             0x2;
+    __u32 type;
+#define DRM_XE_SYNC_FLAG_SIGNAL (1 &lt;&lt; 0);
+    __u32 flags;
+    union {
+        __u32 handle;
+        __u64 addr;
+    };
+    __u64 timeline_value;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of the this sync object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Sync Flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle for the object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>Address of user fence. When sync is passed in via exec
+IOCTL this is a GPU address in the VM. When sync passed in via
+VM bind IOCTL this is a user pointer. In either case, it is
+the users responsibility that this address is present and
+mapped when the user fence is signalled. Must be qword
+aligned.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeline_value</span></code></dt><dd><p>Input for the timeline sync object. Needs to be
+different than 0 when used with <code class="docutils literal notranslate"><span class="pre">DRM_XE_SYNC_FLAG_TIMELINE_SYNCOBJ</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>The <strong>type</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_SYNC_TYPE_SYNCOBJ</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_SYNC_TYPE_TIMELINE_SYNCOBJ</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_SYNC_TYPE_USER_FENCE</span></code></p></li>
+</ul>
+</dd>
+<dt>and the <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_SYNC_FLAG_SIGNAL</span></code></p></li>
+</ul>
+</dd>
+</dl>
+<p>A minimal use of <strong>drm_xe_sync</strong> looks like this:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_sync</span><span class="w"> </span><span class="n">sync</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DRM_XE_SYNC_FLAG_SIGNAL</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DRM_XE_SYNC_TYPE_SYNCOBJ</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_syncobj_create</span><span class="w"> </span><span class="n">syncobj_create</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_SYNCOBJ_CREATE</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">syncobj_create</span><span class="p">);</span>
+<span class="n">sync</span><span class="p">.</span><span class="n">handle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">syncobj_create</span><span class="p">.</span><span class="n">handle</span><span class="p">;</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">    </span><span class="n">use</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sync</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">drm_xe_exec</span><span class="w"> </span><span class="n">or</span><span class="w"> </span><span class="n">drm_xe_vm_bind</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_syncobj_wait</span><span class="w"> </span><span class="n">wait</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">handles</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sync</span><span class="p">.</span><span class="n">handle</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">timeout_nsec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">INT64_MAX</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">count_handles</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">first_signaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">pad</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_SYNCOBJ_WAIT</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">wait</span><span class="p">);</span>
+</pre></div>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_exec">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_exec</span></span></span><a class="headerlink" href="#c.drm_xe_exec" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_exec {
+    __u64 extensions;
+    __u32 exec_queue_id;
+    __u32 num_syncs;
+    __u64 syncs;
+    __u64 address;
+    __u16 num_batch_buffer;
+    __u16 pad[3];
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>Exec queue ID for the batch buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_syncs</span></code></dt><dd><p>Amount of <a class="reference internal" href="#c.drm_xe_sync" title="drm_xe_sync"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_sync</span></code></a> in array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">syncs</span></code></dt><dd><p>Pointer to <a class="reference internal" href="#c.drm_xe_sync" title="drm_xe_sync"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_sync</span></code></a> array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">address</span></code></dt><dd><p>address of batch buffer if num_batch_buffer == 1 or an
+array of batch buffer addresses</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_batch_buffer</span></code></dt><dd><p>number of batch buffer in this exec, must match
+the width of the engine</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This is an example to use <strong>drm_xe_exec</strong> for execution of the object
+at BIND_ADDRESS (see example in <strong>drm_xe_vm_bind</strong>) by an exec_queue
+(see example in <strong>drm_xe_exec_queue_create</strong>). It can be synchronized
+by using the example provided for <strong>drm_xe_sync</strong>.</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_exec</span><span class="w"> </span><span class="n">exec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">exec_queue_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">exec_queue</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">syncs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sync</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_syncs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BIND_ADDRESS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_batch_buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="p">};</span>
+<span class="n">ioctl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="n">DRM_IOCTL_XE_EXEC</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">exec</span><span class="p">);</span>
+</pre></div>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_wait_user_fence">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_wait_user_fence</span></span></span><a class="headerlink" href="#c.drm_xe_wait_user_fence" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_WAIT_USER_FENCE</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_wait_user_fence {
+    __u64 extensions;
+    __u64 addr;
+#define DRM_XE_UFENCE_WAIT_OP_EQ        0x0;
+#define DRM_XE_UFENCE_WAIT_OP_NEQ       0x1;
+#define DRM_XE_UFENCE_WAIT_OP_GT        0x2;
+#define DRM_XE_UFENCE_WAIT_OP_GTE       0x3;
+#define DRM_XE_UFENCE_WAIT_OP_LT        0x4;
+#define DRM_XE_UFENCE_WAIT_OP_LTE       0x5;
+    __u16 op;
+#define DRM_XE_UFENCE_WAIT_FLAG_ABSTIME (1 &lt;&lt; 0);
+    __u16 flags;
+    __u32 pad;
+    __u64 value;
+    __u64 mask;
+    __s64 timeout;
+    __u32 exec_queue_id;
+    __u32 pad2;
+    __u64 reserved[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>user pointer address to wait on, must qword aligned</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">op</span></code></dt><dd><p>wait operation (type of comparison)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>wait flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">value</span></code></dt><dd><p>compare value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mask</span></code></dt><dd><p>comparison mask</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeout</span></code></dt><dd><p>how long to wait before bailing, value in nanoseconds.
+Without DRM_XE_UFENCE_WAIT_FLAG_ABSTIME flag set (relative timeout)
+it contains timeout expressed in nanoseconds to wait (fence will
+expire at now() + timeout).
+When DRM_XE_UFENCE_WAIT_FLAG_ABSTIME flat is set (absolute timeout) wait
+will end at timeout (uses system MONOTONIC_CLOCK).
+Passing negative timeout leads to neverending wait.</p>
+<p>On relative timeout this value is updated with timeout left
+(for restarting the call in case of signal delivery).
+On absolute timeout this value stays intact (restarted call still
+expire at the same point of time).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exec_queue_id</span></code></dt><dd><p>exec_queue_id returned from xe_exec_queue_create_ioctl</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad2</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Wait on user fence, XE will wake-up on every HW engine interrupt in the
+instances list and check if user fence is complete:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>(*addr &amp; MASK) OP (VALUE &amp; MASK)
+</pre></div>
+</div>
+<p>Returns to user on user fence completion or timeout.</p>
+<dl class="simple">
+<dt>The <strong>op</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_EQ</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_NEQ</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_GT</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_GTE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_LT</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_OP_LTE</span></code></p></li>
+</ul>
+</dd>
+<dt>and the <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_FLAG_ABSTIME</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_UFENCE_WAIT_FLAG_SOFT_OP</span></code></p></li>
+</ul>
+</dd>
+<dt>The <strong>mask</strong> values can be for example:</dt><dd><ul class="simple">
+<li><p>0xffu for u8</p></li>
+<li><p>0xffffu for u16</p></li>
+<li><p>0xffffffffu for u32</p></li>
+<li><p>0xffffffffffffffffu for u64</p></li>
+</ul>
+</dd>
+</dl>
 </section>
 </section>
 

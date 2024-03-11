@@ -1,0 +1,566 @@
+.. SPDX-License-Identifier: GPL-2.0
+.. NOTE: This document was auto-generated.
+
+
+=====================================
+Family ``dpll`` netlink specification
+=====================================
+
+
+.. contents::
+
+
+-------
+Summary
+-------
+
+
+DPLL subsystem.
+
+----------
+Operations
+----------
+
+
+
+device-id-get
+=============
+Get id of dpll device that matches given attributes
+
+:attribute-set: dpll
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``module-name``, ``clock-id``, ``type``]
+
+    **reply**
+        :attributes: [``id``]
+
+
+
+
+device-get
+==========
+Get list of DPLL devices (dump) or attributes of a single dpll device
+
+:attribute-set: dpll
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``id``]
+
+    **reply**
+        :attributes: [``id``, ``module-name``, ``mode``, ``mode-supported``, ``lock-status``, ``temp``, ``clock-id``, ``type``]
+
+:dump:
+    **reply**
+        :attributes: [``id``, ``module-name``, ``mode``, ``mode-supported``, ``lock-status``, ``temp``, ``clock-id``, ``type``]
+
+
+
+
+device-set
+==========
+Set attributes for a DPLL device
+
+:attribute-set: dpll
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``id``]
+
+
+
+
+device-create-ntf
+=================
+Notification about device appearing
+
+:notify: device-get
+:mcgrp: monitor
+
+
+
+device-delete-ntf
+=================
+Notification about device disappearing
+
+:notify: device-get
+:mcgrp: monitor
+
+
+
+device-change-ntf
+=================
+Notification about device configuration being changed
+
+:notify: device-get
+:mcgrp: monitor
+
+
+
+pin-id-get
+==========
+Get id of a pin that matches given attributes
+
+:attribute-set: pin
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``module-name``, ``clock-id``, ``board-label``, ``panel-label``, ``package-label``, ``type``]
+
+    **reply**
+        :attributes: [``id``]
+
+
+
+
+pin-get
+=======
+Get list of pins and its attributes.- dump request without any attributes given - list all the pins in the  system- dump request with target dpll - list all the pins registered with  a given dpll device- do request with target dpll and target pin - single pin attributes
+
+:attribute-set: pin
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``id``]
+
+    **reply**
+        :attributes: [``id``, ``board-label``, ``panel-label``, ``package-label``, ``type``, ``frequency``, ``frequency-supported``, ``capabilities``, ``parent-device``, ``parent-pin``, ``phase-adjust-min``, ``phase-adjust-max``, ``phase-adjust``, ``fractional-frequency-offset``]
+
+:dump:
+    **request**
+        :attributes: [``id``]
+
+    **reply**
+        :attributes: [``id``, ``board-label``, ``panel-label``, ``package-label``, ``type``, ``frequency``, ``frequency-supported``, ``capabilities``, ``parent-device``, ``parent-pin``, ``phase-adjust-min``, ``phase-adjust-max``, ``phase-adjust``, ``fractional-frequency-offset``]
+
+
+
+
+pin-set
+=======
+Set attributes of a target pin
+
+:attribute-set: pin
+:flags: ['admin-perm']
+:do:
+    **pre**
+
+
+    **post**
+
+
+    **request**
+        :attributes: [``id``, ``frequency``, ``direction``, ``prio``, ``state``, ``parent-device``, ``parent-pin``, ``phase-adjust``]
+
+
+
+
+pin-create-ntf
+==============
+Notification about pin appearing
+
+:notify: pin-get
+:mcgrp: monitor
+
+
+
+pin-delete-ntf
+==============
+Notification about pin disappearing
+
+:notify: pin-get
+:mcgrp: monitor
+
+
+
+pin-change-ntf
+==============
+Notification about pin configuration being changed
+
+:notify: pin-get
+:mcgrp: monitor
+
+
+
+----------------
+Multicast groups
+----------------
+
+
+- monitor
+
+-----------
+Definitions
+-----------
+
+
+
+mode
+====
+:type: enum
+:doc: working modes a dpll can support, differentiates if and how dpll selectsone of its inputs to syntonize with it, valid values for DPLL_A_MODEattribute
+
+
+:entries:
+    :manual: input can be only selected by sending a request to dpll
+    :automatic: highest prio input pin auto selected by dpll
+
+
+
+lock-status
+===========
+:type: enum
+:doc: provides information of dpll device lock status, valid values forDPLL_A_LOCK_STATUS attribute
+
+
+:entries:
+    :unlocked: dpll was not yet locked to any valid input (or forced by settingDPLL_A_MODE to DPLL_MODE_DETACHED)
+    :locked: dpll is locked to a valid signal, but no holdover available
+    :locked-ho-acq: dpll is locked and holdover acquired
+    :holdover: dpll is in holdover state - lost a valid lock or was forcedby disconnecting all the pins (latter possible onlywhen dpll lock-state was already DPLL_LOCK_STATUS_LOCKED_HO_ACQ,if dpll lock-state was not DPLL_LOCK_STATUS_LOCKED_HO_ACQ, thedpll's lock-state shall remain DPLL_LOCK_STATUS_UNLOCKED)
+
+
+
+temp-divider
+============
+:type: const
+:value: 1000
+:doc: temperature divider allowing userspace to calculate thetemperature as float with three digit decimal precision.Value of (DPLL_A_TEMP / DPLL_TEMP_DIVIDER) is integer part oftemperature value.Value of (DPLL_A_TEMP % DPLL_TEMP_DIVIDER) is fractional part oftemperature value.
+
+
+
+type
+====
+:type: enum
+:doc: type of dpll, valid values for DPLL_A_TYPE attribute
+
+
+:entries:
+    :pps: dpll produces Pulse-Per-Second signal
+    :eec: dpll drives the Ethernet Equipment Clock
+
+
+
+pin-type
+========
+:type: enum
+:doc: defines possible types of a pin, valid values for DPLL_A_PIN_TYPEattribute
+
+
+:entries:
+    :mux: aggregates another layer of selectable pins
+    :ext: external input
+    :synce-eth-port: ethernet port PHY's recovered clock
+    :int-oscillator: device internal oscillator
+    :gnss: GNSS recovered clock
+
+
+
+pin-direction
+=============
+:type: enum
+:doc: defines possible direction of a pin, valid values forDPLL_A_PIN_DIRECTION attribute
+
+
+:entries:
+    :input: pin used as a input of a signal
+    :output: pin used to output the signal
+
+
+
+pin-frequency-1-hz
+==================
+:type: const
+:value: 1
+
+
+
+pin-frequency-10-khz
+====================
+:type: const
+:value: 10000
+
+
+
+pin-frequency-77_5-khz
+======================
+:type: const
+:value: 77500
+
+
+
+pin-frequency-10-mhz
+====================
+:type: const
+:value: 10000000
+
+
+
+pin-state
+=========
+:type: enum
+:doc: defines possible states of a pin, valid values forDPLL_A_PIN_STATE attribute
+
+
+:entries:
+    :connected: pin connected, active input of phase locked loop
+    :disconnected: pin disconnected, not considered as a valid input
+    :selectable: pin enabled for automatic input selection
+
+
+
+pin-capabilities
+================
+:type: flags
+:doc: defines possible capabilities of a pin, valid flags onDPLL_A_PIN_CAPABILITIES attribute
+
+
+:entries:
+    :direction-can-change: pin direction can be changed
+    :priority-can-change: pin priority can be changed
+    :state-can-change: pin state can be changed
+
+
+
+phase-offset-divider
+====================
+:type: const
+:value: 1000
+:doc: phase offset divider allows userspace to calculate a value ofmeasured signal phase difference between a pin and dpll deviceas a fractional value with three digit decimal precision.Value of (DPLL_A_PHASE_OFFSET / DPLL_PHASE_OFFSET_DIVIDER) is aninteger part of a measured phase offset value.Value of (DPLL_A_PHASE_OFFSET % DPLL_PHASE_OFFSET_DIVIDER) is afractional part of a measured phase offset value.
+
+
+
+--------------
+Attribute sets
+--------------
+
+
+
+dpll
+====
+id (``u32``)
+~~~~~~~~~~~~
+
+
+module-name (``string``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+pad (``pad``)
+~~~~~~~~~~~~~
+
+
+clock-id (``u64``)
+~~~~~~~~~~~~~~~~~~
+
+
+mode (``u32``)
+~~~~~~~~~~~~~~
+:enum: mode
+
+
+mode-supported (``u32``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+:enum: mode
+:multi-attr: True
+
+
+lock-status (``u32``)
+~~~~~~~~~~~~~~~~~~~~~
+:enum: lock-status
+
+
+temp (``s32``)
+~~~~~~~~~~~~~~
+
+
+type (``u32``)
+~~~~~~~~~~~~~~
+:enum: type
+
+
+
+pin
+===
+id (``u32``)
+~~~~~~~~~~~~
+
+
+parent-id (``u32``)
+~~~~~~~~~~~~~~~~~~~
+
+
+module-name (``string``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+pad (``pad``)
+~~~~~~~~~~~~~
+
+
+clock-id (``u64``)
+~~~~~~~~~~~~~~~~~~
+
+
+board-label (``string``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+panel-label (``string``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+package-label (``string``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+type (``u32``)
+~~~~~~~~~~~~~~
+:enum: pin-type
+
+
+direction (``u32``)
+~~~~~~~~~~~~~~~~~~~
+:enum: pin-direction
+
+
+frequency (``u64``)
+~~~~~~~~~~~~~~~~~~~
+
+
+frequency-supported (``nest``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:multi-attr: True
+:nested-attributes: frequency-range
+
+
+frequency-min (``u64``)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+
+frequency-max (``u64``)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+
+prio (``u32``)
+~~~~~~~~~~~~~~
+
+
+state (``u32``)
+~~~~~~~~~~~~~~~
+:enum: pin-state
+
+
+capabilities (``u32``)
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+parent-device (``nest``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+:multi-attr: True
+:nested-attributes: pin-parent-device
+
+
+parent-pin (``nest``)
+~~~~~~~~~~~~~~~~~~~~~
+:multi-attr: True
+:nested-attributes: pin-parent-pin
+
+
+phase-adjust-min (``s32``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+phase-adjust-max (``s32``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+phase-adjust (``s32``)
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+phase-offset (``s64``)
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+fractional-frequency-offset (``sint``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:doc: The FFO (Fractional Frequency Offset) between the RX and TXsymbol rate on the media associated with the pin:(rx_frequency-tx_frequency)/rx_frequencyValue is in PPM (parts per million).This may be implemented for example for pin of typePIN_TYPE_SYNCE_ETH_PORT.
+
+
+
+pin-parent-device
+=================
+parent-id
+~~~~~~~~~
+
+
+direction
+~~~~~~~~~
+
+
+prio
+~~~~
+
+
+state
+~~~~~
+
+
+phase-offset
+~~~~~~~~~~~~
+
+
+
+pin-parent-pin
+==============
+parent-id
+~~~~~~~~~
+
+
+state
+~~~~~
+
+
+
+frequency-range
+===============
+frequency-min
+~~~~~~~~~~~~~
+
+
+frequency-max
+~~~~~~~~~~~~~
+

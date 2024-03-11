@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="kernel-driver-sht3x">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="kernel-driver-sht3x">
 <h1>Kernel driver sht3x<a class="headerlink" href="#kernel-driver-sht3x" title="Permalink to this heading">¶</a></h1>
 <p>Supported chips:</p>
 <blockquote>
@@ -167,7 +178,24 @@
 <li><p>Sensirion SHT3x-DIS</p>
 <p>Prefix: 'sht3x'</p>
 <p>Addresses scanned: none</p>
-<p>Datasheet: <a class="reference external" href="https://www.sensirion.com/file/datasheet_sht3x_digital">https://www.sensirion.com/file/datasheet_sht3x_digital</a></p>
+<dl class="simple">
+<dt>Datasheets:</dt><dd><ul class="simple">
+<li><p><a class="reference external" href="https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf">https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf</a></p></li>
+<li><p><a class="reference external" href="https://sensirion.com/media/documents/051DF50B/639C8101/Sensirion_Humidity_and_Temperature_Sensors_Datasheet_SHT33.pdf">https://sensirion.com/media/documents/051DF50B/639C8101/Sensirion_Humidity_and_Temperature_Sensors_Datasheet_SHT33.pdf</a></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Sensirion STS3x-DIS</p>
+<p>Prefix: 'sts3x'</p>
+<p>Addresses scanned: none</p>
+<dl class="simple">
+<dt>Datasheets:</dt><dd><ul class="simple">
+<li><p><a class="reference external" href="https://sensirion.com/media/documents/1DA31AFD/61641F76/Sensirion_Temperature_Sensors_STS3x_Datasheet.pdf">https://sensirion.com/media/documents/1DA31AFD/61641F76/Sensirion_Temperature_Sensors_STS3x_Datasheet.pdf</a></p></li>
+<li><p><a class="reference external" href="https://sensirion.com/media/documents/292A335C/65537BAF/Sensirion_Datasheet_STS32_STS33.pdf">https://sensirion.com/media/documents/292A335C/65537BAF/Sensirion_Datasheet_STS32_STS33.pdf</a></p></li>
+</ul>
+</dd>
+</dl>
 </li>
 </ul>
 </div></blockquote>
@@ -180,14 +208,15 @@
 </div></blockquote>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Permalink to this heading">¶</a></h2>
-<p>This driver implements support for the Sensirion SHT3x-DIS chip, a humidity
-and temperature sensor. Temperature is measured in degrees celsius, relative
-humidity is expressed as a percentage. In the sysfs interface, all values are
-scaled by 1000, i.e. the value for 31.5 degrees celsius is 31500.</p>
+<p>This driver implements support for the Sensirion SHT3x-DIS and STS3x-DIS
+series of humidity and temperature sensors. Temperature is measured in degrees
+celsius, relative humidity is expressed as a percentage. In the sysfs interface,
+all values are scaled by 1000, i.e. the value for 31.5 degrees celsius is 31500.</p>
 <p>The device communicates with the I2C protocol. Sensors can have the I2C
-addresses 0x44 or 0x45, depending on the wiring. See
-<a class="reference internal" href="../i2c/instantiating-devices.html"><span class="doc">How to instantiate I2C devices</span></a> for methods to instantiate the device.</p>
-<p>Even if sht3x sensor supports clock-strech(blocking mode) and non-strench
+addresses 0x44 or 0x45 (0x4a or 0x4b for sts3x), depending on the wiring. See
+<a class="reference internal" href="../i2c/instantiating-devices.html"><span class="doc">How to instantiate I2C devices</span></a> for methods to instantiate the
+device.</p>
+<p>Even if sht3x sensor supports clock-stretch (blocking mode) and non-stretch
 (non-blocking mode) in single-shot mode, this driver only supports the latter.</p>
 <p>The sht3x sensor supports a single shot mode as well as 5 periodic measure
 modes, which can be controlled with the update_interval sysfs interface.

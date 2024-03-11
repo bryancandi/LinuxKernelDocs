@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="the-definitive-kvm-kernel-based-virtual-machine-api-documentation">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="the-definitive-kvm-kernel-based-virtual-machine-api-documentation">
 <h1>The Definitive KVM (Kernel-based Virtual Machine) API Documentation<a class="headerlink" href="#the-definitive-kvm-kernel-based-virtual-machine-api-documentation" title="Permalink to this heading">¶</a></h1>
 <section id="general-description">
 <h2>1. General description<a class="headerlink" href="#general-description" title="Permalink to this heading">¶</a></h2>
@@ -309,9 +320,25 @@ described as 'basic' will be available.</p>
 </dl>
 <p>The new VM has no virtual cpus and no memory.
 You probably want to use 0 as machine type.</p>
+<section id="x86">
+<h4>X86:<a class="headerlink" href="#x86" title="Permalink to this heading">¶</a></h4>
+<p>Supported X86 VM types can be queried via KVM_CAP_VM_TYPES.</p>
+</section>
+<section id="s390">
+<h4>S390:<a class="headerlink" href="#s390" title="Permalink to this heading">¶</a></h4>
 <p>In order to create user controlled virtual machines on S390, check
 KVM_CAP_S390_UCONTROL and use the flag KVM_VM_S390_UCONTROL as
 privileged user (CAP_SYS_ADMIN).</p>
+</section>
+<section id="mips">
+<h4>MIPS:<a class="headerlink" href="#mips" title="Permalink to this heading">¶</a></h4>
+<p>To use hardware assisted virtualization on MIPS (VZ ASE) rather than
+the default trap &amp; emulate implementation (which changes the virtual
+memory layout to fit in user mode), check KVM_CAP_MIPS_VZ and use the
+flag KVM_VM_MIPS_VZ.</p>
+</section>
+<section id="arm64">
+<h4>ARM64:<a class="headerlink" href="#arm64" title="Permalink to this heading">¶</a></h4>
 <p>On arm64, the physical address size for a VM (IPA Size limit) is limited
 to 40bits by default. The limit can be configured if the host supports the
 extension KVM_CAP_ARM_VM_IPA_SIZE. When supported, use
@@ -347,6 +374,7 @@ implicit or explicit) is unsupported on the host.</p>
 exposed by the guest CPUs in ID_AA64MMFR0_EL1[PARange]. It only affects
 size of the address translated by the stage2 level (guest physical to
 host physical address translations).</p>
+</section>
 </section>
 <section id="kvm-get-msr-index-list-kvm-get-msr-feature-index-list">
 <h3>4.3 KVM_GET_MSR_INDEX_LIST, KVM_GET_MSR_FEATURE_INDEX_LIST<a class="headerlink" href="#kvm-get-msr-index-list-kvm-get-msr-feature-index-list" title="Permalink to this heading">¶</a></h3>
@@ -794,8 +822,8 @@ struct kvm_interrupt {
 };
 </pre></div>
 </div>
-<section id="x86">
-<h4>X86:<a class="headerlink" href="#x86" title="Permalink to this heading">¶</a></h4>
+<section id="id1">
+<h4>X86:<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h4>
 <dl class="field-list">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><table class="docutils align-default">
@@ -846,8 +874,8 @@ is triggered.</p>
 and incurs unexpected behavior.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
 </section>
-<section id="mips">
-<h4>MIPS:<a class="headerlink" href="#mips" title="Permalink to this heading">¶</a></h4>
+<section id="id2">
+<h4>MIPS:<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h4>
 <p>Queues an external interrupt to be injected into the virtual CPU. A negative
 interrupt number dequeues the interrupt.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
@@ -873,27 +901,6 @@ once it is ready.</p>
 interrupt number dequeues the interrupt.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
 </section>
-</section>
-<section id="kvm-debug-guest">
-<h3>4.17 KVM_DEBUG_GUEST<a class="headerlink" href="#kvm-debug-guest" title="Permalink to this heading">¶</a></h3>
-<dl class="field-list simple">
-<dt class="field-odd">Capability<span class="colon">:</span></dt>
-<dd class="field-odd"><p>basic</p>
-</dd>
-<dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>none</p>
-</dd>
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>vcpu ioctl</p>
-</dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><p>none)</p>
-</dd>
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>-1 on error</p>
-</dd>
-</dl>
-<p>Support for this has been removed.  Use KVM_SET_GUEST_DEBUG instead.</p>
 </section>
 <section id="kvm-get-msrs">
 <h3>4.18 KVM_GET_MSRS<a class="headerlink" href="#kvm-get-msrs" title="Permalink to this heading">¶</a></h3>
@@ -1491,8 +1498,8 @@ kvmclock value that will be provided to guests.</p>
 <dd class="field-even"><p>0 on success, -1 on error</p>
 </dd>
 </dl>
-<section id="id1">
-<h4>X86:<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h4>
+<section id="id3">
+<h4>X86:<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h4>
 <p>Gets currently pending exceptions, interrupts, and NMIs as well as related
 states of the vcpu.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kvm_vcpu_events {
@@ -1544,8 +1551,8 @@ triple_fault_pending field contains a valid state. This bit will
 be set whenever KVM_CAP_X86_TRIPLE_FAULT_EVENT is enabled.</p></li>
 </ul>
 </section>
-<section id="arm64">
-<h4>ARM64:<a class="headerlink" href="#arm64" title="Permalink to this heading">¶</a></h4>
+<section id="id4">
+<h4>ARM64:<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h4>
 <p>If the guest accesses a device that is being emulated by the host kernel in
 such a way that a real device would generate a physical SError, KVM may make
 a virtual SError pending for that VCPU. This system error interrupt remains
@@ -1614,8 +1621,8 @@ directly to the virtual CPU).</p>
 <dd class="field-even"><p>0 on success, -1 on error</p>
 </dd>
 </dl>
-<section id="id2">
-<h4>X86:<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h4>
+<section id="id5">
+<h4>X86:<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h4>
 <p>Set pending exceptions, interrupts, and NMIs as well as related states of the
 vcpu.</p>
 <p>See KVM_GET_VCPU_EVENTS for the data structure.</p>
@@ -1648,8 +1655,8 @@ contain a valid state and shall be written into the VCPU.</p>
 can be set in flags field to signal that the triple_fault field contains
 a valid state and shall be written into the VCPU.</p>
 </section>
-<section id="id3">
-<h4>ARM64:<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h4>
+<section id="id6">
+<h4>ARM64:<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h4>
 <p>User space may need to inject several types of events to the guest.</p>
 <p>Set the pending SError exception state for this VCPU. It is not possible to
 'cancel' an Serror that has been made pending.</p>
@@ -3829,12 +3836,12 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 <tr class="row-even"><td><p>0x6040 0000 0010 0054</p></td>
 <td><p>V0</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[0]    <a class="footnote-reference brackets" href="#id7" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[0]    <a class="footnote-reference brackets" href="#id10" id="id7" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p>0x6040 0000 0010 0058</p></td>
 <td><p>V1</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[1]    <a class="footnote-reference brackets" href="#id7" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[1]    <a class="footnote-reference brackets" href="#id10" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>...</p></td>
 <td></td>
@@ -3844,7 +3851,7 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 <tr class="row-odd"><td><p>0x6040 0000 0010 00d0</p></td>
 <td><p>V31</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[31]   <a class="footnote-reference brackets" href="#id7" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[31]   <a class="footnote-reference brackets" href="#id10" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>0x6020 0000 0010 00d4</p></td>
 <td><p>FPSR</p></td>
@@ -3859,9 +3866,9 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 </tbody>
 </table>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id7" role="note">
+<aside class="footnote brackets" id="id10" role="note">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
-<span class="backrefs">(<a role="doc-backlink" href="#id4">1</a>,<a role="doc-backlink" href="#id5">2</a>,<a role="doc-backlink" href="#id6">3</a>)</span>
+<span class="backrefs">(<a role="doc-backlink" href="#id7">1</a>,<a role="doc-backlink" href="#id8">2</a>,<a role="doc-backlink" href="#id9">3</a>)</span>
 <p>These encodings are not accepted for SVE-enabled vcpus.  See
 KVM_ARM_VCPU_INIT.</p>
 <p>The equivalent register content can be accessed via bits [127:0] of
@@ -3900,7 +3907,7 @@ API, it must remain this way.</p>
 </div>
 <p>Access to register IDs where 2048 * slice &gt;= 128 * max_vq will fail with
 ENOENT.  max_vq is the vcpu's maximum supported vector length in 128-bit
-quadwords: see <a class="footnote-reference brackets" href="#id9" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> below.</p>
+quadwords: see <a class="footnote-reference brackets" href="#id12" id="id11" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> below.</p>
 <p>These registers are only accessible on vcpus for which SVE is enabled.
 See KVM_ARM_VCPU_INIT for details.</p>
 <p>In addition, except for KVM_REG_ARM64_SVE_VLS, these registers are not
@@ -3924,8 +3931,8 @@ else
 </pre></div>
 </div>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id9" role="note">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">2</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id12" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id11">2</a><span class="fn-bracket">]</span></span>
 <p>The maximum value vq for which the above condition is true is
 max_vq.  This is the maximum vector length available to the guest on
 this vcpu, and determines which register slices are visible through
@@ -5040,7 +5047,7 @@ indicate that the attribute can be read or written in the device's
 current state.  &quot;addr&quot; is ignored.</p>
 </section>
 <section id="kvm-arm-vcpu-init">
-<span id="id10"></span><h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Permalink to this heading">¶</a></h3>
+<span id="id13"></span><h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Permalink to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic</p>
@@ -8259,7 +8266,7 @@ interface. No error will be returned, but the resulting offset will not be
 applied.</p>
 </section>
 <section id="kvm-arm-get-reg-writable-masks">
-<span id="id11"></span><h3>4.139 KVM_ARM_GET_REG_WRITABLE_MASKS<a class="headerlink" href="#kvm-arm-get-reg-writable-masks" title="Permalink to this heading">¶</a></h3>
+<span id="id14"></span><h3>4.139 KVM_ARM_GET_REG_WRITABLE_MASKS<a class="headerlink" href="#kvm-arm-get-reg-writable-masks" title="Permalink to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>KVM_CAP_ARM_SUPPORTED_REG_MASK_RANGES</p>
@@ -8308,6 +8315,149 @@ to know what fields can be changed for the system register described by
 <code class="docutils literal notranslate"><span class="pre">op0,</span> <span class="pre">op1,</span> <span class="pre">crn,</span> <span class="pre">crm,</span> <span class="pre">op2</span></code>. KVM rejects ID register values that describe a
 superset of the features supported by the system.</p>
 </section>
+</section>
+<section id="kvm-set-user-memory-region2">
+<h3>4.140 KVM_SET_USER_MEMORY_REGION2<a class="headerlink" href="#kvm-set-user-memory-region2" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Capability<span class="colon">:</span></dt>
+<dd class="field-odd"><p>KVM_CAP_USER_MEMORY2</p>
+</dd>
+<dt class="field-even">Architectures<span class="colon">:</span></dt>
+<dd class="field-even"><p>all</p>
+</dd>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>vm ioctl</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p>struct kvm_userspace_memory_region2 (in)</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0 on success, -1 on error</p>
+</dd>
+</dl>
+<p>KVM_SET_USER_MEMORY_REGION2 is an extension to KVM_SET_USER_MEMORY_REGION that
+allows mapping guest_memfd memory into a guest.  All fields shared with
+KVM_SET_USER_MEMORY_REGION identically.  Userspace can set KVM_MEM_GUEST_MEMFD
+in flags to have KVM bind the memory region to a given guest_memfd range of
+[guest_memfd_offset, guest_memfd_offset + memory_size].  The target guest_memfd
+must point at a file created via KVM_CREATE_GUEST_MEMFD on the current VM, and
+the target range must not be bound to any other memory region.  All standard
+bounds checks apply (use common sense).</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kvm_userspace_memory_region2 {
+      __u32 slot;
+      __u32 flags;
+      __u64 guest_phys_addr;
+      __u64 memory_size; /* bytes */
+      __u64 userspace_addr; /* start of the userspace allocated memory */
+      __u64 guest_memfd_offset;
+      __u32 guest_memfd;
+      __u32 pad1;
+      __u64 pad2[14];
+};
+</pre></div>
+</div>
+<p>A KVM_MEM_GUEST_MEMFD region _must_ have a valid guest_memfd (private memory) and
+userspace_addr (shared memory).  However, &quot;valid&quot; for userspace_addr simply
+means that the address itself must be a legal userspace address.  The backing
+mapping for userspace_addr is not required to be valid/populated at the time of
+KVM_SET_USER_MEMORY_REGION2, e.g. shared memory can be lazily mapped/allocated
+on-demand.</p>
+<p>When mapping a gfn into the guest, KVM selects shared vs. private, i.e consumes
+userspace_addr vs. guest_memfd, based on the gfn's KVM_MEMORY_ATTRIBUTE_PRIVATE
+state.  At VM creation time, all memory is shared, i.e. the PRIVATE attribute
+is '0' for all gfns.  Userspace can control whether memory is shared/private by
+toggling KVM_MEMORY_ATTRIBUTE_PRIVATE via KVM_SET_MEMORY_ATTRIBUTES as needed.</p>
+</section>
+<section id="kvm-set-memory-attributes">
+<h3>4.141 KVM_SET_MEMORY_ATTRIBUTES<a class="headerlink" href="#kvm-set-memory-attributes" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Capability<span class="colon">:</span></dt>
+<dd class="field-odd"><p>KVM_CAP_MEMORY_ATTRIBUTES</p>
+</dd>
+<dt class="field-even">Architectures<span class="colon">:</span></dt>
+<dd class="field-even"><p>x86</p>
+</dd>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>vm ioctl</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p>struct kvm_memory_attributes (in)</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0 on success, &lt;0 on error</p>
+</dd>
+</dl>
+<p>KVM_SET_MEMORY_ATTRIBUTES allows userspace to set memory attributes for a range
+of guest physical memory.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kvm_memory_attributes {
+      __u64 address;
+      __u64 size;
+      __u64 attributes;
+      __u64 flags;
+};
+
+#define KVM_MEMORY_ATTRIBUTE_PRIVATE           (1ULL &lt;&lt; 3)
+</pre></div>
+</div>
+<p>The address and size must be page aligned.  The supported attributes can be
+retrieved via ioctl(KVM_CHECK_EXTENSION) on KVM_CAP_MEMORY_ATTRIBUTES.  If
+executed on a VM, KVM_CAP_MEMORY_ATTRIBUTES precisely returns the attributes
+supported by that VM.  If executed at system scope, KVM_CAP_MEMORY_ATTRIBUTES
+returns all attributes supported by KVM.  The only attribute defined at this
+time is KVM_MEMORY_ATTRIBUTE_PRIVATE, which marks the associated gfn as being
+guest private memory.</p>
+<p>Note, there is no &quot;get&quot; API.  Userspace is responsible for explicitly tracking
+the state of a gfn/page as needed.</p>
+<p>The &quot;flags&quot; field is reserved for future extensions and must be '0'.</p>
+</section>
+<section id="kvm-create-guest-memfd">
+<h3>4.142 KVM_CREATE_GUEST_MEMFD<a class="headerlink" href="#kvm-create-guest-memfd" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Capability<span class="colon">:</span></dt>
+<dd class="field-odd"><p>KVM_CAP_GUEST_MEMFD</p>
+</dd>
+<dt class="field-even">Architectures<span class="colon">:</span></dt>
+<dd class="field-even"><p>none</p>
+</dd>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>vm ioctl</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p>struct kvm_create_guest_memfd(in)</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0 on success, &lt;0 on error</p>
+</dd>
+</dl>
+<p>KVM_CREATE_GUEST_MEMFD creates an anonymous file and returns a file descriptor
+that refers to it.  guest_memfd files are roughly analogous to files created
+via memfd_create(), e.g. guest_memfd files live in RAM, have volatile storage,
+and are automatically released when the last reference is dropped.  Unlike
+&quot;regular&quot; memfd_create() files, guest_memfd files are bound to their owning
+virtual machine (see below), cannot be mapped, read, or written by userspace,
+and cannot be resized  (guest_memfd files do however support PUNCH_HOLE).</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kvm_create_guest_memfd {
+      __u64 size;
+      __u64 flags;
+      __u64 reserved[6];
+};
+</pre></div>
+</div>
+<p>Conceptually, the inode backing a guest_memfd file represents physical memory,
+i.e. is coupled to the virtual machine as a thing, not to a &quot;struct kvm&quot;.  The
+file itself, which is bound to a &quot;struct kvm&quot;, is that instance's view of the
+underlying memory, e.g. effectively provides the translation of guest addresses
+to host memory.  This allows for use cases where multiple KVM structures are
+used to manage a single virtual machine, e.g. when performing intrahost
+migration of a virtual machine.</p>
+<p>KVM currently only supports mapping guest_memfd via KVM_SET_USER_MEMORY_REGION2,
+and more specifically via the guest_memfd and guest_memfd_offset fields in
+&quot;struct kvm_userspace_memory_region2&quot;, where guest_memfd_offset is the offset
+into the guest_memfd instance.  For a given guest_memfd file, there can be at
+most one mapping per page, i.e. binding multiple memory regions to a single
+guest_memfd range is not allowed (any number of memory regions can be bound to
+a single guest_memfd file, but the bound ranges must not overlap).</p>
+<p>See KVM_SET_USER_MEMORY_REGION2 for additional details.</p>
 </section>
 </section>
 <section id="the-kvm-run-structure">
@@ -8476,8 +8626,8 @@ requires a guest to interact with host userspace.</p>
 <p class="admonition-title">Note</p>
 <p>KVM_EXIT_IO is significantly faster than KVM_EXIT_MMIO.</p>
 </div>
-<section id="id12">
-<h3>For arm64:<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h3>
+<section id="id15">
+<h3>For arm64:<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h3>
 <p>SMCCC exits can be enabled depending on the configuration of the SMCCC
 filter. See the <a class="reference internal" href="devices/vm.html"><span class="doc">Generic vm interface</span></a>
 <code class="docutils literal notranslate"><span class="pre">KVM_ARM_SMCCC_FILTER</span></code> for more details.</p>
@@ -8876,6 +9026,30 @@ array field of 'riscv_sbi' represents parameters for the SBI call and 'ret'
 array field represents return values. The userspace should update the return
 values of SBI call before resuming the VCPU. For more details on RISC-V SBI
 spec refer, <a class="reference external" href="https://github.com/riscv/riscv-sbi-doc">https://github.com/riscv/riscv-sbi-doc</a>.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>              /* KVM_EXIT_MEMORY_FAULT */
+              struct {
+#define KVM_MEMORY_EXIT_FLAG_PRIVATE  (1ULL &lt;&lt; 3)
+                      __u64 flags;
+                      __u64 gpa;
+                      __u64 size;
+              } memory_fault;
+</pre></div>
+</div>
+<p>KVM_EXIT_MEMORY_FAULT indicates the vCPU has encountered a memory fault that
+could not be resolved by KVM.  The 'gpa' and 'size' (in bytes) describe the
+guest physical address range [gpa, gpa + size) of the fault.  The 'flags' field
+describes properties of the faulting access that are likely pertinent:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>KVM_MEMORY_EXIT_FLAG_PRIVATE - When set, indicates the memory fault occurred
+on a private memory access.  When clear, indicates the fault occurred on a
+shared access.</p></li>
+</ul>
+</div></blockquote>
+<p>Note!  KVM_EXIT_MEMORY_FAULT is unique among all KVM exit reasons in that it
+accompanies a return code of '-1', not '0'!  errno will always be set to EFAULT
+or EHWPOISON when KVM exits with KVM_EXIT_MEMORY_FAULT, userspace should assume
+kvm_run.exit_reason is stale/undefined for all other error numbers.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>  /* KVM_EXIT_NOTIFY */
   struct {
 #define KVM_NOTIFY_CONTEXT_INVALID    (1 &lt;&lt; 0)
@@ -9624,13 +9798,13 @@ faulting address (or the new DR6 bits*) will be reported in the
 exception_payload field. Similarly, when userspace injects a #PF (or
 #DB) into L2 using KVM_SET_VCPU_EVENTS, it is expected to set
 exception.has_payload and to put the faulting address - or the new DR6
-bits<a class="footnote-reference brackets" href="#id14" id="id13" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
+bits<a class="footnote-reference brackets" href="#id17" id="id16" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
 <p>This capability also enables exception.pending in struct
 kvm_vcpu_events, which allows userspace to distinguish between pending
 and injected exceptions.</p>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id14" role="note">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id13">3</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id17" role="note">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id16">3</a><span class="fn-bracket">]</span></span>
 <p>For the new DR6 bits, note that bit 16 is set iff the #DB exception
 will clear DR6.RTM.</p>
 </aside>
@@ -10112,6 +10286,28 @@ KVM would exit to userspace for handling.</p>
 cause CPU stuck (due to event windows don't open up) and make the CPU
 unavailable to host or other VMs.</p>
 </section>
+<section id="kvm-cap-memory-fault-info">
+<h3>7.34 KVM_CAP_MEMORY_FAULT_INFO<a class="headerlink" href="#kvm-cap-memory-fault-info" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Architectures<span class="colon">:</span></dt>
+<dd class="field-odd"><p>x86</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Informational only, -EINVAL on direct KVM_ENABLE_CAP.</p>
+</dd>
+</dl>
+<p>The presence of this capability indicates that KVM_RUN will fill
+kvm_run.memory_fault if KVM cannot resolve a guest page fault VM-Exit, e.g. if
+there is a valid memslot but no backing VMA for the corresponding host virtual
+address.</p>
+<p>The information in kvm_run.memory_fault is valid if and only if KVM_RUN returns
+an error with errno=EFAULT or errno=EHWPOISON <em>and</em> kvm_run.exit_reason is set
+to KVM_EXIT_MEMORY_FAULT.</p>
+<p>Note: Userspaces which attempt to resolve memory faults so that they can retry
+KVM_RUN are encouraged to guard against repeatedly receiving the same
+error/annotated fault.</p>
+<p>See KVM_EXIT_MEMORY_FAULT for more information.</p>
+</section>
 </section>
 <section id="other-capabilities">
 <h2>8. Other capabilities.<a class="headerlink" href="#other-capabilities" title="Permalink to this heading">¶</a></h2>
@@ -10500,8 +10696,8 @@ distribution...)</p>
 <p>If this capability is available, then the CPNC and CPVC can be synchronized
 between KVM and userspace via the sync regs mechanism (KVM_SYNC_DIAG318).</p>
 </section>
-<section id="id15">
-<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h3>
+<section id="id18">
+<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>x86</p>
@@ -10667,6 +10863,7 @@ PVHVM guests. Valid flags are:</p>
 #define KVM_XEN_HVM_CONFIG_EVTCHN_2LEVEL              (1 &lt;&lt; 4)
 #define KVM_XEN_HVM_CONFIG_EVTCHN_SEND                (1 &lt;&lt; 5)
 #define KVM_XEN_HVM_CONFIG_RUNSTATE_UPDATE_FLAG       (1 &lt;&lt; 6)
+#define KVM_XEN_HVM_CONFIG_PVCLOCK_TSC_UNSTABLE       (1 &lt;&lt; 7)
 </pre></div>
 </div>
 <p>The KVM_XEN_HVM_CONFIG_HYPERCALL_MSR flag indicates that the KVM_XEN_HVM_CONFIG
@@ -10704,6 +10901,10 @@ which is perhaps counterintuitive. When this flag is advertised, KVM will
 behave more correctly, not using the XEN_RUNSTATE_UPDATE flag until/unless
 specifically enabled (by the guest making the hypercall, causing the VMM
 to enable the KVM_XEN_ATTR_TYPE_RUNSTATE_UPDATE_FLAG attribute).</p>
+<p>The KVM_XEN_HVM_CONFIG_PVCLOCK_TSC_UNSTABLE flag indicates that KVM supports
+clearing the PVCLOCK_TSC_STABLE_BIT flag in Xen pvclock sources. This will be
+done when the KVM_CAP_XEN_HVM ioctl sets the
+KVM_XEN_HVM_CONFIG_PVCLOCK_TSC_UNSTABLE flag.</p>
 </section>
 <section id="kvm-cap-ppc-multitce">
 <h3>8.31 KVM_CAP_PPC_MULTITCE<a class="headerlink" href="#kvm-cap-ppc-multitce" title="Permalink to this heading">¶</a></h3>
@@ -10928,6 +11129,30 @@ block sizes is exposed in KVM_CAP_ARM_SUPPORTED_BLOCK_SIZES as a
 64-bit bitmap (each bit describing a block size). The default value is
 0, to disable the eager page splitting.</p>
 </section>
+<section id="kvm-cap-vm-types">
+<h3>8.41 KVM_CAP_VM_TYPES<a class="headerlink" href="#kvm-cap-vm-types" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Capability<span class="colon">:</span></dt>
+<dd class="field-odd"><p>KVM_CAP_MEMORY_ATTRIBUTES</p>
+</dd>
+<dt class="field-even">Architectures<span class="colon">:</span></dt>
+<dd class="field-even"><p>x86</p>
+</dd>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>system ioctl</p>
+</dd>
+</dl>
+<p>This capability returns a bitmap of support VM types.  The 1-setting of bit &#64;n
+means the VM type with value &#64;n is supported.  Possible values of &#64;n are:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#define KVM_X86_DEFAULT_VM    0
+#define KVM_X86_SW_PROTECTED_VM       1
+</pre></div>
+</div>
+<p>Note, KVM_X86_SW_PROTECTED_VM is currently only for development and testing.
+Do not use KVM_X86_SW_PROTECTED_VM for &quot;real&quot; VMs, and especially not in
+production.  The behavior and effective ABI for software-protected VMs is
+unstable.</p>
+</section>
 </section>
 <section id="known-kvm-api-problems">
 <h2>9. Known KVM API problems<a class="headerlink" href="#known-kvm-api-problems" title="Permalink to this heading">¶</a></h2>
@@ -10936,8 +11161,8 @@ that userspace need to be aware of.  This section details some of
 these issues.</p>
 <p>Most of them are architecture specific, so the section is split by
 architecture.</p>
-<section id="id16">
-<h3>9.1. x86<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h3>
+<section id="id19">
+<h3>9.1. x86<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h3>
 <section id="kvm-get-supported-cpuid-issues">
 <h4><code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> issues<a class="headerlink" href="#kvm-get-supported-cpuid-issues" title="Permalink to this heading">¶</a></h4>
 <p>In general, <code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> is designed so that it is possible

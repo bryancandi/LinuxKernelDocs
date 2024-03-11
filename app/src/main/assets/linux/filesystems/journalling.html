@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="the-linux-journalling-api">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="the-linux-journalling-api">
 <h1>The Linux Journalling API<a class="headerlink" href="#the-linux-journalling-api" title="Permalink to this heading">¶</a></h1>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
@@ -466,7 +477,6 @@ journal. These are dirty buffers and revoke descriptor blocks.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct journal_s {
     unsigned long           j_flags;
-    unsigned long           j_atomic_flags;
     int j_errno;
     struct mutex            j_abort_mutex;
     struct buffer_head      *j_sb_buffer;
@@ -501,6 +511,7 @@ journal. These are dirty buffers and revoke descriptor blocks.</p>
     unsigned long long      j_blk_offset;
     char j_devname[BDEVNAME_SIZE+24];
     struct block_device     *j_fs_dev;
+    errseq_t j_fs_dev_wb_err;
     unsigned int            j_total_len;
     atomic_t j_reserved_credits;
     spinlock_t j_list_lock;
@@ -549,8 +560,6 @@ journal. These are dirty buffers and revoke descriptor blocks.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">j_flags</span></code></dt><dd><p>General journaling state flags [j_state_lock,
 no lock for quick racy checks]</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">j_atomic_flags</span></code></dt><dd><p>Atomic journaling state flags.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">j_errno</span></code></dt><dd><p>Is there an outstanding uncleared error on the journal (from a prior
 abort)? [j_state_lock]</p>
@@ -641,6 +650,8 @@ this field is not protected by any lock.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">j_fs_dev</span></code></dt><dd><p>Device which holds the client fs.  For internal journal this will be
 equal to j_dev.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">j_fs_dev_wb_err</span></code></dt><dd><p>Records the errseq of the client fs's backing block device.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">j_total_len</span></code></dt><dd><p>Total maximum capacity of the journal region on disk.</p>
 </dd>

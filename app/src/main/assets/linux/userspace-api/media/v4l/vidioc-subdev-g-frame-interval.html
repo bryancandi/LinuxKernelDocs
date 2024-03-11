@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -118,6 +121,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../sysfs-platform_profile.html">Platform Profile Selection (e.g. /sys/firmware/acpi/platform_profile)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../vduse.html">VDUSE - &quot;vDPA Device in Userspace&quot;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../futex2.html">futex2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../lsm.html">Linux Security Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tee.html">TEE (Trusted Execution Environment) Userspace API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../isapnp.html">ISA Plug &amp; Play support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../dcdbas.html">Dell Systems Management Base Driver</a></li>
 </ul>
 </li>
 </ul>
@@ -130,6 +137,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../translations/index.html">Translations</a></li>
@@ -140,7 +148,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -157,7 +167,11 @@
 
           <div class="body" role="main">
             
-  <section id="ioctl-vidioc-subdev-g-frame-interval-vidioc-subdev-s-frame-interval">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="ioctl-vidioc-subdev-g-frame-interval-vidioc-subdev-s-frame-interval">
 <span id="vidioc-subdev-g-frame-interval"></span><h1><span class="section-number">7.60. </span>ioctl VIDIOC_SUBDEV_G_FRAME_INTERVAL, VIDIOC_SUBDEV_S_FRAME_INTERVAL<a class="headerlink" href="#ioctl-vidioc-subdev-g-frame-interval-vidioc-subdev-s-frame-interval" title="Permalink to this heading">¶</a></h1>
 <section id="name">
 <h2><span class="section-number">7.60.1. </span>Name<a class="headerlink" href="#name" title="Permalink to this heading">¶</a></h2>
@@ -209,8 +223,9 @@ struct
 <a class="reference internal" href="#c.V4L.v4l2_subdev_frame_interval" title="v4l2_subdev_frame_interval"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_frame_interval</span></code></a>
 contains the current frame interval as would be returned by a
 <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_G_FRAME_INTERVAL</span></code> call.</p>
-<p>Calling <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_FRAME_INTERVAL</span></code> on a subdev device node that has been
-registered in read-only mode is not allowed. An error is returned and the errno
+<p>If the subdev device node has been registered in read-only mode, calls to
+<code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_FRAME_INTERVAL</span></code> are only valid if the <code class="docutils literal notranslate"><span class="pre">which</span></code> field is set
+to <code class="docutils literal notranslate"><span class="pre">V4L2_SUBDEV_FORMAT_TRY</span></code>, otherwise an error is returned and the errno
 variable is set to <code class="docutils literal notranslate"><span class="pre">-EPERM</span></code>.</p>
 <p>Drivers must not return an error solely because the requested interval
 doesn't match the device capabilities. They must instead modify the
@@ -242,7 +257,12 @@ the same sub-device is not defined.</p>
 <td><p>Stream identifier.</p></td>
 </tr>
 <tr class="row-even"><td><p>__u32</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">reserved</span></code>[8]</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">which</span></code></p></td>
+<td><p>Active or try frame interval, from enum
+<a class="reference internal" href="vidioc-subdev-g-fmt.html#v4l2-subdev-format-whence"><span class="std std-ref">v4l2_subdev_format_whence</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p>__u32</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">reserved</span></code>[7]</p></td>
 <td><p>Reserved for future extensions. Applications and drivers must set
 the array to zero.</p></td>
 </tr>
@@ -261,13 +281,12 @@ the pad. The ioctl must not be retried without performing another
 action to fix the problem first. Only returned by
 <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_FRAME_INTERVAL</span></code></p>
 </dd>
-<dt>EINVAL</dt><dd><p>The struct
-<a class="reference internal" href="#c.V4L.v4l2_subdev_frame_interval" title="v4l2_subdev_frame_interval"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_frame_interval</span></code></a>
-<code class="docutils literal notranslate"><span class="pre">pad</span></code> references a non-existing pad, or the pad doesn't support
-frame intervals.</p>
+<dt>EINVAL</dt><dd><p>The struct <a class="reference internal" href="#c.V4L.v4l2_subdev_frame_interval" title="v4l2_subdev_frame_interval"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_frame_interval</span></code></a> <code class="docutils literal notranslate"><span class="pre">pad</span></code> references a
+non-existing pad, the <code class="docutils literal notranslate"><span class="pre">which</span></code> field has an unsupported value, or the pad
+doesn't support frame intervals.</p>
 </dd>
 <dt>EPERM</dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_FRAME_INTERVAL</span></code> ioctl has been called on a read-only
-subdevice.</p>
+subdevice and the <code class="docutils literal notranslate"><span class="pre">which</span></code> field is set to <code class="docutils literal notranslate"><span class="pre">V4L2_SUBDEV_FORMAT_ACTIVE</span></code>.</p>
 </dd>
 </dl>
 </section>

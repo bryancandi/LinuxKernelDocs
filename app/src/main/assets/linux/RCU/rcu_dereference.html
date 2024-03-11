@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -87,7 +90,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -117,6 +135,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -127,7 +146,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -144,14 +165,30 @@
 
           <div class="body" role="main">
             
-  <section id="proper-care-and-feeding-of-return-values-from-rcu-dereference">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="proper-care-and-feeding-of-return-values-from-rcu-dereference">
 <span id="rcu-dereference-doc"></span><h1>PROPER CARE AND FEEDING OF RETURN VALUES FROM rcu_dereference()<a class="headerlink" href="#proper-care-and-feeding-of-return-values-from-rcu-dereference" title="Permalink to this heading">¶</a></h1>
-<p>Most of the time, you can use values from <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> or one of
-the similar primitives without worries.  Dereferencing (prefix &quot;*&quot;),
-field selection (&quot;-&gt;&quot;), assignment (&quot;=&quot;), address-of (&quot;&amp;&quot;), addition and
-subtraction of constants, and casts all work quite naturally and safely.</p>
-<p>It is nevertheless possible to get into trouble with other operations.
-Follow these rules to keep your RCU code working properly:</p>
+<p>Proper care and feeding of address and data dependencies is critically
+important to correct use of things like RCU.  To this end, the pointers
+returned from the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> family of primitives carry address and
+data dependencies.  These dependencies extend from the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a>
+macro's load of the pointer to the later use of that pointer to compute
+either the address of a later memory access (representing an address
+dependency) or the value written by a later memory access (representing
+a data dependency).</p>
+<p>Most of the time, these dependencies are preserved, permitting you to
+freely use values from <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a>.  For example, dereferencing
+(prefix &quot;*&quot;), field selection (&quot;-&gt;&quot;), assignment (&quot;=&quot;), address-of
+(&quot;&amp;&quot;), casts, and addition or subtraction of constants all work quite
+naturally and safely.  However, because current compilers do not take
+either address or data dependencies into account it is still possible
+to get into trouble.</p>
+<p>Follow these rules to preserve the address and data dependencies emanating
+from your calls to <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> and friends, thus keeping your RCU
+readers working properly:</p>
 <ul>
 <li><p>You must use one of the <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> family of primitives
 to load an RCU-protected pointer, otherwise CONFIG_PROVE_RCU

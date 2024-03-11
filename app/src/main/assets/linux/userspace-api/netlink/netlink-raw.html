@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -114,6 +117,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../sysfs-platform_profile.html">Platform Profile Selection (e.g. /sys/firmware/acpi/platform_profile)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../vduse.html">VDUSE - &quot;vDPA Device in Userspace&quot;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../futex2.html">futex2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../lsm.html">Linux Security Modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tee.html">TEE (Trusted Execution Environment) Userspace API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../isapnp.html">ISA Plug &amp; Play support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dcdbas.html">Dell Systems Management Base Driver</a></li>
 </ul>
 </li>
 </ul>
@@ -126,6 +133,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -136,7 +144,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -153,7 +163,11 @@
 
           <div class="body" role="main">
             
-  <section id="netlink-specification-support-for-raw-netlink-families">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="netlink-specification-support-for-raw-netlink-families">
 <h1>Netlink specification support for raw Netlink families<a class="headerlink" href="#netlink-specification-support-for-raw-netlink-families" title="Permalink to this heading">¶</a></h1>
 <p>This document describes the additional properties required by raw Netlink
 families such as <code class="docutils literal notranslate"><span class="pre">NETLINK_ROUTE</span></code> which use the <code class="docutils literal notranslate"><span class="pre">netlink-raw</span></code> protocol
@@ -163,7 +177,8 @@ specification.</p>
 <p>The netlink-raw schema extends the <a class="reference internal" href="genetlink-legacy.html"><span class="doc">genetlink-legacy</span></a>
 schema with properties that are needed to specify the protocol numbers and
 multicast IDs used by raw netlink families. See <a class="reference internal" href="intro.html#classic-netlink"><span class="std std-ref">Classic Netlink</span></a> for more
-information.</p>
+information. The raw netlink families also make use of type-specific
+sub-messages.</p>
 <section id="globals">
 <h3>Globals<a class="headerlink" href="#globals" title="Permalink to this heading">¶</a></h3>
 <section id="protonum">
@@ -199,6 +214,87 @@ group registration.</p>
 </pre></div>
 </div>
 </section>
+</section>
+<section id="sub-messages">
+<h3>Sub-messages<a class="headerlink" href="#sub-messages" title="Permalink to this heading">¶</a></h3>
+<p>Several raw netlink families such as
+<a class="reference internal" href="../../networking/netlink_spec/rt_link.html"><span class="doc">rt_link</span></a> and
+<a class="reference internal" href="../../networking/netlink_spec/tc.html"><span class="doc">tc</span></a> use attribute nesting as an
+abstraction to carry module specific information.</p>
+<p>Conceptually it looks as follows:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[OUTER NEST OR MESSAGE LEVEL]
+  [GENERIC ATTR 1]
+  [GENERIC ATTR 2]
+  [GENERIC ATTR 3]
+  [GENERIC ATTR - wrapper]
+    [MODULE SPECIFIC ATTR 1]
+    [MODULE SPECIFIC ATTR 2]
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">GENERIC</span> <span class="pre">ATTRs</span></code> at the outer level are defined in the core (or rt_link or
+core TC), while specific drivers, TC classifiers, qdiscs etc. can carry their
+own information wrapped in the <code class="docutils literal notranslate"><span class="pre">GENERIC</span> <span class="pre">ATTR</span> <span class="pre">-</span> <span class="pre">wrapper</span></code>. Even though the
+example above shows attributes nesting inside the wrapper, the modules generally
+have full freedom to define the format of the nest. In practice the payload of
+the wrapper attr has very similar characteristics to a netlink message. It may
+contain a fixed header / structure, netlink attributes, or both. Because of
+those shared characteristics we refer to the payload of the wrapper attribute as
+a sub-message.</p>
+<p>A sub-message attribute uses the value of another attribute as a selector key to
+choose the right sub-message format. For example if the following attribute has
+already been decoded:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gre&quot;</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>and we encounter the following attribute spec:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sub-message</span>
+<span class="w">  </span><span class="nt">sub-message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linkinfo-data-msg</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
+</pre></div>
+</div>
+<p>Then we look for a sub-message definition called <code class="docutils literal notranslate"><span class="pre">linkinfo-data-msg</span></code> and use
+the value of the <code class="docutils literal notranslate"><span class="pre">kind</span></code> attribute i.e. <code class="docutils literal notranslate"><span class="pre">gre</span></code> as the key to choose the
+correct format for the sub-message:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sub-messages</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linkinfo-data-msg</span>
+<span class="w">  </span><span class="nt">formats</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span>
+<span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bridge</span>
+<span class="w">      </span><span class="nt">attribute-set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linkinfo-bridge-attrs</span>
+<span class="w">    </span><span class="p p-Indicator">-</span>
+<span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gre</span>
+<span class="w">      </span><span class="nt">attribute-set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linkinfo-gre-attrs</span>
+<span class="w">    </span><span class="p p-Indicator">-</span>
+<span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">geneve</span>
+<span class="w">      </span><span class="nt">attribute-set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linkinfo-geneve-attrs</span>
+</pre></div>
+</div>
+<p>This would decode the attribute value as a sub-message with the attribute-set
+called <code class="docutils literal notranslate"><span class="pre">linkinfo-gre-attrs</span></code> as the attribute space.</p>
+<p>A sub-message can have an optional <code class="docutils literal notranslate"><span class="pre">fixed-header</span></code> followed by zero or more
+attributes from an <code class="docutils literal notranslate"><span class="pre">attribute-set</span></code>. For example the following
+<code class="docutils literal notranslate"><span class="pre">tc-options-msg</span></code> sub-message defines message formats that use a mixture of
+<code class="docutils literal notranslate"><span class="pre">fixed-header</span></code>, <code class="docutils literal notranslate"><span class="pre">attribute-set</span></code> or both together:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sub-messages</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tc-options-msg</span>
+<span class="w">    </span><span class="nt">formats</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bfifo</span>
+<span class="w">        </span><span class="nt">fixed-header</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tc-fifo-qopt</span>
+<span class="w">      </span><span class="p p-Indicator">-</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cake</span>
+<span class="w">        </span><span class="nt">attribute-set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tc-cake-attrs</span>
+<span class="w">      </span><span class="p p-Indicator">-</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">netem</span>
+<span class="w">        </span><span class="nt">fixed-header</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tc-netem-qopt</span>
+<span class="w">        </span><span class="nt">attribute-set</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tc-netem-attrs</span>
+</pre></div>
+</div>
+<p>Note that a selector attribute must appear in a netlink message before any
+sub-message attributes that depend on it.</p>
 </section>
 </section>
 </section>

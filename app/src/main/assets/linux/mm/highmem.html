@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -114,6 +117,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -124,7 +128,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -141,7 +147,21 @@
 
           <div class="body" role="main">
             
-  <section id="high-memory-handling">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../translations/zh_CN/mm/highmem.html">Chinese (Simplified)</a></li>
+
+</ul>
+</div>
+<section id="high-memory-handling">
 <h1>High Memory Handling<a class="headerlink" href="#high-memory-handling" title="Permalink to this heading">¶</a></h1>
 <p>By: Peter Zijlstra &lt;<a class="reference external" href="mailto:a&#46;p&#46;zijlstra&#37;&#52;&#48;chello&#46;nl">a<span>&#46;</span>p<span>&#46;</span>zijlstra<span>&#64;</span>chello<span>&#46;</span>nl</a>&gt;</p>
 <nav class="contents local" id="contents">
@@ -534,6 +554,55 @@ the movable zone.  An architecture may provide its own implementation.</p>
 <p><strong>Return</strong></p>
 <p>A folio containing one allocated and zeroed page or NULL if
 we are out of memory.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_zero_tail">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">folio_zero_tail</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_zero_tail" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">kaddr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_zero_tail" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Zero the tail of a folio.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">offset</span></code></dt><dd><p>The byte offset in the folio to start zeroing at.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*kaddr</span></code></dt><dd><p>The address the folio is currently mapped to.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>If you have already used <a class="reference internal" href="#c.kmap_local_folio" title="kmap_local_folio"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmap_local_folio()</span></code></a> to map a folio, written
+some data to it and now need to zero the end of the folio (and flush
+the dcache), you can use this function.  If you do not have the
+folio kmapped (eg the folio has been partially populated by DMA),
+use <a class="reference internal" href="#c.folio_zero_range" title="folio_zero_range"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_zero_range()</span></code></a> or <a class="reference internal" href="#c.folio_zero_segment" title="folio_zero_segment"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_zero_segment()</span></code></a> instead.</p>
+<p><strong>Return</strong></p>
+<p>An address which can be passed to <a class="reference internal" href="#c.kunmap_local" title="kunmap_local"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunmap_local()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_fill_tail">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_fill_tail</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_fill_tail" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">from</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_fill_tail" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Copy some data to a folio and pad with zeroes.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The destination folio.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">offset</span></code></dt><dd><p>The offset into <strong>folio</strong> at which to start copying.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*from</span></code></dt><dd><p>The data to copy.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">len</span></code></dt><dd><p>How many bytes of data to copy.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is most useful for filesystems which support inline data.
+When they want to copy data from the inode into the page cache, this
+function does everything for them.  It supports large folios even on
+HIGHMEM configurations.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.memcpy_from_file_folio">

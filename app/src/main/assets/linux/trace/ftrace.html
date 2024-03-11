@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -163,6 +166,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -173,7 +177,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -190,7 +196,11 @@
 
           <div class="body" role="main">
             
-  <section id="ftrace-function-tracer">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="ftrace-function-tracer">
 <h1>ftrace - Function Tracer<a class="headerlink" href="#ftrace-function-tracer" title="Permalink to this heading">¶</a></h1>
 <p>Copyright 2008 Red Hat Inc.</p>
 <dl class="field-list simple">
@@ -361,6 +371,22 @@ latency is greater than the number in this file.
 Only active when the file contains a number greater than 0.
 (in microseconds)</p>
 </div></blockquote>
+<p>buffer_percent:</p>
+<blockquote>
+<div><p>This is the watermark for how much the ring buffer needs to be filled
+before a waiter is woken up. That is, if an application calls a
+blocking read syscall on one of the per_cpu trace_pipe_raw files, it
+will block until the given amount of data specified by buffer_percent
+is in the ring buffer before it wakes the reader up. This also
+controls how the splice system calls are blocked on this file:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>0   - means to wake up as soon as there is any data in the ring buffer.
+50  - means to wake up when roughly half of the ring buffer sub-buffers
+      are full.
+100 - means to block until the ring buffer is totally full and is
+      about to start overwriting the older data.
+</pre></div>
+</div>
+</div></blockquote>
 <p>buffer_size_kb:</p>
 <blockquote>
 <div><p>This sets or displays the number of kilobytes each CPU
@@ -382,6 +408,24 @@ this file will show &quot;X&quot;.</p>
 <p>buffer_total_size_kb:</p>
 <blockquote>
 <div><p>This displays the total combined size of all the trace buffers.</p>
+</div></blockquote>
+<p>buffer_subbuf_size_kb:</p>
+<blockquote>
+<div><p>This sets or displays the sub buffer size. The ring buffer is broken up
+into several same size &quot;sub buffers&quot;. An event can not be bigger than
+the size of the sub buffer. Normally, the sub buffer is the size of the
+architecture's page (4K on x86). The sub buffer also contains meta data
+at the start which also limits the size of an event.  That means when
+the sub buffer is a page size, no event can be larger than the page
+size minus the sub buffer meta data.</p>
+<p>Note, the buffer_subbuf_size_kb is a way for the user to specify the
+minimum size of the subbuffer. The kernel may make it bigger due to the
+implementation details, or simply fail the operation if the kernel can
+not handle the request.</p>
+<p>Changing the sub buffer size allows for events to be larger than the
+page size.</p>
+<p>Note: When changing the sub-buffer size, tracing is stopped and any
+data in the ring buffer and the snapshot buffer will be discarded.</p>
 </div></blockquote>
 <p>free_buffer:</p>
 <blockquote>
@@ -2631,7 +2675,7 @@ want, depending on your needs.</p>
 <ul>
 <li><p>The cpu number on which the function executed is default
 enabled.  It is sometimes better to only trace one cpu (see
-tracing_cpu_mask file) or you might sometimes see unordered
+tracing_cpumask file) or you might sometimes see unordered
 function calls while cpu tracing switch.</p>
 <blockquote>
 <div><ul class="simple">

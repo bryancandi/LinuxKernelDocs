@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -154,6 +157,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -164,7 +168,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -181,7 +187,11 @@
 
           <div class="body" role="main">
             
-  <section id="microarchitectural-data-sampling-mds-mitigation">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="microarchitectural-data-sampling-mds-mitigation">
 <h1><span class="section-number">22. </span>Microarchitectural Data Sampling (MDS) mitigation<a class="headerlink" href="#microarchitectural-data-sampling-mds-mitigation" title="Permalink to this heading">¶</a></h1>
 <section id="overview">
 <span id="mds"></span><h2><span class="section-number">22.1. </span>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
@@ -264,6 +274,8 @@ enters a C-state.</p>
 <blockquote>
 <div><p>mds_clear_cpu_buffers()</p>
 </div></blockquote>
+<p>Also macro CLEAR_CPU_BUFFERS can be used in ASM late in exit-to-user path.
+Other than CFLAGS.ZF, this macro doesn't clobber any registers.</p>
 <p>The mitigation is invoked on kernel/userspace, hypervisor/guest and C-state
 (idle) transitions.</p>
 <p>As a special quirk to address virtualization scenarios where the host has
@@ -310,17 +322,29 @@ the availability of the MD_CLEAR CPUID bit.</p>
 <blockquote>
 <div><p>When transitioning from kernel to user space the CPU buffers are flushed
 on affected CPUs when the mitigation is not disabled on the kernel
-command line. The migitation is enabled through the static key
-mds_user_clear.</p>
-<p>The mitigation is invoked in prepare_exit_to_usermode() which covers
-all but one of the kernel to user space transitions.  The exception
-is when we return from a Non Maskable Interrupt (NMI), which is
-handled directly in do_nmi().</p>
-<dl class="simple">
-<dt>(The reason that NMI is special is that prepare_exit_to_usermode() can</dt><dd><p>enable IRQs.  In NMI context, NMIs are blocked, and we don't want to
-enable IRQs with NMIs blocked.)</p>
-</dd>
-</dl>
+command line. The mitigation is enabled through the feature flag
+X86_FEATURE_CLEAR_CPU_BUF.</p>
+<p>The mitigation is invoked just before transitioning to userspace after
+user registers are restored. This is done to minimize the window in
+which kernel data could be accessed after VERW e.g. via an NMI after
+VERW.</p>
+<p><strong>Corner case not handled</strong>
+Interrupts returning to kernel don't clear CPUs buffers since the
+exit-to-user path is expected to do that anyways. But, there could be
+a case when an NMI is generated in kernel after the exit-to-user path
+has cleared the buffers. This case is not handled and NMI returning to
+kernel don't clear CPU buffers because:</p>
+<ol class="arabic simple">
+<li><p>It is rare to get an NMI after VERW, but before returning to userspace.</p></li>
+<li><p>For an unprivileged user, there is no known way to make that NMI
+less rare or target it.</p></li>
+<li><p>It would take a large number of these precisely-timed NMIs to mount
+an actual attack.  There's presumably not enough bandwidth.</p></li>
+<li><p>The NMI in question occurs after a VERW, i.e. when user state is
+restored and most interesting data is already scrubbed. Whats left
+is only the data that NMI touches, and that may or may not be of
+any interest.</p></li>
+</ol>
 </div></blockquote>
 </section>
 <section id="c-state-transition">

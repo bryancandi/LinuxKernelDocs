@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,6 +115,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -122,7 +126,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -139,7 +145,11 @@
 
           <div class="body" role="main">
             
-  <section id="netlink-interface-for-ethtool">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="netlink-interface-for-ethtool">
 <h1>Netlink interface for ethtool<a class="headerlink" href="#netlink-interface-for-ethtool" title="Permalink to this heading">¶</a></h1>
 <section id="basic-information">
 <h2>Basic information<a class="headerlink" href="#basic-information" title="Permalink to this heading">¶</a></h2>
@@ -488,10 +498,19 @@ according to message purpose:</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_RSS_GET</span></code></p></td>
 <td><p>get RSS settings</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_GET</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_GET_CFG</span></code></p></td>
+<td><p>get PLCA RS parameters</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_SET_CFG</span></code></p></td>
+<td><p>set PLCA RS parameters</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_GET_STATUS</span></code></p></td>
+<td><p>get PLCA RS status</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_GET</span></code></p></td>
 <td><p>get MAC merge layer state</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_SET</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_SET</span></code></p></td>
 <td><p>set MAC merge layer parameters</p></td>
 </tr>
 </tbody>
@@ -612,7 +631,16 @@ according to message purpose:</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_RSS_GET_REPLY</span></code></p></td>
 <td><p>RSS settings</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_GET_REPLY</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_GET_CFG_REPLY</span></code></p></td>
+<td><p>PLCA RS parameters</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_GET_STATUS_REPLY</span></code></p></td>
+<td><p>PLCA RS status</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_PLCA_NTF</span></code></p></td>
+<td><p>PLCA RS parameters</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_MM_GET_REPLY</span></code></p></td>
 <td><p>MAC merge layer status</p></td>
 </tr>
 </tbody>
@@ -2747,6 +2775,15 @@ Reported to user space as <code class="docutils literal notranslate"><span class
 </dl>
 </div>
 <p><strong>Description</strong></p>
+<p>For each of the above fields, the two substructure members are:</p>
+<ul class="simple">
+<li><p><strong>lanes</strong>: per-lane/PCS-instance counts as defined by the standard</p></li>
+<li><dl class="simple">
+<dt><strong>total</strong>: error counts for the entire port, for drivers incapable of reporting</dt><dd><p>per-lane stats</p>
+</dd>
+</dl>
+</li>
+</ul>
 <p>Drivers should fill in either only total or per-lane statistics, core
 will take care of adding lane values up to produce the total.</p>
 </section>
@@ -3286,12 +3323,19 @@ RSS context of an interface similar to <code class="docutils literal notranslate
 <td><p>binary</p></td>
 <td><p>Hash key bytes</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ETHTOOL_A_RSS_INPUT_XFRM</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>RSS input data transformation</p></td>
+</tr>
 </tbody>
 </table>
 <p>ETHTOOL_A_RSS_HFUNC attribute is bitmap indicating the hash function
 being used. Current supported options are toeplitz, xor or crc32.
-ETHTOOL_A_RSS_INDIR attribute returns RSS indrection table where each byte
-indicates queue number.</p>
+ETHTOOL_A_RSS_INDIR attribute returns RSS indirection table where each byte
+indicates queue number.
+ETHTOOL_A_RSS_INPUT_XFRM attribute is a bitmap indicating the type of
+transformation applied to the input protocol fields before given to the RSS
+hfunc. Current supported option is symmetric-xor.</p>
 </section>
 <section id="plca-get-cfg">
 <h2>PLCA_GET_CFG<a class="headerlink" href="#plca-get-cfg" title="Permalink to this heading">¶</a></h2>

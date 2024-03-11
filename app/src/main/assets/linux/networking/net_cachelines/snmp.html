@@ -1,0 +1,307 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>netns_ipv4 enum fast path usage breakdown &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="tcp_sock struct fast path usage breakdown" href="tcp_sock.html" />
+    <link rel="prev" title="netns_ipv4 struct fast path usage breakdown" href="netns_ipv4_sysctl.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.8.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Networking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../netlabel/index.html">NetLabel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../infiniband/index.html">InfiniBand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../isdn/index.html">ISDN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mhi/index.html">MHI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/networking/net_cachelines/snmp.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="netns-ipv4-enum-fast-path-usage-breakdown">
+<h1>netns_ipv4 enum fast path usage breakdown<a class="headerlink" href="#netns-ipv4-enum-fast-path-usage-breakdown" title="Permalink to this heading">¶</a></h1>
+<p>Type           Name                                  fastpath_tx_access  fastpath_rx_access  comment
+..enum
+unsigned_long  LINUX_MIB_TCPKEEPALIVE                write_mostly        -                   tcp_keepalive_timer
+unsigned_long  LINUX_MIB_DELAYEDACKS                 write_mostly        -                   tcp_delack_timer_handler,tcp_delack_timer
+unsigned_long  LINUX_MIB_DELAYEDACKLOCKED            write_mostly        -                   tcp_delack_timer_handler,tcp_delack_timer
+unsigned_long  LINUX_MIB_TCPAUTOCORKING              write_mostly        -                   tcp_push,tcp_sendmsg_locked
+unsigned_long  LINUX_MIB_TCPFROMZEROWINDOWADV        write_mostly        -                   tcp_select_window,tcp_transmit-skb
+unsigned_long  LINUX_MIB_TCPTOZEROWINDOWADV          write_mostly        -                   tcp_select_window,tcp_transmit-skb
+unsigned_long  LINUX_MIB_TCPWANTZEROWINDOWADV        write_mostly        -                   tcp_select_window,tcp_transmit-skb
+unsigned_long  LINUX_MIB_TCPORIGDATASENT             write_mostly        -                   tcp_write_xmit
+unsigned_long  LINUX_MIB_TCPHPHITS                   -                   write_mostly        tcp_rcv_established,tcp_v4_do_rcv,tcp_v6_do_rcv
+unsigned_long  LINUX_MIB_TCPRCVCOALESCE              -                   write_mostly        tcp_try_coalesce,tcp_queue_rcv,tcp_rcv_established
+unsigned_long  LINUX_MIB_TCPPUREACKS                 -                   write_mostly        tcp_ack,tcp_rcv_established
+unsigned_long  LINUX_MIB_TCPHPACKS                   -                   write_mostly        tcp_ack,tcp_rcv_established
+unsigned_long  LINUX_MIB_TCPDELIVERED                -                   write_mostly        tcp_newly_delivered,tcp_ack,tcp_rcv_established
+unsigned_long  LINUX_MIB_SYNCOOKIESSENT
+unsigned_long  LINUX_MIB_SYNCOOKIESRECV
+unsigned_long  LINUX_MIB_SYNCOOKIESFAILED
+unsigned_long  LINUX_MIB_EMBRYONICRSTS
+unsigned_long  LINUX_MIB_PRUNECALLED
+unsigned_long  LINUX_MIB_RCVPRUNED
+unsigned_long  LINUX_MIB_OFOPRUNED
+unsigned_long  LINUX_MIB_OUTOFWINDOWICMPS
+unsigned_long  LINUX_MIB_LOCKDROPPEDICMPS
+unsigned_long  LINUX_MIB_ARPFILTER
+unsigned_long  LINUX_MIB_TIMEWAITED
+unsigned_long  LINUX_MIB_TIMEWAITRECYCLED
+unsigned_long  LINUX_MIB_TIMEWAITKILLED
+unsigned_long  LINUX_MIB_PAWSACTIVEREJECTED
+unsigned_long  LINUX_MIB_PAWSESTABREJECTED
+unsigned_long  LINUX_MIB_DELAYEDACKLOST
+unsigned_long  LINUX_MIB_LISTENOVERFLOWS
+unsigned_long  LINUX_MIB_LISTENDROPS
+unsigned_long  LINUX_MIB_TCPRENORECOVERY
+unsigned_long  LINUX_MIB_TCPSACKRECOVERY
+unsigned_long  LINUX_MIB_TCPSACKRENEGING
+unsigned_long  LINUX_MIB_TCPSACKREORDER
+unsigned_long  LINUX_MIB_TCPRENOREORDER
+unsigned_long  LINUX_MIB_TCPTSREORDER
+unsigned_long  LINUX_MIB_TCPFULLUNDO
+unsigned_long  LINUX_MIB_TCPPARTIALUNDO
+unsigned_long  LINUX_MIB_TCPDSACKUNDO
+unsigned_long  LINUX_MIB_TCPLOSSUNDO
+unsigned_long  LINUX_MIB_TCPLOSTRETRANSMIT
+unsigned_long  LINUX_MIB_TCPRENOFAILURES
+unsigned_long  LINUX_MIB_TCPSACKFAILURES
+unsigned_long  LINUX_MIB_TCPLOSSFAILURES
+unsigned_long  LINUX_MIB_TCPFASTRETRANS
+unsigned_long  LINUX_MIB_TCPSLOWSTARTRETRANS
+unsigned_long  LINUX_MIB_TCPTIMEOUTS
+unsigned_long  LINUX_MIB_TCPLOSSPROBES
+unsigned_long  LINUX_MIB_TCPLOSSPROBERECOVERY
+unsigned_long  LINUX_MIB_TCPRENORECOVERYFAIL
+unsigned_long  LINUX_MIB_TCPSACKRECOVERYFAIL
+unsigned_long  LINUX_MIB_TCPRCVCOLLAPSED
+unsigned_long  LINUX_MIB_TCPDSACKOLDSENT
+unsigned_long  LINUX_MIB_TCPDSACKOFOSENT
+unsigned_long  LINUX_MIB_TCPDSACKRECV
+unsigned_long  LINUX_MIB_TCPDSACKOFORECV
+unsigned_long  LINUX_MIB_TCPABORTONDATA
+unsigned_long  LINUX_MIB_TCPABORTONCLOSE
+unsigned_long  LINUX_MIB_TCPABORTONMEMORY
+unsigned_long  LINUX_MIB_TCPABORTONTIMEOUT
+unsigned_long  LINUX_MIB_TCPABORTONLINGER
+unsigned_long  LINUX_MIB_TCPABORTFAILED
+unsigned_long  LINUX_MIB_TCPMEMORYPRESSURES
+unsigned_long  LINUX_MIB_TCPMEMORYPRESSURESCHRONO
+unsigned_long  LINUX_MIB_TCPSACKDISCARD
+unsigned_long  LINUX_MIB_TCPDSACKIGNOREDOLD
+unsigned_long  LINUX_MIB_TCPDSACKIGNOREDNOUNDO
+unsigned_long  LINUX_MIB_TCPSPURIOUSRTOS
+unsigned_long  LINUX_MIB_TCPMD5NOTFOUND
+unsigned_long  LINUX_MIB_TCPMD5UNEXPECTED
+unsigned_long  LINUX_MIB_TCPMD5FAILURE
+unsigned_long  LINUX_MIB_SACKSHIFTED
+unsigned_long  LINUX_MIB_SACKMERGED
+unsigned_long  LINUX_MIB_SACKSHIFTFALLBACK
+unsigned_long  LINUX_MIB_TCPBACKLOGDROP
+unsigned_long  LINUX_MIB_PFMEMALLOCDROP
+unsigned_long  LINUX_MIB_TCPMINTTLDROP
+unsigned_long  LINUX_MIB_TCPDEFERACCEPTDROP
+unsigned_long  LINUX_MIB_IPRPFILTER
+unsigned_long  LINUX_MIB_TCPTIMEWAITOVERFLOW
+unsigned_long  LINUX_MIB_TCPREQQFULLDOCOOKIES
+unsigned_long  LINUX_MIB_TCPREQQFULLDROP
+unsigned_long  LINUX_MIB_TCPRETRANSFAIL
+unsigned_long  LINUX_MIB_TCPBACKLOGCOALESCE
+unsigned_long  LINUX_MIB_TCPOFOQUEUE
+unsigned_long  LINUX_MIB_TCPOFODROP
+unsigned_long  LINUX_MIB_TCPOFOMERGE
+unsigned_long  LINUX_MIB_TCPCHALLENGEACK
+unsigned_long  LINUX_MIB_TCPSYNCHALLENGE
+unsigned_long  LINUX_MIB_TCPFASTOPENACTIVE
+unsigned_long  LINUX_MIB_TCPFASTOPENACTIVEFAIL
+unsigned_long  LINUX_MIB_TCPFASTOPENPASSIVE
+unsigned_long  LINUX_MIB_TCPFASTOPENPASSIVEFAIL
+unsigned_long  LINUX_MIB_TCPFASTOPENLISTENOVERFLOW
+unsigned_long  LINUX_MIB_TCPFASTOPENCOOKIEREQD
+unsigned_long  LINUX_MIB_TCPFASTOPENBLACKHOLE
+unsigned_long  LINUX_MIB_TCPSPURIOUS_RTX_HOSTQUEUES
+unsigned_long  LINUX_MIB_BUSYPOLLRXPACKETS
+unsigned_long  LINUX_MIB_TCPSYNRETRANS
+unsigned_long  LINUX_MIB_TCPHYSTARTTRAINDETECT
+unsigned_long  LINUX_MIB_TCPHYSTARTTRAINCWND
+unsigned_long  LINUX_MIB_TCPHYSTARTDELAYDETECT
+unsigned_long  LINUX_MIB_TCPHYSTARTDELAYCWND
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDSYNRECV
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDPAWS
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDSEQ
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDFINWAIT2
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDTIMEWAIT
+unsigned_long  LINUX_MIB_TCPACKSKIPPEDCHALLENGE
+unsigned_long  LINUX_MIB_TCPWINPROBE
+unsigned_long  LINUX_MIB_TCPMTUPFAIL
+unsigned_long  LINUX_MIB_TCPMTUPSUCCESS
+unsigned_long  LINUX_MIB_TCPDELIVEREDCE
+unsigned_long  LINUX_MIB_TCPACKCOMPRESSED
+unsigned_long  LINUX_MIB_TCPZEROWINDOWDROP
+unsigned_long  LINUX_MIB_TCPRCVQDROP
+unsigned_long  LINUX_MIB_TCPWQUEUETOOBIG
+unsigned_long  LINUX_MIB_TCPFASTOPENPASSIVEALTKEY
+unsigned_long  LINUX_MIB_TCPTIMEOUTREHASH
+unsigned_long  LINUX_MIB_TCPDUPLICATEDATAREHASH
+unsigned_long  LINUX_MIB_TCPDSACKRECVSEGS
+unsigned_long  LINUX_MIB_TCPDSACKIGNOREDDUBIOUS
+unsigned_long  LINUX_MIB_TCPMIGRATEREQSUCCESS
+unsigned_long  LINUX_MIB_TCPMIGRATEREQFAILURE
+unsigned_long  __LINUX_MIB_MAX</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../_sources/networking/net_cachelines/snmp.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

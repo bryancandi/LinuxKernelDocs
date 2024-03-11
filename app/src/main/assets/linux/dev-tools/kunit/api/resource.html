@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../translations/index.html">Translations</a></li>
@@ -109,7 +113,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -126,7 +132,11 @@
 
           <div class="body" role="main">
             
-  <section id="resource-api">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="resource-api">
 <h1>Resource API<a class="headerlink" href="#resource-api" title="Permalink to this heading">¶</a></h1>
 <p>This file documents the KUnit resource API.</p>
 <p>Most users won't need to use this API directly, power users can use it to store
@@ -451,6 +461,32 @@ resource.</p>
 the caller has a reference to it via alloc_and_get() or find();
 in this case a final call to <a class="reference internal" href="#c.kunit_put_resource" title="kunit_put_resource"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunit_put_resource()</span></code></a> is required.</p>
 </div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.KUNIT_DEFINE_ACTION_WRAPPER">
+<span class="sig-name descname"><span class="n"><span class="pre">KUNIT_DEFINE_ACTION_WRAPPER</span></span></span><a class="headerlink" href="#c.KUNIT_DEFINE_ACTION_WRAPPER" title="Permalink to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">KUNIT_DEFINE_ACTION_WRAPPER</span> <span class="pre">(wrapper,</span> <span class="pre">orig,</span> <span class="pre">arg_type)</span></code></p>
+<blockquote>
+<div><p>Wrap a function for use as a deferred action.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">wrapper</span></code></dt><dd><p>The name of the new wrapper function define.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">orig</span></code></dt><dd><p>The original function to wrap.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">arg_type</span></code></dt><dd><p>The type of the argument accepted by <strong>orig</strong>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Defines a wrapper for a function which accepts a single, pointer-sized
+argument. This wrapper can then be passed to <a class="reference internal" href="#c.kunit_add_action" title="kunit_add_action"><code class="xref c c-func docutils literal notranslate"><span class="pre">kunit_add_action()</span></code></a> and
+similar. This should be used in preference to casting a function
+directly to kunit_action_t, as casting function pointers will break
+control flow integrity (CFI), leading to crashes.</p>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kunit_add_action">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kunit_add_action</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="test.html#c.kunit" title="kunit"><span class="n"><span class="pre">kunit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">test</span></span>, <span class="n"><span class="pre">kunit_action_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">action</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kunit_add_action" title="Permalink to this definition">¶</a><br /></dt>
@@ -564,6 +600,99 @@ func(ctx);
 kunit_remove_action(test, func, ctx);</p>
 <p>See also: <a class="reference internal" href="../../../driver-api/basics.html#c.devm_release_action" title="devm_release_action"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_release_action()</span></code></a> for the devres equivalent.</p>
 </div>
+<section id="managed-devices">
+<h2>Managed Devices<a class="headerlink" href="#managed-devices" title="Permalink to this heading">¶</a></h2>
+<p>Functions for using KUnit-managed <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> and <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a>.
+Include <code class="docutils literal notranslate"><span class="pre">kunit/device.h</span></code> to use these.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kunit_driver_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kunit_driver_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="test.html#c.kunit" title="kunit"><span class="n"><span class="pre">kunit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">test</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kunit_driver_create" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Create a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a> attached to the kunit_bus</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kunit</span> <span class="pre">*test</span></code></dt><dd><p>The test context object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>The name to give the created driver.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a> attached to the kunit_bus, with the name <strong>name</strong>.
+This driver will automatically be cleaned up on test exit.</p>
+<p><strong>Return</strong></p>
+<p>a stub <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a>, managed by KUnit, with the name <strong>name</strong>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kunit_device_register">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kunit_device_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="test.html#c.kunit" title="kunit"><span class="n"><span class="pre">kunit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">test</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kunit_device_register" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Create a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for use in KUnit tests</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kunit</span> <span class="pre">*test</span></code></dt><dd><p>The test context object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>The name to give the created device.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a struct kunit_device (which is a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a>) with the given name,
+and a corresponding driver. The device and driver will be cleaned up on test
+exit, or when kunit_device_unregister is called. See also
+kunit_device_register_with_driver, if you wish to provide your own
+<a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p>a pointer to a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> which will be cleaned up when the test
+exits, or an error pointer if the device could not be allocated or registered.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kunit_device_register_with_driver">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kunit_device_register_with_driver</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="test.html#c.kunit" title="kunit"><span class="n"><span class="pre">kunit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">test</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kunit_device_register_with_driver" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Create a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for use in KUnit tests</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kunit</span> <span class="pre">*test</span></code></dt><dd><p>The test context object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>The name to give the created device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>The <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device_driver" title="device_driver"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span></code></a> to associate with the device.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a struct kunit_device (which is a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a>) with the given
+name, and driver. The device will be cleaned up on test exit, or when
+kunit_device_unregister is called. See also kunit_device_register, if you
+wish KUnit to create and manage a driver for you.</p>
+<p><strong>Return</strong></p>
+<p>a pointer to a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> which will be cleaned up when the test
+exits, or an error pointer if the device could not be allocated or registered.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kunit_device_unregister">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kunit_device_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="test.html#c.kunit" title="kunit"><span class="n"><span class="pre">kunit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">test</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kunit_device_unregister" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Unregister a KUnit-managed device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kunit</span> <span class="pre">*test</span></code></dt><dd><p>The test context object which created the device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>The device.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Unregisters and destroys a <a class="reference internal" href="../../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> which was created with
+kunit_device_register or kunit_device_register_with_driver. If KUnit created
+a driver, cleans it up as well.</p>
+</div>
+</section>
 </section>
 
 

@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="filesystem-level-encryption-fscrypt">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="filesystem-level-encryption-fscrypt">
 <h1>Filesystem-level encryption (fscrypt)<a class="headerlink" href="#filesystem-level-encryption-fscrypt" title="Permalink to this heading">¶</a></h1>
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
@@ -184,15 +195,15 @@ data-at-rest needs to be cryptographically isolated from the others.
 However, except for filenames, fscrypt does not encrypt filesystem
 metadata.</p>
 <p>Unlike eCryptfs, which is a stacked filesystem, fscrypt is integrated
-directly into supported filesystems --- currently ext4, F2FS, and
-UBIFS.  This allows encrypted files to be read and written without
-caching both the decrypted and encrypted pages in the pagecache,
-thereby nearly halving the memory used and bringing it in line with
-unencrypted files.  Similarly, half as many dentries and inodes are
-needed.  eCryptfs also limits encrypted filenames to 143 bytes,
-causing application compatibility issues; fscrypt allows the full 255
-bytes (NAME_MAX).  Finally, unlike eCryptfs, the fscrypt API can be
-used by unprivileged users, with no need to mount anything.</p>
+directly into supported filesystems --- currently ext4, F2FS, UBIFS,
+and CephFS.  This allows encrypted files to be read and written
+without caching both the decrypted and encrypted pages in the
+pagecache, thereby nearly halving the memory used and bringing it in
+line with unencrypted files.  Similarly, half as many dentries and
+inodes are needed.  eCryptfs also limits encrypted filenames to 143
+bytes, causing application compatibility issues; fscrypt allows the
+full 255 bytes (NAME_MAX).  Finally, unlike eCryptfs, the fscrypt API
+can be used by unprivileged users, with no need to mount anything.</p>
 <p>fscrypt does not support encrypting files in-place.  Instead, it
 supports marking an empty directory as encrypted.  Then, after
 userspace provides the key, all regular files, directories, and
@@ -1477,7 +1488,8 @@ struct fscrypt_context_v2 {
         u8 contents_encryption_mode;
         u8 filenames_encryption_mode;
         u8 flags;
-        u8 __reserved[4];
+        u8 log2_data_unit_size;
+        u8 __reserved[3];
         u8 master_key_identifier[FSCRYPT_KEY_IDENTIFIER_SIZE];
         u8 nonce[FSCRYPT_FILE_NONCE_SIZE];
 };

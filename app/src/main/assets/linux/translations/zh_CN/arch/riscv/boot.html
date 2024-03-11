@@ -1,0 +1,350 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>RISC-V内核启动要求和限制 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+    <link rel="next" title="RISC-V Linux启动镜像文件头" href="boot-image-header.html" />
+    <link rel="prev" title="RISC-V 体系结构" href="index.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../../index.html">
+              <img class="logo" src="../../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.8.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#api">内部API文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../../_sources/translations/zh_CN/arch/riscv/boot.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../../arch/riscv/boot.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../../arch/riscv/boot.html"><span class="doc">RISC-V Kernel Boot Requirements and Constraints</span></a></p>
+</dd>
+<dt class="field-even">翻译<span class="colon">:</span></dt>
+<dd class="field-even"><p>龙进 Jin Long &lt;<a class="reference external" href="mailto:longjin&#37;&#52;&#48;dragonos&#46;org">longjin<span>&#64;</span>dragonos<span>&#46;</span>org</a>&gt;</p>
+</dd>
+</dl>
+<section id="risc-v">
+<h1>RISC-V内核启动要求和限制<a class="headerlink" href="#risc-v" title="Permalink to this heading">¶</a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">Author<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Alexandre Ghiti &lt;<a class="reference external" href="mailto:alexghiti&#37;&#52;&#48;rivosinc&#46;com">alexghiti<span>&#64;</span>rivosinc<span>&#46;</span>com</a>&gt;</p>
+</dd>
+<dt class="field-even">Date<span class="colon">:</span></dt>
+<dd class="field-even"><p>23 May 2023</p>
+</dd>
+</dl>
+<p>这份文档描述了RISC-V内核对引导加载程序和固件的期望，以及任何开发者在接触
+早期启动过程时必须牢记的约束。在这份文档中， <code class="docutils literal notranslate"><span class="pre">早期启动过程</span></code> 指的是在最
+终虚拟映射设置之前运行的任何代码。</p>
+<section id="id1">
+<h2>内核预加载的要求和限制<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<p>RISC-V内核对引导加载程序和平台固件有以下要求：</p>
+<section id="id2">
+<h3>寄存器状态<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<p>RISC-V内核期望：</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">$a0</span></code> 应包含当前核心的hartid。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$a1</span></code> 应包含内存中设备树的地址。</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="csr">
+<h3>CSR 寄存器状态<a class="headerlink" href="#csr" title="Permalink to this heading">¶</a></h3>
+<p>RISC-V内核期望：</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">$satp</span> <span class="pre">=</span> <span class="pre">0</span></code>： 如果存在MMU，必须将其禁用。</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="id3">
+<h3>为常驻固件保留的内存<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<p>RISC-V内核在直接映射中不能映射任何常驻内存或用PMPs保护的内存，
+因此固件必须根据设备树规范 和/或 UEFI规范正确标记这些区域。</p>
+</section>
+<section id="id4">
+<h3>内核的位置<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<p>RISC-V内核期望被放置在PMD边界（对于rv64为2MB对齐，对于rv32为4MB对齐）。
+请注意，如果不是这样，EFI stub 将重定位内核。</p>
+</section>
+<section id="id5">
+<h3>硬件描述<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<p>固件可以将设备树或ACPI表传递给RISC-V内核。</p>
+<p>设备树可以直接从前一阶段通过$a1寄存器传递给内核，或者在使用UEFI启动时，
+可以通过EFI配置表传递。</p>
+<p>ACPI表通过EFI配置表传递给内核。在这种情况下，EFI stub 仍然会创建一个
+小的设备树。请参阅下面的&quot;EFI stub 和设备树&quot;部分，了解这个设备树的详细
+信息。</p>
+</section>
+<section id="id6">
+<h3>内核入口<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
+<p>在SMP系统中，有两种方法可以进入内核：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RISCV_BOOT_SPINWAIT</span></code>：固件在内核中释放所有的hart，一个hart赢
+得抽奖并执行早期启动代码，而其他的hart则停在那里等待初始化完成。这种
+方法主要用于支持没有SBI HSM扩展和M模式RISC-V内核的旧固件。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">有序启动</span></code>：固件只释放一个将执行初始化阶段的hart，然后使用SBI HSM
+扩展启动所有其他的hart。有序启动方法是启动RISC-V内核的首选启动方法，
+因为它可以支持CPU热插拔和kexec。</p></li>
+</ul>
+</section>
+<section id="uefi">
+<h3>UEFI<a class="headerlink" href="#uefi" title="Permalink to this heading">¶</a></h3>
+<section id="id7">
+<h4>UEFI 内存映射<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h4>
+<p>使用UEFI启动时，RISC-V内核将只使用EFI内存映射来填充系统内存。</p>
+<p>UEFI固件必须解析 <code class="docutils literal notranslate"><span class="pre">/reserved-memory</span></code> 设备树节点的子节点，并遵守设备
+树规范，将这些子节点的属性（ <code class="docutils literal notranslate"><span class="pre">no-map</span></code> 和 <code class="docutils literal notranslate"><span class="pre">reusable</span></code> ）转换为其正
+确的EFI等价物（参见设备树规范v0.4-rc1的&quot;3.5.4/reserved-memory和
+UEFI&quot;部分）。</p>
+</section>
+<section id="riscv-efi-boot-protocol">
+<h4>RISCV_EFI_BOOT_PROTOCOL<a class="headerlink" href="#riscv-efi-boot-protocol" title="Permalink to this heading">¶</a></h4>
+<p>使用UEFI启动时，EFI stub 需要引导hartid以便将其传递给 <code class="docutils literal notranslate"><span class="pre">$a1</span></code> 中的
+RISC-V内核。EFI stub使用以下方法之一获取引导hartid：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RISCV_EFI_BOOT_PROTOCOL</span></code> （<strong>首选</strong>）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">boot-hartid</span></code> 设备树子节点（<strong>已弃用</strong>）。</p></li>
+</ul>
+<p>任何新的固件都必须实现 <code class="docutils literal notranslate"><span class="pre">RISCV_EFI_BOOT_PROTOCOL</span></code>，因为基于设备树
+的方法现已被弃用。</p>
+</section>
+</section>
+</section>
+<section id="id8">
+<h2>早期启动的要求和约束<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h2>
+<p>RISC-V内核的早期启动过程遵循以下约束：</p>
+<section id="efi-stub">
+<h3>EFI stub 和设备树<a class="headerlink" href="#efi-stub" title="Permalink to this heading">¶</a></h3>
+<p>使用UEFI启动时，EFI stub 会用与arm64相同的参数补充（或创建）设备树，
+这些参数在Documentation/arch/arm/uefi.rst中的
+&quot;UEFI kernel supporton ARM&quot;段落中有描述。</p>
+</section>
+<section id="id9">
+<h3>虚拟映射安装<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h3>
+<p>在RISC-V内核中，虚拟映射的安装分为两步进行：</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">setup_vm()</span></code> 在 <code class="docutils literal notranslate"><span class="pre">early_pg_dir</span></code> 中安装一个临时的内核映射，这
+允许发现系统内存。   此时只有内核文本/数据被映射。在建立这个映射时，
+不能进行分配（因为系统内存还未知），所以``early_pg_dir``页表是静
+态分配的（每个级别只使用一个表）。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">setup_vm_final()</span></code> 在 <code class="docutils literal notranslate"><span class="pre">swapper_pg_dir</span></code> 中创建最终的内核映
+射，并利用发现的系统内存   创建线性映射。在建立这个映射时，内核可以
+分配内存，但不能直接访问它（因为直接映射还不存在），所以它使用fixmap
+区域的临时映射来访问新分配的页表级别。</p></li>
+</ol>
+<p>为了让 <code class="docutils literal notranslate"><span class="pre">virt_to_phys()</span></code> 和 <code class="docutils literal notranslate"><span class="pre">phys_to_virt()</span></code> 能够正确地将直接
+映射地址转换为物理地址，它们需要知道DRAM的起始位置。这发生在步骤1之后，
+就在步骤2安装直接映射之前（参见arch/riscv/mm/init.c中的
+<code class="docutils literal notranslate"><span class="pre">setup_bootmem()</span></code> 函数）。在安装最终虚拟映射之前使用这些宏时必须
+仔细检查。</p>
+</section>
+<section id="fixmap">
+<h3>通过fixmap进行设备树映射<a class="headerlink" href="#fixmap" title="Permalink to this heading">¶</a></h3>
+<p>由于 <code class="docutils literal notranslate"><span class="pre">reserved_mem</span></code> 数组是用 <code class="docutils literal notranslate"><span class="pre">setup_vm()</span></code> 建立的虚拟地址初始化
+的，并且与``setup_vm_final()``建立的映射一起使用，RISC-V内核使用
+fixmap区域来映射设备树。这确保设备树可以通过两种虚拟映射访问。</p>
+</section>
+<section id="pre-mmu">
+<h3>Pre-MMU执行<a class="headerlink" href="#pre-mmu" title="Permalink to this heading">¶</a></h3>
+<p>在建立第一个虚拟映射之前，需要运行一些代码。这些包括第一个虚拟映射的安装本身，
+早期替代方案的修补，以及内核命令行的早期解析。这些代码必须非常小心地编译，因为：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-fno-pie</span></code>：这对于使用``-fPIE``的可重定位内核是必需的，否则，任何对
+全局符号的访问都将通过  GOT进行，而GOT只是虚拟地重新定位。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-mcmodel=medany</span></code>：任何对全局符号的访问都必须是PC相对的，以避免在设
+置MMU之前发生任何重定位。</p></li>
+<li><p><em>所有</em> 的仪表化功能也必须被禁用（包括KASAN，ftrace和其他）。</p></li>
+</ul>
+<p>由于使用来自不同编译单元的符号需要用这些标志编译该单元，我们建议尽可能不要使用
+外部符号。</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../../_sources/translations/zh_CN/arch/riscv/boot.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

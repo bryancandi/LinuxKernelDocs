@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -92,7 +95,22 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Core API Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -122,6 +140,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -132,7 +151,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -149,7 +170,21 @@
 
           <div class="body" role="main">
             
-  <section id="memory-management-apis">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../translations/zh_CN/core-api/mm-api.html">Chinese (Simplified)</a></li>
+
+</ul>
+</div>
+<section id="memory-management-apis">
 <h1>Memory Management APIs<a class="headerlink" href="#memory-management-apis" title="Permalink to this heading">¶</a></h1>
 <section id="user-space-memory-access">
 <h2>User Space Memory Access<a class="headerlink" href="#user-space-memory-access" title="Permalink to this heading">¶</a></h2>
@@ -400,23 +435,23 @@ canonical example is THP allocation where a fallback is cheap but
 reclaim/compaction may cause indirect stalls.</p>
 <p><code class="docutils literal notranslate"><span class="pre">__GFP_RECLAIM</span></code> is shorthand to allow/forbid both direct and kswapd reclaim.</p>
 <p>The default allocator behavior depends on the request size. We have a concept
-of so called costly allocations (with order &gt; <code class="docutils literal notranslate"><span class="pre">PAGE_ALLOC_COSTLY_ORDER</span></code>).
+of so-called costly allocations (with order &gt; <code class="docutils literal notranslate"><span class="pre">PAGE_ALLOC_COSTLY_ORDER</span></code>).
 !costly allocations are too essential to fail so they are implicitly
 non-failing by default (with some exceptions like OOM victims might fail so
 the caller still has to check for failures) while costly requests try to be
 not disruptive and back off even without invoking the OOM killer.
 The following three modifiers might be used to override some of these
-implicit rules</p>
+implicit rules.</p>
 <p><code class="docutils literal notranslate"><span class="pre">__GFP_NORETRY</span></code>: The VM implementation will try only very lightweight
 memory direct reclaim to get some memory under memory pressure (thus
 it can sleep). It will avoid disruptive actions like OOM killer. The
 caller must handle the failure which is quite likely to happen under
 heavy memory pressure. The flag is suitable when failure can easily be
-handled at small cost, such as reduced throughput</p>
+handled at small cost, such as reduced throughput.</p>
 <p><code class="docutils literal notranslate"><span class="pre">__GFP_RETRY_MAYFAIL</span></code>: The VM implementation will retry memory reclaim
 procedures that have previously failed if there is some indication
-that progress has been made else where.  It can wait for other
-tasks to attempt high level approaches to freeing memory such as
+that progress has been made elsewhere.  It can wait for other
+tasks to attempt high-level approaches to freeing memory such as
 compaction (which removes fragmentation) and page-out.
 There is still a definite limit to the number of retries, but it is
 a larger limit than with <code class="docutils literal notranslate"><span class="pre">__GFP_NORETRY</span></code>.
@@ -454,7 +489,8 @@ non-preemptive contexts (e.g. raw_spin_lock). The same applies to <code class="d
 <p><code class="docutils literal notranslate"><span class="pre">GFP_KERNEL_ACCOUNT</span></code> is the same as GFP_KERNEL, except the allocation is
 accounted to kmemcg.</p>
 <p><code class="docutils literal notranslate"><span class="pre">GFP_NOWAIT</span></code> is for kernel allocations that should not stall for direct
-reclaim, start physical IO or use any filesystem callback.</p>
+reclaim, start physical IO or use any filesystem callback.  It is very
+likely to fail to allocate memory, even for very small allocations.</p>
 <p><code class="docutils literal notranslate"><span class="pre">GFP_NOIO</span></code> will use direct reclaim to discard clean pages or slab pages
 that do not require the starting of any physical IO.
 Please try to avoid using this flag directly and instead use
@@ -699,18 +735,18 @@ pre-sized <a class="reference internal" href="#c.kmem_cache_alloc" title="kmem_c
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kmem_cache_alloc_node">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_alloc_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cachep</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nodeid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_alloc_node" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_alloc_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">s</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfpflags</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_alloc_node" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Allocate an object on the specified node</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache</span> <span class="pre">*cachep</span></code></dt><dd><p>The cache to allocate from.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache</span> <span class="pre">*s</span></code></dt><dd><p>The cache to allocate from.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">flags</span></code></dt><dd><p>See <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfpflags</span></code></dt><dd><p>See <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nodeid</span></code></dt><dd><p>node number of the target node.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">node</span></code></dt><dd><p>node number of the target node.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -722,21 +758,36 @@ node, which can improve the performance for cpu bound structures.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kmem_cache_free">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cachep</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">objp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_free" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">s</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_free" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Deallocate an object</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache</span> <span class="pre">*cachep</span></code></dt><dd><p>The cache the allocation was from.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache</span> <span class="pre">*s</span></code></dt><dd><p>The cache the allocation was from.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*objp</span></code></dt><dd><p>The previously allocated object.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*x</span></code></dt><dd><p>The previously allocated object.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>Free an object which was previously allocated from this
 cache.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kfree">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kfree</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">object</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kfree" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>free previously allocated memory</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*object</span></code></dt><dd><p>pointer returned by <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a> or <a class="reference internal" href="#c.kmem_cache_alloc" title="kmem_cache_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_alloc()</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>If <strong>object</strong> is NULL, no operation is performed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kmem_cache_create_usercopy">
@@ -851,21 +902,6 @@ the allocation and last free path of that object.</p>
 <p><code class="docutils literal notranslate"><span class="pre">true</span></code> if the pointer is to a not-yet-freed object from
 <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a> or <a class="reference internal" href="#c.kmem_cache_alloc" title="kmem_cache_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_alloc()</span></code></a>, either <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> if the pointer
 is to an already-freed object, and <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.kfree">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kfree</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">object</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kfree" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>free previously allocated memory</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*object</span></code></dt><dd><p>pointer returned by <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a> or <a class="reference internal" href="#c.kmem_cache_alloc" title="kmem_cache_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_alloc()</span></code></a></p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>If <strong>object</strong> is NULL, no operation is performed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.krealloc">
@@ -3918,6 +3954,27 @@ fail if called from an IRQ context.)</p>
 <p>pointer to the allocated element or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> on error.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.mempool_alloc_preallocated">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mempool_alloc_preallocated</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">mempool_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mempool_alloc_preallocated" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>allocate an element from preallocated elements belonging to a specific memory pool</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">mempool_t</span> <span class="pre">*pool</span></code></dt><dd><p>pointer to the memory pool which was allocated via
+<a class="reference internal" href="#c.mempool_create" title="mempool_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">mempool_create()</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is similar to mempool_alloc, but it only attempts allocating
+an element from the preallocated elements. It does not sleep and immediately
+returns if no preallocated elements are available.</p>
+<p><strong>Return</strong></p>
+<p>pointer to the allocated element or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if no elements are
+available.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.mempool_free">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mempool_free</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">element</span></span>, <span class="n"><span class="pre">mempool_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mempool_free" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return an element to the pool.</p>
@@ -4593,7 +4650,7 @@ spinlock, but not in NMI context or while holding a raw spinlock.</p>
 <p>This function is similar to <a class="reference internal" href="#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a>, except that it allocates the
 minimum number of pages to satisfy the request.  <a class="reference internal" href="#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a> can only
 allocate memory in power-of-two pages.</p>
-<p>This function is also limited by MAX_ORDER.</p>
+<p>This function is also limited by MAX_PAGE_ORDER.</p>
 <p>Memory allocated by this function must be released by <a class="reference internal" href="#c.free_pages_exact" title="free_pages_exact"><code class="xref c c-func docutils literal notranslate"><span class="pre">free_pages_exact()</span></code></a>.</p>
 <p><strong>Return</strong></p>
 <p>pointer to the allocated area or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> in case of error.</p>
@@ -5108,7 +5165,7 @@ to its size.</p>
 #endif;
     };
     unsigned int __page_type;
-    atomic_t _refcount;
+    atomic_t __page_refcount;
 #ifdef CONFIG_MEMCG;
     unsigned long pt_memcg_data;
 #endif;
@@ -5137,7 +5194,7 @@ to its size.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pt_mm</span></code></dt><dd><p>Used for x86 pgds.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pt_frag_refcount</span></code></dt><dd><p>For fragmented page table tracking. Powerpc and s390 only.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">pt_frag_refcount</span></code></dt><dd><p>For fragmented page table tracking. Powerpc only.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -5149,7 +5206,7 @@ to its size.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">__page_type</span></code></dt><dd><p>Same as page-&gt;page_type. Unused for page tables.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">_refcount</span></code></dt><dd><p>Same as page refcount. Used for s390 page tables.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">__page_refcount</span></code></dt><dd><p>Same as page refcount.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pt_memcg_data</span></code></dt><dd><p>Memcg data. Tracked for page tables here.</p>
 </dd>
@@ -6364,28 +6421,58 @@ process, so the rmap code will not search the parent or sibling processes.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.page_add_anon_rmap">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_add_anon_rmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_add_anon_rmap" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">rmap_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_add_anon_rmap" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>add pte mapping to an anonymous page</p>
+<dt class="sig sig-object c" id="c.folio_add_anon_rmap_ptes">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_add_anon_rmap_ptes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_anon_rmap_ptes" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_anon_rmap_ptes" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">rmap_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_add_anon_rmap_ptes" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>add PTE mappings to a page range of an anon folio</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>the page to add the mapping to</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to add the mappings to</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the vm area in which the mapping is added</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to add</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">address</span></code></dt><dd><p>the user virtual address mapped</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nr_pages</span></code></dt><dd><p>The number of pages which will be mapped</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rmap_t</span> <span class="pre">flags</span></code></dt><dd><p>the rmap flags</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area in which the mappings are added</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">address</span></code></dt><dd><p>The user virtual address of the first page to map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rmap_t</span> <span class="pre">flags</span></code></dt><dd><p>The rmap flags</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The caller needs to hold the pte lock, and the page must be locked in
+<p>The page range of folio is defined by [first_page, first_page + nr_pages)</p>
+<p>The caller needs to hold the page table lock, and the page must be locked in
 the anon_vma case: to serialize mapping,index checking after setting,
-and to ensure that PageAnon is not being upgraded racily to PageKsm
-(but PageKsm is never downgraded to PageAnon).</p>
+and to ensure that an anon folio is not being upgraded racily to a KSM folio
+(but KSM folios are never downgraded).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_add_anon_rmap_pmd">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_add_anon_rmap_pmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_anon_rmap_pmd" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_anon_rmap_pmd" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">rmap_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_add_anon_rmap_pmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>add a PMD mapping to a page range of an anon folio</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to add the mapping to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to add</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area in which the mapping is added</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">address</span></code></dt><dd><p>The user virtual address of the first page to map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rmap_t</span> <span class="pre">flags</span></code></dt><dd><p>The rmap flags</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The page range of folio is defined by [first_page, first_page + HPAGE_PMD_NR)</p>
+<p>The caller needs to hold the page table lock, and the page must be locked in
+the anon_vma case: to serialize mapping,index checking after setting.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.folio_add_new_anon_rmap">
@@ -6404,16 +6491,38 @@ and to ensure that PageAnon is not being upgraded racily to PageKsm
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Like <a class="reference internal" href="#c.page_add_anon_rmap" title="page_add_anon_rmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_add_anon_rmap()</span></code></a> but must only be called on <em>new</em> folios.
+<p>Like folio_add_anon_rmap_*() but must only be called on <em>new</em> folios.
 This means the inc-and-test can be bypassed.
 The folio does not have to be locked.</p>
-<p>If the folio is large, it is accounted as a THP.  As the folio
+<p>If the folio is pmd-mappable, it is accounted as a THP.  As the folio
 is new, it's assumed to be mapped exclusively by a single process.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.folio_add_file_rmap_range">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_add_file_rmap_range</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_range" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_range" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">compound</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_add_file_rmap_range" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>add pte mapping to page range of a folio</p>
+<dt class="sig sig-object c" id="c.folio_add_file_rmap_ptes">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_add_file_rmap_ptes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_ptes" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_ptes" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_add_file_rmap_ptes" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>add PTE mappings to a page range of a folio</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to add the mappings to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to add</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nr_pages</span></code></dt><dd><p>The number of pages that will be mapped using PTEs</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area in which the mappings are added</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The page range of the folio is defined by [page, page + nr_pages)</p>
+<p>The caller needs to hold the page table lock.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_add_file_rmap_pmd">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_add_file_rmap_pmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_pmd" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_add_file_rmap_pmd" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_add_file_rmap_pmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>add a PMD mapping to a page range of a folio</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -6423,54 +6532,54 @@ is new, it's assumed to be mapped exclusively by a single process.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to add</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">nr_pages</span></code></dt><dd><p>The number of pages which will be mapped</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the vm area in which the mapping is added</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">compound</span></code></dt><dd><p>charge the page as compound or small page</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area in which the mapping is added</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The page range of folio is defined by [first_page, first_page + nr_pages)</p>
-<p>The caller needs to hold the pte lock.</p>
+<p>The page range of the folio is defined by [page, page + HPAGE_PMD_NR)</p>
+<p>The caller needs to hold the page table lock.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.page_add_file_rmap">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_add_file_rmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_add_file_rmap" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">compound</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_add_file_rmap" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>add pte mapping to a file page</p>
+<dt class="sig sig-object c" id="c.folio_remove_rmap_ptes">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_remove_rmap_ptes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_remove_rmap_ptes" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_remove_rmap_ptes" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_remove_rmap_ptes" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>remove PTE mappings from a page range of a folio</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>the page to add the mapping to</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to remove the mappings from</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the vm area in which the mapping is added</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to remove</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">compound</span></code></dt><dd><p>charge the page as compound or small page</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nr_pages</span></code></dt><dd><p>The number of pages that will be removed from the mapping</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area from which the mappings are removed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The caller needs to hold the pte lock.</p>
+<p>The page range of the folio is defined by [page, page + nr_pages)</p>
+<p>The caller needs to hold the page table lock.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.page_remove_rmap">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_remove_rmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_remove_rmap" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">compound</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_remove_rmap" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>take down pte mapping from a page</p>
+<dt class="sig sig-object c" id="c.folio_remove_rmap_pmd">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_remove_rmap_pmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_remove_rmap_pmd" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_remove_rmap_pmd" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_remove_rmap_pmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>remove a PMD mapping from a page range of a folio</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>page to remove mapping from</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to remove the mapping from</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the vm area from which the mapping is removed</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The first page to remove</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">compound</span></code></dt><dd><p>uncharge the page as compound or small page</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The vm area from which the mapping is removed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The caller needs to hold the pte lock.</p>
+<p>The page range of the folio is defined by [page, page + HPAGE_PMD_NR)</p>
+<p>The caller needs to hold the page table lock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.try_to_unmap">

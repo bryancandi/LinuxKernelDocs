@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -140,6 +143,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -150,7 +154,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -167,7 +173,23 @@
 
           <div class="body" role="main">
             
-  <section id="perf">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../../translations/zh_CN/arch/arm64/perf.html">Chinese (Simplified)</a></li>
+
+<li><a href="../../translations/zh_TW/arch/arm64/perf.html">Chinese (Traditional)</a></li>
+
+</ul>
+</div>
+<section id="perf">
 <span id="perf-index"></span><h1>Perf<a class="headerlink" href="#perf" title="Permalink to this heading">¶</a></h1>
 <section id="perf-event-attributes">
 <h2>Perf Event Attributes<a class="headerlink" href="#perf-event-attributes" title="Permalink to this heading">¶</a></h2>
@@ -295,6 +317,77 @@ access. If a 32-bit counter is requested on hardware with 64-bit counters, then
 userspace must treat the upper 32-bits read from the counter as UNKNOWN. The
 'pmc_width' field in the user page will indicate the valid width of the counter
 and should be used to mask the upper bits as needed.</p>
+</section>
+</section>
+<section id="event-counting-threshold">
+<h2>Event Counting Threshold<a class="headerlink" href="#event-counting-threshold" title="Permalink to this heading">¶</a></h2>
+<section id="id1">
+<h3>Overview<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<p>FEAT_PMUv3_TH (Armv8.8) permits a PMU counter to increment only on
+events whose count meets a specified threshold condition. For example if
+threshold_compare is set to 2 ('Greater than or equal'), and the
+threshold is set to 2, then the PMU counter will now only increment by
+when an event would have previously incremented the PMU counter by 2 or
+more on a single processor cycle.</p>
+<p>To increment by 1 after passing the threshold condition instead of the
+number of events on that cycle, add the 'threshold_count' option to the
+commandline.</p>
+</section>
+<section id="id2">
+<h3>How-to<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<p>These are the parameters for controlling the feature:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>threshold</p></td>
+<td><p>Value to threshold the event by. A value of 0 means that
+thresholding is disabled and the other parameters have no effect.</p></td>
+</tr>
+<tr class="row-odd"><td><p>threshold_compare</p></td>
+<td><div class="line-block">
+<div class="line">Comparison function to use, with the following values supported:</div>
+<div class="line"><br /></div>
+<div class="line">0: Not-equal</div>
+<div class="line">1: Equals</div>
+<div class="line">2: Greater-than-or-equal</div>
+<div class="line">3: Less-than</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>threshold_count</p></td>
+<td><p>If this is set, count by 1 after passing the threshold condition
+instead of the value of the event on this cycle.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The threshold, threshold_compare and threshold_count values can be
+provided per event, for example:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>perf<span class="w"> </span>stat<span class="w"> </span>-e<span class="w"> </span>stall_slot/threshold<span class="o">=</span><span class="m">2</span>,threshold_compare<span class="o">=</span><span class="m">2</span>/<span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>-e<span class="w"> </span>dtlb_walk/threshold<span class="o">=</span><span class="m">10</span>,threshold_compare<span class="o">=</span><span class="m">3</span>,threshold_count/
+</pre></div>
+</div>
+<p>In this example the stall_slot event will count by 2 or more on every
+cycle where 2 or more stalls happen. And dtlb_walk will count by 1 on
+every cycle where the number of dtlb walks were less than 10.</p>
+<p>The maximum supported threshold value can be read from the caps of each
+PMU, for example:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/sys/bus/event_source/devices/armv8_pmuv3/caps/threshold_max
+
+0x000000ff
+</pre></div>
+</div>
+<p>If a value higher than this is given, then opening the event will result
+in an error. The highest possible maximum is 4095, as the config field
+for threshold is limited to 12 bits, and the Perf tool will refuse to
+parse higher values.</p>
+<p>If the PMU doesn't support FEAT_PMUv3_TH, then threshold_max will read
+0, and attempting to set a threshold value will also result in an error.
+threshold_max will also read as 0 on aarch32 guests, even if the host
+is running on hardware with the feature.</p>
 </section>
 </section>
 </section>

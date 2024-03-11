@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,6 +115,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -122,7 +126,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -139,11 +145,15 @@
 
           <div class="body" role="main">
             
-  <section id="page-pool-api">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="page-pool-api">
 <h1>Page Pool API<a class="headerlink" href="#page-pool-api" title="Permalink to this heading">¶</a></h1>
 <p>The page_pool allocator is optimized for recycling page or page fragment used
 by skb packet and xdp frame.</p>
-<p>Basic use involves replacing and <a class="reference internal" href="../core-api/mm-api.html#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a> calls with page_pool_alloc(),
+<p>Basic use involves replacing any <a class="reference internal" href="../core-api/mm-api.html#c.alloc_pages" title="alloc_pages"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_pages()</span></code></a> calls with page_pool_alloc(),
 which allocate memory with or without page splitting depending on the
 requested memory size.</p>
 <p>If the driver knows that it always requires full pages or its allocations are
@@ -158,20 +168,20 @@ knows that the memory it need is always smaller than or equal to half of the
 page allocated from page pool. Page splitting enables memory saving and thus
 avoids TLB/cache miss for data access, but there also is some cost to
 implement page splitting, mainly some cache line dirtying/bouncing for
-'struct page' and atomic operation for page-&gt;pp_frag_count.</p>
+'struct page' and atomic operation for page-&gt;pp_ref_count.</p>
 <p>The API keeps track of in-flight pages, in order to let API users know when
 it is safe to free a page_pool object, the API users must call
 <a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> or <a class="reference internal" href="#c.page_pool_free_va" title="page_pool_free_va"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_free_va()</span></code></a> to free the page_pool object, or
 attach the page_pool object to a page_pool-aware object like skbs marked with
 skb_mark_for_recycle().</p>
-<p><a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> may be called multi times on the same page if a page is
-split into multi fragments. For the last fragment, it will either recycle the
-page, or in case of page-&gt;_refcount &gt; 1, it will release the DMA mapping and
-in-flight state accounting.</p>
+<p><a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> may be called multiple times on the same page if a page
+is split into multiple fragments. For the last fragment, it will either
+recycle the page, or in case of page-&gt;_refcount &gt; 1, it will release the DMA
+mapping and in-flight state accounting.</p>
 <p>dma_sync_single_range_for_device() is only called for the last fragment when
 page_pool is created with PP_FLAG_DMA_SYNC_DEV flag, so it depends on the
 last freed fragment to do the sync_for_device operation for all fragments in
-the same page when a page is split, the API user must setup pool-&gt;p.max_len
+the same page when a page is split. The API user must setup pool-&gt;p.max_len
 and pool-&gt;p.offset correctly and ensure that <a class="reference internal" href="#c.page_pool_put_page" title="page_pool_put_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_put_page()</span></code></a> is called
 with dma_sync_size being -1 for fragment API.</p>
 <section id="architecture-overview">
@@ -206,6 +216,11 @@ with dma_sync_size being -1 for fragment API.</p>
                       +-----------------+     +------------------+
 </pre></div>
 </div>
+</section>
+<section id="monitoring">
+<h2>Monitoring<a class="headerlink" href="#monitoring" title="Permalink to this heading">¶</a></h2>
+<p>Information about page pools on the system can be accessed via the netdev
+genetlink family (see Documentation/netlink/specs/netdev.yaml).</p>
 </section>
 <section id="api-interface">
 <h2>API interface<a class="headerlink" href="#api-interface" title="Permalink to this heading">¶</a></h2>
@@ -246,6 +261,7 @@ a page will cause no race conditions is enough.</p>
     enum dma_data_direction dma_dir;
     unsigned int    max_len;
     unsigned int    offset;
+    STRUCT_GROUP( struct net_device *netdev;
 };
 </pre></div>
 </div>
@@ -268,6 +284,8 @@ a page will cause no race conditions is enough.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">max_len</span></code></dt><dd><p>max DMA sync memory size for PP_FLAG_DMA_SYNC_DEV</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>DMA sync address offset for PP_FLAG_DMA_SYNC_DEV</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">netdev</span></code></dt><dd><p>netdev this pool will serve (leave as NULL if none or multiple)</p>
 </dd>
 </dl>
 </div>
@@ -466,14 +484,14 @@ must had been created with PP_FLAG_DMA_MAP.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.page_pool_get_stats">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_stats</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pool_stats" title="page_pool_stats"><span class="n"><span class="pre">page_pool_stats</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">stats</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_stats" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_stats</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pool_stats" title="page_pool_stats"><span class="n"><span class="pre">page_pool_stats</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">stats</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_stats" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>fetch page pool stats</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which page was allocated</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which page was allocated</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool_stats</span> <span class="pre">*stats</span></code></dt><dd><p><a class="reference internal" href="#c.page_pool_stats" title="page_pool_stats"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool_stats</span></code></a> to fill in</p>
 </dd>
@@ -545,8 +563,9 @@ with fragmented page pools.</p>
 <a class="reference internal" href="#c.page_pool_get_stats" title="page_pool_get_stats"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_pool_get_stats()</span></code></a> and structures described below are available.
 It takes a  pointer to a <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span></code> and a pointer to a <a class="reference internal" href="#c.page_pool_stats" title="page_pool_stats"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
 <span class="pre">page_pool_stats</span></code></a> allocated by the caller.</p>
-<p>The API will fill in the provided <a class="reference internal" href="#c.page_pool_stats" title="page_pool_stats"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool_stats</span></code></a> with
-statistics about the page_pool.</p>
+<p>Older drivers expose page pool statistics via ethtool or debugfs.
+The same statistics are accessible via the netlink netdev family
+in a driver-independent fashion.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.page_pool_alloc_stats">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_alloc_stats</span></span></span><a class="headerlink" href="#c.page_pool_alloc_stats" title="Permalink to this definition">¶</a><br /></dt>

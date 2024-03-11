@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -172,6 +175,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pm/index.html">Power Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ras.html">Reliability, Availability and Serviceability</a></li>
@@ -203,6 +207,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -213,7 +218,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -230,7 +237,23 @@
 
           <div class="body" role="main">
             
-  <section id="kernel-samepage-merging">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../../translations/zh_CN/admin-guide/mm/ksm.html">Chinese (Simplified)</a></li>
+
+<li><a href="../../translations/zh_TW/admin-guide/mm/ksm.html">Chinese (Traditional)</a></li>
+
+</ul>
+</div>
+<section id="kernel-samepage-merging">
 <h1>Kernel Samepage Merging<a class="headerlink" href="#kernel-samepage-merging" title="Permalink to this heading">¶</a></h1>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
@@ -294,6 +317,8 @@ readable by all but writable only by root:</p>
 <dl>
 <dt>pages_to_scan</dt><dd><p>how many pages to scan before ksmd goes to sleep
 e.g. <code class="docutils literal notranslate"><span class="pre">echo</span> <span class="pre">100</span> <span class="pre">&gt;</span> <span class="pre">/sys/kernel/mm/ksm/pages_to_scan</span></code>.</p>
+<p>The pages_to_scan value cannot be changed if <code class="docutils literal notranslate"><span class="pre">advisor_mode</span></code> has
+been set to scan-time.</p>
 <p>Default: 100 (chosen for demonstration purposes)</p>
 </dd>
 <dt>sleep_millisecs</dt><dd><p>how many milliseconds ksmd should sleep before next scan
@@ -368,6 +393,24 @@ skipped. How often these pages are skipped depends on how often
 de-duplication has already been tried and failed. By default this
 optimization is enabled.  The <code class="docutils literal notranslate"><span class="pre">pages_skipped</span></code> metric shows how
 effective the setting is.</p>
+</dd>
+<dt>advisor_mode</dt><dd><p>The <code class="docutils literal notranslate"><span class="pre">advisor_mode</span></code> selects the current advisor. Two modes are
+supported: none and scan-time. The default is none. By setting
+<code class="docutils literal notranslate"><span class="pre">advisor_mode</span></code> to scan-time, the scan time advisor is enabled.
+The section about <code class="docutils literal notranslate"><span class="pre">advisor</span></code> explains in detail how the scan time
+advisor works.</p>
+</dd>
+<dt>adivsor_max_cpu</dt><dd><p>specifies the upper limit of the cpu percent usage of the ksmd
+background thread. The default is 70.</p>
+</dd>
+<dt>advisor_target_scan_time</dt><dd><p>specifies the target scan time in seconds to scan all the candidate
+pages. The default value is 200 seconds.</p>
+</dd>
+<dt>advisor_min_pages_to_scan</dt><dd><p>specifies the lower limit of the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter of the
+scan time advisor. The default is 500.</p>
+</dd>
+<dt>adivsor_max_pages_to_scan</dt><dd><p>specifies the upper limit of the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter of the
+scan time advisor. The default is 30000.</p>
 </dd>
 </dl>
 <p>The effectiveness of KSM and MADV_MERGEABLE is shown in <code class="docutils literal notranslate"><span class="pre">/sys/kernel/mm/ksm/</span></code>:</p>
@@ -465,6 +508,29 @@ note that KSM page might be copied when swapping in because do_swap_page()
 cannot do all the locking needed to reconstitute a cross-anon_vma KSM page.</p>
 </dd>
 </dl>
+</section>
+<section id="advisor">
+<h2>Advisor<a class="headerlink" href="#advisor" title="Permalink to this heading">¶</a></h2>
+<p>The number of candidate pages for KSM is dynamic. It can be often observed
+that during the startup of an application more candidate pages need to be
+processed. Without an advisor the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter needs to be
+sized for the maximum number of candidate pages. The scan time advisor can
+changes the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter based on demand.</p>
+<p>The advisor can be enabled, so KSM can automatically adapt to changes in the
+number of candidate pages to scan. Two advisors are implemented: none and
+scan-time. With none, no advisor is enabled. The default is none.</p>
+<p>The scan time advisor changes the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter based on the
+observed scan times. The possible values for the <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter is
+limited by the <code class="docutils literal notranslate"><span class="pre">advisor_max_cpu</span></code> parameter. In addition there is also the
+<code class="docutils literal notranslate"><span class="pre">advisor_target_scan_time</span></code> parameter. This parameter sets the target time to
+scan all the KSM candidate pages. The parameter <code class="docutils literal notranslate"><span class="pre">advisor_target_scan_time</span></code>
+decides how aggressive the scan time advisor scans candidate pages. Lower
+values make the scan time advisor to scan more aggresively. This is the most
+important parameter for the configuration of the scan time advisor.</p>
+<p>The initial value and the maximum value can be changed with
+<code class="docutils literal notranslate"><span class="pre">advisor_min_pages_to_scan</span></code> and <code class="docutils literal notranslate"><span class="pre">advisor_max_pages_to_scan</span></code>. The default
+values are sufficient for most workloads and use cases.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">pages_to_scan</span></code> parameter is re-calculated after a scan has been completed.</p>
 <p>--
 Izik Eidus,
 Hugh Dickins, 17 Nov 2009</p>

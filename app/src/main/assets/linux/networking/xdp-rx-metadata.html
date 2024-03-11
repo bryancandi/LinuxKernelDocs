@@ -17,7 +17,7 @@
     <script src="../_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="NetLabel" href="../netlabel/index.html" />
+    <link rel="next" title="AF_XDP TX Metadata" href="xsk-tx-metadata.html" />
     <link rel="prev" title="XFRM Syscall" href="xfrm_sysctl.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,6 +115,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -122,7 +126,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -139,7 +145,11 @@
 
           <div class="body" role="main">
             
-  <section id="xdp-rx-metadata">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="xdp-rx-metadata">
 <h1>XDP RX Metadata<a class="headerlink" href="#xdp-rx-metadata" title="Permalink to this heading">¶</a></h1>
 <p>This document describes how an eXpress Data Path (XDP) program can access
 hardware metadata related to a packet using a set of helper functions,
@@ -200,6 +210,44 @@ via <code class="xref c c-type docutils literal notranslate"><span class="pre">e
 <li><p>Returns 0 on success or <code class="docutils literal notranslate"><span class="pre">-errno</span></code> on error.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">-EOPNOTSUPP</span></code> : means device driver doesn't implement kfunc</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">-ENODATA</span></code>    : means no RX-hash available for this frame</p></li>
+</ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.bpf_xdp_metadata_rx_vlan_tag">
+<span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bpf_xdp_metadata_rx_vlan_tag</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xdp_md</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="n"><span class="pre">__be16</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vlan_proto</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vlan_tci</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bpf_xdp_metadata_rx_vlan_tag" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Get XDP packet outermost VLAN tag</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">xdp_md</span> <span class="pre">*ctx</span></code></dt><dd><p>XDP context pointer.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__be16</span> <span class="pre">*vlan_proto</span></code></dt><dd><p>Destination pointer for VLAN Tag protocol identifier (TPID).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">*vlan_tci</span></code></dt><dd><p>Destination pointer for VLAN TCI (VID + DEI + PCP)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>In case of success, <code class="docutils literal notranslate"><span class="pre">vlan_proto</span></code> contains <em>Tag protocol identifier (TPID)</em>,
+usually <code class="docutils literal notranslate"><span class="pre">ETH_P_8021Q</span></code> or <code class="docutils literal notranslate"><span class="pre">ETH_P_8021AD</span></code>, but some networks can use
+custom TPIDs. <code class="docutils literal notranslate"><span class="pre">vlan_proto</span></code> is stored in <strong>network byte order (BE)</strong>
+and should be used as follows:
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">(vlan_proto</span> <span class="pre">==</span> <span class="pre">bpf_htons(ETH_P_8021Q))</span> <span class="pre">do_something();</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">vlan_tci</span></code> contains the remaining 16 bits of a VLAN tag.
+Driver is expected to provide those in <strong>host byte order (usually LE)</strong>,
+so the bpf program should not perform byte conversion.
+According to 802.1Q standard, <em>VLAN TCI (Tag control information)</em>
+is a bit field that contains:
+<em>VLAN identifier (VID)</em> that can be read with <code class="docutils literal notranslate"><span class="pre">vlan_tci</span> <span class="pre">&amp;</span> <span class="pre">0xfff</span></code>,
+<em>Drop eligible indicator (DEI)</em> - 1 bit,
+<em>Priority code point (PCP)</em> - 3 bits.
+For detailed meaning of DEI and PCP, please refer to other sources.</p>
+<p><strong>Return</strong></p>
+<ul class="simple">
+<li><p>Returns 0 on success or <code class="docutils literal notranslate"><span class="pre">-errno</span></code> on error.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-EOPNOTSUPP</span></code> : device driver doesn't implement kfunc</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-ENODATA</span></code>    : VLAN tag was not stripped or is not available</p></li>
 </ul>
 </div>
 <p>An XDP program can use these kfuncs to read the metadata into stack

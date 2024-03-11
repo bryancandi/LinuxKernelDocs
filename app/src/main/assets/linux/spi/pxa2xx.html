@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,26 +166,30 @@
 
           <div class="body" role="main">
             
-  <section id="pxa2xx-spi-on-ssp-driver-howto">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="pxa2xx-spi-on-ssp-driver-howto">
 <h1>PXA2xx SPI on SSP driver HOWTO<a class="headerlink" href="#pxa2xx-spi-on-ssp-driver-howto" title="Permalink to this heading">¶</a></h1>
 <p>This a mini HOWTO on the pxa2xx_spi driver. The driver turns a PXA2xx
-synchronous serial port into an SPI master controller
+synchronous serial port into an SPI host controller
 (see <a class="reference internal" href="spi-summary.html"><span class="doc">Overview of Linux kernel SPI support</span></a>). The driver has the following features</p>
 <ul class="simple">
 <li><p>Support for any PXA2xx and compatible SSP.</p></li>
 <li><p>SSP PIO and SSP DMA data transfers.</p></li>
 <li><p>External and Internal (SSPFRM) chip selects.</p></li>
-<li><p>Per slave device (chip) configuration.</p></li>
+<li><p>Per peripheral device (chip) configuration.</p></li>
 <li><p>Full suspend, freeze, resume support.</p></li>
 </ul>
 <p>The driver is built around a &amp;<a class="reference internal" href="../driver-api/spi.html#c.spi_message" title="spi_message"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_message</span></code></a> FIFO serviced by kernel
 thread. The kernel thread, spi_pump_messages(), drives message FIFO and
 is responsible for queuing SPI transactions and setting up and launching
 the DMA or interrupt driven transfers.</p>
-<section id="declaring-pxa2xx-master-controllers">
-<h2>Declaring PXA2xx Master Controllers<a class="headerlink" href="#declaring-pxa2xx-master-controllers" title="Permalink to this heading">¶</a></h2>
-<p>Typically, for a legacy platform, an SPI master is defined in the
-arch/.../mach-<em>/board-</em>.c as a &quot;platform device&quot;. The master configuration
+<section id="declaring-pxa2xx-host-controllers">
+<h2>Declaring PXA2xx host controllers<a class="headerlink" href="#declaring-pxa2xx-host-controllers" title="Permalink to this heading">¶</a></h2>
+<p>Typically, for a legacy platform, an SPI host controller is defined in the
+arch/.../mach-<em>/board-</em>.c as a &quot;platform device&quot;. The host controller configuration
 is passed to the driver via a table found in include/linux/spi/pxa2xx_spi.h:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pxa2xx_spi_controller {
       u16 num_chipselect;
@@ -188,7 +199,7 @@ is passed to the driver via a table found in include/linux/spi/pxa2xx_spi.h:</p>
 </pre></div>
 </div>
 <p>The &quot;pxa2xx_spi_controller.num_chipselect&quot; field is used to determine the number of
-slave device (chips) attached to this SPI master.</p>
+peripheral devices (chips) attached to this SPI host controller.</p>
 <p>The &quot;pxa2xx_spi_controller.enable_dma&quot; field informs the driver that SSP DMA should
 be used. This caused the driver to acquire two DMA channels: Rx channel and
 Tx channel. The Rx channel has a higher DMA service priority than the Tx channel.
@@ -196,8 +207,8 @@ See the &quot;PXA2xx Developer Manual&quot; section &quot;DMA Controller&quot;.<
 <p>For the new platforms the description of the controller and peripheral devices
 comes from Device Tree or ACPI.</p>
 </section>
-<section id="nssp-master-sample">
-<h2>NSSP MASTER SAMPLE<a class="headerlink" href="#nssp-master-sample" title="Permalink to this heading">¶</a></h2>
+<section id="nssp-host-sample">
+<h2>NSSP HOST SAMPLE<a class="headerlink" href="#nssp-host-sample" title="Permalink to this heading">¶</a></h2>
 <p>Below is a sample configuration using the PXA255 NSSP for a legacy platform:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct resource pxa_spi_nssp_resources[] = {
       [0] = {
@@ -212,7 +223,7 @@ comes from Device Tree or ACPI.</p>
       },
 };
 
-static struct pxa2xx_spi_controller pxa_nssp_master_info = {
+static struct pxa2xx_spi_controller pxa_nssp_controller_info = {
       .num_chipselect = 1, /* Matches the number of chips attached to NSSP */
       .enable_dma = 1, /* Enables NSSP DMA */
 };
@@ -223,7 +234,7 @@ static struct platform_device pxa_spi_nssp = {
       .resource = pxa_spi_nssp_resources,
       .num_resources = ARRAY_SIZE(pxa_spi_nssp_resources),
       .dev = {
-              .platform_data = &amp;pxa_nssp_master_info, /* Passed to driver */
+              .platform_data = &amp;pxa_nssp_controller_info, /* Passed to driver */
       },
 };
 
@@ -238,16 +249,16 @@ static void __init board_init(void)
 </pre></div>
 </div>
 </section>
-<section id="declaring-slave-devices">
-<h2>Declaring Slave Devices<a class="headerlink" href="#declaring-slave-devices" title="Permalink to this heading">¶</a></h2>
-<p>Typically, for a legacy platform, each SPI slave (chip) is defined in the
+<section id="declaring-peripheral-devices">
+<h2>Declaring peripheral devices<a class="headerlink" href="#declaring-peripheral-devices" title="Permalink to this heading">¶</a></h2>
+<p>Typically, for a legacy platform, each SPI peripheral device (chip) is defined in the
 arch/.../mach-<em>/board-</em>.c using the &quot;spi_board_info&quot; structure found in
 &quot;linux/spi/spi.h&quot;. See &quot;<a class="reference internal" href="spi-summary.html"><span class="doc">Overview of Linux kernel SPI support</span></a>&quot; for additional
 information.</p>
-<p>Each slave device attached to the PXA must provide slave specific configuration
+<p>Each peripheral device (chip) attached to the PXA2xx must provide specific chip configuration
 information via the structure &quot;pxa2xx_spi_chip&quot; found in
-&quot;include/linux/spi/pxa2xx_spi.h&quot;.  The pxa2xx_spi master controller driver
-will uses the configuration whenever the driver communicates with the slave
+&quot;include/linux/spi/pxa2xx_spi.h&quot;. The PXA2xx host controller driver will use
+the configuration whenever the driver communicates with the peripheral
 device. All fields are optional.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pxa2xx_spi_chip {
       u8 tx_threshold;
@@ -275,15 +286,15 @@ dma_burst_size == 0.</p>
 <p>The &quot;pxa2xx_spi_chip.timeout&quot; fields is used to efficiently handle
 trailing bytes in the SSP receiver FIFO. The correct value for this field is
 dependent on the SPI bus speed (&quot;spi_board_info.max_speed_hz&quot;) and the specific
-slave device.  Please note that the PXA2xx SSP 1 does not support trailing byte
+peripheral device. Please note that the PXA2xx SSP 1 does not support trailing byte
 timeouts and must busy-wait any trailing bytes.</p>
 <p>NOTE: the SPI driver cannot control the chip select if SSPFRM is used, so the
 chipselect is dropped after each spi_transfer.  Most devices need chip select
 asserted around the complete message. Use SSPFRM as a GPIO (through a descriptor)
 to accommodate these chips.</p>
 </section>
-<section id="nssp-slave-sample">
-<h2>NSSP SLAVE SAMPLE<a class="headerlink" href="#nssp-slave-sample" title="Permalink to this heading">¶</a></h2>
+<section id="nssp-peripheral-sample">
+<h2>NSSP PERIPHERAL SAMPLE<a class="headerlink" href="#nssp-peripheral-sample" title="Permalink to this heading">¶</a></h2>
 <p>For a legacy platform or in some other cases, the pxa2xx_spi_chip structure
 is passed to the pxa2xx_spi driver in the &quot;spi_board_info.controller_data&quot;
 field. Below is a sample configuration using the PXA255 NSSP.</p>
@@ -308,16 +319,16 @@ static struct spi_board_info streetracer_spi_board_info[] __initdata = {
               .bus_num = 2, /* Framework bus number */
               .chip_select = 0, /* Framework chip select */
               .platform_data = NULL; /* No spi_driver specific config */
-              .controller_data = &amp;cs8415a_chip_info, /* Master chip config */
-              .irq = STREETRACER_APCI_IRQ, /* Slave device interrupt */
+              .controller_data = &amp;cs8415a_chip_info, /* Host controller config */
+              .irq = STREETRACER_APCI_IRQ, /* Peripheral device interrupt */
       },
       {
               .modalias = &quot;cs8405a&quot;, /* Name of spi_driver for this device */
               .max_speed_hz = 3686400, /* Run SSP as fast a possible */
               .bus_num = 2, /* Framework bus number */
               .chip_select = 1, /* Framework chip select */
-              .controller_data = &amp;cs8405a_chip_info, /* Master chip config */
-              .irq = STREETRACER_APCI_IRQ, /* Slave device interrupt */
+              .controller_data = &amp;cs8405a_chip_info, /* Host controller config */
+              .irq = STREETRACER_APCI_IRQ, /* Peripheral device interrupt */
       },
 };
 
@@ -339,17 +350,14 @@ it automatically and try it first with a possible fallback to PIO. The DMA
 mode supports both coherent and stream based DMA mappings.</p>
 <p>The following logic is used to determine the type of I/O to be used on
 a per &quot;spi_transfer&quot; basis:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>if !enable_dma then
-      always use PIO transfers
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>if spi_message.len &gt; 65536 then
+      if spi_message.is_dma_mapped or rx_dma_buf != 0 or tx_dma_buf != 0 then
+              reject premapped transfers
 
-if spi_message.len &gt; 8191 then
       print &quot;rate limited&quot; warning
       use PIO transfers
 
-if spi_message.is_dma_mapped and rx_dma_buf != 0 and tx_dma_buf != 0 then
-      use coherent DMA mode
-
-if rx_buf and tx_buf are aligned on 8 byte boundary then
+if enable_dma and the size is in the range [DMA burst size..65536] then
       use streaming DMA mode
 
 otherwise

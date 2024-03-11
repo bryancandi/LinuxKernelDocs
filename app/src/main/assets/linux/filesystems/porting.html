@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -99,6 +102,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../misc-devices/index.html">Assorted Miscellaneous Devices Documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../peci/index.html">PECI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../wmi/index.html">WMI Subsystem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tee/index.html">TEE Subsystem</a></li>
 </ul>
 </li>
 </ul>
@@ -132,6 +136,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -142,7 +147,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -159,7 +166,11 @@
 
           <div class="body" role="main">
             
-  <section id="changes-since-2-5-0">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="changes-since-2-5-0">
 <h1>Changes since 2.5.0:<a class="headerlink" href="#changes-since-2-5-0" title="Permalink to this heading">¶</a></h1>
 <p>---</p>
 <p><strong>recommended</strong></p>
@@ -926,6 +937,55 @@ All places where s_umount was taken under open_mutex have been fixed up.</p>
 encode FILEID_INO32_GEN* file handles.
 Filesystems that used the default implementation may use the generic helper
 <a class="reference internal" href="api-summary.html#c.generic_encode_ino32_fh" title="generic_encode_ino32_fh"><code class="xref c c-func docutils literal notranslate"><span class="pre">generic_encode_ino32_fh()</span></code></a> explicitly.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>If -&gt;rename() update of .. on cross-directory move needs an exclusion with
+directory modifications, do <em>not</em> lock the subdirectory in question in your
+-&gt;rename() - it's done by the caller now [that item should've been added in
+28eceeda130f &quot;fs: Lock moved directories&quot;].</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>On same-directory -&gt;rename() the (tautological) update of .. is not protected
+by any locks; just don't do it if the old parent is the same as the new one.
+We really can't lock two subdirectories in same-directory rename - not without
+deadlocks.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>lock_rename() and lock_rename_child() may fail in cross-directory case, if
+their arguments do not have a common ancestor.  In that case ERR_PTR(-EXDEV)
+is returned, with no locks taken.  In-tree users updated; out-of-tree ones
+would need to do so.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>The list of children anchored in parent dentry got turned into hlist now.
+Field names got changed (-&gt;d_children/-&gt;d_sib instead of -&gt;d_subdirs/-&gt;d_child
+for anchor/entries resp.), so any affected places will be immediately caught
+by compiler.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>-&gt;<a class="reference internal" href="api-summary.html#c.d_delete" title="d_delete"><code class="xref c c-func docutils literal notranslate"><span class="pre">d_delete()</span></code></a> instances are now called for dentries with -&gt;d_lock held
+and refcount equal to 0.  They are not permitted to drop/regain -&gt;d_lock.
+None of in-tree instances did anything of that sort.  Make sure yours do not...</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>-&gt;d_prune() instances are now called without -&gt;d_lock held on the parent.
+-&gt;d_lock on dentry itself is still held; if you need per-parent exclusions (none
+of the in-tree instances did), use your own spinlock.</p>
+<p>-&gt;d_iput() and -&gt;d_release() are called with victim dentry still in the
+list of parent's children.  It is still unhashed, marked killed, etc., just not
+removed from parent's -&gt;d_children yet.</p>
+<p>Anyone iterating through the list of children needs to be aware of the
+half-killed dentries that might be seen there; taking -&gt;d_lock on those will
+see them negative, unhashed and with negative refcount, which means that most
+of the in-kernel users would've done the right thing anyway without any adjustment.</p>
+<p>---</p>
+<p><strong>recommended</strong></p>
+<p>Block device freezing and thawing have been moved to holder operations.</p>
+<p>Before this change, get_active_super() would only be able to find the
+superblock of the main block device, i.e., the one stored in sb-&gt;s_bdev. Block
+device freezing now works for any block device owned by a given superblock, not
+just the main block device. The get_active_super() helper and bd_fsfreeze_sb
+pointer are gone.</p>
 </section>
 
 

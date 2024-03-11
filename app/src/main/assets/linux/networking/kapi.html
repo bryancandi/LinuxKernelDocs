@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,6 +115,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -122,7 +126,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -139,7 +145,11 @@
 
           <div class="body" role="main">
             
-  <section id="linux-networking-and-network-devices-apis">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="linux-networking-and-network-devices-apis">
 <h1>Linux Networking and Network Devices APIs<a class="headerlink" href="#linux-networking-and-network-devices-apis" title="Permalink to this heading">¶</a></h1>
 <section id="linux-networking">
 <h2>Linux Networking<a class="headerlink" href="#linux-networking" title="Permalink to this heading">¶</a></h2>
@@ -2774,7 +2784,6 @@ for <a class="reference internal" href="#c.sock" title="sock"><code class="xref 
 #endif;
     struct rcu_head         sk_rcu;
     netns_tracker ns_tracker;
-    struct hlist_node       sk_bind2_node;
 };
 </pre></div>
 </div>
@@ -2980,8 +2989,6 @@ set this to false.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_rcu</span></code></dt><dd><p>used during RCU grace period</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ns_tracker</span></code></dt><dd><p>tracker for netns reference</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sk_bind2_node</span></code></dt><dd><p>bind node in the bhash2 table</p>
 </dd>
 </dl>
 </div>
@@ -9111,6 +9118,29 @@ because the interrupt disabled assumption might not be true
 due to force-threaded interrupts and spinlock substitution.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.netif_queue_set_napi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netif_queue_set_napi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">queue_index</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">netdev_queue_type</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">napi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netif_queue_set_napi" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Associate queue with the napi</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device to which NAPI and queue belong</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">queue_index</span></code></dt><dd><p>Index of queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">netdev_queue_type</span> <span class="pre">type</span></code></dt><dd><p>queue type as RX or TX</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">napi_struct</span> <span class="pre">*napi</span></code></dt><dd><p>NAPI context, pass NULL to clear previously set NAPI</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Set queue with its corresponding napi context. This should be done after
+registering the NAPI handler for the queue-vector and the queues have been
+mapped to the corresponding interrupt vector.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.napi_enable">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_enable" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>enable NAPI scheduling</p>
@@ -10990,6 +11020,61 @@ during any kernel release.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct net_device {
+    __cacheline_group_begin(net_device_read_tx);
+    unsigned long long      priv_flags;
+    const struct net_device_ops *netdev_ops;
+    const struct header_ops *header_ops;
+    struct netdev_queue     *_tx;
+    netdev_features_t gso_partial_features;
+    unsigned int            real_num_tx_queues;
+    unsigned int            gso_max_size;
+    unsigned int            gso_ipv4_max_size;
+    u16 gso_max_segs;
+    s16 num_tc;
+    unsigned int            mtu;
+    unsigned short          needed_headroom;
+    struct netdev_tc_txq    tc_to_txq[TC_MAX_QUEUE];
+#ifdef CONFIG_XPS;
+    struct xps_dev_maps __rcu *xps_maps[XPS_MAPS_MAX];
+#endif;
+#ifdef CONFIG_NETFILTER_EGRESS;
+    struct nf_hook_entries __rcu *nf_hooks_egress;
+#endif;
+#ifdef CONFIG_NET_XGRESS;
+    struct bpf_mprog_entry __rcu *tcx_egress;
+#endif;
+    __cacheline_group_end(net_device_read_tx);
+    __cacheline_group_begin(net_device_read_txrx);
+    union {
+        struct pcpu_lstats __percpu             *lstats;
+        struct pcpu_sw_netstats __percpu        *tstats;
+        struct pcpu_dstats __percpu             *dstats;
+    };
+    unsigned int            flags;
+    unsigned short          hard_header_len;
+    netdev_features_t features;
+    struct inet6_dev __rcu  *ip6_ptr;
+    __cacheline_group_end(net_device_read_txrx);
+    __cacheline_group_begin(net_device_read_rx);
+    struct bpf_prog __rcu   *xdp_prog;
+    struct list_head        ptype_specific;
+    int ifindex;
+    unsigned int            real_num_rx_queues;
+    struct netdev_rx_queue  *_rx;
+    unsigned long           gro_flush_timeout;
+    int napi_defer_hard_irqs;
+    unsigned int            gro_max_size;
+    unsigned int            gro_ipv4_max_size;
+    rx_handler_func_t __rcu *rx_handler;
+    void __rcu              *rx_handler_data;
+    possible_net_t nd_net;
+#ifdef CONFIG_NETPOLL;
+    struct netpoll_info __rcu       *npinfo;
+#endif;
+#ifdef CONFIG_NET_XGRESS;
+    struct bpf_mprog_entry __rcu *tcx_ingress;
+#endif;
+    __cacheline_group_end(net_device_read_rx);
     char name[IFNAMSIZ];
     struct netdev_name_node *name_node;
     struct dev_ifalias      __rcu *ifalias;
@@ -11002,29 +11087,20 @@ during any kernel release.</p>
     struct list_head        unreg_list;
     struct list_head        close_list;
     struct list_head        ptype_all;
-    struct list_head        ptype_specific;
     struct {
         struct list_head upper;
         struct list_head lower;
     } adj_list;
-    unsigned int            flags;
     xdp_features_t xdp_features;
-    unsigned long long      priv_flags;
-    const struct net_device_ops *netdev_ops;
     const struct xdp_metadata_ops *xdp_metadata_ops;
-    int ifindex;
+    const struct xsk_tx_metadata_ops *xsk_tx_metadata_ops;
     unsigned short          gflags;
-    unsigned short          hard_header_len;
-    unsigned int            mtu;
-    unsigned short          needed_headroom;
     unsigned short          needed_tailroom;
-    netdev_features_t features;
     netdev_features_t hw_features;
     netdev_features_t wanted_features;
     netdev_features_t vlan_features;
     netdev_features_t hw_enc_features;
     netdev_features_t mpls_features;
-    netdev_features_t gso_partial_features;
     unsigned int            min_mtu;
     unsigned int            max_mtu;
     unsigned short          type;
@@ -11052,7 +11128,6 @@ during any kernel release.</p>
 #if IS_ENABLED(CONFIG_TLS_DEVICE);
     const struct tlsdev_ops *tlsdev_ops;
 #endif;
-    const struct header_ops *header_ops;
     unsigned char           operstate;
     unsigned char           link_mode;
     unsigned char           if_port;
@@ -11084,7 +11159,6 @@ during any kernel release.</p>
     unsigned char           nested_level;
 #endif;
     struct in_device __rcu  *ip_ptr;
-    struct inet6_dev __rcu  *ip6_ptr;
 #if IS_ENABLED(CONFIG_VLAN_8021Q);
     struct vlan_info __rcu  *vlan_info;
 #endif;
@@ -11113,22 +11187,10 @@ during any kernel release.</p>
     struct mctp_dev __rcu   *mctp_ptr;
 #endif;
     const unsigned char     *dev_addr;
-    struct netdev_rx_queue  *_rx;
     unsigned int            num_rx_queues;
-    unsigned int            real_num_rx_queues;
-    struct bpf_prog __rcu   *xdp_prog;
-    unsigned long           gro_flush_timeout;
-    int napi_defer_hard_irqs;
 #define GRO_LEGACY_MAX_SIZE     65536u;
 #define GRO_MAX_SIZE            (8 * 65535u);
-    unsigned int            gro_max_size;
-    unsigned int            gro_ipv4_max_size;
     unsigned int            xdp_zc_max_segs;
-    rx_handler_func_t __rcu *rx_handler;
-    void __rcu              *rx_handler_data;
-#ifdef CONFIG_NET_XGRESS;
-    struct bpf_mprog_entry __rcu *tcx_ingress;
-#endif;
     struct netdev_queue __rcu *ingress_queue;
 #ifdef CONFIG_NETFILTER_INGRESS;
     struct nf_hook_entries __rcu *nf_hooks_ingress;
@@ -11138,22 +11200,11 @@ during any kernel release.</p>
     struct cpu_rmap         *rx_cpu_rmap;
 #endif;
     struct hlist_node       index_hlist;
-    struct netdev_queue     *_tx ;
     unsigned int            num_tx_queues;
-    unsigned int            real_num_tx_queues;
     struct Qdisc __rcu      *qdisc;
     unsigned int            tx_queue_len;
     spinlock_t tx_global_lock;
     struct xdp_dev_bulk_queue __percpu *xdp_bulkq;
-#ifdef CONFIG_XPS;
-    struct xps_dev_maps __rcu *xps_maps[XPS_MAPS_MAX];
-#endif;
-#ifdef CONFIG_NET_XGRESS;
-    struct bpf_mprog_entry __rcu *tcx_egress;
-#endif;
-#ifdef CONFIG_NETFILTER_EGRESS;
-    struct nf_hook_entries __rcu *nf_hooks_egress;
-#endif;
 #ifdef CONFIG_NET_SCHED;
     unsigned long qdisc_hash[1 &lt;&lt; ((4) - 1)];
 #endif;
@@ -11183,18 +11234,9 @@ during any kernel release.</p>
     } rtnl_link_state:16;
     bool needs_free_netdev;
     void (*priv_destructor)(struct net_device *dev);
-#ifdef CONFIG_NETPOLL;
-    struct netpoll_info __rcu       *npinfo;
-#endif;
-    possible_net_t nd_net;
     void *ml_priv;
     enum netdev_ml_priv_type        ml_priv_type;
     enum netdev_stat_type           pcpu_stat_type:8;
-    union {
-        struct pcpu_lstats __percpu             *lstats;
-        struct pcpu_sw_netstats __percpu        *tstats;
-        struct pcpu_dstats __percpu             *dstats;
-    };
 #if IS_ENABLED(CONFIG_GARP);
     struct garp_port __rcu  *garp_port;
 #endif;
@@ -11211,19 +11253,14 @@ during any kernel release.</p>
 #define GSO_MAX_SEGS            65535u;
 #define GSO_LEGACY_MAX_SIZE     65536u;
 #define GSO_MAX_SIZE            (8 * GSO_MAX_SEGS);
-    unsigned int            gso_max_size;
 #define TSO_LEGACY_MAX_SIZE     65536;
 #define TSO_MAX_SIZE            UINT_MAX;
     unsigned int            tso_max_size;
-    u16 gso_max_segs;
 #define TSO_MAX_SEGS            U16_MAX;
     u16 tso_max_segs;
-    unsigned int            gso_ipv4_max_size;
 #ifdef CONFIG_DCB;
     const struct dcbnl_rtnl_ops *dcbnl_ops;
 #endif;
-    s16 num_tc;
-    struct netdev_tc_txq    tc_to_txq[TC_MAX_QUEUE];
     u8 prio_tc_map[TC_BITMASK + 1];
 #if IS_ENABLED(CONFIG_FCOE);
     unsigned int            fcoe_ddp_xid;
@@ -11251,13 +11288,101 @@ during any kernel release.</p>
     struct rtnl_hw_stats64  *offload_xstats_l3;
     struct devlink_port     *devlink_port;
 #if IS_ENABLED(CONFIG_DPLL);
-    struct dpll_pin         *dpll_pin;
+    struct dpll_pin __rcu   *dpll_pin;
+#endif;
+#if IS_ENABLED(CONFIG_PAGE_POOL);
+    struct hlist_head       page_pools;
 #endif;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl>
+<dt><code class="docutils literal notranslate"><span class="pre">priv_flags</span></code></dt><dd><p>Like 'flags' but invisible to userspace,
+see if.h for the definitions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">netdev_ops</span></code></dt><dd><p>Includes several pointers to callbacks,
+if one wants to override the ndo_*() functions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">header_ops</span></code></dt><dd><p>Includes callbacks for creating,parsing,caching,etc
+of Layer 2 headers.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_tx</span></code></dt><dd><p>Array of TX queues</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gso_partial_features</span></code></dt><dd><p>value(s) from NETIF_F_GSO*</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">real_num_tx_queues</span></code></dt><dd><p>Number of TX queues currently active in device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gso_max_size</span></code></dt><dd><p>Maximum size of generic segmentation offload</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gso_ipv4_max_size</span></code></dt><dd><p>Maximum size of generic segmentation offload,
+for IPv4.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gso_max_segs</span></code></dt><dd><p>Maximum number of segments that can be passed to the
+NIC for GSO</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_tc</span></code></dt><dd><p>Number of traffic classes in the net device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mtu</span></code></dt><dd><p>Interface MTU value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">needed_headroom</span></code></dt><dd><p>Extra headroom the hardware may need, but not in all
+cases can this be guaranteed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tc_to_txq</span></code></dt><dd><p>XXX: need comments on this one</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">xps_maps</span></code></dt><dd><p>XXX: need comments on this one</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nf_hooks_egress</span></code></dt><dd><p>netfilter hooks executed for egress packets</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tcx_egress</span></code></dt><dd><p>BPF &amp; clsact qdisc specific data for egress processing</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lstats</span></code></dt><dd><p>Loopback statistics: packets, bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tstats</span></code></dt><dd><p>Tunnel statistics: RX/TX packets, RX/TX bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dstats</span></code></dt><dd><p>Dummy statistics: RX/TX/drop packets, RX/TX bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Interface flags (a la BSD)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hard_header_len</span></code></dt><dd><p>Maximum hardware header length.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">features</span></code></dt><dd><p>Currently active device features</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ip6_ptr</span></code></dt><dd><p>IPv6 specific data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">xdp_prog</span></code></dt><dd><p>XDP sockets filter program pointer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ptype_specific</span></code></dt><dd><p>Device-specific, protocol-specific packet handlers</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ifindex</span></code></dt><dd><p>interface index</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">real_num_rx_queues</span></code></dt><dd><p>Number of RX queues currently active in device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_rx</span></code></dt><dd><p>Array of RX queues</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gro_flush_timeout</span></code></dt><dd><p>timeout for GRO layer in NAPI</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">napi_defer_hard_irqs</span></code></dt><dd><p>If not zero, provides a counter that would
+allow to avoid NIC hard IRQ, on busy queues.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gro_max_size</span></code></dt><dd><p>Maximum size of aggregated packet in generic
+receive offload (GRO)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gro_ipv4_max_size</span></code></dt><dd><p>Maximum size of aggregated packet in generic
+receive offload (GRO), for IPv4.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_handler</span></code></dt><dd><p>handler for received packets</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_handler_data</span></code></dt><dd><p>XXX: need comments on this one</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nd_net</span></code></dt><dd><p>Network namespace this network device is inside</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">npinfo</span></code></dt><dd><p>XXX: need comments on this one</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tcx_ingress</span></code></dt><dd><p>BPF &amp; clsact qdisc specific data for ingress processing</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>This is the first field of the &quot;visible&quot; part of this structure
 (i.e. as seen by users in the &quot;Space.c&quot; file).  It is the name
 of the interface.</p>
@@ -11285,32 +11410,15 @@ device; see the function unregister_netdev</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ptype_all</span></code></dt><dd><p>Device-specific packet handlers for all protocols</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ptype_specific</span></code></dt><dd><p>Device-specific, protocol-specific packet handlers</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">adj_list</span></code></dt><dd><p>Directly linked devices, like slaves for bonding</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Interface flags (a la BSD)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xdp_features</span></code></dt><dd><p>XDP capability supported by the device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">priv_flags</span></code></dt><dd><p>Like 'flags' but invisible to userspace,
-see if.h for the definitions</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">netdev_ops</span></code></dt><dd><p>Includes several pointers to callbacks,
-if one wants to override the ndo_*() functions</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xdp_metadata_ops</span></code></dt><dd><p>Includes pointers to XDP metadata callbacks.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ifindex</span></code></dt><dd><p>interface index</p>
+<dt><code class="docutils literal notranslate"><span class="pre">xsk_tx_metadata_ops</span></code></dt><dd><p>Includes pointers to AF_XDP TX metadata callbacks.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">gflags</span></code></dt><dd><p>Global flags ( kept as legacy )</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hard_header_len</span></code></dt><dd><p>Maximum hardware header length.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mtu</span></code></dt><dd><p>Interface MTU value</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">needed_headroom</span></code></dt><dd><p>Extra headroom the hardware may need, but not in all
-cases can this be guaranteed</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">needed_tailroom</span></code></dt><dd><p>Extra tailroom the hardware may need, but not in all
 cases can this be guaranteed. Some cases also use
@@ -11318,8 +11426,6 @@ LL_MAX_HEADER instead to allocate the skb</p>
 <blockquote>
 <div><p>interface address info:</p>
 </div></blockquote>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">features</span></code></dt><dd><p>Currently active device features</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hw_features</span></code></dt><dd><p>User-changeable features</p>
 </dd>
@@ -11333,8 +11439,6 @@ offloads the hardware is capable of doing,
 and drivers will need to set them appropriately.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mpls_features</span></code></dt><dd><p>Mask of features inheritable by MPLS</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gso_partial_features</span></code></dt><dd><p>value(s) from NETIF_F_GSO*</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">min_mtu</span></code></dt><dd><p>Interface Minimum MTU value</p>
 </dd>
@@ -11374,9 +11478,6 @@ discovery handling. Necessary for e.g. 6LoWPAN.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">xfrmdev_ops</span></code></dt><dd><p>Transformation offload operations</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tlsdev_ops</span></code></dt><dd><p>Transport Layer Security offload operations</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">header_ops</span></code></dt><dd><p>Includes callbacks for creating,parsing,caching,etc
-of Layer 2 headers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">operstate</span></code></dt><dd><p>RFC2863 operstate</p>
 </dd>
@@ -11437,8 +11538,6 @@ dev-&gt;addr_list_lock.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ip_ptr</span></code></dt><dd><p>IPv4 specific data</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ip6_ptr</span></code></dt><dd><p>IPv6 specific data</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vlan_info</span></code></dt><dd><p>VLAN info</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dsa_ptr</span></code></dt><dd><p>dsa specific data</p>
@@ -11461,34 +11560,11 @@ device struct</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dev_addr</span></code></dt><dd><p>Hw address (before bcast,
 because most packets are unicast)</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">_rx</span></code></dt><dd><p>Array of RX queues</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_rx_queues</span></code></dt><dd><p>Number of RX queues
 allocated at <a class="reference internal" href="#c.register_netdev" title="register_netdev"><code class="xref c c-func docutils literal notranslate"><span class="pre">register_netdev()</span></code></a> time</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">real_num_rx_queues</span></code></dt><dd><p>Number of RX queues currently active in device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">xdp_prog</span></code></dt><dd><p>XDP sockets filter program pointer</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gro_flush_timeout</span></code></dt><dd><p>timeout for GRO layer in NAPI</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">napi_defer_hard_irqs</span></code></dt><dd><p>If not zero, provides a counter that would
-allow to avoid NIC hard IRQ, on busy queues.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gro_max_size</span></code></dt><dd><p>Maximum size of aggregated packet in generic
-receive offload (GRO)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gro_ipv4_max_size</span></code></dt><dd><p>Maximum size of aggregated packet in generic
-receive offload (GRO), for IPv4.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xdp_zc_max_segs</span></code></dt><dd><p>Maximum number of segments supported by AF_XDP
 zero copy driver</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rx_handler</span></code></dt><dd><p>handler for received packets</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rx_handler_data</span></code></dt><dd><p>XXX: need comments on this one</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tcx_ingress</span></code></dt><dd><p>BPF &amp; clsact qdisc specific data for ingress processing</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ingress_queue</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
@@ -11503,11 +11579,7 @@ operation is defined</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">index_hlist</span></code></dt><dd><p>Device index hash chain</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">_tx</span></code></dt><dd><p>Array of TX queues</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_tx_queues</span></code></dt><dd><p>Number of TX queues allocated at alloc_netdev_mq() time</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">real_num_tx_queues</span></code></dt><dd><p>Number of TX queues currently active in device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">qdisc</span></code></dt><dd><p>Root qdisc from userspace point of view</p>
 </dd>
@@ -11516,12 +11588,6 @@ operation is defined</p>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_global_lock</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xdp_bulkq</span></code></dt><dd><p>XDP device bulk queue</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">xps_maps</span></code></dt><dd><p>XXX: need comments on this one</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tcx_egress</span></code></dt><dd><p>BPF &amp; clsact qdisc specific data for egress processing</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">nf_hooks_egress</span></code></dt><dd><p>netfilter hooks executed for egress packets</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">qdisc_hash</span></code></dt><dd><p>qdisc hash table</p>
 </dd>
@@ -11553,10 +11619,6 @@ a new link</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">priv_destructor</span></code></dt><dd><p>Called from unregister</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">npinfo</span></code></dt><dd><p>XXX: need comments on this one</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">nd_net</span></code></dt><dd><p>Network namespace this network device is inside</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ml_priv</span></code></dt><dd><p>Mid-layer private</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ml_priv_type</span></code></dt><dd><p>Mid-layer private type</p>
@@ -11565,14 +11627,6 @@ a new link</p>
 allocate/free: none, lstats, tstats, dstats. none
 means the driver is handling statistics allocation/
 freeing internally.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">lstats</span></code></dt><dd><p>Loopback statistics: packets, bytes</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tstats</span></code></dt><dd><p>Tunnel statistics: RX/TX packets, RX/TX bytes</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">dstats</span></code></dt><dd><p>Dummy statistics: RX/TX/drop packets, RX/TX bytes</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">garp_port</span></code></dt><dd><p>GARP</p>
 </dd>
@@ -11589,23 +11643,11 @@ sysfs groups</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rtnl_link_ops</span></code></dt><dd><p>Rtnl_link_ops</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gso_max_size</span></code></dt><dd><p>Maximum size of generic segmentation offload</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tso_max_size</span></code></dt><dd><p>Device (as in HW) limit on the max TSO request size</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gso_max_segs</span></code></dt><dd><p>Maximum number of segments that can be passed to the
-NIC for GSO</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tso_max_segs</span></code></dt><dd><p>Device (as in HW) limit on the max TSO segment count</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gso_ipv4_max_size</span></code></dt><dd><p>Maximum size of generic segmentation offload,
-for IPv4.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dcbnl_ops</span></code></dt><dd><p>Data Center Bridging netlink ops</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">num_tc</span></code></dt><dd><p>Number of traffic classes in the net device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tc_to_txq</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">prio_tc_map</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
@@ -11663,6 +11705,8 @@ where the clock is recovered.</p>
 <div><p>FIXME: cleanup <a class="reference internal" href="#c.net_device" title="net_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span></code></a> such that network protocol info
 moves out.</p>
 </div></blockquote>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">page_pools</span></code></dt><dd><p>page pools created for this netdevice</p>
 </dd>
 </dl>
 </div>
@@ -12201,6 +12245,22 @@ Try using netdev_hold() instead.</p>
 <p><strong>Description</strong></p>
 <p>Release reference to device to allow it to be freed.
 Try using netdev_put() instead.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.linkwatch_sync_dev">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">linkwatch_sync_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.linkwatch_sync_dev" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>sync linkwatch for the given device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>network device to sync linkwatch for</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Sync linkwatch for the given device, removing it from the
+pending work list (if queued).</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.netif_carrier_ok">
@@ -13515,6 +13575,114 @@ read_status callback and sets phydev-&gt;speed to the actual link speed.</p>
 <p>Same rules as for <a class="reference internal" href="#c.phy_write" title="phy_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_write()</span></code></a>;</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.__phy_package_read_mmd">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__phy_package_read_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__phy_package_read_mmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>read MMD reg relative to PHY package base addr</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to read from</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to read</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Convenience helper for reading a register of an MMD on a given PHY
+using the PHY package base address. The base address is added to
+the addr_offset value.</p>
+<p>Same calling rules as for <a class="reference internal" href="#c.__phy_read" title="__phy_read"><code class="xref c c-func docutils literal notranslate"><span class="pre">__phy_read()</span></code></a>;</p>
+<p><strong>NOTE</strong></p>
+<p>It's assumed that the entire PHY package is either C22 or C45.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_package_read_mmd">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_read_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_read_mmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>read MMD reg relative to PHY package base addr</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to read from</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to read</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Convenience helper for reading a register of an MMD on a given PHY
+using the PHY package base address. The base address is added to
+the addr_offset value.</p>
+<p>Same calling rules as for <a class="reference internal" href="#c.phy_read" title="phy_read"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_read()</span></code></a>;</p>
+<p><strong>NOTE</strong></p>
+<p>It's assumed that the entire PHY package is either C22 or C45.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.__phy_package_write_mmd">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__phy_package_write_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__phy_package_write_mmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>write MMD reg relative to PHY package base addr</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to write to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">val</span></code></dt><dd><p>value to write to <strong>regnum</strong></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Convenience helper for writing a register of an MMD on a given PHY
+using the PHY package base address. The base address is added to
+the addr_offset value.</p>
+<p>Same calling rules as for <a class="reference internal" href="#c.__phy_write" title="__phy_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">__phy_write()</span></code></a>;</p>
+<p><strong>NOTE</strong></p>
+<p>It's assumed that the entire PHY package is either C22 or C45.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_package_write_mmd">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_write_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_write_mmd" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>write MMD reg relative to PHY package base addr</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to write to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">val</span></code></dt><dd><p>value to write to <strong>regnum</strong></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Convenience helper for writing a register of an MMD on a given PHY
+using the PHY package base address. The base address is added to
+the addr_offset value.</p>
+<p>Same calling rules as for <a class="reference internal" href="#c.phy_write" title="phy_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_write()</span></code></a>;</p>
+<p><strong>NOTE</strong></p>
+<p>It's assumed that the entire PHY package is either C22 or C45.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_modify_changed">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_modify_changed</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">set</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_modify_changed" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Function for modifying a PHY register</p>
@@ -14082,6 +14250,22 @@ to fill in the remainder of the link partner advert from vendor registers.</p>
 <p>Read the supported link modes from the extended BASE-T1 ability register</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.genphy_c45_pma_read_ext_abilities">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_c45_pma_read_ext_abilities</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_c45_pma_read_ext_abilities" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>read supported link modes from PMA</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Read the supported link modes from the PMA/PMD extended ability register
+(Register 1.11).</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.genphy_c45_pma_read_abilities">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_c45_pma_read_abilities</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_c45_pma_read_abilities" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>read supported link modes from PMA</p>
@@ -14420,7 +14604,7 @@ device driver can get PHY interface from device tree.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct phy_package_shared {
-    int addr;
+    u8 base_addr;
     refcount_t refcnt;
     unsigned long flags;
     size_t priv_size;
@@ -14430,7 +14614,8 @@ device driver can get PHY interface from device tree.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>Common PHY address used to combine PHYs in one package</p>
+<dt><code class="docutils literal notranslate"><span class="pre">base_addr</span></code></dt><dd><p>Base PHY address of PHY package used to combine PHYs
+in one package and for offset calculation of phy_package_read/write</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">refcnt</span></code></dt><dd><p>Number of PHYs connected to this shared data</p>
 </dd>
@@ -14665,6 +14850,7 @@ Once complete, move to UP to restart the PHY.
     enum phy_state state;
     u32 dev_flags;
     phy_interface_t interface;
+    unsigned long possible_interfaces[BITS_TO_LONGS(PHY_INTERFACE_MODE_MAX)];
     int speed;
     int duplex;
     int port;
@@ -14783,6 +14969,9 @@ PHY driver behavior.</p></li>
 </ul>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">interface</span></code></dt><dd><p><a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">phy_interface_t</span></code></a> value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">possible_interfaces</span></code></dt><dd><p>bitmap if interface modes that the attached PHY
+will switch between depending on media speed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">speed</span></code></dt><dd><p>Current link speed</p>
 </dd>
@@ -16068,7 +16257,7 @@ This function takes a reference on the phy device.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_join" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">base_addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_join" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>join a common PHY group</p>
 </dd></dl>
 
@@ -16077,7 +16266,8 @@ This function takes a reference on the phy device.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">addr</span></code></dt><dd><p>cookie and PHY address for global register access</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">base_addr</span></code></dt><dd><p>cookie and base PHY address of PHY package for offset
+calculation of global register access</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
 </dd>
@@ -16086,13 +16276,14 @@ This function takes a reference on the phy device.</p>
 <p>This joins a PHY group and provides a shared storage for all phydevs in
 this group. This is intended to be used for packages which contain
 more than one PHY, for example a quad PHY transceiver.</p>
-<p>The addr parameter serves as a cookie which has to have the same value
-for all members of one group and as a PHY address to access generic
-registers of a PHY package. Usually, one of the PHY addresses of the
-different PHYs in the package provides access to these global registers.
+<p>The base_addr parameter serves as cookie which has to have the same values
+for all members of one group and as the base PHY address of the PHY package
+for offset calculation to access generic registers of a PHY package.
+Usually, one of the PHY addresses of the different PHYs in the package
+provides access to these global registers.
 The address which is given here, will be used in the phy_package_read()
-and phy_package_write() convenience functions. If your PHY doesn't have
-global registers you can just pick any of the PHY addresses.</p>
+and phy_package_write() convenience functions as base and added to the
+passed offset in those functions.</p>
 <p>This will set the shared pointer of the phydev to the shared storage.
 If this is the first call for a this cookie the shared storage will be
 allocated. If priv_size is non-zero, the given amount of bytes are
@@ -16119,7 +16310,7 @@ freed. Resets the phydev-&gt;shared pointer to NULL.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.devm_phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_phy_package_join" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">base_addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_phy_package_join" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>resource managed <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a></p>
 </dd></dl>
 
@@ -16130,7 +16321,8 @@ freed. Resets the phydev-&gt;shared pointer to NULL.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">addr</span></code></dt><dd><p>cookie and PHY address for global register access</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">base_addr</span></code></dt><dd><p>cookie and base PHY address of PHY package for offset
+calculation of global register access</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
 </dd>
@@ -17462,37 +17654,6 @@ of MDIO devices have different match criteria.</p>
 and SFF modules (eg, hot-pluggable SFP) that may contain PHYs.  PHYLINK
 provides management of the link state and link modes.</p>
 </div></blockquote>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phylink_pcs_neg_mode">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_pcs_neg_mode</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">interface</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">advertising</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_pcs_neg_mode" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>helper to determine PCS inband mode</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">mode</span></code></dt><dd><p>one of <code class="docutils literal notranslate"><span class="pre">MLO_AN_FIXED</span></code>, <code class="docutils literal notranslate"><span class="pre">MLO_AN_PHY</span></code>, <code class="docutils literal notranslate"><span class="pre">MLO_AN_INBAND</span></code>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">phy_interface_t</span> <span class="pre">interface</span></code></dt><dd><p>interface mode to be used</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*advertising</span></code></dt><dd><p>adertisement ethtool link mode mask</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Determines the negotiation mode to be used by the PCS, and returns
-one of:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_NONE</span></code>: interface mode does not support inband</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_OUTBAND</span></code>: an out of band mode (e.g. reading the PHY)
-will be used.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_INBAND_DISABLED</span></code>: inband mode selected but autoneg
-disabled</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_INBAND_ENABLED</span></code>: inband mode selected and autoneg enabled</p></li>
-</ul>
-<p><strong>Note</strong></p>
-<p>this is for cases where the PCS itself is involved in negotiation
-(e.g. Clause 37, SGMII and similar) not Clause 73.</p>
-</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.phylink_link_state">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_link_state</span></span></span><a class="headerlink" href="#c.phylink_link_state" title="Permalink to this definition">¶</a><br /></dt>
@@ -18247,6 +18408,37 @@ Any further motifications of config.mac_capabilities will override this.</p>
 <p>Calculate the supported link modes based on <strong>mac_capabilities</strong>, and restrict
 <strong>supported</strong> and <strong>state</strong> based on that. Use this function if your capabiliies
 aren't constant, such as if they vary depending on the interface.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_pcs_neg_mode">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_pcs_neg_mode</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">interface</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">advertising</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_pcs_neg_mode" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>helper to determine PCS inband mode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">mode</span></code></dt><dd><p>one of <code class="docutils literal notranslate"><span class="pre">MLO_AN_FIXED</span></code>, <code class="docutils literal notranslate"><span class="pre">MLO_AN_PHY</span></code>, <code class="docutils literal notranslate"><span class="pre">MLO_AN_INBAND</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">phy_interface_t</span> <span class="pre">interface</span></code></dt><dd><p>interface mode to be used</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*advertising</span></code></dt><dd><p>adertisement ethtool link mode mask</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Determines the negotiation mode to be used by the PCS, and returns
+one of:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_NONE</span></code>: interface mode does not support inband</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_OUTBAND</span></code>: an out of band mode (e.g. reading the PHY)
+will be used.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_INBAND_DISABLED</span></code>: inband mode selected but autoneg
+disabled</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PHYLINK_PCS_NEG_INBAND_ENABLED</span></code>: inband mode selected and autoneg enabled</p></li>
+</ul>
+<p><strong>Note</strong></p>
+<p>this is for cases where the PCS itself is involved in negotiation
+(e.g. Clause 37, SGMII and similar) not Clause 73.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_create">

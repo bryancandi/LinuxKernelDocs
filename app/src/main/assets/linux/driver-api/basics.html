@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -150,10 +153,8 @@
 <li class="toctree-l2"><a class="reference internal" href="backlight/lp855x-driver.html">Kernel driver lp855x</a></li>
 <li class="toctree-l2"><a class="reference internal" href="connector.html">Kernel Connector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="console.html">Console Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html">Dell Systems Management Base Driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html">EISA bus support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="isa.html">ISA Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html">ISA Plug &amp; Play support by Jaroslav Kysela &lt;perex&#64;suse.cz&gt;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io-mapping.html">The io_mapping functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io_ordering.html">Ordering I/O writes to memory-mapped addresses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generic-counter.html">Generic Counter Interface</a></li>
@@ -185,9 +186,27 @@
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html">WBRF - Wifi Band RFI Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -217,6 +236,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -227,7 +247,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -244,7 +266,11 @@
 
           <div class="body" role="main">
             
-  <section id="driver-basics">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="driver-basics">
 <h1>Driver Basics<a class="headerlink" href="#driver-basics" title="Permalink to this heading">¶</a></h1>
 <section id="driver-entry-and-exit-points">
 <h2>Driver Entry and Exit points<a class="headerlink" href="#driver-entry-and-exit-points" title="Permalink to this heading">¶</a></h2>
@@ -332,7 +358,7 @@ There can only be one per module.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Only try to get a module reference count if the module is not being removed.
-This call will fail if the module is already being removed.</p>
+This call will fail if the module is in the process of being removed.</p>
 <p>Care must also be taken to ensure the module exists and is alive prior to
 usage of this call. This can be gauranteed through two means:</p>
 <ol class="arabic simple">
@@ -885,87 +911,6 @@ a CDX device driver.</p>
 <p><strong>Description</strong></p>
 <p>Stores previous user/system time values such that we can guarantee
 monotonicity.</p>
-<dl class="c struct">
-<dt class="sig sig-object c" id="c.util_est">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">util_est</span></span></span><a class="headerlink" href="#c.util_est" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>Estimation utilization of FAIR tasks</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct util_est {
-    unsigned int                    enqueued;
-    unsigned int                    ewma;
-#define UTIL_EST_WEIGHT_SHIFT           2;
-#define UTIL_AVG_UNCHANGED              0x80000000;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">enqueued</span></code></dt><dd><p>instantaneous estimated utilization of a task/cpu</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ewma</span></code></dt><dd><p>the Exponential Weighted Moving Average (EWMA)
-utilization of a task</p>
-</dd>
-</dl>
-</div>
-<p><strong>Description</strong></p>
-<p>Support data structure to track an Exponential Weighted Moving Average
-(EWMA) of a FAIR task's utilization. New samples are added to the moving
-average each time a task completes an activation. Sample's weight is chosen
-so that the EWMA will be relatively insensitive to transient changes to the
-task's workload.</p>
-<p>The enqueued attribute has a slightly different meaning for tasks and cpus:
-- task:   the task's util_avg at last task dequeue time
-- cfs_rq: the sum of util_est.enqueued for each RUNNABLE task on that CPU
-Thus, the util_est.enqueued of a task represents the contribution on the
-estimated utilization of the CPU where that task is currently enqueued.</p>
-<p>Only for tasks we track a moving average of the past instantaneous
-estimated utilization. This allows to absorb sporadic drops in utilization
-of an otherwise almost periodic task.</p>
-<p>The UTIL_AVG_UNCHANGED flag is used to synchronize util_est with util_avg
-updates. When a task is dequeued, its util_est should not be updated if its
-util_avg has not been updated in the meantime.
-This information is mapped into the MSB bit of util_est.enqueued at dequeue
-time. Since max value of util_est.enqueued for a task is 1024 (PELT util_avg
-for a task) it is safe to use MSB.</p>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.pid_alive">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pid_alive</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pid_alive" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>check that a task structure is not stale</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*p</span></code></dt><dd><p>Task structure to be checked.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Test if a process is not yet dead (at most zombie state)
-If pid_alive fails, then pointers within the task structure
-can be stale and must not be dereferenced.</p>
-<p><strong>Return</strong></p>
-<p>1 if the process is alive. 0 otherwise.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.is_global_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_global_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tsk</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.is_global_init" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>check if a task structure is init. Since init is free to have sub-threads we need to check tgid.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*tsk</span></code></dt><dd><p>Task structure to be checked.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Check if a task structure is the first user space task the kernel created.</p>
-<p><strong>Return</strong></p>
-<p>1 if the task structure is init. 0 otherwise.</p>
-</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.set_cpus_allowed_ptr">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_cpus_allowed_ptr</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cpumask</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.set_cpus_allowed_ptr" title="Permalink to this definition">¶</a><br /></dt>
@@ -3233,56 +3178,6 @@ cmp1  &gt; cmp2: return &gt;0</p>
 <p><code class="docutils literal notranslate"><span class="pre">true</span></code> if there was a successful conversion, <code class="docutils literal notranslate"><span class="pre">false</span></code> if kt was 0.</p>
 </div>
 <dl class="c struct">
-<dt class="sig sig-object c" id="c.hrtimer">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer</span></span></span><a class="headerlink" href="#c.hrtimer" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>the basic hrtimer structure</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct hrtimer {
-    struct timerqueue_node          node;
-    ktime_t _softexpires;
-    enum hrtimer_restart            (*function)(struct hrtimer *);
-    struct hrtimer_clock_base       *base;
-    u8 state;
-    u8 is_rel;
-    u8 is_soft;
-    u8 is_hard;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">node</span></code></dt><dd><p>timerqueue node, which also manages node.expires,
-the absolute expiry time in the hrtimers internal
-representation. The time is related to the clock on
-which the timer is based. Is setup by adding
-slack to the _softexpires value. For non range timers
-identical to _softexpires.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">_softexpires</span></code></dt><dd><p>the absolute earliest expiry time of the hrtimer.
-The time which was given as expiry time when the timer
-was armed.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">function</span></code></dt><dd><p>timer expiry callback function</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">base</span></code></dt><dd><p>pointer to the timer base (per cpu and per clock)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>state information (See bit values above)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">is_rel</span></code></dt><dd><p>Set if the timer was armed relative</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">is_soft</span></code></dt><dd><p>Set if hrtimer will be expired in soft interrupt context.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">is_hard</span></code></dt><dd><p>Set if hrtimer will be expired in hard interrupt context
-even on RT.</p>
-</dd>
-</dl>
-</div>
-<p><strong>Description</strong></p>
-<p>The hrtimer structure must be initialized by <a class="reference internal" href="#c.hrtimer_init" title="hrtimer_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">hrtimer_init()</span></code></a></p>
-<dl class="c struct">
 <dt class="sig sig-object c" id="c.hrtimer_sleeper">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_sleeper</span></span></span><a class="headerlink" href="#c.hrtimer_sleeper" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>simple sleeper structure</p>
@@ -3360,7 +3255,7 @@ timer to a base on another cpu.</p>
     unsigned int                    cpu;
     unsigned int                    active_bases;
     unsigned int                    clock_was_set_seq;
-    unsigned int                    hres_active             : 1,in_hrtirq               : 1,hang_detected           : 1, softirq_activated       : 1;
+    unsigned int                    hres_active             : 1,in_hrtirq               : 1,hang_detected           : 1,softirq_activated       : 1, online                  : 1;
 #ifdef CONFIG_HIGH_RES_TIMERS;
     unsigned int                    nr_events;
     unsigned short                  nr_retries;
@@ -3399,6 +3294,8 @@ and timers</p>
 <dt><code class="docutils literal notranslate"><span class="pre">softirq_activated</span></code></dt><dd><p>displays, if the softirq is raised - update of softirq
 related settings is not required then.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">online</span></code></dt><dd><p>CPU is online from an hrtimers point of view</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nr_events</span></code></dt><dd><p>Total number of hrtimer interrupt events</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nr_retries</span></code></dt><dd><p>Total number of hrtimer interrupt retries</p>
@@ -3435,7 +3332,7 @@ cross cpu removals.</p>
 </dl>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_start">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">tim</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_start" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">tim</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_start" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>(re)start an hrtimer</p>
 </dd></dl>
 
@@ -3454,7 +3351,7 @@ softirq based mode is considered for debug purpose only!</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_get_remaining">
-<span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_get_remaining</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_get_remaining" title="Permalink to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_get_remaining</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_get_remaining" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>get remaining time for the timer</p>
 </dd></dl>
 
@@ -3467,7 +3364,7 @@ softirq based mode is considered for debug purpose only!</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_is_queued">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_is_queued</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_is_queued" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_is_queued</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_is_queued" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>check, whether the timer is on one of the queues</p>
 </dd></dl>
 
@@ -3484,7 +3381,7 @@ softirq based mode is considered for debug purpose only!</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_forward_now">
-<span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_forward_now</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_forward_now" title="Permalink to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_forward_now</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_forward_now" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>forward the timer expiry so it expires after now</p>
 </dd></dl>
 
@@ -3509,7 +3406,7 @@ the timer.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_forward">
-<span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_forward</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">now</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_forward" title="Permalink to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_forward</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">now</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">interval</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_forward" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>forward the timer expiry</p>
 </dd></dl>
 
@@ -3536,7 +3433,7 @@ the timer.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_start_range_ns">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_start_range_ns</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">tim</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">delta_ns</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_start_range_ns" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_start_range_ns</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="n"><span class="pre">tim</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">delta_ns</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_start_range_ns" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>(re)start an hrtimer</p>
 </dd></dl>
 
@@ -3557,7 +3454,7 @@ softirq based mode is considered for debug purpose only!</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_try_to_cancel">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_try_to_cancel</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_try_to_cancel" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_try_to_cancel</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_try_to_cancel" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>try to deactivate a timer</p>
 </dd></dl>
 
@@ -3579,7 +3476,7 @@ cannot be stopped</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_cancel">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_cancel</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_cancel" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_cancel</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_cancel" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>cancel a timer and wait for the handler to finish.</p>
 </dd></dl>
 
@@ -3597,7 +3494,7 @@ cannot be stopped</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__hrtimer_get_remaining">
-<span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__hrtimer_get_remaining</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">adjust</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__hrtimer_get_remaining" title="Permalink to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">ktime_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__hrtimer_get_remaining</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">adjust</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__hrtimer_get_remaining" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>get remaining time for the timer</p>
 </dd></dl>
 
@@ -3612,7 +3509,7 @@ cannot be stopped</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hrtimer_init">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hrtimer" title="hrtimer"><span class="n"><span class="pre">hrtimer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">clockid_t</span></span><span class="w"> </span><span class="n"><span class="pre">clock_id</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_init" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">clockid_t</span></span><span class="w"> </span><span class="n"><span class="pre">clock_id</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_init" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>initialize a timer to the given clock</p>
 </dd></dl>
 
@@ -5876,19 +5773,9 @@ retrieval.</p>
 </section>
 <section id="reference-counting">
 <h2>Reference counting<a class="headerlink" href="#reference-counting" title="Permalink to this heading">¶</a></h2>
-<dl class="c type">
-<dt class="sig sig-object c" id="c.refcount_t">
-<span class="k"><span class="pre">type</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_t</span></span></span><a class="headerlink" href="#c.refcount_t" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>variant of atomic_t specialized for reference counts</p>
-</dd></dl>
-
-<p><strong>Description</strong></p>
-<p>The counter saturates at REFCOUNT_SATURATED and will not move once
-there. This avoids wrapping the counter and causing 'spurious'
-use-after-free bugs.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_set">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_set</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_set" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_set</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_set" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>set a refcount's value</p>
 </dd></dl>
 
@@ -5903,7 +5790,7 @@ use-after-free bugs.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_read">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_read" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_read" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>get a refcount's value</p>
 </dd></dl>
 
@@ -5918,7 +5805,7 @@ use-after-free bugs.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_add_not_zero">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_add_not_zero</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_add_not_zero" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_add_not_zero</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_add_not_zero" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>add a value to a refcount unless it is 0</p>
 </dd></dl>
 
@@ -5944,7 +5831,7 @@ increment a reference count.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_add">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_add</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_add" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_add</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_add" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>add a value to a refcount</p>
 </dd></dl>
 
@@ -5968,7 +5855,7 @@ increment a reference count.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_inc_not_zero">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_inc_not_zero</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_inc_not_zero" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_inc_not_zero</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_inc_not_zero" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>increment a refcount unless it is 0</p>
 </dd></dl>
 
@@ -5989,7 +5876,7 @@ and thereby orders future stores. See the comment on top.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_inc">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_inc</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_inc" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_inc</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_inc" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>increment a refcount</p>
 </dd></dl>
 
@@ -6008,7 +5895,7 @@ condition.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_sub_and_test">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_sub_and_test</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_sub_and_test" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_sub_and_test</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_sub_and_test" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>subtract from a refcount and test if it is 0</p>
 </dd></dl>
 
@@ -6036,7 +5923,7 @@ decrement a reference count.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_and_test">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_test</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_test" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_test</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_test" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>decrement a refcount and test if it is 0</p>
 </dd></dl>
 
@@ -6057,7 +5944,7 @@ must come after.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>decrement a refcount</p>
 </dd></dl>
 
@@ -6075,7 +5962,7 @@ before.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_if_one">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_if_one</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_if_one" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_if_one</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_if_one" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>decrement a refcount if it is 1</p>
 </dd></dl>
 
@@ -6098,7 +5985,7 @@ operations.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_not_one">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_not_one</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_not_one" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_not_one</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_not_one" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>decrement a refcount if it is not 1</p>
 </dd></dl>
 
@@ -6117,7 +6004,7 @@ it will return false.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_and_mutex_lock">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_mutex_lock</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mutex</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_mutex_lock" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_mutex_lock</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mutex</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_mutex_lock" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return holding mutex if able to decrement refcount to 0</p>
 </dd></dl>
 
@@ -6143,7 +6030,7 @@ See the comment on top.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_and_lock">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_lock</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="n"><span class="pre">spinlock_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_lock" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_lock</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="n"><span class="pre">spinlock_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_lock" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return holding spinlock if able to decrement refcount to 0</p>
 </dd></dl>
 
@@ -6169,7 +6056,7 @@ See the comment on top.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_dec_and_lock_irqsave">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_lock_irqsave</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#c.refcount_t" title="refcount_t"><span class="n"><span class="pre">refcount_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="n"><span class="pre">spinlock_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_lock_irqsave" title="Permalink to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_dec_and_lock_irqsave</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="n"><span class="pre">spinlock_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lock</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_dec_and_lock_irqsave" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>return holding spinlock with disabled interrupts if able to decrement refcount to 0</p>
 </dd></dl>
 

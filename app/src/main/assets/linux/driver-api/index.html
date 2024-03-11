@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -136,10 +139,8 @@
 <li class="toctree-l2"><a class="reference internal" href="backlight/lp855x-driver.html">Kernel driver lp855x</a></li>
 <li class="toctree-l2"><a class="reference internal" href="connector.html">Kernel Connector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="console.html">Console Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html">Dell Systems Management Base Driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html">EISA bus support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="isa.html">ISA Drivers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html">ISA Plug &amp; Play support by Jaroslav Kysela &lt;perex&#64;suse.cz&gt;</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io-mapping.html">The io_mapping functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="io_ordering.html">Ordering I/O writes to memory-mapped addresses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generic-counter.html">Generic Counter Interface</a></li>
@@ -171,9 +172,27 @@
 <li class="toctree-l2"><a class="reference internal" href="hte/index.html">The Linux Hardware Timestamping Engine (HTE)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="wmi.html">WMI Driver API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html">WBRF - Wifi Band RFI Mitigations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) driver API</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#core-subsystems">Core subsystems</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Driver implementer's API guide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../mm/index.html">Memory Management Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../power/index.html">Power Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../scheduler/index.html">Scheduler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../timers/index.html">Timers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../locking/index.html">Locking</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#networking-interfaces">Networking interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../locking/index.html">Locking in the kernel</a></li>
 </ul>
 <ul>
@@ -203,6 +222,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -213,7 +233,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -230,14 +252,28 @@
 
           <div class="body" role="main">
             
-  <section id="driver-implementer-s-api-guide">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+English
+
+<ul>
+
+<li><a href="../translations/zh_CN/driver-api/index.html">Chinese (Simplified)</a></li>
+
+</ul>
+</div>
+<section id="driver-implementer-s-api-guide">
 <h1>Driver implementer's API guide<a class="headerlink" href="#driver-implementer-s-api-guide" title="Permalink to this heading">¶</a></h1>
 <p>The kernel offers a wide variety of interfaces to support the development
 of device drivers.  This document is an only somewhat organized collection
 of some of those interfaces — it will hopefully get better over time!  The
 available subsections can be seen below.</p>
-<p class="toc-title">Table of contents</p>
 <div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Table of contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="driver-model/index.html">Driver Model</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="driver-model/binding.html">Driver Binding</a></li>
@@ -756,13 +792,6 @@ available subsections can be seen below.</p>
 <li class="toctree-l2"><a class="reference internal" href="console.html#guidelines-for-console-driver-writers">Guidelines for console driver writers</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="dcdbas.html">Dell Systems Management Base Driver</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html#system-management-interrupt">System Management Interrupt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html#host-control-action">Host Control Action</a></li>
-<li class="toctree-l2"><a class="reference internal" href="dcdbas.html#host-control-smi-type">Host Control SMI Type</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="eisa.html">EISA bus support</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html#bus-root-driver">Bus root driver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="eisa.html#driver">Driver</a></li>
@@ -774,11 +803,6 @@ available subsections can be seen below.</p>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="isa.html">ISA Drivers</a></li>
-<li class="toctree-l1"><a class="reference internal" href="isapnp.html">ISA Plug &amp; Play support by Jaroslav Kysela &lt;perex&#64;suse.cz&gt;</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html#interface-proc-isapnp">Interface /proc/isapnp</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isapnp.html#interface-proc-bus-isapnp">Interface /proc/bus/isapnp</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="io-mapping.html">The io_mapping functions</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="io-mapping.html#api">API</a></li>
 </ul>
@@ -822,6 +846,7 @@ available subsections can be seen below.</p>
 <li class="toctree-l2"><a class="reference internal" href="nvmem.html#userspace-binary-interface">6. Userspace binary interface</a></li>
 <li class="toctree-l2"><a class="reference internal" href="nvmem.html#devicetree-binding">7. DeviceTree Binding</a></li>
 <li class="toctree-l2"><a class="reference internal" href="nvmem.html#nvmem-layouts">8. NVMEM layouts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nvmem.html#internal-kernel-api">9. Internal kernel API</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="parport-lowlevel.html">PARPORT interface documentation</a><ul>
@@ -985,6 +1010,21 @@ available subsections can be seen below.</p>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html#notifications">Notifications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html#device-driver-implementation">Device driver implementation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dpll.html#synce-enablement">SyncE enablement</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="wbrf.html">WBRF - Wifi Band RFI Mitigations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html#some-general-terms">Some general terms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html#acpi-interface">ACPI interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html#driver-programming-interface">Driver programming interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wbrf.html#sample-usage">Sample Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="crypto/iaa/index.html">IAA (Intel Analytics Accelerator)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) driver API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tee.html#tee-client-driver-example">TEE client driver example</a></li>
 </ul>
 </li>
 </ul>

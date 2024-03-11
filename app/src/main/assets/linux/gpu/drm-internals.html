@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -113,6 +116,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -123,7 +127,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -140,7 +146,11 @@
 
           <div class="body" role="main">
             
-  <section id="drm-internals">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="drm-internals">
 <h1>DRM Internals<a class="headerlink" href="#drm-internals" title="Permalink to this heading">¶</a></h1>
 <p>This chapter documents DRM internals relevant to driver authors and
 developers working to add support for the latest features to existing
@@ -672,8 +682,10 @@ See <a class="reference internal" href="#c.drm_dev_enter" title="drm_dev_enter">
 <dt><code class="docutils literal notranslate"><span class="pre">unique</span></code></dt><dd><p>Unique name of the device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct_mutex</span></code></dt><dd><p>Lock for others (not <a class="reference internal" href="#c.drm_minor" title="drm_minor"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_minor.master</span></code></a> and <a class="reference internal" href="#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_file.is_master</span></code></a>)</p>
-<p>WARNING:
-Only drivers annotated with DRIVER_LEGACY should be using this.</p>
+<dl class="simple">
+<dt>TODO: This lock used to be the BKL of the DRM subsystem. Move the</dt><dd><p>lock into i915, which is the only remaining user.</p>
+</dd>
+</dl>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">master_mutex</span></code></dt><dd><p>Lock for <a class="reference internal" href="#c.drm_minor" title="drm_minor"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_minor.master</span></code></a> and <a class="reference internal" href="#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_file.is_master</span></code></a></p>
 </dd>
@@ -792,6 +804,11 @@ acceleration should be handled by two drivers that are connected using auxiliary
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DRIVER_GEM_GPUVA</span></code></dt><dd><p>Driver supports user defined GPU VA bindings for GEM objects.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRIVER_CURSOR_HOTSPOT</span></code></dt><dd><p>Driver supports and requires cursor hotspot information in the
+cursor plane (e.g. cursor plane has to actually track the mouse
+cursor and the clients are required to set hotspot in order for
+the cursor planes to work correctly).</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DRIVER_USE_AGP</span></code></dt><dd><p>Set up DRM AGP support, see drm_agp_init(), the DRM core will manage
 AGP resources. New drivers don't need this.</p>
 </dd>
@@ -850,7 +867,6 @@ for legacy drivers. Do not use.</p>
     const struct drm_ioctl_desc *ioctls;
     int num_ioctls;
     const struct file_operations *fops;
-#ifdef CONFIG_DRM_LEGACY;
 };
 </pre></div>
 </div>
@@ -1567,43 +1583,6 @@ functions deal with PCI and platform devices respectively and are only
 provided for historical reasons. These are all deprecated and shouldn't
 be used in new drivers. Besides that there's a few helpers for pci
 drivers.</p>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_legacy_pci_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_legacy_pci_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_driver" title="drm_driver"><span class="n"><span class="pre">drm_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">driver</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../PCI/pci.html#c.pci_driver" title="pci_driver"><span class="n"><span class="pre">pci_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pdriver</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_legacy_pci_init" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>shadow-attach a legacy DRM PCI driver</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_driver</span> <span class="pre">*driver</span></code></dt><dd><p>DRM device driver</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pci_driver</span> <span class="pre">*pdriver</span></code></dt><dd><p>PCI device driver</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This is only used by legacy dri1 drivers and deprecated.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_legacy_pci_exit">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_legacy_pci_exit</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_driver" title="drm_driver"><span class="n"><span class="pre">drm_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">driver</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../PCI/pci.html#c.pci_driver" title="pci_driver"><span class="n"><span class="pre">pci_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pdriver</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_legacy_pci_exit" title="Permalink to this definition">¶</a><br /></dt>
-<dd><p>unregister shadow-attach legacy DRM driver</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_driver</span> <span class="pre">*driver</span></code></dt><dd><p>DRM device driver</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pci_driver</span> <span class="pre">*pdriver</span></code></dt><dd><p>PCI device driver</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Unregister a DRM driver shadow-attached through <a class="reference internal" href="#c.drm_legacy_pci_init" title="drm_legacy_pci_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_legacy_pci_init()</span></code></a>. This
-is deprecated and only used by dri1 drivers.</p>
-</div>
 </section>
 </section>
 <section id="open-close-file-operations-and-ioctls">
@@ -1628,9 +1607,7 @@ own needs, e.g. to signal completion of rendering.</p>
 <p>For the driver-side event interface see <a class="reference internal" href="#c.drm_event_reserve_init" title="drm_event_reserve_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_event_reserve_init()</span></code></a> and
 <a class="reference internal" href="#c.drm_send_event" title="drm_send_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_send_event()</span></code></a> as the main starting points.</p>
 <p>The memory mapping implementation will vary depending on how the driver
-manages memory. Legacy drivers will use the deprecated drm_legacy_mmap()
-function, modern drivers should use one of the provided memory-manager
-specific implementations. For GEM-based drivers this is <a class="reference internal" href="drm-mm.html#c.drm_gem_mmap" title="drm_gem_mmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_mmap()</span></code></a>.</p>
+manages memory. For GEM-based drivers this is <a class="reference internal" href="drm-mm.html#c.drm_gem_mmap" title="drm_gem_mmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_mmap()</span></code></a>.</p>
 <p>No other file operations are supported by the DRM userspace API. Overall the
 following is an example <code class="xref c c-type docutils literal notranslate"><span class="pre">file_operations</span></code> structure:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static const example_drm_fops = {
@@ -1743,6 +1720,7 @@ and also the DRM-specific <a class="reference internal" href="drm-uapi.html#c.dr
     bool writeback_connectors;
     bool was_master;
     bool is_master;
+    bool supports_virtualized_cursor_plane;
     struct drm_master *master;
     spinlock_t master_lookup_lock;
     struct pid __rcu *pid;
@@ -1794,6 +1772,12 @@ client is or was master in the past.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">is_master</span></code></dt><dd><p>This client is the creator of <strong>master</strong>. Protected by struct
 <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device.master_mutex</span></code></a>.</p>
 <p>See also the <a class="reference internal" href="drm-uapi.html#drm-primary-node"><span class="std std-ref">section on primary nodes and authentication</span></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">supports_virtualized_cursor_plane</span></code></dt><dd><p>This client is capable of handling the cursor plane with the
+restrictions imposed on it by the virtualized drivers.</p>
+<p>This implies that the cursor plane has to behave like a cursor
+i.e. track cursor movement. It also requires setting of the
+hotspot properties by the client on the cursor plane.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">master</span></code></dt><dd><p>Master this node is currently associated with. Protected by struct
 <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device.master_mutex</span></code></a>, and serialized by <strong>master_lookup_lock</strong>.</p>

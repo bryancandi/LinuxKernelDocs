@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -113,6 +116,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -123,7 +127,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -140,7 +146,11 @@
 
           <div class="body" role="main">
             
-  <section id="xe-merge-acceptance-plan">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="xe-merge-acceptance-plan">
 <h1>Xe – Merge Acceptance Plan<a class="headerlink" href="#xe-merge-acceptance-plan" title="Permalink to this heading">¶</a></h1>
 <p>Xe is a new driver for Intel GPUs that supports both integrated and
 discrete platforms starting with Tiger Lake (first Intel Xe Architecture).</p>
@@ -197,32 +207,38 @@ platforms.</p>
 </section>
 <section id="xe-pre-merge-goals-work-in-progress">
 <h2>Xe – Pre-Merge Goals - Work-in-Progress<a class="headerlink" href="#xe-pre-merge-goals-work-in-progress" title="Permalink to this heading">¶</a></h2>
-<section id="drm-scheduler">
-<h3>Drm_scheduler<a class="headerlink" href="#drm-scheduler" title="Permalink to this heading">¶</a></h3>
-<p>Xe primarily uses Firmware based scheduling (GuC FW). However, it will use
-drm_scheduler as the scheduler ‘frontend’ for userspace submission in order to
-resolve syncobj and dma-buf implicit sync dependencies. However, drm_scheduler is
-not yet prepared to handle the 1-to-1 relationship between drm_gpu_scheduler and
-drm_sched_entity.</p>
-<p>Deeper changes to drm_scheduler should <em>not</em> be required to get Xe accepted, but
-some consensus needs to be reached between Xe and other community drivers that
-could also benefit from this work, for coupling FW based/assisted submission such
-as the ARM’s new Mali GPU driver, and others.</p>
-<p>As a key measurable result, the patch series introducing Xe itself shall not
-depend on any other patch touching drm_scheduler itself that was not yet merged
-through drm-misc. This, by itself, already includes the reach of an agreement for
-uniform 1 to 1 relationship implementation / usage across drivers.</p>
+<section id="display-integration-with-i915">
+<h3>Display integration with i915<a class="headerlink" href="#display-integration-with-i915" title="Permalink to this heading">¶</a></h3>
+<p>In order to share the display code with the i915 driver so that there is maximum
+reuse, the i915/display/ code is built twice, once for i915.ko and then for
+xe.ko. Currently, the i915/display code in Xe tree is polluted with many 'ifdefs'
+depending on the build target. The goal is to refactor both Xe and i915/display
+code simultaneously in order to get a clean result before they land upstream, so
+that display can already be part of the initial pull request towards drm-next.</p>
+<p>However, display code should not gate the acceptance of Xe in upstream. Xe
+patches will be refactored in a way that display code can be removed, if needed,
+from the first pull request of Xe towards drm-next. The expectation is that when
+both drivers are part of the drm-tip, the introduction of cleaner patches will be
+easier and speed up.</p>
 </section>
-<section id="async-vm-bind">
-<h3>ASYNC VM_BIND<a class="headerlink" href="#async-vm-bind" title="Permalink to this heading">¶</a></h3>
-<p>Although having a common DRM level IOCTL for VM_BIND is not a requirement to get
-Xe merged, it is mandatory to have a consensus with other drivers and Mesa.
-It needs to be clear how to handle async VM_BIND and interactions with userspace
-memory fences. Ideally with helper support so people don't get it wrong in all
-possible ways.</p>
-<p>As a key measurable result, the benefits of ASYNC VM_BIND and a discussion of
-various flavors, error handling and sample API suggestions are documented in
-<a class="reference internal" href="../drm-vm-bind-async.html"><span class="doc">The ASYNC VM_BIND document</span></a>.</p>
+</section>
+<section id="xe-uapi-high-level-overview">
+<h2>Xe – uAPI high level overview<a class="headerlink" href="#xe-uapi-high-level-overview" title="Permalink to this heading">¶</a></h2>
+<p>...Warning: To be done in follow up patches after/when/where the main consensus in various items are individually reached.</p>
+</section>
+<section id="xe-pre-merge-goals-completed">
+<h2>Xe – Pre-Merge Goals - Completed<a class="headerlink" href="#xe-pre-merge-goals-completed" title="Permalink to this heading">¶</a></h2>
+<section id="drm-exec">
+<h3>Drm_exec<a class="headerlink" href="#drm-exec" title="Permalink to this heading">¶</a></h3>
+<p>Helper to make dma_resv locking for a big number of buffers is getting removed in
+the drm_exec series proposed in <a class="reference external" href="https://patchwork.freedesktop.org/patch/524376/">https://patchwork.freedesktop.org/patch/524376/</a>
+If that happens, Xe needs to change and incorporate the changes in the driver.
+The goal is to engage with the Community to understand if the best approach is to
+move that to the drivers that are using it or if we should keep the helpers in
+place waiting for Xe to get merged.</p>
+<p>This item ties into the GPUVA, VM_BIND, and even long-running compute support.</p>
+<p>As a key measurable result, we need to have a community consensus documented in
+this document and the Xe driver prepared for the changes, if necessary.</p>
 </section>
 <section id="userptr-integration-and-vm-bind">
 <h3>Userptr integration and vm_bind<a class="headerlink" href="#userptr-integration-and-vm-bind" title="Permalink to this heading">¶</a></h3>
@@ -244,9 +260,39 @@ then moved to another more specific document or at Xe level or at DRM level.</p>
 <li><p>O(1) complexity under VM_BIND.</p></li>
 </ul>
 </div></blockquote>
+<p>The document is now included in the drm documentation <a class="reference internal" href="../drm-vm-bind-async.html"><span class="doc">here</span></a>.</p>
 <p>Some parts of userptr like mmu_notifiers should become GPUVA or DRM helpers when
 the second driver supporting VM_BIND+userptr appears. Details to be defined when
 the time comes.</p>
+<p>The DRM GPUVM helpers do not yet include the userptr parts, but discussions
+about implementing them are ongoing.</p>
+</section>
+<section id="async-vm-bind">
+<h3>ASYNC VM_BIND<a class="headerlink" href="#async-vm-bind" title="Permalink to this heading">¶</a></h3>
+<p>Although having a common DRM level IOCTL for VM_BIND is not a requirement to get
+Xe merged, it is mandatory to have a consensus with other drivers and Mesa.
+It needs to be clear how to handle async VM_BIND and interactions with userspace
+memory fences. Ideally with helper support so people don't get it wrong in all
+possible ways.</p>
+<p>As a key measurable result, the benefits of ASYNC VM_BIND and a discussion of
+various flavors, error handling and sample API suggestions are documented in
+<a class="reference internal" href="../drm-vm-bind-async.html"><span class="doc">The ASYNC VM_BIND document</span></a>.</p>
+</section>
+<section id="drm-scheduler">
+<h3>Drm_scheduler<a class="headerlink" href="#drm-scheduler" title="Permalink to this heading">¶</a></h3>
+<p>Xe primarily uses Firmware based scheduling (GuC FW). However, it will use
+drm_scheduler as the scheduler ‘frontend’ for userspace submission in order to
+resolve syncobj and dma-buf implicit sync dependencies. However, drm_scheduler is
+not yet prepared to handle the 1-to-1 relationship between drm_gpu_scheduler and
+drm_sched_entity.</p>
+<p>Deeper changes to drm_scheduler should <em>not</em> be required to get Xe accepted, but
+some consensus needs to be reached between Xe and other community drivers that
+could also benefit from this work, for coupling FW based/assisted submission such
+as the ARM’s new Mali GPU driver, and others.</p>
+<p>As a key measurable result, the patch series introducing Xe itself shall not
+depend on any other patch touching drm_scheduler itself that was not yet merged
+through drm-misc. This, by itself, already includes the reach of an agreement for
+uniform 1 to 1 relationship implementation / usage across drivers.</p>
 </section>
 <section id="long-running-compute-minimal-data-structure-scaffolding">
 <h3>Long running compute: minimal data structure/scaffolding<a class="headerlink" href="#long-running-compute-minimal-data-structure-scaffolding" title="Permalink to this heading">¶</a></h3>
@@ -258,42 +304,7 @@ completion fence.</p>
 this minimal drm/scheduler work, if needed, merged to drm-misc in a way that any
 drm driver, including Xe, could re-use and add their own individual needs on top
 in a next stage. However, this should not block the initial merge.</p>
-<p>This is a non-blocker item since the driver without the support for the long
-running compute enabled is not a showstopper.</p>
 </section>
-<section id="display-integration-with-i915">
-<h3>Display integration with i915<a class="headerlink" href="#display-integration-with-i915" title="Permalink to this heading">¶</a></h3>
-<p>In order to share the display code with the i915 driver so that there is maximum
-reuse, the i915/display/ code is built twice, once for i915.ko and then for
-xe.ko. Currently, the i915/display code in Xe tree is polluted with many 'ifdefs'
-depending on the build target. The goal is to refactor both Xe and i915/display
-code simultaneously in order to get a clean result before they land upstream, so
-that display can already be part of the initial pull request towards drm-next.</p>
-<p>However, display code should not gate the acceptance of Xe in upstream. Xe
-patches will be refactored in a way that display code can be removed, if needed,
-from the first pull request of Xe towards drm-next. The expectation is that when
-both drivers are part of the drm-tip, the introduction of cleaner patches will be
-easier and speed up.</p>
-</section>
-<section id="drm-exec">
-<h3>Drm_exec<a class="headerlink" href="#drm-exec" title="Permalink to this heading">¶</a></h3>
-<p>Helper to make dma_resv locking for a big number of buffers is getting removed in
-the drm_exec series proposed in <a class="reference external" href="https://patchwork.freedesktop.org/patch/524376/">https://patchwork.freedesktop.org/patch/524376/</a>
-If that happens, Xe needs to change and incorporate the changes in the driver.
-The goal is to engage with the Community to understand if the best approach is to
-move that to the drivers that are using it or if we should keep the helpers in
-place waiting for Xe to get merged.</p>
-<p>This item ties into the GPUVA, VM_BIND, and even long-running compute support.</p>
-<p>As a key measurable result, we need to have a community consensus documented in
-this document and the Xe driver prepared for the changes, if necessary.</p>
-</section>
-</section>
-<section id="xe-uapi-high-level-overview">
-<h2>Xe – uAPI high level overview<a class="headerlink" href="#xe-uapi-high-level-overview" title="Permalink to this heading">¶</a></h2>
-<p>...Warning: To be done in follow up patches after/when/where the main consensus in various items are individually reached.</p>
-</section>
-<section id="xe-pre-merge-goals-completed">
-<h2>Xe – Pre-Merge Goals - Completed<a class="headerlink" href="#xe-pre-merge-goals-completed" title="Permalink to this heading">¶</a></h2>
 <section id="dev-coredump">
 <h3>Dev_coredump<a class="headerlink" href="#dev-coredump" title="Permalink to this heading">¶</a></h3>
 <p>Xe needs to align with other drivers on the way that the error states are

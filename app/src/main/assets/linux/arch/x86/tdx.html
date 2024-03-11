@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -154,6 +157,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -164,7 +168,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -181,13 +187,177 @@
 
           <div class="body" role="main">
             
-  <section id="intel-trust-domain-extensions-tdx">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="intel-trust-domain-extensions-tdx">
 <h1><span class="section-number">20. </span>Intel Trust Domain Extensions (TDX)<a class="headerlink" href="#intel-trust-domain-extensions-tdx" title="Permalink to this heading">¶</a></h1>
 <p>Intel's Trust Domain Extensions (TDX) protect confidential guest VMs from
 the host and physical attacks by isolating the guest register state and by
 encrypting the guest memory. In TDX, a special module running in a special
 mode sits between the host and the guest and manages the guest/host
 separation.</p>
+<section id="tdx-host-kernel-support">
+<h2><span class="section-number">20.1. </span>TDX Host Kernel Support<a class="headerlink" href="#tdx-host-kernel-support" title="Permalink to this heading">¶</a></h2>
+<p>TDX introduces a new CPU mode called Secure Arbitration Mode (SEAM) and
+a new isolated range pointed by the SEAM Ranger Register (SEAMRR).  A
+CPU-attested software module called 'the TDX module' runs inside the new
+isolated range to provide the functionalities to manage and run protected
+VMs.</p>
+<p>TDX also leverages Intel Multi-Key Total Memory Encryption (MKTME) to
+provide crypto-protection to the VMs.  TDX reserves part of MKTME KeyIDs
+as TDX private KeyIDs, which are only accessible within the SEAM mode.
+BIOS is responsible for partitioning legacy MKTME KeyIDs and TDX KeyIDs.</p>
+<p>Before the TDX module can be used to create and run protected VMs, it
+must be loaded into the isolated range and properly initialized.  The TDX
+architecture doesn't require the BIOS to load the TDX module, but the
+kernel assumes it is loaded by the BIOS.</p>
+<section id="tdx-boot-time-detection">
+<h3><span class="section-number">20.1.1. </span>TDX boot-time detection<a class="headerlink" href="#tdx-boot-time-detection" title="Permalink to this heading">¶</a></h3>
+<p>The kernel detects TDX by detecting TDX private KeyIDs during kernel
+boot.  Below dmesg shows when TDX is enabled by BIOS:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[..] virt/tdx: BIOS enabled: private KeyID range: [16, 64)
+</pre></div>
+</div>
+</section>
+<section id="tdx-module-initialization">
+<h3><span class="section-number">20.1.2. </span>TDX module initialization<a class="headerlink" href="#tdx-module-initialization" title="Permalink to this heading">¶</a></h3>
+<p>The kernel talks to the TDX module via the new SEAMCALL instruction.  The
+TDX module implements SEAMCALL leaf functions to allow the kernel to
+initialize it.</p>
+<p>If the TDX module isn't loaded, the SEAMCALL instruction fails with a
+special error.  In this case the kernel fails the module initialization
+and reports the module isn't loaded:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[..] virt/tdx: module not loaded
+</pre></div>
+</div>
+<p>Initializing the TDX module consumes roughly ~1/256th system RAM size to
+use it as 'metadata' for the TDX memory.  It also takes additional CPU
+time to initialize those metadata along with the TDX module itself.  Both
+are not trivial.  The kernel initializes the TDX module at runtime on
+demand.</p>
+<p>Besides initializing the TDX module, a per-cpu initialization SEAMCALL
+must be done on one cpu before any other SEAMCALLs can be made on that
+cpu.</p>
+<p>The kernel provides two functions, tdx_enable() and tdx_cpu_enable() to
+allow the user of TDX to enable the TDX module and enable TDX on local
+cpu respectively.</p>
+<p>Making SEAMCALL requires VMXON has been done on that CPU.  Currently only
+KVM implements VMXON.  For now both tdx_enable() and tdx_cpu_enable()
+don't do VMXON internally (not trivial), but depends on the caller to
+guarantee that.</p>
+<p>To enable TDX, the caller of TDX should: 1) temporarily disable CPU
+hotplug; 2) do VMXON and tdx_enable_cpu() on all online cpus; 3) call
+tdx_enable().  For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cpus_read_lock();
+on_each_cpu(vmxon_and_tdx_cpu_enable());
+ret = tdx_enable();
+cpus_read_unlock();
+if (ret)
+        goto no_tdx;
+// TDX is ready to use
+</pre></div>
+</div>
+<p>And the caller of TDX must guarantee the tdx_cpu_enable() has been
+successfully done on any cpu before it wants to run any other SEAMCALL.
+A typical usage is do both VMXON and tdx_cpu_enable() in CPU hotplug
+online callback, and refuse to online if tdx_cpu_enable() fails.</p>
+<p>User can consult dmesg to see whether the TDX module has been initialized.</p>
+<p>If the TDX module is initialized successfully, dmesg shows something
+like below:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[..] virt/tdx: 262668 KBs allocated for PAMT
+[..] virt/tdx: module initialized
+</pre></div>
+</div>
+<p>If the TDX module failed to initialize, dmesg also shows it failed to
+initialize:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[..] virt/tdx: module initialization failed ...
+</pre></div>
+</div>
+</section>
+<section id="tdx-interaction-to-other-kernel-components">
+<h3><span class="section-number">20.1.3. </span>TDX Interaction to Other Kernel Components<a class="headerlink" href="#tdx-interaction-to-other-kernel-components" title="Permalink to this heading">¶</a></h3>
+<section id="tdx-memory-policy">
+<h4><span class="section-number">20.1.3.1. </span>TDX Memory Policy<a class="headerlink" href="#tdx-memory-policy" title="Permalink to this heading">¶</a></h4>
+<p>TDX reports a list of &quot;Convertible Memory Region&quot; (CMR) to tell the
+kernel which memory is TDX compatible.  The kernel needs to build a list
+of memory regions (out of CMRs) as &quot;TDX-usable&quot; memory and pass those
+regions to the TDX module.  Once this is done, those &quot;TDX-usable&quot; memory
+regions are fixed during module's lifetime.</p>
+<p>To keep things simple, currently the kernel simply guarantees all pages
+in the page allocator are TDX memory.  Specifically, the kernel uses all
+system memory in the core-mm &quot;at the time of TDX module initialization&quot;
+as TDX memory, and in the meantime, refuses to online any non-TDX-memory
+in the memory hotplug.</p>
+</section>
+<section id="physical-memory-hotplug">
+<h4><span class="section-number">20.1.3.2. </span>Physical Memory Hotplug<a class="headerlink" href="#physical-memory-hotplug" title="Permalink to this heading">¶</a></h4>
+<p>Note TDX assumes convertible memory is always physically present during
+machine's runtime.  A non-buggy BIOS should never support hot-removal of
+any convertible memory.  This implementation doesn't handle ACPI memory
+removal but depends on the BIOS to behave correctly.</p>
+</section>
+<section id="cpu-hotplug">
+<h4><span class="section-number">20.1.3.3. </span>CPU Hotplug<a class="headerlink" href="#cpu-hotplug" title="Permalink to this heading">¶</a></h4>
+<p>TDX module requires the per-cpu initialization SEAMCALL must be done on
+one cpu before any other SEAMCALLs can be made on that cpu.  The kernel
+provides tdx_cpu_enable() to let the user of TDX to do it when the user
+wants to use a new cpu for TDX task.</p>
+<p>TDX doesn't support physical (ACPI) CPU hotplug.  During machine boot,
+TDX verifies all boot-time present logical CPUs are TDX compatible before
+enabling TDX.  A non-buggy BIOS should never support hot-add/removal of
+physical CPU.  Currently the kernel doesn't handle physical CPU hotplug,
+but depends on the BIOS to behave correctly.</p>
+<p>Note TDX works with CPU logical online/offline, thus the kernel still
+allows to offline logical CPU and online it again.</p>
+</section>
+<section id="kexec">
+<h4><span class="section-number">20.1.3.4. </span>Kexec()<a class="headerlink" href="#kexec" title="Permalink to this heading">¶</a></h4>
+<p>TDX host support currently lacks the ability to handle kexec.  For
+simplicity only one of them can be enabled in the Kconfig.  This will be
+fixed in the future.</p>
+</section>
+<section id="erratum">
+<h4><span class="section-number">20.1.3.5. </span>Erratum<a class="headerlink" href="#erratum" title="Permalink to this heading">¶</a></h4>
+<p>The first few generations of TDX hardware have an erratum.  A partial
+write to a TDX private memory cacheline will silently &quot;poison&quot; the
+line.  Subsequent reads will consume the poison and generate a machine
+check.</p>
+<p>A partial write is a memory write where a write transaction of less than
+cacheline lands at the memory controller.  The CPU does these via
+non-temporal write instructions (like MOVNTI), or through UC/WC memory
+mappings.  Devices can also do partial writes via DMA.</p>
+<p>Theoretically, a kernel bug could do partial write to TDX private memory
+and trigger unexpected machine check.  What's more, the machine check
+code will present these as &quot;Hardware error&quot; when they were, in fact, a
+software-triggered issue.  But in the end, this issue is hard to trigger.</p>
+<p>If the platform has such erratum, the kernel prints additional message in
+machine check handler to tell user the machine check may be caused by
+kernel bug on TDX private memory.</p>
+</section>
+<section id="interaction-vs-s3-and-deeper-states">
+<h4><span class="section-number">20.1.3.6. </span>Interaction vs S3 and deeper states<a class="headerlink" href="#interaction-vs-s3-and-deeper-states" title="Permalink to this heading">¶</a></h4>
+<p>TDX cannot survive from S3 and deeper states.  The hardware resets and
+disables TDX completely when platform goes to S3 and deeper.  Both TDX
+guests and the TDX module get destroyed permanently.</p>
+<p>The kernel uses S3 for suspend-to-ram, and use S4 and deeper states for
+hibernation.  Currently, for simplicity, the kernel chooses to make TDX
+mutually exclusive with S3 and hibernation.</p>
+<p>The kernel disables TDX during early boot when hibernation support is
+available:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[..] virt/tdx: initialization failed: Hibernation support is enabled
+</pre></div>
+</div>
+<p>Add 'nohibernate' kernel command line to disable hibernation in order to
+use TDX.</p>
+<p>ACPI S3 is disabled during kernel early boot if TDX is enabled.  The user
+needs to turn off TDX in the BIOS in order to use S3.</p>
+</section>
+</section>
+</section>
+<section id="tdx-guest-support">
+<h2><span class="section-number">20.2. </span>TDX Guest Support<a class="headerlink" href="#tdx-guest-support" title="Permalink to this heading">¶</a></h2>
 <p>Since the host cannot directly access guest registers or memory, much
 normal functionality of a hypervisor must be moved into the guest. This is
 implemented using a Virtualization Exception (#VE) that is handled by the
@@ -196,14 +366,14 @@ require the hypervisor to be consulted.</p>
 <p>TDX includes new hypercall-like mechanisms for communicating from the
 guest to the hypervisor or the TDX module.</p>
 <section id="new-tdx-exceptions">
-<h2><span class="section-number">20.1. </span>New TDX Exceptions<a class="headerlink" href="#new-tdx-exceptions" title="Permalink to this heading">¶</a></h2>
+<h3><span class="section-number">20.2.1. </span>New TDX Exceptions<a class="headerlink" href="#new-tdx-exceptions" title="Permalink to this heading">¶</a></h3>
 <p>TDX guests behave differently from bare-metal and traditional VMX guests.
 In TDX guests, otherwise normal instructions or memory accesses can cause
 #VE or #GP exceptions.</p>
 <p>Instructions marked with an '*' conditionally cause exceptions.  The
 details for these instructions are discussed below.</p>
 <section id="instruction-based-ve">
-<h3><span class="section-number">20.1.1. </span>Instruction-based #VE<a class="headerlink" href="#instruction-based-ve" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.1.1. </span>Instruction-based #VE<a class="headerlink" href="#instruction-based-ve" title="Permalink to this heading">¶</a></h4>
 <ul class="simple">
 <li><p>Port I/O (INS, OUTS, IN, OUT)</p></li>
 <li><p>HLT</p></li>
@@ -215,7 +385,7 @@ details for these instructions are discussed below.</p>
 </ul>
 </section>
 <section id="instruction-based-gp">
-<h3><span class="section-number">20.1.2. </span>Instruction-based #GP<a class="headerlink" href="#instruction-based-gp" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.1.2. </span>Instruction-based #GP<a class="headerlink" href="#instruction-based-gp" title="Permalink to this heading">¶</a></h4>
 <ul class="simple">
 <li><p>All VMX instructions: INVEPT, INVVPID, VMCLEAR, VMFUNC, VMLAUNCH,
 VMPTRLD, VMPTRST, VMREAD, VMRESUME, VMWRITE, VMXOFF, VMXON</p></li>
@@ -227,7 +397,7 @@ VMPTRLD, VMPTRST, VMREAD, VMRESUME, VMWRITE, VMXOFF, VMXON</p></li>
 </ul>
 </section>
 <section id="rdmsr-wrmsr-behavior">
-<h3><span class="section-number">20.1.3. </span>RDMSR/WRMSR Behavior<a class="headerlink" href="#rdmsr-wrmsr-behavior" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.1.3. </span>RDMSR/WRMSR Behavior<a class="headerlink" href="#rdmsr-wrmsr-behavior" title="Permalink to this heading">¶</a></h4>
 <p>MSR access behavior falls into three categories:</p>
 <ul class="simple">
 <li><p>#GP generated</p></li>
@@ -245,7 +415,7 @@ trapping and handling in the TDX module.  Other than possibly being slow,
 these MSRs appear to function just as they would on bare metal.</p>
 </section>
 <section id="cpuid-behavior">
-<h3><span class="section-number">20.1.4. </span>CPUID Behavior<a class="headerlink" href="#cpuid-behavior" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.1.4. </span>CPUID Behavior<a class="headerlink" href="#cpuid-behavior" title="Permalink to this heading">¶</a></h4>
 <p>For some CPUID leaves and sub-leaves, the virtualized bit fields of CPUID
 return values (in guest EAX/EBX/ECX/EDX) are configurable by the
 hypervisor. For such cases, the Intel TDX module architecture defines two
@@ -264,7 +434,7 @@ value with a hypercall.</p>
 </section>
 </section>
 <section id="ve-on-memory-accesses">
-<h2><span class="section-number">20.2. </span>#VE on Memory Accesses<a class="headerlink" href="#ve-on-memory-accesses" title="Permalink to this heading">¶</a></h2>
+<h3><span class="section-number">20.2.2. </span>#VE on Memory Accesses<a class="headerlink" href="#ve-on-memory-accesses" title="Permalink to this heading">¶</a></h3>
 <p>There are essentially two classes of TDX memory: private and shared.
 Private memory receives full TDX protections.  Its content is protected
 against access from the hypervisor.  Shared memory is expected to be
@@ -275,7 +445,7 @@ private or shared.  It selects the behavior with a bit in its page table
 entries.  This helps ensure that a guest does not place sensitive
 information in shared memory, exposing it to the untrusted hypervisor.</p>
 <section id="ve-on-shared-memory">
-<h3><span class="section-number">20.2.1. </span>#VE on Shared Memory<a class="headerlink" href="#ve-on-shared-memory" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.2.1. </span>#VE on Shared Memory<a class="headerlink" href="#ve-on-shared-memory" title="Permalink to this heading">¶</a></h4>
 <p>Access to shared mappings can cause a #VE.  The hypervisor ultimately
 controls whether a shared memory access causes a #VE, so the guest must be
 careful to only reference shared pages it can safely handle a #VE.  For
@@ -292,7 +462,7 @@ be careful not to access device MMIO regions unless it is also prepared to
 handle a #VE.</p>
 </section>
 <section id="ve-on-private-pages">
-<h3><span class="section-number">20.2.2. </span>#VE on Private Pages<a class="headerlink" href="#ve-on-private-pages" title="Permalink to this heading">¶</a></h3>
+<h4><span class="section-number">20.2.2.2. </span>#VE on Private Pages<a class="headerlink" href="#ve-on-private-pages" title="Permalink to this heading">¶</a></h4>
 <p>An access to private mappings can also cause a #VE.  Since all kernel
 memory is also private memory, the kernel might theoretically need to
 handle a #VE on arbitrary kernel memory accesses.  This is not feasible, so
@@ -308,7 +478,7 @@ to handle the exception.</p>
 </section>
 </section>
 <section id="linux-ve-handler">
-<h2><span class="section-number">20.3. </span>Linux #VE handler<a class="headerlink" href="#linux-ve-handler" title="Permalink to this heading">¶</a></h2>
+<h3><span class="section-number">20.2.3. </span>Linux #VE handler<a class="headerlink" href="#linux-ve-handler" title="Permalink to this heading">¶</a></h3>
 <p>Just like page faults or #GP's, #VE exceptions can be either handled or be
 fatal.  Typically, an unhandled userspace #VE results in a SIGSEGV.
 An unhandled kernel #VE results in an oops.</p>
@@ -326,7 +496,7 @@ While the block is in place, any #VE is elevated to a double fault (#DF)
 which is not recoverable.</p>
 </section>
 <section id="mmio-handling">
-<h2><span class="section-number">20.4. </span>MMIO handling<a class="headerlink" href="#mmio-handling" title="Permalink to this heading">¶</a></h2>
+<h3><span class="section-number">20.2.4. </span>MMIO handling<a class="headerlink" href="#mmio-handling" title="Permalink to this heading">¶</a></h3>
 <p>In non-TDX VMs, MMIO is usually implemented by giving a guest access to a
 mapping which will cause a VMEXIT on access, and then the hypervisor
 emulates the access.  That is not possible in TDX guests because VMEXIT
@@ -344,7 +514,7 @@ designed to decode instructions like those generated by io.h macros.</p>
 oops.</p>
 </section>
 <section id="shared-memory-conversions">
-<h2><span class="section-number">20.5. </span>Shared Memory Conversions<a class="headerlink" href="#shared-memory-conversions" title="Permalink to this heading">¶</a></h2>
+<h3><span class="section-number">20.2.5. </span>Shared Memory Conversions<a class="headerlink" href="#shared-memory-conversions" title="Permalink to this heading">¶</a></h3>
 <p>All TDX guest memory starts out as private at boot.  This memory can not
 be accessed by the hypervisor.  However, some kernel users like device
 drivers might have a need to share data with the hypervisor.  To do this,
@@ -364,8 +534,9 @@ converted to shared on boot.</p>
 <p>For coherent DMA allocation, the DMA buffer gets converted on the
 allocation. Check force_dma_unencrypted() for details.</p>
 </section>
+</section>
 <section id="attestation">
-<h2><span class="section-number">20.6. </span>Attestation<a class="headerlink" href="#attestation" title="Permalink to this heading">¶</a></h2>
+<h2><span class="section-number">20.3. </span>Attestation<a class="headerlink" href="#attestation" title="Permalink to this heading">¶</a></h2>
 <p>Attestation is used to verify the TDX guest trustworthiness to other
 entities before provisioning secrets to the guest. For example, a key
 server may want to use attestation to verify that the guest is the
@@ -403,7 +574,7 @@ whatever communication channel available (i.e. vsock or TCP/IP) to
 send the TDREPORT to QE and receive the Quote.</p>
 </section>
 <section id="references">
-<h2><span class="section-number">20.7. </span>References<a class="headerlink" href="#references" title="Permalink to this heading">¶</a></h2>
+<h2><span class="section-number">20.4. </span>References<a class="headerlink" href="#references" title="Permalink to this heading">¶</a></h2>
 <p>TDX reference material is collected here:</p>
 <p><a class="reference external" href="https://www.intel.com/content/www/us/en/developer/articles/technical/intel-trust-domain-extensions.html">https://www.intel.com/content/www/us/en/developer/articles/technical/intel-trust-domain-extensions.html</a></p>
 </section>

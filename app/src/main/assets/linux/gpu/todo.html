@@ -18,7 +18,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="GPU RFC Section" href="rfc/index.html" />
-    <link rel="prev" title="Asynchronous VM_BIND" href="drm-vm-bind-async.html" />
+    <link rel="prev" title="VM_BIND locking" href="drm-vm-bind-locking.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -113,6 +116,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../translations/index.html">Translations</a></li>
@@ -123,7 +127,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -140,7 +146,11 @@
 
           <div class="body" role="main">
             
-  <section id="todo-list">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="todo-list">
 <span id="todo"></span><h1>TODO list<a class="headerlink" href="#todo-list" title="Permalink to this heading">¶</a></h1>
 <p>This section contains a list of smaller janitorial tasks in the kernel DRM
 graphics subsystem useful as newbie projects. Or for slow rainy days.</p>
@@ -421,16 +431,15 @@ callback as recommended in the kerneldoc.</p></li>
 </ul>
 <p>Level: Intermediate</p>
 </section>
-<section id="remove-load-unload-callbacks-from-all-non-driver-legacy-drivers">
-<h2>Remove load/unload callbacks from all non-DRIVER_LEGACY drivers<a class="headerlink" href="#remove-load-unload-callbacks-from-all-non-driver-legacy-drivers" title="Permalink to this heading">¶</a></h2>
+<section id="remove-load-unload-callbacks">
+<h2>Remove load/unload callbacks<a class="headerlink" href="#remove-load-unload-callbacks" title="Permalink to this heading">¶</a></h2>
 <p>The load/unload callbacks in struct &amp;drm_driver are very much midlayers, plus
 for historical reasons they get the ordering wrong (and we can't fix that)
 between setting up the &amp;drm_driver structure and calling <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
 <ul class="simple">
 <li><p>Rework drivers to no longer use the load/unload callbacks, directly coding the
 load/unload sequence into the driver's probe function.</p></li>
-<li><p>Once all non-DRIVER_LEGACY drivers are converted, disallow the load/unload
-callbacks for all modern drivers.</p></li>
+<li><p>Once all drivers are converted, remove the load/unload callbacks.</p></li>
 </ul>
 <p>Contact: Daniel Vetter</p>
 <p>Level: Intermediate</p>
@@ -643,6 +652,19 @@ test suite would allow to identify regressions earlier.</p>
 <p>Contact: Javier Martinez Canillas &lt;<a class="reference external" href="mailto:javierm&#37;&#52;&#48;redhat&#46;com">javierm<span>&#64;</span>redhat<span>&#46;</span>com</a>&gt;</p>
 <p>Level: Intermediate</p>
 </section>
+<section id="clean-up-and-document-former-selftests-suites">
+<h2>Clean up and document former selftests suites<a class="headerlink" href="#clean-up-and-document-former-selftests-suites" title="Permalink to this heading">¶</a></h2>
+<p>Some KUnit test suites (drm_buddy, drm_cmdline_parser, drm_damage_helper,
+drm_format, drm_framebuffer, drm_dp_mst_helper, drm_mm, drm_plane_helper and
+drm_rect) are former selftests suites that have been converted over when KUnit
+was first introduced.</p>
+<p>These suites were fairly undocumented, and with different goals than what unit
+tests can be. Trying to identify what each test in these suites actually test
+for, whether that makes sense for a unit test, and either remove it if it
+doesn't or document it if it does would be of great help.</p>
+<p>Contact: Maxime Ripard &lt;<a class="reference external" href="mailto:mripard&#37;&#52;&#48;kernel&#46;org">mripard<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;</p>
+<p>Level: Intermediate</p>
+</section>
 <section id="enable-trinity-for-drm">
 <h2>Enable trinity for DRM<a class="headerlink" href="#enable-trinity-for-drm" title="Permalink to this heading">¶</a></h2>
 <p>And fix up the fallout. Should be really interesting ...</p>
@@ -756,6 +778,23 @@ being able to map a sysfs backlight device to a specific connector. Any
 userspace changes to add support for brightness control on devices with
 multiple panels really should build on top of this new KMS property.</p>
 <p>Contact: Hans de Goede</p>
+<p>Level: Advanced</p>
+</section>
+<section id="buffer-age-or-other-damage-accumulation-algorithm-for-buffer-damage">
+<h3>Buffer age or other damage accumulation algorithm for buffer damage<a class="headerlink" href="#buffer-age-or-other-damage-accumulation-algorithm-for-buffer-damage" title="Permalink to this heading">¶</a></h3>
+<p>Drivers that do per-buffer uploads, need a buffer damage handling (rather than
+frame damage like drivers that do per-plane or per-CRTC uploads), but there is
+no support to get the buffer age or any other damage accumulation algorithm.</p>
+<p>For this reason, the damage helpers just fallback to a full plane update if the
+framebuffer attached to a plane has changed since the last page-flip. Drivers
+set &amp;drm_plane_state.ignore_damage_clips to true as indication to
+<a class="reference internal" href="drm-kms.html#c.drm_atomic_helper_damage_iter_init" title="drm_atomic_helper_damage_iter_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_damage_iter_init()</span></code></a> and <a class="reference internal" href="drm-kms.html#c.drm_atomic_helper_damage_iter_next" title="drm_atomic_helper_damage_iter_next"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_damage_iter_next()</span></code></a>
+helpers that the damage clips should be ignored.</p>
+<p>This should be improved to get damage tracking properly working on drivers that
+do per-buffer uploads.</p>
+<p>More information about damage tracking and references to learning materials can
+be found in <a class="reference internal" href="drm-kms.html#damage-tracking-properties"><span class="std std-ref">Damage Tracking Properties</span></a>.</p>
+<p>Contact: Javier Martinez Canillas &lt;<a class="reference external" href="mailto:javierm&#37;&#52;&#48;redhat&#46;com">javierm<span>&#64;</span>redhat<span>&#46;</span>com</a>&gt;</p>
 <p>Level: Advanced</p>
 </section>
 <section id="outside-drm">

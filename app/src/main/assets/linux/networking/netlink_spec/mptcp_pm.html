@@ -1,0 +1,869 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Family mptcp_pm netlink specification &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Family netdev netlink specification" href="netdev.html" />
+    <link rel="prev" title="Family handshake netlink specification" href="handshake.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.8.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/development-process.html">A guide to the Kernel Development Process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/submitting-patches.html">Submitting patches: the essential guide to getting your code into the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../maintainer/index.html">Kernel Maintainer Handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver implementer's API guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../subsystem-apis.html">Kernel subsystem documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#core-subsystems">Core subsystems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#human-interfaces">Human interfaces</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#networking-interfaces">Networking interfaces</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html">Networking</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../netlabel/index.html">NetLabel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../infiniband/index.html">InfiniBand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../isdn/index.html">ISDN</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../mhi/index.html">MHI</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../subsystem-apis.html#storage-interfaces">Storage interfaces</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking in the kernel</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/license-rules.html">Linux kernel licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../doc-guide/index.html">How to write kernel documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/index.html">Development tools for the kernel</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/testing-overview.html">Kernel Testing Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kernel-hacking/index.html">Kernel Hacking Guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../trace/index.html">Linux Tracing Technologies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fault-injection/index.html">fault-injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../livepatch/index.html">Kernel Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/index.html">The Linux kernel user's and administrator's guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kbuild/index.html">The kernel build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tools/index.html">User-space tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../userspace-api/index.html">The Linux kernel user-space API guide</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../firmware-guide/index.html">The Linux kernel firmware guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../devicetree/index.html">Open Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../arch/index.html">CPU Architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/networking/netlink_spec/mptcp_pm.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="family-mptcp-pm-netlink-specification">
+<h1><a class="toc-backref" href="#id9" role="doc-backlink">Family <code class="docutils literal notranslate"><span class="pre">mptcp_pm</span></code> netlink specification</a><a class="headerlink" href="#family-mptcp-pm-netlink-specification" title="Permalink to this heading">¶</a></h1>
+<nav class="contents" id="contents">
+<p class="topic-title">Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#family-mptcp-pm-netlink-specification" id="id9">Family <code class="docutils literal notranslate"><span class="pre">mptcp_pm</span></code> netlink specification</a></p>
+<ul>
+<li><p><a class="reference internal" href="#summary" id="id10">Summary</a></p></li>
+<li><p><a class="reference internal" href="#operations" id="id11">Operations</a></p>
+<ul>
+<li><p><a class="reference internal" href="#unspec" id="id12">unspec</a></p></li>
+<li><p><a class="reference internal" href="#add-addr" id="id13">add-addr</a></p></li>
+<li><p><a class="reference internal" href="#del-addr" id="id14">del-addr</a></p></li>
+<li><p><a class="reference internal" href="#get-addr" id="id15">get-addr</a></p></li>
+<li><p><a class="reference internal" href="#flush-addrs" id="id16">flush-addrs</a></p></li>
+<li><p><a class="reference internal" href="#set-limits" id="id17">set-limits</a></p></li>
+<li><p><a class="reference internal" href="#get-limits" id="id18">get-limits</a></p></li>
+<li><p><a class="reference internal" href="#set-flags" id="id19">set-flags</a></p></li>
+<li><p><a class="reference internal" href="#announce" id="id20">announce</a></p></li>
+<li><p><a class="reference internal" href="#remove" id="id21">remove</a></p></li>
+<li><p><a class="reference internal" href="#subflow-create" id="id22">subflow-create</a></p></li>
+<li><p><a class="reference internal" href="#subflow-destroy" id="id23">subflow-destroy</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#definitions" id="id24">Definitions</a></p>
+<ul>
+<li><p><a class="reference internal" href="#event-type" id="id25">event-type</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#attribute-sets" id="id26">Attribute sets</a></p>
+<ul>
+<li><p><a class="reference internal" href="#address" id="id27">address</a></p>
+<ul>
+<li><p><a class="reference internal" href="#unspec-unused" id="id28">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#family-u16" id="id29">family (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id-u8" id="id30">id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#addr4-u32" id="id31">addr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#addr6-binary" id="id32">addr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#port-u16" id="id33">port (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#flags-u32" id="id34">flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#if-idx-s32" id="id35">if-idx (<code class="docutils literal notranslate"><span class="pre">s32</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#subflow-attribute" id="id36">subflow-attribute</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id1" id="id37">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#token-rem-u32" id="id38">token-rem (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#token-loc-u32" id="id39">token-loc (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#relwrite-seq-u32" id="id40">relwrite-seq (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#map-seq-u64" id="id41">map-seq (<code class="docutils literal notranslate"><span class="pre">u64</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#map-sfseq-u32" id="id42">map-sfseq (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#ssn-offset-u32" id="id43">ssn-offset (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#map-datalen-u16" id="id44">map-datalen (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id45">flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id-rem-u8" id="id46">id-rem (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id-loc-u8" id="id47">id-loc (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#pad-pad" id="id48">pad (<code class="docutils literal notranslate"><span class="pre">pad</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#endpoint" id="id49">endpoint</a></p>
+<ul>
+<li><p><a class="reference internal" href="#addr-nest" id="id50">addr (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#attr" id="id51">attr</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id3" id="id52">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id4" id="id53">addr (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#rcv-add-addrs-u32" id="id54">rcv-add-addrs (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#subflows-u32" id="id55">subflows (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#token-u32" id="id56">token (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#loc-id-u8" id="id57">loc-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#addr-remote-nest" id="id58">addr-remote (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#event-attr" id="id59">event-attr</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id5" id="id60">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id6" id="id61">token (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id7" id="id62">family (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#id8" id="id63">loc-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#rem-id-u8" id="id64">rem-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#saddr4-u32" id="id65">saddr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#saddr6-binary" id="id66">saddr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#daddr4-u32" id="id67">daddr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#daddr6-binary" id="id68">daddr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#sport-u16" id="id69">sport (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#dport-u16" id="id70">dport (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#backup-u8" id="id71">backup (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#error-u8" id="id72">error (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#flags-u16" id="id73">flags (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#timeout-u32" id="id74">timeout (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#if-idx-u32" id="id75">if_idx (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#reset-reason-u32" id="id76">reset-reason (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#reset-flags-u32" id="id77">reset-flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#server-side-u8" id="id78">server-side (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="summary">
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Summary</a><a class="headerlink" href="#summary" title="Permalink to this heading">¶</a></h2>
+<p>Multipath TCP.</p>
+</section>
+<section id="operations">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Operations</a><a class="headerlink" href="#operations" title="Permalink to this heading">¶</a></h2>
+<section id="unspec">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">unspec</a><a class="headerlink" href="#unspec" title="Permalink to this heading">¶</a></h3>
+<p>unused</p>
+<dl class="field-list simple">
+<dt class="field-odd">value<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0</p>
+</dd>
+</dl>
+</section>
+<section id="add-addr">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">add-addr</a><a class="headerlink" href="#add-addr" title="Permalink to this heading">¶</a></h3>
+<p>Add endpoint</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>endpoint</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="del-addr">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">del-addr</a><a class="headerlink" href="#del-addr" title="Permalink to this heading">¶</a></h3>
+<p>Delete endpoint</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>endpoint</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="get-addr">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">get-addr</a><a class="headerlink" href="#get-addr" title="Permalink to this heading">¶</a></h3>
+<p>Get endpoint information</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>endpoint</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+<dt><strong>reply</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+<dt class="field-odd">dump<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>reply</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="flush-addrs">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">flush-addrs</a><a class="headerlink" href="#flush-addrs" title="Permalink to this heading">¶</a></h3>
+<p>flush addresses</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>endpoint</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="set-limits">
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">set-limits</a><a class="headerlink" href="#set-limits" title="Permalink to this heading">¶</a></h3>
+<p>Set protocol limits</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">rcv-add-addrs</span></code>, <code class="docutils literal notranslate"><span class="pre">subflows</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="get-limits">
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">get-limits</a><a class="headerlink" href="#get-limits" title="Permalink to this heading">¶</a></h3>
+<p>Get protocol limits</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">do<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">rcv-add-addrs</span></code>, <code class="docutils literal notranslate"><span class="pre">subflows</span></code>]</p>
+</dd>
+</dl>
+</dd>
+<dt><strong>reply</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">rcv-add-addrs</span></code>, <code class="docutils literal notranslate"><span class="pre">subflows</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="set-flags">
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">set-flags</a><a class="headerlink" href="#set-flags" title="Permalink to this heading">¶</a></h3>
+<p>Change endpoint flags</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>, <code class="docutils literal notranslate"><span class="pre">token</span></code>, <code class="docutils literal notranslate"><span class="pre">addr-remote</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="announce">
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">announce</a><a class="headerlink" href="#announce" title="Permalink to this heading">¶</a></h3>
+<p>announce new sf</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>, <code class="docutils literal notranslate"><span class="pre">token</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="remove">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">remove</a><a class="headerlink" href="#remove" title="Permalink to this heading">¶</a></h3>
+<p>announce removal</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">token</span></code>, <code class="docutils literal notranslate"><span class="pre">loc-id</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="subflow-create">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">subflow-create</a><a class="headerlink" href="#subflow-create" title="Permalink to this heading">¶</a></h3>
+<p>todo</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>, <code class="docutils literal notranslate"><span class="pre">token</span></code>, <code class="docutils literal notranslate"><span class="pre">addr-remote</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+<section id="subflow-destroy">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">subflow-destroy</a><a class="headerlink" href="#subflow-destroy" title="Permalink to this heading">¶</a></h3>
+<p>todo</p>
+<dl class="field-list simple">
+<dt class="field-odd">attribute-set<span class="colon">:</span></dt>
+<dd class="field-odd"><p>attr</p>
+</dd>
+<dt class="field-even">dont-validate<span class="colon">:</span></dt>
+<dd class="field-even"><p>['strict']</p>
+</dd>
+<dt class="field-odd">flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>['uns-admin-perm']</p>
+</dd>
+<dt class="field-even">do<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>request</strong></dt><dd><dl class="field-list simple">
+<dt class="field-odd">attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>[<code class="docutils literal notranslate"><span class="pre">addr</span></code>, <code class="docutils literal notranslate"><span class="pre">token</span></code>, <code class="docutils literal notranslate"><span class="pre">addr-remote</span></code>]</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</section>
+<section id="definitions">
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Definitions</a><a class="headerlink" href="#definitions" title="Permalink to this heading">¶</a></h2>
+<section id="event-type">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">event-type</a><a class="headerlink" href="#event-type" title="Permalink to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>enum</p>
+</dd>
+<dt class="field-even">enum-name<span class="colon">:</span></dt>
+<dd class="field-even"><p>mptcp-event-type</p>
+</dd>
+<dt class="field-odd">name-prefix<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mptcp-event-</p>
+</dd>
+<dt class="field-even">entries<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="field-list simple">
+<dt class="field-odd">unspec<span class="colon">:</span></dt>
+<dd class="field-odd"><p>unused event</p>
+</dd>
+<dt class="field-even">created<span class="colon">:</span></dt>
+<dd class="field-even"><p>token, family, saddr4 | saddr6, daddr4 | daddr6, sport, dport A new MPTCP connection has been created. It is the good time to allocate memory and send ADD_ADDR if needed. Depending on the traffic-patterns it can take a long time until the MPTCP_EVENT_ESTABLISHED is sent.</p>
+</dd>
+<dt class="field-odd">established<span class="colon">:</span></dt>
+<dd class="field-odd"><p>token, family, saddr4 | saddr6, daddr4 | daddr6, sport, dport A MPTCP connection is established (can start new subflows).</p>
+</dd>
+<dt class="field-even">closed<span class="colon">:</span></dt>
+<dd class="field-even"><p>token A MPTCP connection has stopped.</p>
+</dd>
+<dt class="field-odd">announced<span class="colon">:</span></dt>
+<dd class="field-odd"><p>token, rem_id, family, daddr4 | daddr6 [, dport] A new address has been announced by the peer.</p>
+</dd>
+<dt class="field-even">removed<span class="colon">:</span></dt>
+<dd class="field-even"><p>token, rem_id An address has been lost by the peer.</p>
+</dd>
+<dt class="field-odd">sub-established<span class="colon">:</span></dt>
+<dd class="field-odd"><p>token, family, loc_id, rem_id, saddr4 | saddr6, daddr4 | daddr6, sport, dport, backup, if_idx [, error] A new subflow has been established. 'error' should not be set.</p>
+</dd>
+<dt class="field-even">sub-closed<span class="colon">:</span></dt>
+<dd class="field-even"><p>token, family, loc_id, rem_id, saddr4 | saddr6, daddr4 | daddr6, sport, dport, backup, if_idx [, error] A subflow has been closed. An error (copy of sk_err) could be set if an error has been detected for this subflow.</p>
+</dd>
+<dt class="field-odd">sub-priority<span class="colon">:</span></dt>
+<dd class="field-odd"><p>token, family, loc_id, rem_id, saddr4 | saddr6, daddr4 | daddr6, sport, dport, backup, if_idx [, error] The priority of a subflow has changed. 'error' should not be set.</p>
+</dd>
+<dt class="field-even">listener-created<span class="colon">:</span></dt>
+<dd class="field-even"><p>family, sport, saddr4 | saddr6 A new PM listener is created.</p>
+</dd>
+<dt class="field-odd">listener-closed<span class="colon">:</span></dt>
+<dd class="field-odd"><p>family, sport, saddr4 | saddr6 A PM listener is closed.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</section>
+<section id="attribute-sets">
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">Attribute sets</a><a class="headerlink" href="#attribute-sets" title="Permalink to this heading">¶</a></h2>
+<section id="address">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">address</a><a class="headerlink" href="#address" title="Permalink to this heading">¶</a></h3>
+<section id="unspec-unused">
+<h4><a class="toc-backref" href="#id28" role="doc-backlink">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a><a class="headerlink" href="#unspec-unused" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">value<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0</p>
+</dd>
+</dl>
+</section>
+<section id="family-u16">
+<h4><a class="toc-backref" href="#id29" role="doc-backlink">family (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#family-u16" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id-u8">
+<h4><a class="toc-backref" href="#id30" role="doc-backlink">id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#id-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="addr4-u32">
+<h4><a class="toc-backref" href="#id31" role="doc-backlink">addr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#addr4-u32" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="addr6-binary">
+<h4><a class="toc-backref" href="#id32" role="doc-backlink">addr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a><a class="headerlink" href="#addr6-binary" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="port-u16">
+<h4><a class="toc-backref" href="#id33" role="doc-backlink">port (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#port-u16" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="flags-u32">
+<h4><a class="toc-backref" href="#id34" role="doc-backlink">flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#flags-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="if-idx-s32">
+<h4><a class="toc-backref" href="#id35" role="doc-backlink">if-idx (<code class="docutils literal notranslate"><span class="pre">s32</span></code>)</a><a class="headerlink" href="#if-idx-s32" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="subflow-attribute">
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">subflow-attribute</a><a class="headerlink" href="#subflow-attribute" title="Permalink to this heading">¶</a></h3>
+<section id="id1">
+<h4><a class="toc-backref" href="#id37" role="doc-backlink">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a><a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">value<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0</p>
+</dd>
+</dl>
+</section>
+<section id="token-rem-u32">
+<h4><a class="toc-backref" href="#id38" role="doc-backlink">token-rem (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#token-rem-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="token-loc-u32">
+<h4><a class="toc-backref" href="#id39" role="doc-backlink">token-loc (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#token-loc-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="relwrite-seq-u32">
+<h4><a class="toc-backref" href="#id40" role="doc-backlink">relwrite-seq (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#relwrite-seq-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="map-seq-u64">
+<h4><a class="toc-backref" href="#id41" role="doc-backlink">map-seq (<code class="docutils literal notranslate"><span class="pre">u64</span></code>)</a><a class="headerlink" href="#map-seq-u64" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="map-sfseq-u32">
+<h4><a class="toc-backref" href="#id42" role="doc-backlink">map-sfseq (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#map-sfseq-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="ssn-offset-u32">
+<h4><a class="toc-backref" href="#id43" role="doc-backlink">ssn-offset (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#ssn-offset-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="map-datalen-u16">
+<h4><a class="toc-backref" href="#id44" role="doc-backlink">map-datalen (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#map-datalen-u16" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id2">
+<h4><a class="toc-backref" href="#id45" role="doc-backlink">flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id-rem-u8">
+<h4><a class="toc-backref" href="#id46" role="doc-backlink">id-rem (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#id-rem-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id-loc-u8">
+<h4><a class="toc-backref" href="#id47" role="doc-backlink">id-loc (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#id-loc-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="pad-pad">
+<h4><a class="toc-backref" href="#id48" role="doc-backlink">pad (<code class="docutils literal notranslate"><span class="pre">pad</span></code>)</a><a class="headerlink" href="#pad-pad" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+<section id="endpoint">
+<h3><a class="toc-backref" href="#id49" role="doc-backlink">endpoint</a><a class="headerlink" href="#endpoint" title="Permalink to this heading">¶</a></h3>
+<section id="addr-nest">
+<h4><a class="toc-backref" href="#id50" role="doc-backlink">addr (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a><a class="headerlink" href="#addr-nest" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">nested-attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>address</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="attr">
+<h3><a class="toc-backref" href="#id51" role="doc-backlink">attr</a><a class="headerlink" href="#attr" title="Permalink to this heading">¶</a></h3>
+<section id="id3">
+<h4><a class="toc-backref" href="#id52" role="doc-backlink">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a><a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">value<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0</p>
+</dd>
+</dl>
+</section>
+<section id="id4">
+<h4><a class="toc-backref" href="#id53" role="doc-backlink">addr (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a><a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">nested-attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>address</p>
+</dd>
+</dl>
+</section>
+<section id="rcv-add-addrs-u32">
+<h4><a class="toc-backref" href="#id54" role="doc-backlink">rcv-add-addrs (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#rcv-add-addrs-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="subflows-u32">
+<h4><a class="toc-backref" href="#id55" role="doc-backlink">subflows (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#subflows-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="token-u32">
+<h4><a class="toc-backref" href="#id56" role="doc-backlink">token (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#token-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="loc-id-u8">
+<h4><a class="toc-backref" href="#id57" role="doc-backlink">loc-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#loc-id-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="addr-remote-nest">
+<h4><a class="toc-backref" href="#id58" role="doc-backlink">addr-remote (<code class="docutils literal notranslate"><span class="pre">nest</span></code>)</a><a class="headerlink" href="#addr-remote-nest" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">nested-attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><p>address</p>
+</dd>
+</dl>
+</section>
+</section>
+<section id="event-attr">
+<h3><a class="toc-backref" href="#id59" role="doc-backlink">event-attr</a><a class="headerlink" href="#event-attr" title="Permalink to this heading">¶</a></h3>
+<section id="id5">
+<h4><a class="toc-backref" href="#id60" role="doc-backlink">unspec (<code class="docutils literal notranslate"><span class="pre">unused</span></code>)</a><a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">value<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0</p>
+</dd>
+</dl>
+</section>
+<section id="id6">
+<h4><a class="toc-backref" href="#id61" role="doc-backlink">token (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id7">
+<h4><a class="toc-backref" href="#id62" role="doc-backlink">family (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="id8">
+<h4><a class="toc-backref" href="#id63" role="doc-backlink">loc-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="rem-id-u8">
+<h4><a class="toc-backref" href="#id64" role="doc-backlink">rem-id (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#rem-id-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="saddr4-u32">
+<h4><a class="toc-backref" href="#id65" role="doc-backlink">saddr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#saddr4-u32" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="saddr6-binary">
+<h4><a class="toc-backref" href="#id66" role="doc-backlink">saddr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a><a class="headerlink" href="#saddr6-binary" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="daddr4-u32">
+<h4><a class="toc-backref" href="#id67" role="doc-backlink">daddr4 (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#daddr4-u32" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="daddr6-binary">
+<h4><a class="toc-backref" href="#id68" role="doc-backlink">daddr6 (<code class="docutils literal notranslate"><span class="pre">binary</span></code>)</a><a class="headerlink" href="#daddr6-binary" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="sport-u16">
+<h4><a class="toc-backref" href="#id69" role="doc-backlink">sport (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#sport-u16" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="dport-u16">
+<h4><a class="toc-backref" href="#id70" role="doc-backlink">dport (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#dport-u16" title="Permalink to this heading">¶</a></h4>
+<dl class="field-list simple">
+<dt class="field-odd">byte-order<span class="colon">:</span></dt>
+<dd class="field-odd"><p>big-endian</p>
+</dd>
+</dl>
+</section>
+<section id="backup-u8">
+<h4><a class="toc-backref" href="#id71" role="doc-backlink">backup (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#backup-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="error-u8">
+<h4><a class="toc-backref" href="#id72" role="doc-backlink">error (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#error-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="flags-u16">
+<h4><a class="toc-backref" href="#id73" role="doc-backlink">flags (<code class="docutils literal notranslate"><span class="pre">u16</span></code>)</a><a class="headerlink" href="#flags-u16" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="timeout-u32">
+<h4><a class="toc-backref" href="#id74" role="doc-backlink">timeout (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#timeout-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="if-idx-u32">
+<h4><a class="toc-backref" href="#id75" role="doc-backlink">if_idx (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#if-idx-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="reset-reason-u32">
+<h4><a class="toc-backref" href="#id76" role="doc-backlink">reset-reason (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#reset-reason-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="reset-flags-u32">
+<h4><a class="toc-backref" href="#id77" role="doc-backlink">reset-flags (<code class="docutils literal notranslate"><span class="pre">u32</span></code>)</a><a class="headerlink" href="#reset-flags-u32" title="Permalink to this heading">¶</a></h4>
+</section>
+<section id="server-side-u8">
+<h4><a class="toc-backref" href="#id78" role="doc-backlink">server-side (<code class="docutils literal notranslate"><span class="pre">u8</span></code>)</a><a class="headerlink" href="#server-side-u8" title="Permalink to this heading">¶</a></h4>
+</section>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../_sources/networking/netlink_spec/mptcp_pm.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -154,6 +157,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -164,7 +168,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -181,29 +187,68 @@
 
           <div class="body" role="main">
             
-  <section id="x86-feature-flags">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="x86-feature-flags">
 <h1><span class="section-number">3. </span>x86 Feature Flags<a class="headerlink" href="#x86-feature-flags" title="Permalink to this heading">¶</a></h1>
 <section id="introduction">
 <h2><span class="section-number">3.1. </span>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
-<p>On x86, flags appearing in /proc/cpuinfo have an X86_FEATURE definition
-in arch/x86/include/asm/cpufeatures.h. If the kernel cares about a feature
-or KVM want to expose the feature to a KVM guest, it can and should have
-an X86_FEATURE_* defined. These flags represent hardware features as
-well as software features.</p>
-<p>If users want to know if a feature is available on a given system, they
-try to find the flag in /proc/cpuinfo. If a given flag is present, it
-means that the kernel supports it and is currently making it available.
-If such flag represents a hardware feature, it also means that the
-hardware supports it.</p>
-<p>If the expected flag does not appear in /proc/cpuinfo, things are murkier.
-Users need to find out the reason why the flag is missing and find the way
-how to enable it, which is not always easy. There are several factors that
-can explain missing flags: the expected feature failed to enable, the feature
-is missing in hardware, platform firmware did not enable it, the feature is
-disabled at build or run time, an old kernel is in use, or the kernel does
-not support the feature and thus has not enabled it. In general, /proc/cpuinfo
-shows features which the kernel supports. For a full list of CPUID flags
-which the CPU supports, use tools/arch/x86/kcpuid.</p>
+<p>The list of feature flags in /proc/cpuinfo is not complete and
+represents an ill-fated attempt from long time ago to put feature flags
+in an easy to find place for userspace.</p>
+<p>However, the amount of feature flags is growing by the CPU generation,
+leading to unparseable and unwieldy /proc/cpuinfo.</p>
+<p>What is more, those feature flags do not even need to be in that file
+because userspace doesn't care about them - glibc et al already use
+CPUID to find out what the target machine supports and what not.</p>
+<p>And even if it doesn't show a particular feature flag - although the CPU
+still does have support for the respective hardware functionality and
+said CPU supports CPUID faulting - userspace can simply probe for the
+feature and figure out if it is supported or not, regardless of whether
+it is being advertised somewhere.</p>
+<p>Furthermore, those flag strings become an ABI the moment they appear
+there and maintaining them forever when nothing even uses them is a lot
+of wasted effort.</p>
+<p>So, the current use of /proc/cpuinfo is to show features which the
+kernel has <em>enabled</em> and <em>supports</em>. As in: the CPUID feature flag is
+there, there's an additional setup which the kernel has done while
+booting and the functionality is ready to use. A perfect example for
+that is &quot;user_shstk&quot; where additional code enablement is present in the
+kernel to support shadow stack for user programs.</p>
+<p>So, if users want to know if a feature is available on a given system,
+they try to find the flag in /proc/cpuinfo. If a given flag is present,
+it means that</p>
+<ul class="simple">
+<li><p>the kernel knows about the feature enough to have an X86_FEATURE bit</p></li>
+<li><p>the kernel supports it and is currently making it available either to
+userspace or some other part of the kernel</p></li>
+<li><p>if the flag represents a hardware feature the hardware supports it.</p></li>
+</ul>
+<p>The absence of a flag in /proc/cpuinfo by itself means almost nothing to
+an end user.</p>
+<p>On the one hand, a feature like &quot;vaes&quot; might be fully available to user
+applications on a kernel that has not defined X86_FEATURE_VAES and thus
+there is no &quot;vaes&quot; in /proc/cpuinfo.</p>
+<p>On the other hand, a new kernel running on non-VAES hardware would also
+have no &quot;vaes&quot; in /proc/cpuinfo.  There's no way for an application or
+user to tell the difference.</p>
+<p>The end result is that the flags field in /proc/cpuinfo is marginally
+useful for kernel debugging, but not really for anything else.
+Applications should instead use things like the glibc facilities for
+querying CPU support.  Users should rely on tools like
+tools/arch/x86/kcpuid and cpuid(1).</p>
+<p>Regarding implementation, flags appearing in /proc/cpuinfo have an
+X86_FEATURE definition in arch/x86/include/asm/cpufeatures.h. These flags
+represent hardware features as well as software features.</p>
+<p>If the kernel cares about a feature or KVM want to expose the feature to
+a KVM guest, it should only then expose it to the guest when the guest
+needs to parse /proc/cpuinfo. Which, as mentioned above, is highly
+unlikely. KVM can synthesize the CPUID bit and the KVM guest can simply
+query CPUID and figure out what the hypervisor supports and what not. As
+already stated, /proc/cpuinfo is not a dumping ground for useless
+feature flags.</p>
 </section>
 <section id="how-are-feature-flags-created">
 <h2><span class="section-number">3.2. </span>How are feature flags created?<a class="headerlink" href="#how-are-feature-flags-created" title="Permalink to this heading">¶</a></h2>

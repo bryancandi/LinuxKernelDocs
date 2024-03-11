@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../../index.html">
+              <img class="logo" src="../../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -112,6 +115,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../translations/index.html">Translations</a></li>
@@ -122,7 +126,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -139,7 +145,11 @@
 
           <div class="body" role="main">
             
-  <section id="linux-base-driver-for-the-intel-r-ethernet-controller-800-series">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="linux-base-driver-for-the-intel-r-ethernet-controller-800-series">
 <h1>Linux Base Driver for the Intel(R) Ethernet Controller 800 Series<a class="headerlink" href="#linux-base-driver-for-the-intel-r-ethernet-controller-800-series" title="Permalink to this heading">¶</a></h1>
 <p>Intel ice Linux driver.
 Copyright(c) 2018-2021 Intel Corporation.</p>
@@ -949,6 +959,155 @@ commands. If the module is physically present, a GNSS device is spawned:
 The protocol of write command is dependent on the GNSS hardware module as the
 driver writes raw bytes by the GNSS object to the receiver through i2c. Please
 refer to the hardware GNSS module documentation for configuration details.</p>
+</section>
+<section id="firmware-fw-logging">
+<h3>Firmware (FW) logging<a class="headerlink" href="#firmware-fw-logging" title="Permalink to this heading">¶</a></h3>
+<p>The driver supports FW logging via the debugfs interface on PF 0 only. The FW
+running on the NIC must support FW logging; if the FW doesn't support FW logging
+the 'fwlog' file will not get created in the ice debugfs directory.</p>
+<section id="module-configuration">
+<h4>Module configuration<a class="headerlink" href="#module-configuration" title="Permalink to this heading">¶</a></h4>
+<p>Firmware logging is configured on a per module basis. Each module can be set to
+a value independent of the other modules (unless the module 'all' is specified).
+The modules will be instantiated under the 'fwlog/modules' directory.</p>
+<p>The user can set the log level for a module by writing to the module file like
+this:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo &lt;log_level&gt; &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/&lt;module&gt;
+</pre></div>
+</div>
+<p>where</p>
+<ul>
+<li><p>log_level is a name as described below. Each level includes the
+messages from the previous/lower level</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>none</p></li>
+<li><p>error</p></li>
+<li><p>warning</p></li>
+<li><p>normal</p></li>
+<li><p>verbose</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>module is a name that represents the module to receive events for. The
+module names are</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>general</p></li>
+<li><p>ctrl</p></li>
+<li><p>link</p></li>
+<li><p>link_topo</p></li>
+<li><p>dnl</p></li>
+<li><p>i2c</p></li>
+<li><p>sdp</p></li>
+<li><p>mdio</p></li>
+<li><p>adminq</p></li>
+<li><p>hdma</p></li>
+<li><p>lldp</p></li>
+<li><p>dcbx</p></li>
+<li><p>dcb</p></li>
+<li><p>xlr</p></li>
+<li><p>nvm</p></li>
+<li><p>auth</p></li>
+<li><p>vpd</p></li>
+<li><p>iosf</p></li>
+<li><p>parser</p></li>
+<li><p>sw</p></li>
+<li><p>scheduler</p></li>
+<li><p>txq</p></li>
+<li><p>rsvd</p></li>
+<li><p>post</p></li>
+<li><p>watchdog</p></li>
+<li><p>task_dispatch</p></li>
+<li><p>mng</p></li>
+<li><p>synce</p></li>
+<li><p>health</p></li>
+<li><p>tsdrv</p></li>
+<li><p>pfreg</p></li>
+<li><p>mdlver</p></li>
+<li><p>all</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>The name 'all' is special and allows the user to set all of the modules to the
+specified log_level or to read the log_level of all of the modules.</p>
+<section id="example-usage-to-configure-the-modules">
+<h5>Example usage to configure the modules<a class="headerlink" href="#example-usage-to-configure-the-modules" title="Permalink to this heading">¶</a></h5>
+<p>To set a single module to 'verbose':</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo verbose &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/link
+</pre></div>
+</div>
+<p>To set multiple modules then issue the command multiple times:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo verbose &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/link
+# echo warning &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/ctrl
+# echo none &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/dcb
+</pre></div>
+</div>
+<p>To set all the modules to the same value:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo normal &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/all
+</pre></div>
+</div>
+<p>To read the log_level of a specific module (e.g. module 'general'):</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/general
+</pre></div>
+</div>
+<p>To read the log_level of all the modules:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/modules/all
+</pre></div>
+</div>
+</section>
+</section>
+<section id="enabling-fw-log">
+<h4>Enabling FW log<a class="headerlink" href="#enabling-fw-log" title="Permalink to this heading">¶</a></h4>
+<p>Configuring the modules indicates to the FW that the configured modules should
+generate events that the driver is interested in, but it <strong>does not</strong> send the
+events to the driver until the enable message is sent to the FW. To do this
+the user can write a 1 (enable) or 0 (disable) to 'fwlog/enable'. An example
+is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 1 &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/enable
+</pre></div>
+</div>
+</section>
+<section id="retrieving-fw-log-data">
+<h4>Retrieving FW log data<a class="headerlink" href="#retrieving-fw-log-data" title="Permalink to this heading">¶</a></h4>
+<p>The FW log data can be retrieved by reading from 'fwlog/data'. The user can
+write any value to 'fwlog/data' to clear the data. The data can only be cleared
+when FW logging is disabled. The FW log data is a binary file that is sent to
+Intel and used to help debug user issues.</p>
+<p>An example to read the data is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/data &gt; fwlog.bin
+</pre></div>
+</div>
+<p>An example to clear the data is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 0 &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/data
+</pre></div>
+</div>
+</section>
+<section id="changing-how-often-the-log-events-are-sent-to-the-driver">
+<h4>Changing how often the log events are sent to the driver<a class="headerlink" href="#changing-how-often-the-log-events-are-sent-to-the-driver" title="Permalink to this heading">¶</a></h4>
+<p>The driver receives FW log data from the Admin Receive Queue (ARQ). The
+frequency that the FW sends the ARQ events can be configured by writing to
+'fwlog/nr_messages'. The range is 1-128 (1 means push every log message, 128
+means push only when the max AQ command buffer is full). The suggested value is
+10. The user can see what the value is configured to by reading
+'fwlog/nr_messages'. An example to set the value is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 50 &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/nr_messages
+</pre></div>
+</div>
+</section>
+<section id="configuring-the-amount-of-memory-used-to-store-fw-log-data">
+<h4>Configuring the amount of memory used to store FW log data<a class="headerlink" href="#configuring-the-amount-of-memory-used-to-store-fw-log-data" title="Permalink to this heading">¶</a></h4>
+<p>The driver stores FW log data within the driver. The default size of the memory
+used to store the data is 1MB. Some use cases may require more or less data so
+the user can change the amount of memory that is allocated for FW log data.
+To change the amount of memory then write to 'fwlog/log_size'. The value must be
+one of: 128K, 256K, 512K, 1M, or 2M. FW logging must be disabled to change the
+value. An example of changing the value is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 128K &gt; /sys/kernel/debug/ice/0000\:18\:00.0/fwlog/log_size
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 <section id="performance-optimization">

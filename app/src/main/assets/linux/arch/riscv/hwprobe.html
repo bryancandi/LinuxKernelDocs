@@ -30,11 +30,14 @@
     
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.7.0</p>
+<p class="blurb">6.8.0</p>
 
 
 
@@ -128,6 +131,7 @@
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../RAS/ras.html">Reliability, Availability and Serviceability features</a></li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
@@ -138,7 +142,9 @@
 <script type="text/javascript"> <!--
   var sbar = document.getElementsByClassName("sphinxsidebar")[0];
   let currents = document.getElementsByClassName("current")
-  sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
   --> </script>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
@@ -155,7 +161,11 @@
 
           <div class="body" role="main">
             
-  <section id="risc-v-hardware-probing-interface">
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+<section id="risc-v-hardware-probing-interface">
 <h1>RISC-V Hardware Probing Interface<a class="headerlink" href="#risc-v-hardware-probing-interface" title="Permalink to this heading">¶</a></h1>
 <p>The RISC-V hardware probing interface is based around a single syscall, which
 is defined in &lt;asm/hwprobe.h&gt;:</p>
@@ -165,7 +175,7 @@ is defined in &lt;asm/hwprobe.h&gt;:</p>
 };
 
 long sys_riscv_hwprobe(struct riscv_hwprobe *pairs, size_t pair_count,
-                       size_t cpu_count, cpu_set_t *cpus,
+                       size_t cpusetsize, cpu_set_t *cpus,
                        unsigned int flags);
 </pre></div>
 </div>
@@ -174,12 +184,26 @@ set, and some flags. The key-value pairs are supplied with a count. Userspace
 must prepopulate the key field for each element, and the kernel will fill in the
 value if the key is recognized. If a key is unknown to the kernel, its key field
 will be cleared to -1, and its value set to 0. The CPU set is defined by
-CPU_SET(3). For value-like keys (eg. vendor/arch/impl), the returned value will
-be only be valid if all CPUs in the given set have the same value. Otherwise -1
-will be returned. For boolean-like keys, the value returned will be a logical
-AND of the values for the specified CPUs. Usermode can supply NULL for cpus and
-0 for cpu_count as a shortcut for all online CPUs. There are currently no flags,
-this value must be zero for future compatibility.</p>
+CPU_SET(3) with size <code class="docutils literal notranslate"><span class="pre">cpusetsize</span></code> bytes. For value-like keys (eg. vendor,
+arch, impl), the returned value will only be valid if all CPUs in the given set
+have the same value. Otherwise -1 will be returned. For boolean-like keys, the
+value returned will be a logical AND of the values for the specified CPUs.
+Usermode can supply NULL for <code class="docutils literal notranslate"><span class="pre">cpus</span></code> and 0 for <code class="docutils literal notranslate"><span class="pre">cpusetsize</span></code> as a shortcut for
+all online CPUs. The currently supported flags are:</p>
+<ul class="simple">
+<li><p><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_WHICH_CPUS</span></code>: This flag basically reverses the behavior
+of sys_riscv_hwprobe().  Instead of populating the values of keys for a given
+set of CPUs, the values of each key are given and the set of CPUs is reduced
+by sys_riscv_hwprobe() to only those which match each of the key-value pairs.
+How matching is done depends on the key type.  For value-like keys, matching
+means to be the exact same as the value.  For boolean-like keys, matching
+means the result of a logical AND of the pair's value with the CPU's value is
+exactly the same as the pair's value.  Additionally, when <code class="docutils literal notranslate"><span class="pre">cpus</span></code> is an empty
+set, then it is initialized to all online CPUs which fit within it, i.e. the
+CPU set returned is the reduction of all the online CPUs which can be
+represented with a CPU set of size <code class="docutils literal notranslate"><span class="pre">cpusetsize</span></code>.</p></li>
+</ul>
+<p>All other flags are reserved for future compatibility and must be zero.</p>
 <p>On success 0 is returned, on failure a negative error code is returned.</p>
 <p>The following keys are defined:</p>
 <ul class="simple">
@@ -234,6 +258,158 @@ extensions.</p>
 </li>
 <li><dl class="simple">
 <dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZICBOZ</span></code>: The Zicboz extension is supported, as</dt><dd><p>ratified in commit 3dd606f (&quot;Create cmobase-v1.0.pdf&quot;) of riscv-CMOs.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZBC</span></code> The Zbc extension is supported, as defined</dt><dd><p>in version 1.0 of the Bit-Manipulation ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZBKB</span></code> The Zbkb extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZBKC</span></code> The Zbkc extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZBKX</span></code> The Zbkx extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKND</span></code> The Zknd extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKNE</span></code> The Zkne extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKNH</span></code> The Zknh extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKSED</span></code> The Zksed extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKSH</span></code> The Zksh extension is supported, as</dt><dd><p>defined in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZKT</span></code> The Zkt extension is supported, as defined</dt><dd><p>in version 1.0 of the Scalar Crypto ISA extensions.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVBB</span></code>: The Zvbb extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVBC</span></code>: The Zvbc extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKB</span></code>: The Zvkb extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKG</span></code>: The Zvkg extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKNED</span></code>: The Zvkned extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKNHA</span></code>: The Zvknha extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKNHB</span></code>: The Zvknhb extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKSED</span></code>: The Zvksed extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKSH</span></code>: The Zvksh extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVKT</span></code>: The Zvkt extension is supported as</dt><dd><p>defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZFH</span></code>: The Zfh extension version 1.0 is supported</dt><dd><p>as defined in the RISC-V ISA manual.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZFHMIN</span></code>: The Zfhmin extension version 1.0 is</dt><dd><p>supported as defined in the RISC-V ISA manual.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZIHINTNTL</span></code>: The Zihintntl extension version 1.0</dt><dd><p>is supported as defined in the RISC-V ISA manual.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVFH</span></code>: The Zvfh extension is supported as</dt><dd><p>defined in the RISC-V Vector manual starting from <a class="reference external" href="https://git.kernel.org/torvalds/c/e2ccd0548d6c">commit e2ccd0548d6c
+(&quot;Remove draft warnings from Zvfh[min]&quot;)</a>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZVFHMIN</span></code>: The Zvfhmin extension is supported as</dt><dd><p>defined in the RISC-V Vector manual starting from <a class="reference external" href="https://git.kernel.org/torvalds/c/e2ccd0548d6c">commit e2ccd0548d6c
+(&quot;Remove draft warnings from Zvfh[min]&quot;)</a>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZFA</span></code>: The Zfa extension is supported as</dt><dd><p>defined in the RISC-V ISA manual starting from <a class="reference external" href="https://git.kernel.org/torvalds/c/056b6ff467c7">commit 056b6ff467c7
+(&quot;Zfa is ratified&quot;)</a>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZTSO</span></code>: The Ztso extension is supported as</dt><dd><p>defined in the RISC-V ISA manual starting from <a class="reference external" href="https://git.kernel.org/torvalds/c/5618fb5a216b">commit 5618fb5a216b
+(&quot;Ztso is now ratified.&quot;)</a></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZACAS</span></code>: The Zacas extension is supported as</dt><dd><p>defined in the Atomic Compare-and-Swap (CAS) instructions manual starting
+from <a class="reference external" href="https://git.kernel.org/torvalds/c/5059e0ca641c">commit 5059e0ca641c (&quot;update to ratified&quot;)</a>.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="xref c c-macro docutils literal notranslate"><span class="pre">RISCV_HWPROBE_EXT_ZICOND</span></code>: The Zicond extension is supported as</dt><dd><p>defined in the RISC-V Integer Conditional (Zicond) operations extension
+manual starting from commit 95cf1f9 (&quot;Add changes requested by Ved
+during signoff&quot;)</p>
 </dd>
 </dl>
 </li>
