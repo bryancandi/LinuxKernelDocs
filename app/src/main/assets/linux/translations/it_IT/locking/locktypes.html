@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Tipologie di blocco e le loro istruzioni &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Validatore di sincronizzazione durante l’esecuzione" href="lockdep-design.html" />
+    <link rel="prev" title="Sincronizzazione" href="index.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.9.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../zh_CN/index.html">中文翻译</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">La documentazione del kernel Linux</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#avvertenze">Avvertenze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#lavorare-con-la-comunita-di-sviluppo">Lavorare con la comunità di sviluppo</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#manuali-sull-api-interna">Manuali sull’API interna</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#strumenti-e-processi-per-lo-sviluppo">Strumenti e processi per lo sviluppo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#documentazione-per-gli-utenti">Documentazione per gli utenti</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#documentazione-relativa-ai-firmware">Documentazione relativa ai firmware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#documentazione-specifica-per-architettura">Documentazione specifica per architettura</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#documentazione-varia">Documentazione varia</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/it_IT/locking/locktypes.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Italian
+
+<ul>
+
+<li><a href="../../../locking/locktypes.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>In caso di dubbi sulla correttezza del contenuto di questa traduzione,
+l’unico riferimento valido è la documentazione ufficiale in inglese.
+Per maggiori informazioni consultate le <a class="reference internal" href="../index.html#it-disclaimer"><span class="std std-ref">avvertenze</span></a>.</p>
+</div>
+<section id="tipologie-di-blocco-e-le-loro-istruzioni">
+<span id="it-kernel-hacking-locktypes"></span><h1>Tipologie di blocco e le loro istruzioni<a class="headerlink" href="#tipologie-di-blocco-e-le-loro-istruzioni" title="Link to this heading">¶</a></h1>
+<section id="introduzione">
+<h2>Introduzione<a class="headerlink" href="#introduzione" title="Link to this heading">¶</a></h2>
+<p>Il kernel fornisce un certo numero di primitive di blocco che possiamo dividere
+in tre categorie:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>blocchi ad attesa con sospensione</p></li>
+<li><p>blocchi locali per CPU</p></li>
+<li><p>blocchi ad attesa attiva</p></li>
+</ul>
+</div></blockquote>
+<p>Questo documento descrive questi tre tipi e fornisce istruzioni su come
+annidarli, ed usarli su kernel PREEMPT_RT.</p>
+</section>
+<section id="categorie-di-blocchi">
+<h2>Categorie di blocchi<a class="headerlink" href="#categorie-di-blocchi" title="Link to this heading">¶</a></h2>
+<section id="blocchi-ad-attesa-con-sospensione">
+<h3>Blocchi ad attesa con sospensione<a class="headerlink" href="#blocchi-ad-attesa-con-sospensione" title="Link to this heading">¶</a></h3>
+<p>I blocchi ad attesa con sospensione possono essere acquisiti solo in un contesti
+dov’è possibile la prelazione.</p>
+<p>Diverse implementazioni permettono di usare try_lock() anche in altri contesti,
+nonostante ciò è bene considerare anche la sicurezza dei corrispondenti
+unlock(). Inoltre, vanno prese in considerazione anche le varianti di <em>debug</em>
+di queste primitive. Insomma, non usate i blocchi ad attesa con sospensioni in
+altri contesti a meno che proprio non vi siano alternative.</p>
+<p>In questa categoria troviamo:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>mutex</p></li>
+<li><p>rt_mutex</p></li>
+<li><p>semaphore</p></li>
+<li><p>rw_semaphore</p></li>
+<li><p>ww_mutex</p></li>
+<li><p>percpu_rw_semaphore</p></li>
+</ul>
+</div></blockquote>
+<p>Nei kernel con PREEMPT_RT, i seguenti blocchi sono convertiti in blocchi ad
+attesa con sospensione:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>local_lock</p></li>
+<li><p>spinlock_t</p></li>
+<li><p>rwlock_t</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="blocchi-locali-per-cpu">
+<h3>Blocchi locali per CPU<a class="headerlink" href="#blocchi-locali-per-cpu" title="Link to this heading">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li><p>local_lock</p></li>
+</ul>
+</div></blockquote>
+<p>Su kernel non-PREEMPT_RT, le funzioni local_lock gestiscono le primitive di
+disabilitazione di prelazione ed interruzioni. Al contrario di altri meccanismi,
+la disabilitazione della prelazione o delle interruzioni sono puri meccanismi
+per il controllo della concorrenza su una CPU e quindi non sono adatti per la
+gestione della concorrenza inter-CPU.</p>
+</section>
+<section id="blocchi-ad-attesa-attiva">
+<h3>Blocchi ad attesa attiva<a class="headerlink" href="#blocchi-ad-attesa-attiva" title="Link to this heading">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li><p>raw_spinlcok_t</p></li>
+<li><p>bit spinlocks</p></li>
+</ul>
+<p>Nei kernel non-PREEMPT_RT, i seguenti blocchi sono ad attesa attiva:</p>
+<ul class="simple">
+<li><p>spinlock_t</p></li>
+<li><p>rwlock_t</p></li>
+</ul>
+</div></blockquote>
+<p>Implicitamente, i blocchi ad attesa attiva disabilitano la prelazione e le
+funzioni lock/unlock hanno anche dei suffissi per gestire il livello di
+protezione:</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>_bh()</p></td>
+<td><p>disabilita / abilita  <em>bottom halves</em> (interruzioni software)</p></td>
+</tr>
+<tr class="row-even"><td><p>_irq()</p></td>
+<td><p>disabilita / abilita le interruzioni</p></td>
+</tr>
+<tr class="row-odd"><td><p>_irqsave/restore()</p></td>
+<td><p>salva e disabilita le interruzioni / ripristina ed attiva le interruzioni</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+</section>
+</section>
+<section id="semantica-del-proprietario">
+<h2>Semantica del proprietario<a class="headerlink" href="#semantica-del-proprietario" title="Link to this heading">¶</a></h2>
+<p>Eccetto i semafori, i sopracitati tipi di blocchi hanno tutti una semantica
+molto stringente riguardo al proprietario di un blocco:</p>
+<blockquote>
+<div><p>Il contesto (attività) che ha acquisito il blocco deve rilasciarlo</p>
+</div></blockquote>
+<p>I semafori rw_semaphores hanno un’interfaccia speciale che permette anche ai non
+proprietari del blocco di rilasciarlo per i lettori.</p>
+</section>
+<section id="rtmutex">
+<h2>rtmutex<a class="headerlink" href="#rtmutex" title="Link to this heading">¶</a></h2>
+<p>I blocchi a mutua esclusione RT (<em>rtmutex</em>) sono un sistema a mutua esclusione
+con supporto all’ereditarietà della priorità (PI).</p>
+<p>Questo meccanismo ha delle limitazioni sui kernel non-PREEMPT_RT dovuti alla
+prelazione e alle sezioni con interruzioni disabilitate.</p>
+<p>Chiaramente, questo meccanismo non può avvalersi della prelazione su una sezione
+dove la prelazione o le interruzioni sono disabilitate; anche sui kernel
+PREEMPT_RT. Tuttavia, i kernel PREEMPT_RT eseguono la maggior parte delle
+sezioni in contesti dov’è possibile la prelazione, specialmente in contesti
+d’interruzione (anche software). Questa conversione permette a spinlock_t e
+rwlock_t di essere implementati usando rtmutex.</p>
+</section>
+<section id="semaphore">
+<h2>semaphore<a class="headerlink" href="#semaphore" title="Link to this heading">¶</a></h2>
+<p>La primitiva semaphore implementa un semaforo con contatore.</p>
+<p>I semafori vengono spesso utilizzati per la serializzazione e l’attesa, ma per
+nuovi casi d’uso si dovrebbero usare meccanismi diversi, come mutex e
+completion.</p>
+<section id="semaphore-e-preempt-rt">
+<h3>semaphore e PREEMPT_RT<a class="headerlink" href="#semaphore-e-preempt-rt" title="Link to this heading">¶</a></h3>
+<p>I kernel PREEMPT_RT non cambiano l’implementazione di semaphore perché non hanno
+un concetto di proprietario, dunque impediscono a PREEMPT_RT d’avere
+l’ereditarietà della priorità sui semafori. Un proprietario sconosciuto non può
+ottenere una priorità superiore. Di consequenza, bloccarsi sui semafori porta
+all’inversione di priorità.</p>
+</section>
+</section>
+<section id="rw-semaphore">
+<h2>rw_semaphore<a class="headerlink" href="#rw-semaphore" title="Link to this heading">¶</a></h2>
+<p>Il blocco rw_semaphore è un meccanismo che permette più lettori ma un solo scrittore.</p>
+<p>Sui kernel non-PREEMPT_RT l’implementazione è imparziale, quindi previene
+l’inedia dei processi scrittori.</p>
+<p>Questi blocchi hanno una semantica molto stringente riguardo il proprietario, ma
+offre anche interfacce speciali che permettono ai processi non proprietari di
+rilasciare un processo lettore. Queste interfacce funzionano indipendentemente
+dalla configurazione del kernel.</p>
+<section id="rw-semaphore-e-preempt-rt">
+<h3>rw_semaphore e PREEMPT_RT<a class="headerlink" href="#rw-semaphore-e-preempt-rt" title="Link to this heading">¶</a></h3>
+<p>I kernel PREEMPT_RT sostituiscono i rw_semaphore con un’implementazione basata
+su rt_mutex, e questo ne modifica l’imparzialità:</p>
+<blockquote>
+<div><p>Dato che uno scrittore rw_semaphore non può assicurare la propria priorità ai
+suoi lettori, un lettore con priorità più bassa che ha subito la prelazione
+continuerà a trattenere il blocco, quindi porta all’inedia anche gli scrittori
+con priorità più alta. Per contro, dato che i lettori possono garantire la
+propria priorità agli scrittori, uno scrittore a bassa priorità che subisce la
+prelazione vedrà la propria priorità alzata finché non rilascerà il blocco, e
+questo preverrà l’inedia dei processi lettori a causa di uno scrittore.</p>
+</div></blockquote>
+</section>
+</section>
+<section id="local-lock">
+<h2>local_lock<a class="headerlink" href="#local-lock" title="Link to this heading">¶</a></h2>
+<p>I local_lock forniscono nomi agli ambiti di visibilità delle sezioni critiche
+protette tramite la disattivazione della prelazione o delle interruzioni.</p>
+<p>Sui kernel non-PREEMPT_RT le operazioni local_lock si traducono
+nell’abilitazione o disabilitazione della prelazione o le interruzioni.</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>local_lock(&amp;llock)</p></td>
+<td><p>preempt_disable()</p></td>
+</tr>
+<tr class="row-even"><td><p>local_unlock(&amp;llock)</p></td>
+<td><p>preempt_enable()</p></td>
+</tr>
+<tr class="row-odd"><td><p>local_lock_irq(&amp;llock)</p></td>
+<td><p>local_irq_disable()</p></td>
+</tr>
+<tr class="row-even"><td><p>local_unlock_irq(&amp;llock)</p></td>
+<td><p>local_irq_enable()</p></td>
+</tr>
+<tr class="row-odd"><td><p>local_lock_irqsave(&amp;llock)</p></td>
+<td><p>local_irq_save()</p></td>
+</tr>
+<tr class="row-even"><td><p>local_unlock_irqrestore(&amp;llock)</p></td>
+<td><p>local_irq_restore()</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>Gli ambiti di visibilità con nome hanno due vantaggi rispetto alle primitive di
+base:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Il nome del blocco permette di fare un’analisi statica, ed è anche chiaro su
+cosa si applichi la protezione cosa che invece non si può fare con le
+classiche primitive in quanto sono opache e senza alcun ambito di
+visibilità.</p></li>
+<li><p>Se viene abilitato lockdep, allora local_lock ottiene un lockmap che
+permette di verificare la bontà della protezione. Per esempio, questo può
+identificare i casi dove una funzione usa preempt_disable() come meccanismo
+di protezione in un contesto d’interruzione (anche software). A parte
+questo, lockdep_assert_held(&amp;llock) funziona come tutte le altre primitive
+di sincronizzazione.</p></li>
+</ul>
+</div></blockquote>
+<section id="local-lock-e-preempt-rt">
+<h3>local_lock e PREEMPT_RT<a class="headerlink" href="#local-lock-e-preempt-rt" title="Link to this heading">¶</a></h3>
+<p>I kernel PREEMPT_RT sostituiscono local_lock con uno spinlock_t per CPU, quindi
+ne cambia la semantica:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Tutte le modifiche a spinlock_t si applicano anche a local_lock</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="l-uso-di-local-lock">
+<h3>L’uso di local_lock<a class="headerlink" href="#l-uso-di-local-lock" title="Link to this heading">¶</a></h3>
+<p>I local_lock dovrebbero essere usati su kernel non-PREEMPT_RT quando la
+disabilitazione della prelazione o delle interruzioni è il modo più adeguato per
+gestire l’accesso concorrente a strutture dati per CPU.</p>
+<p>Questo meccanismo non è adatto alla protezione da prelazione o interruzione su
+kernel PREEMPT_RT dato che verrà convertito in spinlock_t.</p>
+</section>
+</section>
+<section id="raw-spinlock-t-e-spinlock-t">
+<h2>raw_spinlock_t e spinlock_t<a class="headerlink" href="#raw-spinlock-t-e-spinlock-t" title="Link to this heading">¶</a></h2>
+<section id="raw-spinlock-t">
+<h3>raw_spinlock_t<a class="headerlink" href="#raw-spinlock-t" title="Link to this heading">¶</a></h3>
+<p>I blocco raw_spinlock_t è un blocco ad attesa attiva su tutti i tipi di kernel,
+incluso quello PREEMPT_RT. Usate raw_spinlock_t solo in sezioni critiche nel
+cuore del codice, nella gestione delle interruzioni di basso livello, e in posti
+dove è necessario disabilitare la prelazione o le interruzioni. Per esempio, per
+accedere in modo sicuro lo stato dell’hardware. A volte, i raw_spinlock_t
+possono essere usati quando la sezione critica è minuscola, per evitare gli
+eccessi di un rtmutex.</p>
+</section>
+<section id="spinlock-t">
+<h3>spinlock_t<a class="headerlink" href="#spinlock-t" title="Link to this heading">¶</a></h3>
+<p>Il significato di spinlock_t cambia in base allo stato di PREEMPT_RT.</p>
+<p>Sui kernel non-PREEMPT_RT, spinlock_t si traduce in un raw_spinlock_t ed ha
+esattamente lo stesso significato.</p>
+</section>
+<section id="spinlock-t-e-preempt-rt">
+<h3>spinlock_t e PREEMPT_RT<a class="headerlink" href="#spinlock-t-e-preempt-rt" title="Link to this heading">¶</a></h3>
+<p>Sui kernel PREEMPT_RT, spinlock_t ha un’implementazione dedicata che si basa
+sull’uso di rt_mutex. Questo ne modifica il significato:</p>
+<blockquote>
+<div><ul>
+<li><p>La prelazione non viene disabilitata.</p></li>
+<li><p>I suffissi relativi alla interruzioni (_irq, _irqsave / _irqrestore) per le
+operazioni spin_lock / spin_unlock non hanno alcun effetto sullo stato delle
+interruzioni della CPU.</p></li>
+<li><p>I suffissi relativi alle interruzioni software (_bh()) disabilitano i
+relativi gestori d’interruzione.</p>
+<p>I kernel non-PREEMPT_RT disabilitano la prelazione per ottenere lo stesso effetto.</p>
+<p>I kernel PREEMPT_RT usano un blocco per CPU per la serializzazione, il che
+permette di tenere attiva la prelazione. Il blocco disabilita i gestori
+d’interruzione software e previene la rientranza vista la prelazione attiva.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>A parte quanto appena discusso, i kernel PREEMPT_RT preservano il significato
+di tutti gli altri aspetti di spinlock_t:</p>
+<blockquote>
+<div><ul>
+<li><p>Le attività che trattengono un blocco spinlock_t non migrano su altri
+processori. Disabilitando la prelazione, i kernel non-PREEMPT_RT evitano la
+migrazione. Invece, i kernel PREEMPT_RT disabilitano la migrazione per
+assicurarsi che i puntatori a variabili per CPU rimangano validi anche
+quando un’attività subisce la prelazione.</p></li>
+<li><p>Lo stato di un’attività si mantiene durante le acquisizioni del blocco al
+fine di garantire che le regole basate sullo stato delle attività si possano
+applicare a tutte le configurazioni del kernel. I kernel non-PREEMPT_RT
+lasciano lo stato immutato. Tuttavia, la funzionalità PREEMPT_RT deve
+cambiare lo stato se l’attività si blocca durante l’acquisizione. Dunque,
+salva lo stato attuale prima di bloccarsi ed il rispettivo risveglio lo
+ripristinerà come nell’esempio seguente:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>task-&gt;state = TASK_INTERRUPTIBLE
+ lock()
+   block()
+     task-&gt;saved_state = task-&gt;state
+     task-&gt;state = TASK_UNINTERRUPTIBLE
+     schedule()
+                                    lock wakeup
+                                      task-&gt;state = task-&gt;saved_state
+</pre></div>
+</div>
+<p>Altri tipi di risvegli avrebbero impostato direttamente lo stato a RUNNING,
+ma in questo caso non avrebbe funzionato perché l’attività deve rimanere
+bloccata fintanto che il blocco viene trattenuto. Quindi, lo stato salvato
+viene messo a RUNNING quando il risveglio di un non-blocco cerca di
+risvegliare un’attività bloccata in attesa del rilascio di uno spinlock. Poi,
+quando viene completata l’acquisizione del blocco, il suo risveglio
+ripristinerà lo stato salvato, in questo caso a RUNNING:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>task-&gt;state = TASK_INTERRUPTIBLE
+ lock()
+   block()
+     task-&gt;saved_state = task-&gt;state
+     task-&gt;state = TASK_UNINTERRUPTIBLE
+     schedule()
+                                    non lock wakeup
+                                      task-&gt;saved_state = TASK_RUNNING
+
+                                    lock wakeup
+                                      task-&gt;state = task-&gt;saved_state
+</pre></div>
+</div>
+<p>Questo garantisce che il vero risveglio non venga perso.</p>
+</li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="rwlock-t">
+<h2>rwlock_t<a class="headerlink" href="#rwlock-t" title="Link to this heading">¶</a></h2>
+<p>Il blocco rwlock_t è un meccanismo che permette più lettori ma un solo scrittore.</p>
+<p>Sui kernel non-PREEMPT_RT questo è un blocco ad attesa e per i suoi suffissi si
+applicano le stesse regole per spinlock_t. La sua implementazione è imparziale,
+quindi previene l’inedia dei processi scrittori.</p>
+<section id="rwlock-t-e-preempt-rt">
+<h3>rwlock_t e PREEMPT_RT<a class="headerlink" href="#rwlock-t-e-preempt-rt" title="Link to this heading">¶</a></h3>
+<p>Sui kernel PREEMPT_RT rwlock_t ha un’implementazione dedicata che si basa
+sull’uso di rt_mutex. Questo ne modifica il significato:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Tutte le modifiche fatte a spinlock_t si applicano anche a rwlock_t.</p></li>
+<li><p>Dato che uno scrittore rw_semaphore non può assicurare la propria priorità ai
+suoi lettori, un lettore con priorità più bassa che ha subito la prelazione
+continuerà a trattenere il blocco, quindi porta all’inedia anche gli
+scrittori con priorità più alta. Per contro, dato che i lettori possono
+garantire la propria priorità agli scrittori, uno scrittore a bassa priorità
+che subisce la prelazione vedrà la propria priorità alzata finché non
+rilascerà il blocco, e questo preverrà l’inedia dei processi lettori a causa
+di uno scrittore.</p></li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="precisazioni-su-preempt-rt">
+<h2>Precisazioni su PREEMPT_RT<a class="headerlink" href="#precisazioni-su-preempt-rt" title="Link to this heading">¶</a></h2>
+<section id="local-lock-su-rt">
+<h3>local_lock su RT<a class="headerlink" href="#local-lock-su-rt" title="Link to this heading">¶</a></h3>
+<p>Sui kernel PREEMPT_RT Ci sono alcune implicazioni dovute alla conversione di
+local_lock in un spinlock_t. Per esempio, su un kernel non-PREEMPT_RT il
+seguente codice funzionerà come ci si aspetta:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>local_lock_irq(&amp;local_lock);
+raw_spin_lock(&amp;lock);
+</pre></div>
+</div>
+<p>ed è equivalente a:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>raw_spin_lock_irq(&amp;lock);
+</pre></div>
+</div>
+<p>Ma su un kernel PREEMPT_RT questo codice non funzionerà perché local_lock_irq()
+si traduce in uno spinlock_t per CPU che non disabilita né le interruzioni né la
+prelazione. Il seguente codice funzionerà su entrambe i kernel con o senza
+PREEMPT_RT:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>local_lock_irq(&amp;local_lock);
+spin_lock(&amp;lock);
+</pre></div>
+</div>
+<p>Un altro dettaglio da tenere a mente con local_lock è che ognuno di loro ha un
+ambito di protezione ben preciso. Dunque, la seguente sostituzione è errate:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>func1()
+{
+  local_irq_save(flags);    -&gt; local_lock_irqsave(&amp;local_lock_1, flags);
+  func3();
+  local_irq_restore(flags); -&gt; local_unlock_irqrestore(&amp;local_lock_1, flags);
+}
+
+func2()
+{
+  local_irq_save(flags);    -&gt; local_lock_irqsave(&amp;local_lock_2, flags);
+  func3();
+  local_irq_restore(flags); -&gt; local_unlock_irqrestore(&amp;local_lock_2, flags);
+}
+
+func3()
+{
+  lockdep_assert_irqs_disabled();
+  access_protected_data();
+}
+</pre></div>
+</div>
+<p>Questo funziona correttamente su un kernel non-PREEMPT_RT, ma su un kernel
+PREEMPT_RT local_lock_1 e local_lock_2 sono distinti e non possono serializzare
+i chiamanti di func3(). L’<em>assert</em> di lockdep verrà attivato su un kernel
+PREEMPT_RT perché local_lock_irqsave() non disabilita le interruzione a casa
+della specifica semantica di spinlock_t in PREEMPT_RT. La corretta sostituzione
+è:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>func1()
+{
+  local_irq_save(flags);    -&gt; local_lock_irqsave(&amp;local_lock, flags);
+  func3();
+  local_irq_restore(flags); -&gt; local_unlock_irqrestore(&amp;local_lock, flags);
+}
+
+func2()
+{
+  local_irq_save(flags);    -&gt; local_lock_irqsave(&amp;local_lock, flags);
+  func3();
+  local_irq_restore(flags); -&gt; local_unlock_irqrestore(&amp;local_lock, flags);
+}
+
+func3()
+{
+  lockdep_assert_held(&amp;local_lock);
+  access_protected_data();
+}
+</pre></div>
+</div>
+</section>
+<section id="spinlock-t-e-rwlock-t">
+<h3>spinlock_t e rwlock_t<a class="headerlink" href="#spinlock-t-e-rwlock-t" title="Link to this heading">¶</a></h3>
+<p>Ci sono alcune conseguenze di cui tener conto dal cambiamento di semantica di
+spinlock_t e rwlock_t sui kernel PREEMPT_RT. Per esempio, sui kernel non
+PREEMPT_RT il seguente codice funziona come ci si aspetta:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>local_irq_disable();
+spin_lock(&amp;lock);
+</pre></div>
+</div>
+<p>ed è equivalente a:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>spin_lock_irq(&amp;lock);
+</pre></div>
+</div>
+<p>Lo stesso vale per rwlock_t e le varianti con _irqsave().</p>
+<p>Sui kernel PREEMPT_RT questo codice non funzionerà perché gli rtmutex richiedono
+un contesto con la possibilità di prelazione. Al suo posto, usate
+spin_lock_irq() o spin_lock_irqsave() e le loro controparti per il rilascio. I
+kernel PREEMPT_RT offrono un meccanismo local_lock per i casi in cui la
+disabilitazione delle interruzioni ed acquisizione di un blocco devono rimanere
+separati. Acquisire un local_lock àncora un processo ad una CPU permettendo cose
+come un’acquisizione di un blocco con interruzioni disabilitate per singola CPU.</p>
+<p>Il tipico scenario è quando si vuole proteggere una variabile di processore nel
+contesto di un thread:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct foo *p = get_cpu_ptr(&amp;var1);
+
+spin_lock(&amp;p-&gt;lock);
+p-&gt;count += this_cpu_read(var2);
+</pre></div>
+</div>
+<p>Questo codice è corretto su un kernel non-PREEMPT_RT, ma non lo è su un
+PREEMPT_RT. La modifica della semantica di spinlock_t su PREEMPT_RT non permette
+di acquisire p-&gt;lock perché, implicitamente, get_cpu_ptr() disabilita la
+prelazione. La seguente sostituzione funzionerà su entrambe i kernel:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct foo *p;
+
+migrate_disable();
+p = this_cpu_ptr(&amp;var1);
+spin_lock(&amp;p-&gt;lock);
+p-&gt;count += this_cpu_read(var2);
+</pre></div>
+</div>
+<p>La funzione migrate_disable() assicura che il processo venga tenuto sulla CPU
+corrente, e di conseguenza garantisce che gli accessi per-CPU alle variabili var1 e
+var2 rimangano sulla stessa CPU fintanto che il processo rimane prelabile.</p>
+<p>La sostituzione con migrate_disable() non funzionerà nel seguente scenario:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>func()
+{
+  struct foo *p;
+
+  migrate_disable();
+  p = this_cpu_ptr(&amp;var1);
+  p-&gt;val = func2();
+</pre></div>
+</div>
+<p>Questo non funziona perché migrate_disable() non protegge dal ritorno da un
+processo che aveva avuto il diritto di prelazione. Una sostituzione più adatta
+per questo caso è:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>func()
+{
+  struct foo *p;
+
+  local_lock(&amp;foo_lock);
+  p = this_cpu_ptr(&amp;var1);
+  p-&gt;val = func2();
+</pre></div>
+</div>
+<p>Su un kernel non-PREEMPT_RT, questo codice protegge dal rientro disabilitando la
+prelazione. Su un kernel PREEMPT_RT si ottiene lo stesso risultato acquisendo lo
+spinlock di CPU.</p>
+</section>
+<section id="raw-spinlock-t-su-rt">
+<h3>raw_spinlock_t su RT<a class="headerlink" href="#raw-spinlock-t-su-rt" title="Link to this heading">¶</a></h3>
+<p>Acquisire un raw_spinlock_t disabilita la prelazione e possibilmente anche le
+interruzioni, quindi la sezione critica deve evitare di acquisire uno spinlock_t
+o rwlock_t. Per esempio, la sezione critica non deve fare allocazioni di
+memoria. Su un kernel non-PREEMPT_RT il seguente codice funziona perfettamente:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>raw_spin_lock(&amp;lock);
+p = kmalloc(sizeof(*p), GFP_ATOMIC);
+</pre></div>
+</div>
+<p>Ma lo stesso codice non funziona su un kernel PREEMPT_RT perché l’allocatore di
+memoria può essere oggetto di prelazione e quindi non può essere chiamato in un
+contesto atomico. Tuttavia, si può chiamare l’allocatore di memoria quando si
+trattiene un blocco <em>non-raw</em> perché non disabilitano la prelazione sui kernel
+PREEMPT_RT:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>spin_lock(&amp;lock);
+p = kmalloc(sizeof(*p), GFP_ATOMIC);
+</pre></div>
+</div>
+</section>
+<section id="bit-spinlocks">
+<h3>bit spinlocks<a class="headerlink" href="#bit-spinlocks" title="Link to this heading">¶</a></h3>
+<p>I kernel PREEMPT_RT non possono sostituire i bit spinlock perché un singolo bit
+è troppo piccolo per farci stare un rtmutex. Dunque, la semantica dei bit
+spinlock è mantenuta anche sui kernel PREEMPT_RT. Quindi, le precisazioni fatte
+per raw_spinlock_t valgono anche qui.</p>
+<p>In PREEMPT_RT, alcuni bit spinlock sono sostituiti con normali spinlock_t usando
+condizioni di preprocessore in base a dove vengono usati. Per contro, questo non
+serve quando si sostituiscono gli spinlock_t. Invece, le condizioni poste sui
+file d’intestazione e sul cuore dell’implementazione della sincronizzazione
+permettono al compilatore di effettuare la sostituzione in modo trasparente.</p>
+</section>
+</section>
+<section id="regole-d-annidamento-dei-tipi-di-blocchi">
+<h2>Regole d’annidamento dei tipi di blocchi<a class="headerlink" href="#regole-d-annidamento-dei-tipi-di-blocchi" title="Link to this heading">¶</a></h2>
+<p>Le regole principali sono:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>I tipi di blocco appartenenti alla stessa categoria possono essere annidati
+liberamente a patto che si rispetti l’ordine di blocco al fine di evitare
+stalli.</p></li>
+<li><p>I blocchi con sospensione non possono essere annidati in blocchi del tipo
+CPU locale o ad attesa attiva</p></li>
+<li><p>I blocchi ad attesa attiva e su CPU locale possono essere annidati nei
+blocchi ad attesa con sospensione.</p></li>
+<li><p>I blocchi ad attesa attiva possono essere annidati in qualsiasi altro tipo.</p></li>
+</ul>
+</div></blockquote>
+<p>Queste limitazioni si applicano ad entrambe i kernel con o senza PREEMPT_RT.</p>
+<p>Il fatto che un kernel PREEMPT_RT cambi i blocchi spinlock_t e rwlock_t dal tipo
+ad attesa attiva a quello con sospensione, e che sostituisca local_lock con uno
+spinlock_t per CPU, significa che non possono essere acquisiti quando si è in un
+blocco raw_spinlock. Ne consegue il seguente ordine d’annidamento:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>blocchi ad attesa con sospensione</p></li>
+<li><p>spinlock_t, rwlock_t, local_lock</p></li>
+<li><p>raw_spinlock_t e bit spinlocks</p></li>
+</ol>
+</div></blockquote>
+<p>Se queste regole verranno violate, allora lockdep se ne accorgerà e questo sia
+con o senza PREEMPT_RT.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/it_IT/locking/locktypes.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1048,13 +1048,13 @@ videodev2.h
      \* struct v4l2_plane - plane info for multi-planar buffers
      \* @bytesused\:          number of bytes occupied by data in the plane (payload)
      \* @length\:             size of this plane (NOT the payload) in bytes
-     \* @mem\_offset\:         when memory in the associated struct v4l2_buffer is
+     \* @m.mem\_offset\:       when memory in the associated struct v4l2_buffer is
      \*                      :c:type:`V4L2_MEMORY_MMAP <v4l2_memory>`, equals the offset from the start of
      \*                      the device memory for this plane (or is a "cookie" that
      \*                      should be passed to mmap() called on the video node)
-     \* @userptr\:            when memory is :c:type:`V4L2_MEMORY_USERPTR <v4l2_memory>`, a userspace pointer
+     \* @m.userptr\:          when memory is :c:type:`V4L2_MEMORY_USERPTR <v4l2_memory>`, a userspace pointer
      \*                      pointing to this plane
-     \* @fd\:                 when memory is :c:type:`V4L2_MEMORY_DMABUF <v4l2_memory>`, a userspace file
+     \* @m.fd\:               when memory is :c:type:`V4L2_MEMORY_DMABUF <v4l2_memory>`, a userspace file
      \*                      descriptor associated with this plane
      \* @m\:                  union of @mem\_offset, @userptr and @fd
      \* @data\_offset\:        offset in the plane to the start of data; usually 0,
@@ -1092,14 +1092,14 @@ videodev2.h
      \* @sequence\:   sequence count of this frame
      \* @memory\:     enum :c:type:`v4l2_memory`\ ; the method, in which the actual video data is
      \*              passed
-     \* @offset\:     for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_MMAP <v4l2_memory>`;
+     \* @m.offset\:   for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_MMAP <v4l2_memory>`;
      \*              offset from the start of the device memory for this plane,
      \*              (or a "cookie" that should be passed to mmap() as offset)
-     \* @userptr\:    for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_USERPTR <v4l2_memory>`;
+     \* @m.userptr\:  for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_USERPTR <v4l2_memory>`;
      \*              a userspace pointer pointing to this buffer
-     \* @fd\:         for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_DMABUF <v4l2_memory>`;
+     \* @m.fd\:               for non-multiplanar buffers with memory == :c:type:`V4L2_MEMORY_DMABUF <v4l2_memory>`;
      \*              a userspace file descriptor associated with this buffer
-     \* @planes\:     for multiplanar buffers; userspace pointer to the array of plane
+     \* @m.planes\:   for multiplanar buffers; userspace pointer to the array of plane
      \*              info structs for this buffer
      \* @m\:          union of @offset, @userptr, @planes and @fd
      \* @length\:     size in bytes of the buffer (NOT its payload) for single-plane
@@ -2424,15 +2424,15 @@ videodev2.h
 
     \/\*\*
      \* struct v4l2_format - stream data format
-     \* @type\:       enum :c:type:`v4l2_buf_type`\ ; type of the data stream
-     \* @pix\:        definition of an image format
-     \* @pix\_mp\:     definition of a multiplanar image format
-     \* @win\:        definition of an overlaid image
-     \* @vbi\:        raw VBI capture or output parameters
-     \* @sliced\:     sliced VBI capture or output parameters
-     \* @raw\_data\:   placeholder for future extensions and custom formats
-     \* @fmt\:        union of @pix, @pix\_mp, @win, @vbi, @sliced, @sdr, @meta
-     \*              and @raw\_data
+     \* @type\:               enum :c:type:`v4l2_buf_type`\ ; type of the data stream
+     \* @fmt.pix\:            definition of an image format
+     \* @fmt.pix\_mp\:         definition of a multiplanar image format
+     \* @fmt.win\:            definition of an overlaid image
+     \* @fmt.vbi\:            raw VBI capture or output parameters
+     \* @fmt.sliced\:         sliced VBI capture or output parameters
+     \* @fmt.raw\_data\:       placeholder for future extensions and custom formats
+     \* @fmt\:                union of @pix, @pix\_mp, @win, @vbi, @sliced, @sdr,
+     \*                      @meta and @raw\_data
      \*\/
     struct v4l2_format \{
             \_\_u32    type;
