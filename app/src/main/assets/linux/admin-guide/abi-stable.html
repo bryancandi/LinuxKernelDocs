@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -1061,6 +1061,17 @@ support sending integrity metadata.</p>
 <p>Indicates whether the block layer should automatically
 generate checksums for write requests bound for
 devices that support receiving integrity metadata.</p>
+<table class="docutils align-default" id="abi-sys-block-disk-partscan">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/partscan</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
+<p>The <a class="reference internal" href="#abi-sys-block-disk-partscan"><span class="std std-ref">/sys/block/&lt;disk&gt;/partscan</span></a> files reports if partition
+scanning is enabled for the disk.  It returns “1” if partition
+scanning is enabled, or “0” if not.  The value type is a 32-bit
+unsigned integer, but only “0” and “1” are valid values.</p>
 <table class="docutils align-default" id="abi-sys-block-disk-queue-add-random">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/queue/add_random</strong></p></td>
@@ -1548,18 +1559,6 @@ times where the same data must be seen every time -- for
 example, once to calculate a checksum and once to actually write
 the data.  If no such restriction exists, this file will contain
 ‘0’.  This file is writable for testing purposes.</p>
-<table class="docutils align-default" id="abi-sys-block-disk-queue-throttle-sample-time">
-<tbody>
-<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/queue/throttle_sample_time</strong></p></td>
-</tr>
-</tbody>
-</table>
-<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
-<p>[RW] This is the time window that blk-throttle samples data, in
-millisecond.  blk-throttle makes decision based on the
-samplings. Lower time means cgroups have more smooth throughput,
-but higher CPU overhead. This exists only when
-CONFIG_BLK_DEV_THROTTLING_LOW is enabled.</p>
 <table class="docutils align-default" id="abi-sys-block-disk-queue-virt-boundary-mask">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/queue/virt_boundary_mask</strong></p></td>
@@ -2393,6 +2392,21 @@ a reset of last resort, and will require a complete re-init.
 This can be useful as a method of recovery if the device is
 non-responsive, or as a means of loading new firmware as a
 system administration task.</p>
+<table class="docutils align-default" id="abi-sys-bus-mhi-devices-trigger-edl">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/bus/mhi/devices/.../trigger_edl</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-bus-mhi"><span class="std std-ref">sysfs-bus-mhi</span></a></p>
+<p>Writing a non-zero value to this file will force devices to
+enter EDL (Emergency Download) mode. This entry only exists for
+devices capable of entering the EDL mode using the standard EDL
+triggering mechanism defined in the MHI spec v1.2. Once in EDL
+mode, the flash programmer image can be downloaded to the
+device to enter the flash programmer execution environment.
+This can be useful if user wants to use QDL (Qualcomm Download,
+which is used to download firmware over EDL) to update firmware.</p>
 <table class="docutils align-default" id="abi-sys-bus-nvmem-devices-nvmem">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/bus/nvmem/devices/.../nvmem</strong></p></td>
@@ -6954,93 +6968,6 @@ Description Table (FADT)” of the ACPI specification.</p>
 </dd>
 </dl>
 </section>
-<table class="docutils align-default" id="abi-sys-firmware-efi-vars">
-<tbody>
-<tr class="row-odd"><td><p><strong>/sys/firmware/efi/vars</strong></p></td>
-</tr>
-</tbody>
-</table>
-<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-firmware-efi-vars"><span class="std std-ref">sysfs-firmware-efi-vars</span></a></p>
-<p>This directory exposes interfaces for interactive with
-EFI variables.  For more information on EFI variables,
-see ‘Variable Services’ in the UEFI specification
-(section 7.2 in specification version 2.3 Errata D).</p>
-<p>In summary, EFI variables are named, and are classified
-into separate namespaces through the use of a vendor
-GUID.  They also have an arbitrary binary value
-associated with them.</p>
-<p>The efivars module enumerates these variables and
-creates a separate directory for each one found.  Each
-directory has a name of the form “&lt;key&gt;-&lt;vendor guid&gt;”
-and contains the following files:</p>
-<table class="docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p>attributes:</p></td>
-<td><p>A read-only text file enumerating the
-EFI variable flags.  Potential values
-include:</p>
-<p>EFI_VARIABLE_NON_VOLATILE
-EFI_VARIABLE_BOOTSERVICE_ACCESS
-EFI_VARIABLE_RUNTIME_ACCESS
-EFI_VARIABLE_HARDWARE_ERROR_RECORD
-EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS</p>
-<p>See the EFI documentation for an
-explanation of each of these variables.</p>
-</td>
-</tr>
-<tr class="row-even"><td><p>data:</p></td>
-<td><p>A read-only binary file that can be read
-to attain the value of the EFI variable</p></td>
-</tr>
-<tr class="row-odd"><td><p>guid:</p></td>
-<td><p>The vendor GUID of the variable.  This
-should always match the GUID in the
-variable’s name.</p></td>
-</tr>
-<tr class="row-even"><td><p>raw_var:</p></td>
-<td><p>A binary file that can be read to obtain
-a structure that contains everything
-there is to know about the variable.
-For structure definition see “struct
-efi_variable” in the kernel sources.</p>
-<p>This file can also be written to in
-order to update the value of a variable.
-For this to work however, all fields of
-the “struct efi_variable” passed must
-match byte for byte with the structure
-read out of the file, save for the value
-portion.</p>
-<p><strong>Note</strong> the efi_variable structure
-read/written with this file contains a
-‘long’ type that may change widths
-depending on your underlying
-architecture.</p>
-</td>
-</tr>
-<tr class="row-odd"><td><p>size:</p></td>
-<td><p>As ASCII representation of the size of
-the variable’s value.</p></td>
-</tr>
-</tbody>
-</table>
-<p>In addition, two other magic binary files are provided
-in the top-level directory and are used for adding and
-removing variables:</p>
-<table class="docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p>new_var:</p></td>
-<td><p>Takes a “struct efi_variable” and
-instructs the EFI firmware to create a
-new variable.</p></td>
-</tr>
-<tr class="row-even"><td><p>del_var:</p></td>
-<td><p>Takes a “struct efi_variable” and
-instructs the EFI firmware to remove any
-variable that has a matching vendor GUID
-and variable key name.</p></td>
-</tr>
-</tbody>
-</table>
 <table class="docutils align-default" id="abi-sys-firmware-opal-dump">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/firmware/opal/dump</strong></p></td>
@@ -7683,6 +7610,7 @@ that it is correct for their architecture.</p>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-integrity-read-verify"><span class="std std-ref">/sys/block/&lt;disk&gt;/integrity/read_verify</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-integrity-tag-size"><span class="std std-ref">/sys/block/&lt;disk&gt;/integrity/tag_size</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-integrity-write-generate"><span class="std std-ref">/sys/block/&lt;disk&gt;/integrity/write_generate</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-block-disk-partscan"><span class="std std-ref">/sys/block/&lt;disk&gt;/partscan</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-partition-alignment-offset"><span class="std std-ref">/sys/block/&lt;disk&gt;/&lt;partition&gt;/alignment_offset</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-partition-discard-alignment"><span class="std std-ref">/sys/block/&lt;disk&gt;/&lt;partition&gt;/discard_alignment</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-partition-stat"><span class="std std-ref">/sys/block/&lt;disk&gt;/&lt;partition&gt;/stat</span></a></p></li>
@@ -7725,7 +7653,6 @@ that it is correct for their architecture.</p>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-rq-affinity"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/rq_affinity</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-scheduler"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/scheduler</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-stable-writes"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/stable_writes</span></a></p></li>
-<li><p><a class="reference internal" href="#abi-sys-block-disk-queue-throttle-sample-time"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/throttle_sample_time</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-virt-boundary-mask"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/virt_boundary_mask</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-wbt-lat-usec"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/wbt_lat_usec</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-queue-write-cache"><span class="std std-ref">/sys/block/&lt;disk&gt;/queue/write_cache</span></a></p></li>
@@ -7765,6 +7692,7 @@ that it is correct for their architecture.</p>
 <li><p><a class="reference internal" href="#abi-sys-bus-mhi-devices-serialnumber"><span class="std std-ref">/sys/bus/mhi/devices/.../serialnumber</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-bus-mhi-devices-oem-pk-hash"><span class="std std-ref">/sys/bus/mhi/devices/.../oem_pk_hash</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-bus-mhi-devices-soc-reset"><span class="std std-ref">/sys/bus/mhi/devices/.../soc_reset</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-bus-mhi-devices-trigger-edl"><span class="std std-ref">/sys/bus/mhi/devices/.../trigger_edl</span></a></p></li>
 </ul>
 </section>
 <section id="file-stable-sysfs-bus-nvmem">
@@ -8516,13 +8444,6 @@ is documented in <a class="reference internal" href="sysfs-rules.html"><span cla
 <p>Has the following ABI:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#abi-sys-bus-w1-devices-w1-seq"><span class="std std-ref">/sys/bus/w1/devices/.../w1_seq</span></a></p></li>
-</ul>
-</section>
-<section id="file-stable-sysfs-firmware-efi-vars">
-<span id="abi-file-stable-sysfs-firmware-efi-vars"></span><h2>File stable/sysfs-firmware-efi-vars<a class="headerlink" href="#file-stable-sysfs-firmware-efi-vars" title="Link to this heading">¶</a></h2>
-<p>Has the following ABI:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="#abi-sys-firmware-efi-vars"><span class="std std-ref">/sys/firmware/efi/vars</span></a></p></li>
 </ul>
 </section>
 <section id="file-stable-sysfs-firmware-opal-dump">

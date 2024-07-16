@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -560,7 +560,7 @@ source pads.</p>
 </div>
 </section>
 <section id="streams-multiplexed-media-pads-and-internal-routing">
-<h3><span class="section-number">4.13.3.5. </span>Streams, multiplexed media pads and internal routing<a class="headerlink" href="#streams-multiplexed-media-pads-and-internal-routing" title="Link to this heading">¶</a></h3>
+<span id="subdev-routing"></span><h3><span class="section-number">4.13.3.5. </span>Streams, multiplexed media pads and internal routing<a class="headerlink" href="#streams-multiplexed-media-pads-and-internal-routing" title="Link to this heading">¶</a></h3>
 <p>Simple V4L2 sub-devices do not support multiple, unrelated video streams,
 and only a single stream can pass through a media link and a media pad.
 Thus each pad contains a format and selection configuration for that
@@ -577,9 +577,9 @@ sink pad. The stream-aware receiver will de-multiplex the streams received on
 the its sink pad and allows to route them individually to one of its source
 pads.</p>
 <p>Subdevice drivers that support multiplexed streams are compatible with
-non-multiplexed subdev drivers, but, of course, require a routing configuration
-where the link between those two types of drivers contains only a single
-stream.</p>
+non-multiplexed subdev drivers. However, if the driver at the sink end of a link
+does not support streams, then only stream 0 of source end may be captured.
+There may be additional limitations specific to the sink device.</p>
 <section id="understanding-streams">
 <h4><span class="section-number">4.13.3.5.1. </span>Understanding streams<a class="headerlink" href="#understanding-streams" title="Link to this heading">¶</a></h4>
 <p>A stream is a stream of content (e.g. pixel data or metadata) flowing through
@@ -613,8 +613,28 @@ stream on a source pad, however, only a single route is allowed.</p>
 are independent of similar configurations on other streams. This is
 subject to change in the future.</p>
 </section>
+<section id="device-types-and-routing-setup">
+<h4><span class="section-number">4.13.3.5.3. </span>Device types and routing setup<a class="headerlink" href="#device-types-and-routing-setup" title="Link to this heading">¶</a></h4>
+<p>Different kinds of sub-devices have differing behaviour for route activation,
+depending on the hardware. In all cases, however, only routes that have the
+<code class="docutils literal notranslate"><span class="pre">V4L2_SUBDEV_STREAM_FL_ACTIVE</span></code> flag set are active.</p>
+<p>Devices generating the streams may allow enabling and disabling some of the
+routes or have a fixed routing configuration. If the routes can be disabled, not
+declaring the routes (or declaring them without
+<code class="docutils literal notranslate"><span class="pre">V4L2_SUBDEV_STREAM_FL_ACTIVE</span></code> flag set) in <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_ROUTING</span></code> will
+disable the routes. <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_ROUTING</span></code> will still return such routes
+back to the user in the routes array, with the <code class="docutils literal notranslate"><span class="pre">V4L2_SUBDEV_STREAM_FL_ACTIVE</span></code>
+flag unset.</p>
+<p>Devices transporting the streams almost always have more configurability with
+respect to routing. Typically any route between the sub-device’s sink and source
+pads is possible, and multiple routes (usually up to certain limited number) may
+be active simultaneously. For such devices, no routes are created by the driver
+and user-created routes are fully replaced when <code class="docutils literal notranslate"><span class="pre">VIDIOC_SUBDEV_S_ROUTING</span></code> is
+called on the sub-device. Such newly created routes have the device’s default
+configuration for format and selection rectangles.</p>
+</section>
 <section id="configuring-streams">
-<h4><span class="section-number">4.13.3.5.3. </span>Configuring streams<a class="headerlink" href="#configuring-streams" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">4.13.3.5.4. </span>Configuring streams<a class="headerlink" href="#configuring-streams" title="Link to this heading">¶</a></h4>
 <p>The configuration of the streams is done individually for each sub-device and
 the validity of the streams between sub-devices is validated when the pipeline
 is started.</p>
@@ -633,7 +653,7 @@ associated with either sink or source pads of routes configured using the
 </ol>
 </section>
 <section id="multiplexed-streams-setup-example">
-<h4><span class="section-number">4.13.3.5.4. </span>Multiplexed streams setup example<a class="headerlink" href="#multiplexed-streams-setup-example" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">4.13.3.5.5. </span>Multiplexed streams setup example<a class="headerlink" href="#multiplexed-streams-setup-example" title="Link to this heading">¶</a></h4>
 <p>A simple example of a multiplexed stream setup might be as follows:</p>
 <ul class="simple">
 <li><p>Two identical sensors (Sensor A and Sensor B). Each sensor has a single source

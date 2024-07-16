@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -757,6 +757,7 @@ has attempted to use it, never re-use this extension number.</p>
 #define I915_CONTEXT_PARAM_PERSISTENCE  0xb;
 #define I915_CONTEXT_PARAM_RINGSIZE     0xc;
 #define I915_CONTEXT_PARAM_PROTECTED_CONTENT    0xd;
+#define I915_CONTEXT_PARAM_LOW_LATENCY          0xe;
     __u64 value;
 };
 </pre></div>
@@ -2307,6 +2308,994 @@ array of this structure via <a class="reference internal" href="#c.drm_nouveau_e
 </div>
 </section>
 </section>
+<section id="drm-panthor-uapi">
+<h2>drm/panthor uAPI<a class="headerlink" href="#drm-panthor-uapi" title="Link to this heading">¶</a></h2>
+<p id="introduction"><strong>Introduction</strong></p>
+<p>This documentation describes the Panthor IOCTLs.</p>
+<p>Just a few generic rules about the data passed to the Panthor IOCTLs:</p>
+<ul class="simple">
+<li><p>Structures must be aligned on 64-bit/8-byte. If the object is not
+naturally aligned, a padding field must be added.</p></li>
+<li><p>Fields must be explicitly aligned to their natural type alignment with
+pad[0..N] fields.</p></li>
+<li><p>All padding fields will be checked by the driver to make sure they are
+zeroed.</p></li>
+<li><p>Flags can be added, but not removed/replaced.</p></li>
+<li><p>New fields can be added to the main structures (the structures
+directly passed to the ioctl). Those fields can be added at the end of
+the structure, or replace existing padding fields. Any new field being
+added must preserve the behavior that existed before those fields were
+added when a value of zero is passed.</p></li>
+<li><p>New fields can be added to indirect objects (objects pointed by the
+main structure), iff those objects are passed a size to reflect the
+size known by the userspace driver (see drm_panthor_obj_array::stride
+or drm_panthor_dev_query::size).</p></li>
+<li><p>If the kernel driver is too old to know some fields, those will be
+ignored if zero, and otherwise rejected (and so will be zero on output).</p></li>
+<li><p>If userspace is too old to know some fields, those will be zeroed
+(input) before the structure is parsed by the kernel driver.</p></li>
+<li><p>Each new flag/field addition must come with a driver version update so
+the userspace driver doesn’t have to trial and error to know which
+flags are supported.</p></li>
+<li><p>Structures should not contain unions, as this would defeat the
+extensibility of such structures.</p></li>
+<li><p>IOCTLs can’t be removed or replaced. New IOCTL IDs should be placed
+at the end of the drm_panthor_ioctl_id enum.</p></li>
+</ul>
+<p id="mmio-regions-exposed-to-userspace"><strong>MMIO regions exposed to userspace.</strong></p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_PANTHOR_USER_MMIO_OFFSET">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_PANTHOR_USER_MMIO_OFFSET</span></span></span><a class="headerlink" href="#c.DRM_PANTHOR_USER_MMIO_OFFSET" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p>File offset for all MMIO regions being exposed to userspace. Don’t use
+this value directly, use DRM_PANTHOR_USER_&lt;name&gt;_OFFSET values instead.
+pgoffset passed to mmap2() is an unsigned long, which forces us to use a
+different offset on 32-bit and 64-bit systems.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_PANTHOR_USER_FLUSH_ID_MMIO_OFFSET">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_PANTHOR_USER_FLUSH_ID_MMIO_OFFSET</span></span></span><a class="headerlink" href="#c.DRM_PANTHOR_USER_FLUSH_ID_MMIO_OFFSET" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p>File offset for the LATEST_FLUSH_ID register. The Userspace driver controls
+GPU cache flushing through CS instructions, but the flush reduction
+mechanism requires a flush_id. This flush_id could be queried with an
+ioctl, but Arm provides a well-isolated register page containing only this
+read-only register, so let’s expose this page through a static mmap offset
+and allow direct mapping of this MMIO region so we can avoid the
+user &lt;-&gt; kernel round-trip.</p>
+<p id="ioctl-ids"><strong>IOCTL IDs</strong></p>
+<p>enum drm_panthor_ioctl_id - IOCTL IDs</p>
+<p>Place new ioctls at the end, don’t re-order, don’t replace or remove entries.</p>
+<p>These IDs are not meant to be used directly. Use the DRM_IOCTL_PANTHOR_xxx
+definitions instead.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_IOCTL_PANTHOR">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_PANTHOR</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_PANTHOR" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_PANTHOR</span> <span class="pre">(__access,</span> <span class="pre">__id,</span> <span class="pre">__type)</span></code></p>
+<blockquote>
+<div><p>Build a Panthor IOCTL number</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__access</span></code></dt><dd><p>Access type. Must be R, W or RW.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__id</span></code></dt><dd><p>One of the DRM_PANTHOR_xxx id.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__type</span></code></dt><dd><p>Suffix of the type being passed to the IOCTL.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Don’t use this macro directly, use the DRM_IOCTL_PANTHOR_xxx
+values instead.</p>
+<p><strong>Return</strong></p>
+<p>An IOCTL number to be passed to ioctl() from userspace.</p>
+</div>
+<p id="ioctl-arguments"><strong>IOCTL arguments</strong></p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_obj_array">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_obj_array</span></span></span><a class="headerlink" href="#c.drm_panthor_obj_array" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Object array.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_obj_array {
+    __u32 stride;
+    __u32 count;
+    __u64 array;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">stride</span></code></dt><dd><p>Stride of object struct. Used for versioning.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">count</span></code></dt><dd><p>Number of objects in the array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">array</span></code></dt><dd><p>User pointer to an array of objects.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This object is used to pass an array of objects whose size is subject to changes in
+future versions of the driver. In order to support this mutability, we pass a stride
+describing the size of the object as known by userspace.</p>
+<p>You shouldn’t fill drm_panthor_obj_array fields directly. You should instead use
+the <a class="reference internal" href="#c.DRM_PANTHOR_OBJ_ARRAY" title="DRM_PANTHOR_OBJ_ARRAY"><code class="xref c c-func docutils literal notranslate"><span class="pre">DRM_PANTHOR_OBJ_ARRAY()</span></code></a> macro that takes care of initializing the stride to
+the object size.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_PANTHOR_OBJ_ARRAY">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_PANTHOR_OBJ_ARRAY</span></span></span><a class="headerlink" href="#c.DRM_PANTHOR_OBJ_ARRAY" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_OBJ_ARRAY</span> <span class="pre">(cnt,</span> <span class="pre">ptr)</span></code></p>
+<blockquote>
+<div><p>Initialize a drm_panthor_obj_array field.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">cnt</span></code></dt><dd><p>Number of elements in the array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ptr</span></code></dt><dd><p>Pointer to the array to pass to the kernel.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Macro initializing a drm_panthor_obj_array based on the object size as known
+by userspace.</p>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_sync_op_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_sync_op_flags</span></span></span><a class="headerlink" href="#c.drm_panthor_sync_op_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Synchronization operation flags.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_MASK</span></code></dt><dd><p>Synchronization handle type mask.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_SYNCOBJ</span></code></dt><dd><p>Synchronization object type.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ</span></code></dt><dd><p>Timeline synchronization
+object type.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_SYNC_OP_WAIT</span></code></dt><dd><p>Wait operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_SYNC_OP_SIGNAL</span></code></dt><dd><p>Signal operation.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_sync_op">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_sync_op</span></span></span><a class="headerlink" href="#c.drm_panthor_sync_op" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Synchronization operation.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_sync_op {
+    __u32 flags;
+    __u32 handle;
+    __u64 timeline_value;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Synchronization operation flags. Combination of DRM_PANTHOR_SYNC_OP values.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Sync handle.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeline_value</span></code></dt><dd><p>MBZ if
+(flags &amp; DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_MASK) !=
+DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_dev_query_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_dev_query_type</span></span></span><a class="headerlink" href="#c.drm_panthor_dev_query_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query type</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_DEV_QUERY_GPU_INFO</span></code></dt><dd><p>Query GPU information.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_DEV_QUERY_CSIF_INFO</span></code></dt><dd><p>Query command-stream interface information.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Place new types at the end, don’t re-order, don’t remove or replace.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_gpu_info">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_gpu_info</span></span></span><a class="headerlink" href="#c.drm_panthor_gpu_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>GPU information</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_gpu_info {
+    __u32 gpu_id;
+#define DRM_PANTHOR_ARCH_MAJOR(x)               ((x) &gt;&gt; 28);
+#define DRM_PANTHOR_ARCH_MINOR(x)               (((x) &gt;&gt; 24) &amp; 0xf);
+#define DRM_PANTHOR_ARCH_REV(x)                 (((x) &gt;&gt; 20) &amp; 0xf);
+#define DRM_PANTHOR_PRODUCT_MAJOR(x)            (((x) &gt;&gt; 16) &amp; 0xf);
+#define DRM_PANTHOR_VERSION_MAJOR(x)            (((x) &gt;&gt; 12) &amp; 0xf);
+#define DRM_PANTHOR_VERSION_MINOR(x)            (((x) &gt;&gt; 4) &amp; 0xff);
+#define DRM_PANTHOR_VERSION_STATUS(x)           ((x) &amp; 0xf);
+    __u32 gpu_rev;
+    __u32 csf_id;
+#define DRM_PANTHOR_CSHW_MAJOR(x)               (((x) &gt;&gt; 26) &amp; 0x3f);
+#define DRM_PANTHOR_CSHW_MINOR(x)               (((x) &gt;&gt; 20) &amp; 0x3f);
+#define DRM_PANTHOR_CSHW_REV(x)                 (((x) &gt;&gt; 16) &amp; 0xf);
+#define DRM_PANTHOR_MCU_MAJOR(x)                (((x) &gt;&gt; 10) &amp; 0x3f);
+#define DRM_PANTHOR_MCU_MINOR(x)                (((x) &gt;&gt; 4) &amp; 0x3f);
+#define DRM_PANTHOR_MCU_REV(x)                  ((x) &amp; 0xf);
+    __u32 l2_features;
+    __u32 tiler_features;
+    __u32 mem_features;
+    __u32 mmu_features;
+#define DRM_PANTHOR_MMU_VA_BITS(x)              ((x) &amp; 0xff);
+    __u32 thread_features;
+    __u32 max_threads;
+    __u32 thread_max_workgroup_size;
+    __u32 thread_max_barrier_size;
+    __u32 coherency_features;
+    __u32 texture_features[4];
+    __u32 as_present;
+    __u64 shader_present;
+    __u64 l2_present;
+    __u64 tiler_present;
+    __u32 core_features;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_id</span></code></dt><dd><p>GPU ID.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_rev</span></code></dt><dd><p>GPU revision.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">csf_id</span></code></dt><dd><p>Command stream frontend ID.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">l2_features</span></code></dt><dd><p>L2-cache features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tiler_features</span></code></dt><dd><p>Tiler features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mem_features</span></code></dt><dd><p>Memory features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mmu_features</span></code></dt><dd><p>MMU features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">thread_features</span></code></dt><dd><p>Thread features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_threads</span></code></dt><dd><p>Maximum number of threads.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">thread_max_workgroup_size</span></code></dt><dd><p>Maximum workgroup size.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">thread_max_barrier_size</span></code></dt><dd><p>Maximum number of threads that can wait
+simultaneously on a barrier.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">coherency_features</span></code></dt><dd><p>Coherency features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">texture_features</span></code></dt><dd><p>Texture features.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">as_present</span></code></dt><dd><p>Bitmask encoding the number of address-space exposed by the MMU.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shader_present</span></code></dt><dd><p>Bitmask encoding the shader cores exposed by the GPU.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">l2_present</span></code></dt><dd><p>Bitmask encoding the L2 caches exposed by the GPU.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tiler_present</span></code></dt><dd><p>Bitmask encoding the tiler units exposed by the GPU.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">core_features</span></code></dt><dd><p>Used to discriminate core variants when they exist.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Structure grouping all queryable information relating to the GPU.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_csif_info">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_csif_info</span></span></span><a class="headerlink" href="#c.drm_panthor_csif_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Command stream interface information</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_csif_info {
+    __u32 csg_slot_count;
+    __u32 cs_slot_count;
+    __u32 cs_reg_count;
+    __u32 scoreboard_slot_count;
+    __u32 unpreserved_cs_reg_count;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">csg_slot_count</span></code></dt><dd><p>Number of command stream group slots exposed by the firmware.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cs_slot_count</span></code></dt><dd><p>Number of command stream slots per group.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cs_reg_count</span></code></dt><dd><p>Number of command stream registers.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">scoreboard_slot_count</span></code></dt><dd><p>Number of scoreboard slots.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unpreserved_cs_reg_count</span></code></dt><dd><p>Number of command stream registers reserved by
+the kernel driver to call a userspace command stream.</p>
+<p>All registers can be used by a userspace command stream, but the
+[cs_slot_count - unpreserved_cs_reg_count .. cs_slot_count] registers are
+used by the kernel when DRM_PANTHOR_IOCTL_GROUP_SUBMIT is called.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>Padding field, set to zero.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Structure grouping all queryable information relating to the command stream interface.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_dev_query">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_dev_query</span></span></span><a class="headerlink" href="#c.drm_panthor_dev_query" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_PANTHOR_IOCTL_DEV_QUERY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_dev_query {
+    __u32 type;
+    __u32 size;
+    __u64 pointer;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>the query type (see drm_panthor_dev_query_type).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>size of the type being queried.</p>
+<p>If pointer is NULL, size is updated by the driver to provide the
+output structure size. If pointer is not NULL, the driver will
+only copy min(size, actual_structure_size) bytes to the pointer,
+and update the size accordingly. This allows us to extend query
+types without breaking userspace.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pointer</span></code></dt><dd><p>user pointer to a query type struct.</p>
+<p>Pointer can be NULL, in which case, nothing is copied, but the
+actual structure size is returned. If not NULL, it must point to
+a location that’s large enough to hold size bytes.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_create</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_PANTHOR_IOCTL_VM_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_vm_create {
+    __u32 flags;
+    __u32 id;
+    __u64 user_va_range;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>VM flags, MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>Returned VM ID.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">user_va_range</span></code></dt><dd><p>Size of the VA space reserved for user objects.</p>
+<p>The kernel will pick the remaining space to map kernel-only objects to the
+VM (heap chunks, heap context, ring buffers, kernel synchronization objects,
+...). If the space left for kernel objects is too small, kernel object
+allocation will fail further down the road. One can use
+drm_panthor_gpu_info::mmu_features to extract the total virtual address
+range, and chose a user_va_range that leaves some space to the kernel.</p>
+<p>If user_va_range is zero, the kernel will pick a sensible value based on
+TASK_SIZE and the virtual range supported by the GPU MMU (the kernel/user
+split should leave enough VA space for userspace processes to support SVM,
+while still allowing the kernel to map some amount of kernel objects in
+the kernel VA range). The value chosen by the driver will be returned in
+<strong>user_va_range</strong>.</p>
+<p>User VA space always starts at 0x0, kernel VA space is always placed after
+the user VA range.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_destroy</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_destroy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_PANTHOR_IOCTL_VM_DESTROY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_vm_destroy {
+    __u32 id;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>ID of the VM to destroy.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_bind_op_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_bind_op_flags</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_bind_op_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>VM bind operation flags</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_MAP_READONLY</span></code></dt><dd><p>Map the memory read-only.</p>
+<p>Only valid with DRM_PANTHOR_VM_BIND_OP_TYPE_MAP.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_MAP_NOEXEC</span></code></dt><dd><p>Map the memory not-executable.</p>
+<p>Only valid with DRM_PANTHOR_VM_BIND_OP_TYPE_MAP.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_MAP_UNCACHED</span></code></dt><dd><p>Map the memory uncached.</p>
+<p>Only valid with DRM_PANTHOR_VM_BIND_OP_TYPE_MAP.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_TYPE_MASK</span></code></dt><dd><p>Mask used to determine the type of operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_TYPE_MAP</span></code></dt><dd><p>Map operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_TYPE_UNMAP</span></code></dt><dd><p>Unmap operation.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_OP_TYPE_SYNC_ONLY</span></code></dt><dd><p>No VM operation.</p>
+<p>Just serves as a synchronization point on a VM queue.</p>
+<p>Only valid if <code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_ASYNC</span></code> is set in drm_panthor_vm_bind::flags,
+and drm_panthor_vm_bind_op::syncs contains at least one element.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_bind_op">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_bind_op</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_bind_op" title="Link to this definition">¶</a><br /></dt>
+<dd><p>VM bind operation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_vm_bind_op {
+    __u32 flags;
+    __u32 bo_handle;
+    __u64 bo_offset;
+    __u64 va;
+    __u64 size;
+    struct drm_panthor_obj_array syncs;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_panthor_vm_bind_op_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bo_handle</span></code></dt><dd><p>Handle of the buffer object to map.
+MBZ for unmap or sync-only operations.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bo_offset</span></code></dt><dd><p>Buffer object offset.
+MBZ for unmap or sync-only operations.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">va</span></code></dt><dd><p>Virtual address to map/unmap.
+MBZ for sync-only operations.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size to map/unmap.
+MBZ for sync-only operations.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">syncs</span></code></dt><dd><p>Array of <a class="reference internal" href="#c.drm_panthor_sync_op" title="drm_panthor_sync_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_panthor_sync_op</span></code></a> synchronization
+operations.</p>
+<p>This array must be empty if <code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_ASYNC</span></code> is not set on
+the drm_panthor_vm_bind object containing this VM bind operation.</p>
+<p>This array shall not be empty for sync-only operations.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_bind_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_bind_flags</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_bind_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>VM bind flags</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_BIND_ASYNC</span></code></dt><dd><p>VM bind operations are queued to the VM
+queue instead of being executed synchronously.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_bind">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_bind</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_bind" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_VM_BIND</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_vm_bind {
+    __u32 vm_id;
+    __u32 flags;
+    struct drm_panthor_obj_array ops;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM targeted by the bind request.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_panthor_vm_bind_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p>Array of <a class="reference internal" href="#c.drm_panthor_vm_bind_op" title="drm_panthor_vm_bind_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_panthor_vm_bind_op</span></code></a> bind operations.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_state">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_state</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>VM states.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_STATE_USABLE</span></code></dt><dd><p>VM is usable.</p>
+<p>New VM operations will be accepted on this VM.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_VM_STATE_UNUSABLE</span></code></dt><dd><p>VM is unusable.</p>
+<p>Something put the VM in an unusable state (like an asynchronous
+VM_BIND request failing for any reason).</p>
+<p>Once the VM is in this state, all new MAP operations will be
+rejected, and any GPU job targeting this VM will fail.
+UNMAP operations are still accepted.</p>
+<p>The only way to recover from an unusable VM is to create a new
+VM, and destroy the old one.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_vm_get_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_vm_get_state</span></span></span><a class="headerlink" href="#c.drm_panthor_vm_get_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get VM state.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_vm_get_state {
+    __u32 vm_id;
+    __u32 state;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM targeted by the get_state request.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>state returned by the driver.</p>
+<p>Must be one of the <a class="reference internal" href="#c.drm_panthor_vm_state" title="drm_panthor_vm_state"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_panthor_vm_state</span></code></a> values.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_bo_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_bo_flags</span></span></span><a class="headerlink" href="#c.drm_panthor_bo_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Buffer object flags, passed at creation time.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_BO_NO_MMAP</span></code></dt><dd><p>The buffer object will never be CPU-mapped in userspace.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_bo_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_bo_create</span></span></span><a class="headerlink" href="#c.drm_panthor_bo_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_BO_CREATE.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_bo_create {
+    __u64 size;
+    __u32 flags;
+    __u32 exclusive_vm_id;
+    __u32 handle;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Requested size for the object</p>
+<p>The (page-aligned) allocated size for the object will be returned.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Flags. Must be a combination of drm_panthor_bo_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exclusive_vm_id</span></code></dt><dd><p>Exclusive VM this buffer object will be mapped to.</p>
+<dl class="simple">
+<dt>If not zero, the field must refer to a valid VM ID, and implies that:</dt><dd><ul class="simple">
+<li><p>the buffer object will only ever be bound to that VM</p></li>
+<li><p>cannot be exported as a PRIME fd</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Returned handle for the object.</p>
+<p>Object handles are nonzero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_bo_mmap_offset">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_bo_mmap_offset</span></span></span><a class="headerlink" href="#c.drm_panthor_bo_mmap_offset" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_BO_MMAP_OFFSET.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_bo_mmap_offset {
+    __u32 handle;
+    __u32 pad;
+    __u64 offset;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle of the object we want an mmap offset for.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>The fake offset to use for subsequent mmap calls.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_queue_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_queue_create</span></span></span><a class="headerlink" href="#c.drm_panthor_queue_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Queue creation arguments.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_queue_create {
+    __u8 priority;
+    __u8 pad[3];
+    __u32 ringbuf_size;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">priority</span></code></dt><dd><p>Defines the priority of queues inside a group. Goes from 0 to 15,
+15 being the highest priority.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>Padding fields, MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ringbuf_size</span></code></dt><dd><p>Size of the ring buffer to allocate to this queue.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_group_priority">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_priority</span></span></span><a class="headerlink" href="#c.drm_panthor_group_priority" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Scheduling group priority</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_LOW</span></code></dt><dd><p>Low priority group.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_MEDIUM</span></code></dt><dd><p>Medium priority group.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_HIGH</span></code></dt><dd><p>High priority group.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_group_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_create</span></span></span><a class="headerlink" href="#c.drm_panthor_group_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_GROUP_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_group_create {
+    struct drm_panthor_obj_array queues;
+    __u8 max_compute_cores;
+    __u8 max_fragment_cores;
+    __u8 max_tiler_cores;
+    __u8 priority;
+    __u32 pad;
+    __u64 compute_core_mask;
+    __u64 fragment_core_mask;
+    __u64 tiler_core_mask;
+    __u32 vm_id;
+    __u32 group_handle;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">queues</span></code></dt><dd><p>Array of drm_panthor_queue_create elements.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_compute_cores</span></code></dt><dd><p>Maximum number of cores that can be used by compute
+jobs across CS queues bound to this group.</p>
+<p>Must be less or equal to the number of bits set in <strong>compute_core_mask</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_fragment_cores</span></code></dt><dd><p>Maximum number of cores that can be used by fragment
+jobs across CS queues bound to this group.</p>
+<p>Must be less or equal to the number of bits set in <strong>fragment_core_mask</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_tiler_cores</span></code></dt><dd><p>Maximum number of tilers that can be used by tiler jobs
+across CS queues bound to this group.</p>
+<p>Must be less or equal to the number of bits set in <strong>tiler_core_mask</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">priority</span></code></dt><dd><p>Group priority (see <a class="reference internal" href="#c.drm_panthor_group_priority" title="drm_panthor_group_priority"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_panthor_group_priority</span></code></a>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>Padding field, MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compute_core_mask</span></code></dt><dd><p>Mask encoding cores that can be used for compute jobs.</p>
+<p>This field must have at least <strong>max_compute_cores</strong> bits set.</p>
+<p>The bits set here should also be set in drm_panthor_gpu_info::shader_present.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fragment_core_mask</span></code></dt><dd><p>Mask encoding cores that can be used for fragment jobs.</p>
+<p>This field must have at least <strong>max_fragment_cores</strong> bits set.</p>
+<p>The bits set here should also be set in drm_panthor_gpu_info::shader_present.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tiler_core_mask</span></code></dt><dd><p>Mask encoding cores that can be used for tiler jobs.</p>
+<p>This field must have at least <strong>max_tiler_cores</strong> bits set.</p>
+<p>The bits set here should also be set in drm_panthor_gpu_info::tiler_present.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM ID to bind this group to.</p>
+<p>All submission to queues bound to this group will use this VM.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">group_handle</span></code></dt><dd><p>Returned group handle. Passed back when submitting jobs or
+destroying a group.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_group_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_destroy</span></span></span><a class="headerlink" href="#c.drm_panthor_group_destroy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_GROUP_DESTROY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_group_destroy {
+    __u32 group_handle;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">group_handle</span></code></dt><dd><p>Group to destroy</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>Padding field, MBZ.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_queue_submit">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_queue_submit</span></span></span><a class="headerlink" href="#c.drm_panthor_queue_submit" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Job submission arguments.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_queue_submit {
+    __u32 queue_index;
+    __u32 stream_size;
+    __u64 stream_addr;
+    __u32 latest_flush;
+    __u32 pad;
+    struct drm_panthor_obj_array syncs;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">queue_index</span></code></dt><dd><p>Index of the queue inside a group.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stream_size</span></code></dt><dd><p>Size of the command stream to execute.</p>
+<p>Must be 64-bit/8-byte aligned (the size of a CS instruction)</p>
+<p>Can be zero if stream_addr is zero too.</p>
+<p>When the stream size is zero, the queue submit serves as a
+synchronization point.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stream_addr</span></code></dt><dd><p>GPU address of the command stream to execute.</p>
+<p>Must be aligned on 64-byte.</p>
+<p>Can be zero is stream_size is zero too.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">latest_flush</span></code></dt><dd><p>FLUSH_ID read at the time the stream was built.</p>
+<p>This allows cache flush elimination for the automatic
+flush+invalidate(all) done at submission time, which is needed to
+ensure the GPU doesn’t get garbage when reading the indirect command
+stream buffers. If you want the cache flush to happen
+unconditionally, pass a zero here.</p>
+<p>Ignored when stream_size is zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">syncs</span></code></dt><dd><p>Array of <a class="reference internal" href="#c.drm_panthor_sync_op" title="drm_panthor_sync_op"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_panthor_sync_op</span></code></a> sync operations.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This is describing the userspace command stream to call from the kernel
+command stream ring-buffer. Queue submission is always part of a group
+submission, taking one or more jobs to submit to the underlying queues.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_group_submit">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_submit</span></span></span><a class="headerlink" href="#c.drm_panthor_group_submit" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_GROUP_SUBMIT</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_group_submit {
+    __u32 group_handle;
+    __u32 pad;
+    struct drm_panthor_obj_array queue_submits;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">group_handle</span></code></dt><dd><p>Handle of the group to queue jobs to.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">queue_submits</span></code></dt><dd><p>Array of drm_panthor_queue_submit objects.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_panthor_group_state_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_state_flags</span></span></span><a class="headerlink" href="#c.drm_panthor_group_state_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Group state flags</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_GROUP_STATE_TIMEDOUT</span></code></dt><dd><p>Group had unfinished jobs.</p>
+<p>When a group ends up with this flag set, no jobs can be submitted to its queues.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_PANTHOR_GROUP_STATE_FATAL_FAULT</span></code></dt><dd><p>Group had fatal faults.</p>
+<p>When a group ends up with this flag set, no jobs can be submitted to its queues.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_group_get_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_group_get_state</span></span></span><a class="headerlink" href="#c.drm_panthor_group_get_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_GROUP_GET_STATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_group_get_state {
+    __u32 group_handle;
+    __u32 state;
+    __u32 fatal_queues;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">group_handle</span></code></dt><dd><p>Handle of the group to query state on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>Combination of DRM_PANTHOR_GROUP_STATE_* flags encoding the
+group state.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fatal_queues</span></code></dt><dd><p>Bitmask of queues that faced fatal faults.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Used to query the state of a group and decide whether a new group should be created to
+replace it.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_tiler_heap_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_tiler_heap_create</span></span></span><a class="headerlink" href="#c.drm_panthor_tiler_heap_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_TILER_HEAP_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_tiler_heap_create {
+    __u32 vm_id;
+    __u32 initial_chunk_count;
+    __u32 chunk_size;
+    __u32 max_chunks;
+    __u32 target_in_flight;
+    __u32 handle;
+    __u64 tiler_heap_ctx_gpu_va;
+    __u64 first_heap_chunk_gpu_va;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM ID the tiler heap should be mapped to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">initial_chunk_count</span></code></dt><dd><p>Initial number of chunks to allocate. Must be at least one.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code></dt><dd><p>Chunk size.</p>
+<p>Must be page-aligned and lie in the [128k:8M] range.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_chunks</span></code></dt><dd><p>Maximum number of chunks that can be allocated.</p>
+<p>Must be at least <strong>initial_chunk_count</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">target_in_flight</span></code></dt><dd><p>Maximum number of in-flight render passes.</p>
+<p>If the heap has more than tiler jobs in-flight, the FW will wait for render
+passes to finish before queuing new tiler jobs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Returned heap handle. Passed back to DESTROY_TILER_HEAP.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tiler_heap_ctx_gpu_va</span></code></dt><dd><p>Returned heap GPU virtual address returned</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">first_heap_chunk_gpu_va</span></code></dt><dd><p>First heap chunk.</p>
+<p>The tiler heap is formed of heap chunks forming a single-link list. This
+is the first element in the list.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_tiler_heap_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_tiler_heap_destroy</span></span></span><a class="headerlink" href="#c.drm_panthor_tiler_heap_destroy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_TILER_HEAP_DESTROY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_tiler_heap_destroy {
+    __u32 handle;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle of the tiler heap to destroy.</p>
+<p>Must be a valid heap handle returned by DRM_IOCTL_PANTHOR_TILER_HEAP_CREATE.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>Padding field, MBZ.</p>
+</dd>
+</dl>
+</div>
+</section>
 <section id="drm-xe-uapi">
 <h2>drm/xe uAPI<a class="headerlink" href="#drm-xe-uapi" title="Link to this heading">¶</a></h2>
 <p id="xe-device-block-diagram"><strong>Xe Device Block Diagram</strong></p>
@@ -2752,7 +3741,11 @@ available exec queue priority</p></li>
     __u32 reference_clock;
     __u64 near_mem_regions;
     __u64 far_mem_regions;
-    __u64 reserved[8];
+    __u16 ip_ver_major;
+    __u16 ip_ver_minor;
+    __u16 ip_ver_rev;
+    __u16 pad2;
+    __u64 reserved[7];
 };
 </pre></div>
 </div>
@@ -2785,6 +3778,14 @@ Each index in this mask refers directly to the <a class="reference internal" hre
 <span class="pre">drm_xe_query_mem_regions</span></code></a>’ instance, no assumptions should
 be made about order. The type of each region is described
 by <a class="reference internal" href="#c.drm_xe_query_mem_regions" title="drm_xe_query_mem_regions"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_query_mem_regions</span></code></a>’ mem_class.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ip_ver_major</span></code></dt><dd><p>Graphics/media IP major version on GMD_ID platforms</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ip_ver_minor</span></code></dt><dd><p>Graphics/media IP minor version on GMD_ID platforms</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ip_ver_rev</span></code></dt><dd><p>Graphics/media IP revision version on GMD_ID platforms</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad2</span></code></dt><dd><p>MBZ</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>Reserved</p>
 </dd>
@@ -2841,9 +3842,9 @@ is equal to DRM_XE_DEVICE_QUERY_GT_LIST, then the reply uses <a class="reference
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_topology_mask {
     __u16 gt_id;
-#define DRM_XE_TOPO_DSS_GEOMETRY        (1 &lt;&lt; 0);
-#define DRM_XE_TOPO_DSS_COMPUTE         (1 &lt;&lt; 1);
-#define DRM_XE_TOPO_EU_PER_DSS          (1 &lt;&lt; 2);
+#define DRM_XE_TOPO_DSS_GEOMETRY        1;
+#define DRM_XE_TOPO_DSS_COMPUTE         2;
+#define DRM_XE_TOPO_EU_PER_DSS          4;
     __u16 type;
     __u32 num_bytes;
     __u8 mask[];
@@ -2949,6 +3950,7 @@ streamer cycle count was captured.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_uc_fw_version {
 #define XE_QUERY_UC_TYPE_GUC_SUBMISSION 0;
+#define XE_QUERY_UC_TYPE_HUC 1;
     __u16 uc_type;
     __u16 pad;
     __u32 branch_ver;
@@ -3307,6 +4309,8 @@ this.</p></li>
 #define DRM_XE_VM_BIND_OP_UNMAP_ALL     0x3;
 #define DRM_XE_VM_BIND_OP_PREFETCH      0x4;
     __u32 op;
+#define DRM_XE_VM_BIND_FLAG_READONLY    (1 &lt;&lt; 0);
+#define DRM_XE_VM_BIND_FLAG_IMMEDIATE   (1 &lt;&lt; 1);
 #define DRM_XE_VM_BIND_FLAG_NULL        (1 &lt;&lt; 2);
 #define DRM_XE_VM_BIND_FLAG_DUMPABLE    (1 &lt;&lt; 3);
     __u32 flags;
@@ -3399,6 +4403,12 @@ To be used only with <code class="docutils literal notranslate"><span class="pre
 </ul>
 </dd>
 <dt>and the <strong>flags</strong> can be:</dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_FLAG_READONLY</span></code> - Setup the page tables as read-only
+to ensure write protection</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_FLAG_IMMEDIATE</span></code> - On a faulting VM, do the
+MAP operation immediately rather than deferring the MAP to the page
+fault handler. This is implied on a non-faulting VM as there is no
+fault handler to defer to.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_BIND_FLAG_NULL</span></code> - When the NULL flag is set, the page
 tables are setup with a special bit which indicates writes are
 dropped and all reads return zero. In the future, the NULL flags

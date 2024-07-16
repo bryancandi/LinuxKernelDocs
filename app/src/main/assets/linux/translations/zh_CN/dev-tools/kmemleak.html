@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>内核内存泄露检测器 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="通过gdb调试内核和模块" href="gdb-kernel-debugging.html" />
+    <link rel="prev" title="未定义行为消毒剂 - UBSAN" href="ubsan.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.10.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#api">内部API文档</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_CN/dev-tools/kmemleak.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../dev-tools/kmemleak.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../dev-tools/kmemleak.html"><span class="doc">Kernel Memory Leak Detector</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>刘浩阳 Haoyang Liu &lt;<a class="reference external" href="mailto:tttturtleruss&#37;&#52;&#48;hust&#46;edu&#46;cn">tttturtleruss<span>&#64;</span>hust<span>&#46;</span>edu<span>&#46;</span>cn</a>&gt;</p>
+</dd>
+</dl>
+<section id="id1">
+<h1>内核内存泄露检测器<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>Kmemleak 提供了一个类似 <a class="reference external" href="https://en.wikipedia.org/wiki/Tracing_garbage_collection">可追踪的垃圾收集器</a> 的方法来检测可能的内核内存泄漏，不同的是孤立对象不会
+被释放，而是仅通过 /sys/kernel/debug/kmemleak 报告。Valgrind 工具
+（<code class="docutils literal notranslate"><span class="pre">memcheck</span> <span class="pre">--leak-check</span></code>）使用了一种相似的方法来检测用户空间应用中的内存泄
+露。</p>
+<section id="id3">
+<h2>用法<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>“Kernel hacking” 中的 CONFIG_DEBUG_KMEMLEAK 必须被启用。一个内核线程每10分钟
+（默认情况下）扫描一次内存，并且打印出新发现的未被引用的对象个数。
+如果 <code class="docutils literal notranslate"><span class="pre">debugfs</span></code> 没有挂载，则执行:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t debugfs nodev /sys/kernel/debug/
+</pre></div>
+</div>
+<p>显示所有扫描出的可能的内存泄漏的细节信息:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+<p>启动一次中等程度的内存扫描:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo scan &gt; /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+<p>清空当前所有可能的内存泄露列表:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo clear &gt; /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+<p>当再次读取 <code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/kmemleak</span></code> 文件时，将会输出自上次扫描以来检测到的
+新的内存泄露。</p>
+<p>注意，孤立目标是通过被分配时间来排序的，列表开始的对象可能会导致后续的对象都被
+识别为孤立对象。</p>
+<p>可以通过写入 <code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/kmemleak</span></code> 文件在运行时修改内存扫描参数。下面是
+支持的参数：</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>off</dt><dd><p>禁用 kmemleak（不可逆）</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>stack=on</dt><dd><p>开启任务栈扫描（默认）</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>stack=off</dt><dd><p>禁用任务栈扫描</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>scan=on</dt><dd><p>开启自动内存扫描线程（默认）</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>scan=off</dt><dd><p>关闭自动内存扫描线程</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>scan=&lt;secs&gt;;</dt><dd><p>设定自动内存扫描间隔，以秒为单位（默认值为 600，设置为 0 表示停
+止自动扫描）</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>scan</dt><dd><p>触发一次内存扫描</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>clear</dt><dd><p>通过标记所有当前已报告的未被引用对象为灰，从而清空当前可能的内存泄露列
+表；如果 kmemleak 被禁用，则释放所有 kmemleak 对象，。</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>dump=&lt;addr&gt;</dt><dd><p>输出存储在 &lt;addr&gt; 中的对象信息</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>可以通过在内核命令行中传递 <code class="docutils literal notranslate"><span class="pre">kmemleak=off</span></code> 参数从而在启动时禁用 Kmemleak。</p>
+<p>在 kmemleak 初始化之前就可能会有内存分配或释放，这些操作被存储在一个早期日志缓
+冲区中。缓冲区的大小通过 CONFIG_DEBUG_KMEMLEAK_MEM_POOL_SIZE 选项配置。</p>
+<p>如果 CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF 被启用，则 kmemleak 默认被禁用。在内核命
+令行中传递 <code class="docutils literal notranslate"><span class="pre">kmemleak=on</span></code> 参数来开启这个功能。</p>
+<p>如果出现 “Error while writing to stdout” 或 “write_loop: Invalid argument” 这样
+的错误，请确认 kmemleak 被正确启用。</p>
+</section>
+<section id="id4">
+<h2>基础算法<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>通过 <a class="reference internal" href="../../../core-api/mm-api.html#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>, <code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code>, <a class="reference internal" href="../../../core-api/mm-api.html#c.kmem_cache_alloc" title="kmem_cache_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_alloc()</span></code></a> 以及同类
+函数均被跟踪，指针，包括一些额外的信息如大小和栈追踪等，都被存储在红黑树中。
+对应的释放函数调用也被追踪，并从 kmemleak 数据结构中移除相应指针。</p>
+<p>对于一个已分配的内存块，如果通过扫描内存（包括保存寄存器）没有发现任何指针指向
+它的起始地址或者其中的任何位置，则认为这块内存是孤立的。这意味着内核无法将该内
+存块的地址传递给一个释放内存函数，这块内存便被认为泄露了。</p>
+<p>扫描算法步骤：</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>标记所有对象为白色（最后剩下的白色对象被认为是孤立的）</p></li>
+<li><p>从数据节和栈开始扫描内存，检测每个值是否是红黑树中存储的地址。如果一个指向
+白色对象的指针被检测到，则将该对象标记为灰色。</p></li>
+<li><p>扫描灰色对象引用的其他对象（有些白色对象可能会变为灰色并被添加到灰名单末尾
+）直到灰名单为空。</p></li>
+<li><p>剩余的白色对象就被认为是孤立的并通过 /sys/kernel/debug/kmemleak 报告。</p></li>
+</ol>
+</div></blockquote>
+<p>有些指向已分配的内存块的指针存储在内核内部的数据结构中，它们不能被检测为孤立。
+为了避免这种情况，kmemleak 也存储了指向需要被查找的内存块范围内的任意地址的地址
+数量，如此一来这些内存便不会被认为泄露。一个例子是 __vmalloc()。</p>
+</section>
+<section id="kmemleak">
+<h2>用 kmemleak 测试特定部分<a class="headerlink" href="#kmemleak" title="Link to this heading">¶</a></h2>
+<p>在初始化启动阶段 /sys/kernel/debug/kmemleak 的输出可能会很多，这也可能是你在开发
+时编写的漏洞百出的代码导致的。为了解决这种情况你可以使用 ‘clear’ 命令来清除
+/sys/kernel/debug/kmemleak 输出的所有的未引用对象。在执行 ‘clear’ 后执行 ‘scan’
+可以发现新的未引用对象，这将会有利你测试代码的特定部分。</p>
+<p>为了用一个空的 kmemleak 测试一个特定部分，执行:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo clear &gt; /sys/kernel/debug/kmemleak
+... 测试你的内核或者模块 ...
+# echo scan &gt; /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+<p>然后像平常一样获得报告:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h2>释放 kmemleak 内核对象<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p>为了允许访问先前发现的内存泄露，当用户禁用或发生致命错误导致 kmemleak
+被禁用时，内核中的 kmemleak 对象不会被释放。这些对象可能会占用很大
+一部分物理内存。</p>
+<p>在这种情况下，你可以用如下命令回收这些内存:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo clear &gt; /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+</section>
+<section id="kmemleak-api">
+<h2>Kmemleak API<a class="headerlink" href="#kmemleak-api" title="Link to this heading">¶</a></h2>
+<p>在 include/linux/kmemleak.h 头文件中查看函数原型：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_init</span></code> - 初始化 kmemleak</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_alloc</span></code> - 通知一个内存块的分配</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_alloc_percpu</span></code> - 通知一个 percpu 类型的内存分配</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_vmalloc</span></code> - 通知一个使用 vmalloc() 的内存分配</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_free</span></code> - 通知一个内存块的释放</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_free_part</span></code> - 通知一个部分的内存释放</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_free_percpu</span></code> - 通知一个 percpu 类型的内存释放</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_update_trace</span></code> - 更新分配对象过程的栈追踪</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_not_leak</span></code> - 标记一个对象内存为未泄露的</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_ignore</span></code> - 不要扫描或报告某个对象未泄露的</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_scan_area</span></code> - 在内存块中添加扫描区域</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_no_scan</span></code> - 不扫描某个内存块</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_erase</span></code> - 在指针变量中移除某个旧的值</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">kmemleak_alloc_recursive</span></code> - 和 kmemleak_alloc 效果相同但会检查是否有递归的</dt><dd><p>内存分配</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">kmemleak_free_recursive</span></code> - 和 kmemleak_free 效果相同但会检查是否有递归的</dt><dd><p>内存释放</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>下列函数使用一个物理地址作为对象指针并且只在地址有一个 lowmem 映射时做出相应的
+行为：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_alloc_phys</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_free_part_phys</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmemleak_ignore_phys</span></code></p></li>
+</ul>
+</section>
+<section id="id6">
+<h2>解决假阳性/假阴性<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>假阴性是指由于在内存扫描中有值指向该对象导致 kmemleak 没有报告的实际存在的内存
+泄露（孤立对象）。为了减少假阴性的出现次数，kmemleak 提供了 kmemleak_ignore，
+kmemleak_scan_area，kmemleak_no_scan 和 kmemleak_erase 函数（见上）。
+任务栈也会增加假阴性的数量并且默认不开启对它们的扫描。</p>
+<p>假阳性是对象被误报为内存泄露（孤立对象）。对于已知未泄露的对象，kmemleak
+提供了 kmemleak_not_leak 函数。同时 kmemleak_ignore 可以用于标记已知不包含任何
+其他指针的内存块，标记后该内存块不会再被扫描。</p>
+<p>一些被报告的泄露仅仅是暂时的，尤其是在 SMP（对称多处理）系统中，因为其指针
+暂存在 CPU 寄存器或栈中。Kmemleak 定义了 MSECS_MIN_AGE（默认值为 1000）
+来表示一个被报告为内存泄露的对象的最小存活时间。</p>
+</section>
+<section id="id7">
+<h2>限制和缺点<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<p>主要的缺点是内存分配和释放的性能下降。为了避免其他的损失，只有当
+/sys/kernel/debug/kmemleak 文件被读取时才会进行内存扫描。无论如何，这个工具是出于
+调试的目标，性能表现可能不是最重要的。</p>
+<p>为了保持算法简单，kmemleak 寻找指向某个内存块范围中的任何值。这可能会引发假阴性
+现象的出现。但是，最后一个真正的内存泄露也会变得明显。</p>
+<p>非指针值的数据是假阴性的另一个来源。在将来的版本中，kmemleak 仅仅会扫
+描已分配结构体中的指针成员。这个特性会解决上述很多的假阴性情况。</p>
+<p>Kmemleak 会报告假阳性。这可能发生在某些被分配的内存块不需要被释放的情况下
+（某些 init_call 函数中），指针的计算是通过其他方法而不是常规的 container_of 宏
+或是指针被存储在 kmemleak 没有扫描的地方。</p>
+<p>页分配和 ioremap 不会被追踪。</p>
+</section>
+<section id="kmemleak-test">
+<h2>使用 kmemleak-test 测试<a class="headerlink" href="#kmemleak-test" title="Link to this heading">¶</a></h2>
+<p>为了检测是否成功启用了 kmemleak，你可以使用一个故意制造内存泄露的模块
+kmemleak-test。设置 CONFIG_SAMPLE_KMEMLEAK 为模块（不能作为内建模块使用）
+并且启动启用了 kmemleak 的内核。加载模块并执行一次扫描:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># modprobe kmemleak-test
+# echo scan &gt; /sys/kernel/debug/kmemleak
+</pre></div>
+</div>
+<p>注意你可能无法立刻或在第一次扫描后得到结果。当 kmemleak 得到结果，将会输出日
+志 <code class="docutils literal notranslate"><span class="pre">kmemleak:</span> <span class="pre">&lt;count</span> <span class="pre">of</span> <span class="pre">leaks&gt;</span> <span class="pre">new</span> <span class="pre">suspected</span> <span class="pre">memory</span> <span class="pre">leaks</span></code> 。然后通过读取文件
+获取信息:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># cat /sys/kernel/debug/kmemleak
+unreferenced object 0xffff89862ca702e8 (size 32):
+  comm &quot;modprobe&quot;, pid 2088, jiffies 4294680594 (age 375.486s)
+  hex dump (first 32 bytes):
+    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.
+  backtrace:
+    [&lt;00000000e0a73ec7&gt;] 0xffffffffc01d2036
+    [&lt;000000000c5d2a46&gt;] do_one_initcall+0x41/0x1df
+    [&lt;0000000046db7e0a&gt;] do_init_module+0x55/0x200
+    [&lt;00000000542b9814&gt;] load_module+0x203c/0x2480
+    [&lt;00000000c2850256&gt;] __do_sys_finit_module+0xba/0xe0
+    [&lt;000000006564e7ef&gt;] do_syscall_64+0x43/0x110
+    [&lt;000000007c873fa6&gt;] entry_SYSCALL_64_after_hwframe+0x44/0xa9
+...
+</pre></div>
+</div>
+<p>用 <code class="docutils literal notranslate"><span class="pre">rmmod</span> <span class="pre">kmemleak_test</span></code> 移除模块时也会触发
+kmemleak 的结果输出。</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_CN/dev-tools/kmemleak.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

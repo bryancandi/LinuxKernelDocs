@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -94,6 +94,7 @@
 <li class="toctree-l3"><a class="reference internal" href="seccomp_filter.html">Seccomp BPF (SECure COMPuting with filters)</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Landlock: unprivileged access control</a></li>
 <li class="toctree-l3"><a class="reference internal" href="lsm.html">Linux Security Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mfd_noexec.html">Introduction of non-executable mfd</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spec_ctrl.html">Speculation Control</a></li>
 <li class="toctree-l3"><a class="reference internal" href="tee.html">TEE (Trusted Execution Environment) Userspace API</a></li>
 </ul>
@@ -152,7 +153,7 @@
 <dd class="field-odd"><p>Mickaël Salaün</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>October 2023</p>
+<dd class="field-even"><p>April 2024</p>
 </dd>
 </dl>
 <p>The goal of Landlock is to enable to restrict ambient rights (e.g. global
@@ -210,7 +211,8 @@ to be explicit about the denied-by-default access rights.</p>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_MAKE_BLOCK</span><span class="w"> </span><span class="o">|</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_MAKE_SYM</span><span class="w"> </span><span class="o">|</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_REFER</span><span class="w"> </span><span class="o">|</span>
-<span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_TRUNCATE</span><span class="p">,</span>
+<span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_TRUNCATE</span><span class="w"> </span><span class="o">|</span>
+<span class="w">        </span><span class="n">LANDLOCK_ACCESS_FS_IOCTL_DEV</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">handled_access_net</span><span class="w"> </span><span class="o">=</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_NET_BIND_TCP</span><span class="w"> </span><span class="o">|</span>
 <span class="w">        </span><span class="n">LANDLOCK_ACCESS_NET_CONNECT_TCP</span><span class="p">,</span>
@@ -220,10 +222,9 @@ to be explicit about the denied-by-default access rights.</p>
 <p>Because we may not know on which kernel version an application will be
 executed, it is safer to follow a best-effort security approach.  Indeed, we
 should try to protect users as much as possible whatever the kernel they are
-using.  To avoid binary enforcement (i.e. either all security features or
-none), we can leverage a dedicated Landlock command to get the current version
-of the Landlock ABI and adapt the handled accesses.  Let’s check if we should
-remove access rights which are only supported in higher versions of the ABI.</p>
+using.</p>
+<p>To be compatible with older Linux versions, we detect the available Landlock ABI
+version, and only use the available subset of access rights:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="n">abi</span><span class="p">;</span>
 
 <span class="n">abi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">landlock_create_ruleset</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">LANDLOCK_CREATE_RULESET_VERSION</span><span class="p">);</span>
@@ -246,6 +247,10 @@ remove access rights which are only supported in higher versions of the ABI.</p>
 <span class="w">    </span><span class="n">ruleset_attr</span><span class="p">.</span><span class="n">handled_access_net</span><span class="w"> </span><span class="o">&amp;=</span>
 <span class="w">        </span><span class="o">~</span><span class="p">(</span><span class="n">LANDLOCK_ACCESS_NET_BIND_TCP</span><span class="w"> </span><span class="o">|</span>
 <span class="w">          </span><span class="n">LANDLOCK_ACCESS_NET_CONNECT_TCP</span><span class="p">);</span>
+<span class="w">    </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">fallthrough</span><span class="p">));</span>
+<span class="k">case</span><span class="w"> </span><span class="mi">4</span><span class="p">:</span>
+<span class="w">    </span><span class="cm">/* Removes LANDLOCK_ACCESS_FS_IOCTL_DEV for ABI &lt; 5 */</span>
+<span class="w">    </span><span class="n">ruleset_attr</span><span class="p">.</span><span class="n">handled_access_fs</span><span class="w"> </span><span class="o">&amp;=</span><span class="w"> </span><span class="o">~</span><span class="n">LANDLOCK_ACCESS_FS_IOCTL_DEV</span><span class="p">;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -344,8 +349,8 @@ relevant when we want to allow linking or renaming.  Indeed, having consistent
 access rights per directory enables to change the location of such directory
 without relying on the destination directory access rights (except those that
 are required for this operation, see <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_REFER</span></code>
-documentation).
-Having self-sufficient hierarchies also helps to tighten the required access
+documentation).</p>
+<p>Having self-sufficient hierarchies also helps to tighten the required access
 rights to the minimal set of data.  This also helps avoid sinkhole directories,
 i.e.  directories where data can be linked to but not linked from.  However,
 this depends on data organization, which might not be controlled by developers.
@@ -426,17 +431,24 @@ already present.</p>
 <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code> right.  Apart from the <em class="manpage">truncate(2)</em>
 system call, this can also be done through <em class="manpage">open(2)</em> with the flags
 <code class="docutils literal notranslate"><span class="pre">O_RDONLY</span> <span class="pre">|</span> <span class="pre">O_TRUNC</span></code>.</p>
-<p>When opening a file, the availability of the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code>
-right is associated with the newly created file descriptor and will be used for
-subsequent truncation attempts using <em class="manpage">ftruncate(2)</em>.  The behavior is
-similar to opening a file for reading or writing, where permissions are checked
-during <em class="manpage">open(2)</em>, but not during the subsequent <em class="manpage">read(2)</em> and
+<p>The truncate right is associated with the opened file (see below).</p>
+</section>
+<section id="rights-associated-with-file-descriptors">
+<h3>Rights associated with file descriptors<a class="headerlink" href="#rights-associated-with-file-descriptors" title="Link to this heading">¶</a></h3>
+<p>When opening a file, the availability of the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code> and
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> rights is associated with the newly created
+file descriptor and will be used for subsequent truncation and ioctl attempts
+using <em class="manpage">ftruncate(2)</em> and <em class="manpage">ioctl(2)</em>.  The behavior is similar
+to opening a file for reading or writing, where permissions are checked during
+<em class="manpage">open(2)</em>, but not during the subsequent <em class="manpage">read(2)</em> and
 <em class="manpage">write(2)</em> calls.</p>
-<p>As a consequence, it is possible to have multiple open file descriptors for the
-same file, where one grants the right to truncate the file and the other does
-not.  It is also possible to pass such file descriptors between processes,
-keeping their Landlock properties, even when these processes do not have an
-enforced Landlock ruleset.</p>
+<p>As a consequence, it is possible that a process has multiple open file
+descriptors referring to the same file, but Landlock enforces different things
+when operating with these file descriptors.  This can happen when a Landlock
+ruleset gets enforced and the process keeps file descriptors which were opened
+both before and after the enforcement.  It is also possible to pass such file
+descriptors between processes, keeping their Landlock properties, even when some
+of the involved processes do not have an enforced Landlock ruleset.</p>
 </section>
 </section>
 <section id="compatibility">
@@ -494,7 +506,7 @@ as such.</p>
 <p>These flags enable to restrict a sandboxed process to a set of actions on
 files and directories.  Files or directories opened before the sandboxing
 are not subject to these restrictions.</p>
-<p>A file can only receive these access rights:</p>
+<p>The following access rights apply only to files:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_EXECUTE</span></code>: Execute a file.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code>: Open a file with write access. Note that
@@ -504,13 +516,13 @@ to overwrite files with <em class="manpage">open(2)</em> using <code class="docu
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_READ_FILE</span></code>: Open a file with read access.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code>: Truncate a file with <em class="manpage">truncate(2)</em>,
 <em class="manpage">ftruncate(2)</em>, <em class="manpage">creat(2)</em>, or <em class="manpage">open(2)</em> with
-<code class="docutils literal notranslate"><span class="pre">O_TRUNC</span></code>. Whether an opened file can be truncated with
-<em class="manpage">ftruncate(2)</em> is determined during <em class="manpage">open(2)</em>, in the
-same way as read and write permissions are checked during
-<em class="manpage">open(2)</em> using <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_READ_FILE</span></code> and
-<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code>. This access right is available since the
-third version of the Landlock ABI.</p></li>
+<code class="docutils literal notranslate"><span class="pre">O_TRUNC</span></code>.  This access right is available since the third version of the
+Landlock ABI.</p></li>
 </ul>
+<p>Whether an opened file can be truncated with <em class="manpage">ftruncate(2)</em> or used
+with <cite>ioctl(2)</cite> is determined during <em class="manpage">open(2)</em>, in the same way as
+read and write permissions are checked during <em class="manpage">open(2)</em> using
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_READ_FILE</span></code> and <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code>.</p>
 <p>A directory can receive access rights related to files or directories.  The
 following access right is applied to the directory itself, and the
 directories beneath it:</p>
@@ -559,13 +571,33 @@ the operation results in an <code class="docutils literal notranslate"><span cla
 precedence over <code class="docutils literal notranslate"><span class="pre">EXDEV</span></code>.</p>
 </li>
 </ul>
+<p>The following access right applies both to files and directories:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code>: Invoke <em class="manpage">ioctl(2)</em> commands on an opened
+character or block device.</p>
+<p>This access right applies to all <cite>ioctl(2)</cite> commands implemented by device
+drivers.  However, the following common IOCTL commands continue to be
+invokable independent of the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> right:</p>
+<ul class="simple">
+<li><p>IOCTL commands targeting file descriptors (<code class="docutils literal notranslate"><span class="pre">FIOCLEX</span></code>, <code class="docutils literal notranslate"><span class="pre">FIONCLEX</span></code>),</p></li>
+<li><p>IOCTL commands targeting file descriptions (<code class="docutils literal notranslate"><span class="pre">FIONBIO</span></code>, <code class="docutils literal notranslate"><span class="pre">FIOASYNC</span></code>),</p></li>
+<li><p>IOCTL commands targeting file systems (<code class="docutils literal notranslate"><span class="pre">FIFREEZE</span></code>, <code class="docutils literal notranslate"><span class="pre">FITHAW</span></code>,
+<code class="docutils literal notranslate"><span class="pre">FIGETBSZ</span></code>, <code class="docutils literal notranslate"><span class="pre">FS_IOC_GETFSUUID</span></code>, <code class="docutils literal notranslate"><span class="pre">FS_IOC_GETFSSYSFSPATH</span></code>)</p></li>
+<li><p>Some IOCTL commands which do not make sense when used with devices, but
+whose implementations are safe and return the right error codes
+(<code class="docutils literal notranslate"><span class="pre">FS_IOC_FIEMAP</span></code>, <code class="docutils literal notranslate"><span class="pre">FICLONE</span></code>, <code class="docutils literal notranslate"><span class="pre">FICLONERANGE</span></code>, <code class="docutils literal notranslate"><span class="pre">FIDEDUPERANGE</span></code>)</p></li>
+</ul>
+<p>This access right is available since the fifth version of the Landlock
+ABI.</p>
+</li>
+</ul>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>It is currently not possible to restrict some file-related actions
 accessible through these syscall families: <em class="manpage">chdir(2)</em>,
 <em class="manpage">stat(2)</em>, <em class="manpage">flock(2)</em>, <em class="manpage">chmod(2)</em>,
 <em class="manpage">chown(2)</em>, <em class="manpage">setxattr(2)</em>, <em class="manpage">utime(2)</em>,
-<em class="manpage">ioctl(2)</em>, <em class="manpage">fcntl(2)</em>, <em class="manpage">access(2)</em>.
+<em class="manpage">fcntl(2)</em>, <em class="manpage">access(2)</em>.
 Future Landlock evolutions will enable to restrict them.</p>
 </div>
 </section>
@@ -848,6 +880,24 @@ etc.).</p>
 <p>Kernel memory allocated to create rulesets is accounted and can be restricted
 by the <a class="reference internal" href="../admin-guide/cgroup-v1/memory.html"><span class="doc">Memory Resource Controller</span></a>.</p>
 </section>
+<section id="ioctl-support">
+<h3>IOCTL support<a class="headerlink" href="#ioctl-support" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> right restricts the use of
+<em class="manpage">ioctl(2)</em>, but it only applies to <em>newly opened</em> device files.  This
+means specifically that pre-existing file descriptors like stdin, stdout and
+stderr are unaffected.</p>
+<p>Users should be aware that TTY devices have traditionally permitted to control
+other processes on the same TTY through the <code class="docutils literal notranslate"><span class="pre">TIOCSTI</span></code> and <code class="docutils literal notranslate"><span class="pre">TIOCLINUX</span></code> IOCTL
+commands.  Both of these require <code class="docutils literal notranslate"><span class="pre">CAP_SYS_ADMIN</span></code> on modern Linux systems, but
+the behavior is configurable for <code class="docutils literal notranslate"><span class="pre">TIOCSTI</span></code>.</p>
+<p>On older systems, it is therefore recommended to close inherited TTY file
+descriptors, or to reopen them from <code class="docutils literal notranslate"><span class="pre">/proc/self/fd/*</span></code> without the
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> right, if possible.</p>
+<p>Landlock’s IOCTL support is coarse-grained at the moment, but may become more
+fine-grained in the future.  Until then, users are advised to establish the
+guarantees that they need through the file hierarchy, by only allowing the
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> right on files where it is really required.</p>
+</section>
 </section>
 <section id="previous-limitations">
 <h2>Previous limitations<a class="headerlink" href="#previous-limitations" title="Link to this heading">¶</a></h2>
@@ -880,6 +930,14 @@ truncation thanks to the new <code class="docutils literal notranslate"><span cl
 bind and connect actions to only a set of allowed ports thanks to the new
 <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code> and <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_CONNECT_TCP</span></code>
 access rights.</p>
+</section>
+<section id="ioctl-abi-5">
+<h3>IOCTL (ABI &lt; 5)<a class="headerlink" href="#ioctl-abi-5" title="Link to this heading">¶</a></h3>
+<p>IOCTL operations could not be denied before the fifth Landlock ABI, so
+<em class="manpage">ioctl(2)</em> is always allowed when using a kernel that only supports an
+earlier ABI.</p>
+<p>Starting with the Landlock ABI version 5, it is possible to restrict the use of
+<em class="manpage">ioctl(2)</em> using the new <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_IOCTL_DEV</span></code> right.</p>
 </section>
 </section>
 <section id="kernel-support">

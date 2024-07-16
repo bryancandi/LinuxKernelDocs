@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>未定义行为消毒剂 - UBSAN &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="内核内存泄露检测器" href="kmemleak.html" />
+    <link rel="prev" title="KCOV: 用于模糊测试的代码覆盖率" href="kcov.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.10.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#api">内部API文档</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_CN/dev-tools/ubsan.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../dev-tools/ubsan.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../dev-tools/ubsan.html"><span class="doc">Undefined Behavior Sanitizer - UBSAN</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dongliang Mu &lt;<a class="reference external" href="mailto:dzm91&#37;&#52;&#48;hust&#46;edu&#46;cn">dzm91<span>&#64;</span>hust<span>&#46;</span>edu<span>&#46;</span>cn</a>&gt;</p>
+</dd>
+</dl>
+<section id="ubsan">
+<h1>未定义行为消毒剂 - UBSAN<a class="headerlink" href="#ubsan" title="Link to this heading">¶</a></h1>
+<p>UBSAN是一种动态未定义行为检查工具。</p>
+<p>UBSAN使用编译时插桩捕捉未定义行为。编译器在可能导致未定义行为的操作前插入特定
+检测代码。如果检查失败，即检测到未定义行为，__ubsan_handle_* 函数将被调用打印
+错误信息。</p>
+<p>GCC自4.9.x [<a class="reference external" href="https://gcc.gnu.org/onlinedocs/gcc-4.9.0/gcc/Debugging-Options.html">1</a>] （详见 <code class="docutils literal notranslate"><span class="pre">-fsanitize=undefined</span></code> 选项及其子选项）版本后引入这
+一特性。GCC 5.x 版本实现了更多检查器 [<a class="reference external" href="https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html">2</a>]。</p>
+<section id="id1">
+<h2>报告样例<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>================================================================================
+UBSAN: Undefined behaviour in ../include/linux/bitops.h:110:33
+shift exponent 32 is to large for 32-bit type &#39;unsigned int&#39;
+CPU: 0 PID: 0 Comm: swapper Not tainted 4.4.0-rc1+ #26
+ 0000000000000000 ffffffff82403cc8 ffffffff815e6cd6 0000000000000001
+ ffffffff82403cf8 ffffffff82403ce0 ffffffff8163a5ed 0000000000000020
+ ffffffff82403d78 ffffffff8163ac2b ffffffff815f0001 0000000000000002
+Call Trace:
+ [&lt;ffffffff815e6cd6&gt;] dump_stack+0x45/0x5f
+ [&lt;ffffffff8163a5ed&gt;] ubsan_epilogue+0xd/0x40
+ [&lt;ffffffff8163ac2b&gt;] __ubsan_handle_shift_out_of_bounds+0xeb/0x130
+ [&lt;ffffffff815f0001&gt;] ? radix_tree_gang_lookup_slot+0x51/0x150
+ [&lt;ffffffff8173c586&gt;] _mix_pool_bytes+0x1e6/0x480
+ [&lt;ffffffff83105653&gt;] ? dmi_walk_early+0x48/0x5c
+ [&lt;ffffffff8173c881&gt;] add_device_randomness+0x61/0x130
+ [&lt;ffffffff83105b35&gt;] ? dmi_save_one_device+0xaa/0xaa
+ [&lt;ffffffff83105653&gt;] dmi_walk_early+0x48/0x5c
+ [&lt;ffffffff831066ae&gt;] dmi_scan_machine+0x278/0x4b4
+ [&lt;ffffffff8111d58a&gt;] ? vprintk_default+0x1a/0x20
+ [&lt;ffffffff830ad120&gt;] ? early_idt_handler_array+0x120/0x120
+ [&lt;ffffffff830b2240&gt;] setup_arch+0x405/0xc2c
+ [&lt;ffffffff830ad120&gt;] ? early_idt_handler_array+0x120/0x120
+ [&lt;ffffffff830ae053&gt;] start_kernel+0x83/0x49a
+ [&lt;ffffffff830ad120&gt;] ? early_idt_handler_array+0x120/0x120
+ [&lt;ffffffff830ad386&gt;] x86_64_start_reservations+0x2a/0x2c
+ [&lt;ffffffff830ad4f3&gt;] x86_64_start_kernel+0x16b/0x17a
+================================================================================
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h2>用法<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>使用如下内核配置启用UBSAN:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>CONFIG_UBSAN=y
+</pre></div>
+</div>
+<p>使用如下内核配置检查整个内核:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>CONFIG_UBSAN_SANITIZE_ALL=y
+</pre></div>
+</div>
+<p>为了在特定文件或目录启动代码插桩，需要在相应的内核Makefile中添加一行类似内容:</p>
+<ul>
+<li><p>单文件（如main.o）:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>UBSAN_SANITIZE_main.o := y
+</pre></div>
+</div>
+</li>
+<li><p>一个目录中的所有文件:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>UBSAN_SANITIZE := y
+</pre></div>
+</div>
+</li>
+</ul>
+<p>即使设置了``CONFIG_UBSAN_SANITIZE_ALL=y``，为了避免文件被插桩，可使用:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>UBSAN_SANITIZE_main.o := n
+</pre></div>
+</div>
+<p>与:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>UBSAN_SANITIZE := n
+</pre></div>
+</div>
+<p>未对齐的内存访问检测可通过开启独立选项 - CONFIG_UBSAN_ALIGNMENT 检测。
+该选项在支持未对齐访问的架构上(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS=y)
+默认为关闭。该选项仍可通过内核配置启用，但它将产生大量的UBSAN报告。</p>
+</section>
+<section id="id3">
+<h2>参考文献<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_CN/dev-tools/ubsan.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

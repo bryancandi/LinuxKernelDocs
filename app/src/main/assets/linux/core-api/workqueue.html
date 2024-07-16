@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -974,10 +974,9 @@ pool for each NUMA node.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>WQ_* flags</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">max_active</span></code></dt><dd><p>max in-flight work items, 0 for default
-remaining args: args for <strong>fmt</strong></p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">max_active</span></code></dt><dd><p>max in-flight work items, 0 for default</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>variable arguments</p>
+<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>args for <strong>fmt</strong></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -999,7 +998,7 @@ of interdependent work items for the workqueue.</p>
 concurrency limit on every node is guaranteed to be equal to or greater than
 min_active which is set to min(<strong>max_active</strong>, <code class="docutils literal notranslate"><span class="pre">WQ_DFL_MIN_ACTIVE</span></code>). This means
 that the sum of per-node max_active’s may be larger than <strong>max_active</strong>.</p>
-<p>For detailed information on <a href="#id1"><span class="problematic" id="id2">``</span></a>WQ_``* flags, please refer to
+<p>For detailed information on <code class="docutils literal notranslate"><span class="pre">WQ_*</span></code> flags, please refer to
 <a class="reference internal" href="#"><span class="doc">Workqueue</span></a>.</p>
 <p><strong>Return</strong></p>
 <p>Pointer to the allocated workqueue on success, <code class="docutils literal notranslate"><span class="pre">NULL</span></code> on failure.</p>
@@ -1134,6 +1133,31 @@ queued and leaves it in the same position on the kernel-global
 workqueue otherwise.</p>
 <p>Shares the same memory-ordering properties of <a class="reference internal" href="#c.queue_work" title="queue_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_work()</span></code></a>, cf. the
 DocBook header of <a class="reference internal" href="#c.queue_work" title="queue_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_work()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.enable_and_queue_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">enable_and_queue_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wq</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.enable_and_queue_work" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Enable and queue a work item on a specific workqueue</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_struct</span> <span class="pre">*wq</span></code></dt><dd><p>The target workqueue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>The work item to be enabled and queued</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function combines the operations of <a class="reference internal" href="#c.enable_work" title="enable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">enable_work()</span></code></a> and <a class="reference internal" href="#c.queue_work" title="queue_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_work()</span></code></a>,
+providing a convenient way to enable and queue a work item in a single call.
+It invokes <a class="reference internal" href="#c.enable_work" title="enable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">enable_work()</span></code></a> on <strong>work</strong> and then queues it if the disable depth
+reached 0. Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if the disable depth reached 0 and <strong>work</strong> is queued,
+and <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
+<p>Note that <strong>work</strong> is always queued when disable depth reaches zero. If the
+desired behavior is queueing only if certain events took place while <strong>work</strong> is
+disabled, the user should implement the necessary state tracking and perform
+explicit conditional queueing after <a class="reference internal" href="#c.enable_work" title="enable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">enable_work()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.schedule_delayed_work_on">
@@ -1298,22 +1322,6 @@ beyond the critical section, the caller is responsible for ensuring the
 returned pool is and stays online.</p>
 <p><strong>Return</strong></p>
 <p>The worker_pool <strong>work</strong> was last associated with.  <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if none.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.get_work_pool_id">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_work_pool_id</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_work_pool_id" title="Link to this definition">¶</a><br /></dt>
-<dd><p>return the worker pool ID a given work is associated with</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>the work item of interest</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p>The worker_pool ID <strong>work</strong> was last associated with.
-<code class="docutils literal notranslate"><span class="pre">WORK_OFFQ_POOL_NONE</span></code> if none.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.worker_set_flags">
@@ -1532,7 +1540,7 @@ going to sleep.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Called from scheduler_tick(). We’re in the IRQ context and the current
+<p>Called from sched_tick(). We’re in the IRQ context and the current
 worker’s fields which follow the ‘K’ locking rule can be accessed safely.</p>
 </div>
 <dl class="c function">
@@ -1831,10 +1839,6 @@ responsible for releasing it using local_irq_restore(<strong>*irq_flags</strong>
 <tr class="row-odd"><td><p>-EAGAIN</p></td>
 <td><p>if PENDING couldn’t be grabbed at the moment, safe to busy-retry</p></td>
 </tr>
-<tr class="row-even"><td><p>-ENOENT</p></td>
-<td><p>if someone else is canceling <strong>work</strong>, this state may persist
-for arbitrarily long</p></td>
-</tr>
 </tbody>
 </table>
 </div></blockquote>
@@ -1863,7 +1867,7 @@ irqsafe, ensures that we return -EAGAIN for finite short period of time.</p>
 <p><strong>Description</strong></p>
 <p>Grab PENDING bit of <strong>work</strong>. <strong>work</strong> can be in any stable state - idle, on timer
 or on worklist.</p>
-<p>Must be called in process context. IRQ is disabled on return with IRQ state
+<p>Can be called from any context. IRQ is disabled on return with IRQ state
 stored in <strong>*irq_flags</strong>. The caller is responsible for re-enabling it using
 local_irq_restore().</p>
 <p>Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was pending. <code class="docutils literal notranslate"><span class="pre">false</span></code> if idle.</p>
@@ -2488,16 +2492,16 @@ considers the last queueing instance of <strong>dwork</strong>.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Cancel <strong>work</strong> and wait for its execution to finish.  This function
-can be used even if the work re-queues itself or migrates to
-another workqueue.  On return from this function, <strong>work</strong> is
-guaranteed to be not pending or executing on any CPU.</p>
-<p>cancel_work_sync(<code class="xref c c-type docutils literal notranslate"><span class="pre">delayed_work-&gt;work</span></code>) must not be used for
-delayed_work’s.  Use <a class="reference internal" href="#c.cancel_delayed_work_sync" title="cancel_delayed_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">cancel_delayed_work_sync()</span></code></a> instead.</p>
-<p>The caller must ensure that the workqueue on which <strong>work</strong> was last
-queued can’t be destroyed before this function returns.</p>
-<p><strong>Return</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was pending, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
+<p>Cancel <strong>work</strong> and wait for its execution to finish. This function can be used
+even if the work re-queues itself or migrates to another workqueue. On return
+from this function, <strong>work</strong> is guaranteed to be not pending or executing on any
+CPU as long as there aren’t racing enqueues.</p>
+<p>cancel_work_sync(<code class="xref c c-type docutils literal notranslate"><span class="pre">delayed_work-&gt;work</span></code>) must not be used for delayed_work’s.
+Use <a class="reference internal" href="#c.cancel_delayed_work_sync" title="cancel_delayed_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">cancel_delayed_work_sync()</span></code></a> instead.</p>
+<p>Must be called from a sleepable context if <strong>work</strong> was last queued on a non-BH
+workqueue. Can also be called from non-hardirq atomic contexts including BH
+if <strong>work</strong> was last queued on a BH workqueue.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was pending, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.cancel_delayed_work">
@@ -2538,6 +2542,109 @@ use <a class="reference internal" href="#c.cancel_delayed_work_sync" title="canc
 <p>This is <a class="reference internal" href="#c.cancel_work_sync" title="cancel_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">cancel_work_sync()</span></code></a> for delayed works.</p>
 <p><strong>Return</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>dwork</strong> was pending, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.disable_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">disable_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.disable_work" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable and cancel a work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work item to disable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Disable <strong>work</strong> by incrementing its disable count and cancel it if currently
+pending. As long as the disable count is non-zero, any attempt to queue <strong>work</strong>
+will fail and return <code class="docutils literal notranslate"><span class="pre">false</span></code>. The maximum supported disable depth is 2 to the
+power of <code class="docutils literal notranslate"><span class="pre">WORK_OFFQ_DISABLE_BITS</span></code>, currently 65536.</p>
+<p>Can be called from any context. Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was pending, <code class="docutils literal notranslate"><span class="pre">false</span></code>
+otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.disable_work_sync">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">disable_work_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.disable_work_sync" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable, cancel and drain a work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work item to disable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Similar to <a class="reference internal" href="#c.disable_work" title="disable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">disable_work()</span></code></a> but also wait for <strong>work</strong> to finish if currently
+executing.</p>
+<p>Must be called from a sleepable context if <strong>work</strong> was last queued on a non-BH
+workqueue. Can also be called from non-hardirq atomic contexts including BH
+if <strong>work</strong> was last queued on a BH workqueue.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if <strong>work</strong> was pending, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.enable_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">enable_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.enable_work" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Enable a work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*work</span></code></dt><dd><p>work item to enable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Undo disable_work[_sync]() by decrementing <strong>work</strong>’s disable count. <strong>work</strong> can
+only be queued if its disable count is 0.</p>
+<p>Can be called from any context. Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if the disable count reached 0.
+Otherwise, <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.disable_delayed_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">disable_delayed_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">delayed_work</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dwork</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.disable_delayed_work" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable and cancel a delayed work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">delayed_work</span> <span class="pre">*dwork</span></code></dt><dd><p>delayed work item to disable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.disable_work" title="disable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">disable_work()</span></code></a> for delayed work items.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.disable_delayed_work_sync">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">disable_delayed_work_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">delayed_work</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dwork</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.disable_delayed_work_sync" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable, cancel and drain a delayed work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">delayed_work</span> <span class="pre">*dwork</span></code></dt><dd><p>delayed work item to disable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.disable_work_sync" title="disable_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">disable_work_sync()</span></code></a> for delayed work items.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.enable_delayed_work">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">enable_delayed_work</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">delayed_work</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dwork</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.enable_delayed_work" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Enable a delayed work item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">delayed_work</span> <span class="pre">*dwork</span></code></dt><dd><p>delayed work item to enable</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.enable_work" title="enable_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">enable_work()</span></code></a> for delayed work items.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.schedule_on_each_cpu">

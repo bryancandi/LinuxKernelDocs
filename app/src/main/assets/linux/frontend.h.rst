@@ -861,7 +861,7 @@ frontend.h
             union \{
                     \_\_u64 uvalue;   \/\* for counters and relative scales \*\/
                     \_\_s64 svalue;   \/\* for 0.001 dB measures \*\/
-            \};
+            \}  \_\_attribute\_\_ ((packed));
     \} \_\_attribute\_\_ ((packed));
 
     \#define MAX\_DTV\_STATS   4

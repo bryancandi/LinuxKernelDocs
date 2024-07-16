@@ -606,6 +606,8 @@ videodev2.h
     \#define \ :ref:`V4L2_PIX_FMT_Y10BPACK <v4l2-pix-fmt-y10bpack>`    v4l2\_fourcc('Y', '1', '0', 'B') \/\* 10  Greyscale bit-packed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_Y10P <v4l2-pix-fmt-y10p>`    v4l2\_fourcc('Y', '1', '0', 'P') \/\* 10  Greyscale, MIPI RAW10 packed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_IPU3_Y10 <v4l2-pix-fmt-ipu3-y10>`           v4l2\_fourcc('i', 'p', '3', 'y') \/\* IPU3 packed 10-bit greyscale \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_Y12P <v4l2-pix-fmt-y12p>`    v4l2\_fourcc('Y', '1', '2', 'P') \/\* 12  Greyscale, MIPI RAW12 packed \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_Y14P <v4l2-pix-fmt-y14p>`    v4l2\_fourcc('Y', '1', '4', 'P') \/\* 14  Greyscale, MIPI RAW14 packed \*\/
 
     \/\* Palette formats \*\/
     \#define \ :ref:`V4L2_PIX_FMT_PAL8 <v4l2-pix-fmt-pal8>`    v4l2\_fourcc('P', 'A', 'L', '8') \/\*  8  8-bit palette \*\/
@@ -846,6 +848,20 @@ videodev2.h
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_PARAMS <v4l2-meta-fmt-rk-isp1-params>`    v4l2\_fourcc('R', 'K', '1', 'P') \/\* Rockchip ISP1 3A Parameters \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_STAT_3A <v4l2-meta-fmt-rk-isp1-stat-3a>`   v4l2\_fourcc('R', 'K', '1', 'S') \/\* Rockchip ISP1 3A Statistics \*\/
 
+    \#ifdef \_\_KERNEL\_\_
+    \/\*
+     \* Line-based metadata formats. Remember to update v4l\_fill\_fmtdesc() when
+     \* adding new ones!
+     \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_8 <v4l2-meta-fmt-generic-8>`         v4l2\_fourcc('M', 'E', 'T', '8') \/\* Generic 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_10 <v4l2-meta-fmt-generic-csi2-10>`   v4l2\_fourcc('M', 'C', '1', 'A') \/\* 10-bit CSI-2 packed 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_12 <v4l2-meta-fmt-generic-csi2-12>`   v4l2\_fourcc('M', 'C', '1', 'C') \/\* 12-bit CSI-2 packed 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_14 <v4l2-meta-fmt-generic-csi2-14>`   v4l2\_fourcc('M', 'C', '1', 'E') \/\* 14-bit CSI-2 packed 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_16 <v4l2-meta-fmt-generic-csi2-16>`   v4l2\_fourcc('M', 'C', '1', 'G') \/\* 16-bit CSI-2 packed 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_20 <v4l2-meta-fmt-generic-csi2-20>`   v4l2\_fourcc('M', 'C', '1', 'K') \/\* 20-bit CSI-2 packed 8-bit metadata \*\/
+    \#define \ :ref:`V4L2_META_FMT_GENERIC_CSI2_24 <v4l2-meta-fmt-generic-csi2-24>`   v4l2\_fourcc('M', 'C', '1', 'O') \/\* 24-bit CSI-2 packed 8-bit metadata \*\/
+    \#endif
+
     \/\* priv field value to indicates that subsequent fields are valid. \*\/
     \#define :c:type:`V4L2_PIX_FMT_PRIV_MAGIC <v4l2_pix_format>`         0xfeedcafe
 
@@ -876,6 +892,7 @@ videodev2.h
     \#define :ref:`V4L2_FMT_FLAG_CSC_YCBCR_ENC <fmtdesc-flags>`             0x0080
     \#define :ref:`V4L2_FMT_FLAG_CSC_HSV_ENC <fmtdesc-flags>`               :ref:`V4L2_FMT_FLAG_CSC_YCBCR_ENC <fmtdesc-flags>`
     \#define :ref:`V4L2_FMT_FLAG_CSC_QUANTIZATION <fmtdesc-flags>`          0x0100
+    \#define :ref:`V4L2_FMT_FLAG_META_LINE_BASED <fmtdesc-flags>`           0x0200
 
             \/\* Frame Size and frame rate enumeration \*\/
     \/\*
@@ -1043,6 +1060,7 @@ videodev2.h
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_M2M_HOLD_CAPTURE_BUF <v4l2-buf-cap-supports-m2m-hold-capture-buf>`      (1 \<\< 5)
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS <v4l2-buf-cap-supports-mmap-cache-hints>`          (1 \<\< 6)
     \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_MAX_NUM_BUFFERS <v4l2-buf-cap-supports-max-num-buffers>`           (1 \<\< 7)
+    \#define \ :ref:`V4L2_BUF_CAP_SUPPORTS_REMOVE_BUFS <v4l2-buf-cap-supports-remove-bufs>`               (1 \<\< 8)
 
     \/\*\*
      \* struct v4l2_plane - plane info for multi-planar buffers
@@ -1845,7 +1863,7 @@ videodev2.h
                     struct v4l2\_ctrl\_hdr10\_cll\_info \_\_user \*p\_hdr10\_cll\_info;
                     struct v4l2\_ctrl\_hdr10\_mastering\_display \_\_user \*p\_hdr10\_mastering\_display;
                     void \_\_user \*ptr;
-            \};
+            \} \_\_attribute\_\_ ((packed));
     \} \_\_attribute\_\_ ((packed));
 
     struct v4l2_ext_controls \{
@@ -2416,10 +2434,19 @@ videodev2.h
      \* struct v4l2_meta_format - metadata format definition
      \* @dataformat\:         little endian four character code (fourcc)
      \* @buffersize\:         maximum size in bytes required for data
+     \* @width\:              number of data units of data per line (valid for line
+     \*                      based formats only, see format documentation)
+     \* @height\:             number of lines of data per buffer (valid for line based
+     \*                      formats only)
+     \* @bytesperline\:       offset between the beginnings of two adjacent lines in
+     \*                      bytes (valid for line based formats only)
      \*\/
     struct v4l2_meta_format \{
             \_\_u32                           dataformat;
             \_\_u32                           buffersize;
+            \_\_u32                           width;
+            \_\_u32                           height;
+            \_\_u32                           bytesperline;
     \} \_\_attribute\_\_ ((packed));
 
     \/\*\*
@@ -2625,6 +2652,20 @@ videodev2.h
             \_\_u32                   reserved[5];
     \};
 
+    \/\*\*
+     \* struct v4l2_remove_buffers - \ :ref:`VIDIOC_REMOVE_BUFS <vidioc_remove_bufs>` argument
+     \* @index\:      the first buffer to be removed
+     \* @count\:      number of buffers to removed
+     \* @type\:       enum :c:type:`v4l2_buf_type`
+     \* @reserved\:   future extensions
+     \*\/
+    struct v4l2_remove_buffers \{
+            \_\_u32                   index;
+            \_\_u32                   count;
+            \_\_u32                   type;
+            \_\_u32                   reserved[13];
+    \};
+
     \/\*
      \*      I O C T L   C O D E S   F O R   V I D E O   D E V I C E S
      \*
@@ -2724,6 +2765,7 @@ videodev2.h
     \#define \ :ref:`VIDIOC_DBG_G_CHIP_INFO <vidioc_dbg_g_chip_info>`  \_IOWR('V', 102, struct v4l2_dbg_chip_info\ )
 
     \#define :ref:`VIDIOC_QUERY_EXT_CTRL <vidioc_queryctrl>`   \_IOWR('V', 103, struct v4l2_query_ext_ctrl\ )
+    \#define \ :ref:`VIDIOC_REMOVE_BUFS <vidioc_remove_bufs>`      \_IOWR('V', 104, struct v4l2_remove_buffers\ )
 
     \/\* Reminder\: when adding new ioctls please add support for them to
        drivers\/media\/v4l2-core\/v4l2-compat-ioctl32.c as well! \*\/

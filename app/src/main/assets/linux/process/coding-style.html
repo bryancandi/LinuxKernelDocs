@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -855,6 +855,25 @@ may be named in lower case.</p>
 <span class="cp">        } while (0)</span>
 </pre></div>
 </div>
+<p>Function-like macros with unused parameters should be replaced by static
+inline functions to avoid the issue of unused variables:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kr">inline</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">fun</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">foo</span><span class="w"> </span><span class="o">*</span><span class="n">foo</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Due to historical practices, many files still employ the “cast to (void)”
+approach to evaluate parameters. However, this method is not advisable.
+Inline functions address the issue of “expression with side effects
+evaluated more than once”, circumvent unused-variable problems, and
+are generally better documented than macros for some reason.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/*</span>
+<span class="cm"> * Avoid doing this whenever possible and instead opt for static</span>
+<span class="cm"> * inline functions</span>
+<span class="cm"> */</span>
+<span class="cp">#define macrofun(foo) do { (void) (foo); } while (0)</span>
+</pre></div>
+</div>
 <p>Things to avoid when using macros:</p>
 <ol class="arabic simple">
 <li><p>macros that affect control flow:</p></li>
@@ -932,8 +951,8 @@ used.</p>
 <section id="allocating-memory">
 <h2>14) Allocating memory<a class="headerlink" href="#allocating-memory" title="Link to this heading">¶</a></h2>
 <p>The kernel provides the following general purpose memory allocators:
-<a class="reference internal" href="../core-api/mm-api.html#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kzalloc" title="kzalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kzalloc()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kmalloc_array" title="kmalloc_array"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc_array()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kcalloc" title="kcalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kcalloc()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.vmalloc" title="vmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code></a>, and
-<a class="reference internal" href="../core-api/mm-api.html#c.vzalloc" title="vzalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vzalloc()</span></code></a>.  Please refer to the API documentation for further information
+<a class="reference internal" href="../core-api/mm-api.html#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kzalloc" title="kzalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kzalloc()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kmalloc_array" title="kmalloc_array"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc_array()</span></code></a>, <a class="reference internal" href="../core-api/mm-api.html#c.kcalloc" title="kcalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kcalloc()</span></code></a>, vmalloc(), and
+vzalloc().  Please refer to the API documentation for further information
 about them.  <a class="reference internal" href="../core-api/memory-allocation.html#memory-allocation"><span class="std std-ref">Documentation/core-api/memory-allocation.rst</span></a></p>
 <p>The preferred form for passing a size of a struct is the following:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kmalloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">),</span><span class="w"> </span><span class="p">...);</span>

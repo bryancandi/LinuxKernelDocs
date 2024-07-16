@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -494,7 +494,8 @@ memory. A lower value can prevent THPs from being
 collapsed, resulting fewer pages being collapsed into
 THPs, and lower memory access performance.</p>
 <p><code class="docutils literal notranslate"><span class="pre">max_ptes_shared</span></code> specifies how many pages can be shared across multiple
-processes. Exceeding the number would block the collapse:</p>
+processes. khugepaged might treat pages of THPs as shared if any page of
+that THP is shared. Exceeding the number would block the collapse:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_shared
 </pre></div>
 </div>
@@ -574,13 +575,13 @@ frequently will incur overhead.</p>
 monitor how successfully the system is providing huge pages for use.</p>
 <dl class="simple">
 <dt>thp_fault_alloc</dt><dd><p>is incremented every time a huge page is successfully
-allocated to handle a page fault.</p>
+allocated and charged to handle a page fault.</p>
 </dd>
 <dt>thp_collapse_alloc</dt><dd><p>is incremented by khugepaged when it has found
 a range of pages to collapse into one huge page and has
 successfully allocated a new huge page to store the data.</p>
 </dd>
-<dt>thp_fault_fallback</dt><dd><p>is incremented if a page fault fails to allocate
+<dt>thp_fault_fallback</dt><dd><p>is incremented if a page fault fails to allocate or charge
 a huge page and instead falls back to using small pages.</p>
 </dd>
 <dt>thp_fault_fallback_charge</dt><dd><p>is incremented if a page fault fails to charge a huge page and
@@ -633,6 +634,30 @@ huge zero page and falls back to using small pages.</p>
 piece without splitting.</p>
 </dd>
 <dt>thp_swpout_fallback</dt><dd><p>is incremented if a huge page has to be split before swapout.
+Usually because failed to allocate some continuous swap space
+for the huge page.</p>
+</dd>
+</dl>
+<p>In /sys/kernel/mm/transparent_hugepage/hugepages-&lt;size&gt;kB/stats, There are
+also individual counters for each huge page size, which can be utilized to
+monitor the system’s effectiveness in providing huge pages for usage. Each
+counter has its own corresponding file.</p>
+<dl class="simple">
+<dt>anon_fault_alloc</dt><dd><p>is incremented every time a huge page is successfully
+allocated and charged to handle a page fault.</p>
+</dd>
+<dt>anon_fault_fallback</dt><dd><p>is incremented if a page fault fails to allocate or charge
+a huge page and instead falls back to using huge pages with
+lower orders or small pages.</p>
+</dd>
+<dt>anon_fault_fallback_charge</dt><dd><p>is incremented if a page fault fails to charge a huge page and
+instead falls back to using huge pages with lower orders or
+small pages even though the allocation was successful.</p>
+</dd>
+<dt>swpout</dt><dd><p>is incremented every time a huge page is swapped out in one
+piece without splitting.</p>
+</dd>
+<dt>swpout_fallback</dt><dd><p>is incremented if a huge page has to be split before swapout.
 Usually because failed to allocate some continuous swap space
 for the huge page.</p>
 </dd>

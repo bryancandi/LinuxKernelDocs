@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -202,6 +202,58 @@ a <code class="docutils literal notranslate"><span class="pre">struct</span> <sp
 but it is intended that coverage is expanded as time goes on. “Leaf” modules
 (e.g. drivers) should not use the C bindings directly. Instead, subsystems
 should provide as-safe-as-possible abstractions as needed.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>                                                rust/bindings/
+                                               (rust/helpers.c)
+
+                                                   include/ -----+ &lt;-+
+                                                                 |   |
+  drivers/              rust/kernel/              +----------+ &lt;-+   |
+    fs/                                           | bindgen  |       |
+   .../            +-------------------+          +----------+ --+   |
+                   |    Abstractions   |                         |   |
++---------+        | +------+ +------+ |          +----------+   |   |
+| my_foo  | -----&gt; | | foo  | | bar  | | -------&gt; | Bindings | &lt;-+   |
+| driver  |  Safe  | | sub- | | sub- | |  Unsafe  |          |       |
++---------+        | |system| |system| |          | bindings | &lt;-----+
+     |             | +------+ +------+ |          |  crate   |       |
+     |             |   kernel crate    |          +----------+       |
+     |             +-------------------+                             |
+     |                                                               |
+     +------------------# FORBIDDEN #--------------------------------+
+</pre></div>
+</div>
+<p>The main idea is to encapsulate all direct interaction with the kernel’s C APIs
+into carefully reviewed and documented abstractions. Then users of these
+abstractions cannot introduce undefined behavior (UB) as long as:</p>
+<ol class="arabic simple">
+<li><p>The abstractions are correct (“sound”).</p></li>
+<li><p>Any <code class="docutils literal notranslate"><span class="pre">unsafe</span></code> blocks respect the safety contract necessary to call the
+operations inside the block. Similarly, any <code class="docutils literal notranslate"><span class="pre">unsafe</span> <span class="pre">impl</span></code>s respect the
+safety contract necessary to implement the trait.</p></li>
+</ol>
+<section id="bindings">
+<h3>Bindings<a class="headerlink" href="#bindings" title="Link to this heading">¶</a></h3>
+<p>By including a C header from <code class="docutils literal notranslate"><span class="pre">include/</span></code> into
+<code class="docutils literal notranslate"><span class="pre">rust/bindings/bindings_helper.h</span></code>, the <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> tool will auto-generate the
+bindings for the included subsystem. After building, see the <code class="docutils literal notranslate"><span class="pre">*_generated.rs</span></code>
+output files in the <code class="docutils literal notranslate"><span class="pre">rust/bindings/</span></code> directory.</p>
+<p>For parts of the C header that <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> does not auto generate, e.g. C
+<code class="docutils literal notranslate"><span class="pre">inline</span></code> functions or non-trivial macros, it is acceptable to add a small
+wrapper function to <code class="docutils literal notranslate"><span class="pre">rust/helpers.c</span></code> to make it available for the Rust side as
+well.</p>
+</section>
+<section id="abstractions">
+<h3>Abstractions<a class="headerlink" href="#abstractions" title="Link to this heading">¶</a></h3>
+<p>Abstractions are the layer between the bindings and the in-kernel users. They
+are located in <code class="docutils literal notranslate"><span class="pre">rust/kernel/</span></code> and their role is to encapsulate the unsafe
+access to the bindings into an as-safe-as-possible API that they expose to their
+users. Users of the abstractions include things like drivers or file systems
+written in Rust.</p>
+<p>Besides the safety aspect, the abstractions are supposed to be “ergonomic”, in
+the sense that they turn the C interfaces into “idiomatic” Rust code. Basic
+examples are to turn the C resource acquisition and release into Rust
+constructors and destructors or C integer error codes into Rust’s <code class="docutils literal notranslate"><span class="pre">Result</span></code>s.</p>
+</section>
 </section>
 <section id="conditional-compilation">
 <h2>Conditional compilation<a class="headerlink" href="#conditional-compilation" title="Link to this heading">¶</a></h2>

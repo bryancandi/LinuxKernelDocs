@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -2694,7 +2694,7 @@ caller must check the return value.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Allocates the PCM substream buffer using <a class="reference internal" href="../../core-api/mm-api.html#c.vmalloc" title="vmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code></a>, i.e., the memory is
+<p>Allocates the PCM substream buffer using vmalloc(), i.e., the memory is
 contiguous in kernel virtual space, but not in physical memory.  Use this
 if the buffer is accessed by kernel code but not by device DMA.</p>
 <p><strong>Return</strong></p>
@@ -2717,7 +2717,7 @@ code.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function works like <a class="reference internal" href="#c.snd_pcm_lib_alloc_vmalloc_buffer" title="snd_pcm_lib_alloc_vmalloc_buffer"><code class="xref c c-func docutils literal notranslate"><span class="pre">snd_pcm_lib_alloc_vmalloc_buffer()</span></code></a>, but uses
-<a class="reference internal" href="../../core-api/mm-api.html#c.vmalloc_32" title="vmalloc_32"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc_32()</span></code></a>, i.e., the pages are allocated from 32-bit-addressable memory.</p>
+vmalloc_32(), i.e., the pages are allocated from 32-bit-addressable memory.</p>
 <p><strong>Return</strong></p>
 <p>1 if the buffer was changed, 0 if not changed, or a negative error
 code.</p>
@@ -3665,6 +3665,7 @@ for dmaengine transfer</p>
     int (*prepare_slave_config)(struct snd_pcm_substream *substream,struct snd_pcm_hw_params *params, struct dma_slave_config *slave_config);
     struct dma_chan *(*compat_request_channel)(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_substream *substream);
     int (*process)(struct snd_pcm_substream *substream,int channel, unsigned long hwoff, unsigned long bytes);
+    const char *name;
     dma_filter_fn compat_filter_fn;
     struct device *dma_dev;
     const char *chan_names[SNDRV_PCM_STREAM_LAST + 1];
@@ -3683,6 +3684,8 @@ which do not use devicetree.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">process</span></code></dt><dd><p>Callback used to apply processing on samples transferred from/to
 user space.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>Component name. If null, dev_name will be used.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">compat_filter_fn</span></code></dt><dd><p>Will be used as the filter function when requesting a
 channel for platforms which do not use devicetree. The filter parameter
@@ -4754,6 +4757,28 @@ NOP when NULL is passed to <strong>kcontrol</strong>.</p>
 <p>Finds the control instance with the given name and
 <strong>SNDRV_CTL_ELEM_IFACE_MIXER</strong>. Other fields are set to zero.</p>
 <p>This is merely a wrapper to <a class="reference internal" href="#c.snd_ctl_find_id" title="snd_ctl_find_id"><code class="xref c c-func docutils literal notranslate"><span class="pre">snd_ctl_find_id()</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p>The pointer of the instance if found, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if not.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.snd_ctl_find_id_mixer_locked">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_kcontrol</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">snd_ctl_find_id_mixer_locked</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_card</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">card</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_ctl_find_id_mixer_locked" title="Link to this definition">¶</a><br /></dt>
+<dd><p>find the control instance with the given name string</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">snd_card</span> <span class="pre">*card</span></code></dt><dd><p>the card instance</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>the name string</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Finds the control instance with the given name and
+<strong>SNDRV_CTL_ELEM_IFACE_MIXER</strong>. Other fields are set to zero.</p>
+<p>This is merely a wrapper to <a class="reference internal" href="#c.snd_ctl_find_id_locked" title="snd_ctl_find_id_locked"><code class="xref c c-func docutils literal notranslate"><span class="pre">snd_ctl_find_id_locked()</span></code></a>.
+The caller must down card-&gt;controls_rwsem before calling this function.</p>
 <p><strong>Return</strong></p>
 <p>The pointer of the instance if found, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if not.</p>
 </div>
@@ -6515,7 +6540,7 @@ Should typically be called when a stream is opened.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function checks whether the power down delay should be ignored for a
-specific PCM runtime. Returns true if the delay is 0, if it the DAI link has
+specific PCM runtime. Returns true if the delay is 0, if the DAI link has
 been configured to ignore the delay, or if none of the components benefits
 from having the delay.</p>
 </div>

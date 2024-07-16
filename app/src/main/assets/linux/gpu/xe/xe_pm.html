@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -148,17 +148,42 @@
 
 <section id="runtime-power-management">
 <h1>Runtime Power Management<a class="headerlink" href="#runtime-power-management" title="Link to this heading">¶</a></h1>
-<p>Xe PM shall be guided by the simplicity.
-Use the simplest hook options whenever possible.
-Let’s not reinvent the runtime_pm references and hooks.
-Shall have a clear separation of display and gt underneath this component.</p>
-<p>What’s next:</p>
-<p>For now s2idle and s3 are only working in integrated devices. The next step
-is to iterate through all VRAM’s BO backing them up into the system memory
-before allowing the system suspend.</p>
-<p>Also runtime_pm needs to be here from the beginning.</p>
-<p>RC6/RPS are also critical PM features. Let’s start with GuCRC and GuC SLPC
-and no wait boost. Frequency optimizations should come on a next stage.</p>
+<p>Xe PM implements the main routines for both system level suspend states and
+for the opportunistic runtime suspend states.</p>
+<p>System Level Suspend (S-States) - In general this is OS initiated suspend
+driven by ACPI for achieving S0ix (a.k.a. S2idle, freeze), S3 (suspend to ram),
+S4 (disk). The main functions here are <cite>xe_pm_suspend</cite> and <cite>xe_pm_resume</cite>. They
+are the main point for the suspend to and resume from these states.</p>
+<p>PCI Device Suspend (D-States) - This is the opportunistic PCIe device low power
+state D3, controlled by the PCI subsystem and ACPI with the help from the
+runtime_pm infrastructure.
+PCI D3 is special and can mean D3hot, where Vcc power is on for keeping memory
+alive and quicker low latency resume or D3Cold where Vcc power is off for
+better power savings.
+The Vcc control of PCI hierarchy can only be controlled at the PCI root port
+level, while the device driver can be behind multiple bridges/switches and
+paired with other devices. For this reason, the PCI subsystem cannot perform
+the transition towards D3Cold. The lowest runtime PM possible from the PCI
+subsystem is D3hot. Then, if all these paired devices in the same root port
+are in D3hot, ACPI will assist here and run its own methods (_PR3 and _OFF)
+to perform the transition from D3hot to D3cold. Xe may disallow this
+transition by calling pci_d3cold_disable(root_pdev) before going to runtime
+suspend. It will be based on runtime conditions such as VRAM usage for a
+quick and low latency resume for instance.</p>
+<p>Runtime PM - This infrastructure provided by the Linux kernel allows the
+device drivers to indicate when the can be runtime suspended, so the device
+could be put at D3 (if supported), or allow deeper package sleep states
+(PC-states), and/or other low level power states. Xe PM component provides
+<cite>xe_pm_runtime_suspend</cite> and <cite>xe_pm_runtime_resume</cite> functions that PCI
+subsystem will call before transition to/from runtime suspend.</p>
+<p>Also, Xe PM provides get and put functions that Xe driver will use to
+indicate activity. In order to avoid locking complications with the memory
+management, whenever possible, these get and put functions needs to be called
+from the higher/outer levels.
+The main cases that need to be protected from the outer levels are: IOCTL,
+sysfs, debugfs, dma-buf sharing, GPU execution.</p>
+<p>This component is not responsible for GT idleness (RC6) nor GT frequency
+management (RPS).</p>
 <section id="internal-api">
 <h2>Internal API<a class="headerlink" href="#internal-api" title="Link to this heading">¶</a></h2>
 <dl class="c function">
@@ -190,6 +215,237 @@ and no wait boost. Frequency optimizations should come on a next stage.</p>
 </dl>
 <p><strong>Return</strong></p>
 <p>0 on success</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Initialize Xe Power Management</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This component is responsible for System and Device sleep states.</p>
+<p>Returns 0 for success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_fini">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_fini</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_fini" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Finalize Runtime PM</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_suspended">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_suspended</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_suspended" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check if runtime_pm state is suspended</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This does not provide any guarantee that the device is going to remain
+suspended as it might be racing with the runtime state transitions.
+It can be used only as a non-reliable assertion, to ensure that we are not in
+the sleep state while trying to access some memory for instance.</p>
+<p>Returns true if PCI device is suspended, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_suspend">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_suspend</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_suspend" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Prepare our device for D3hot/D3Cold</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns 0 for success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_resume">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_resume</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_resume" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Waking up from D3hot/D3Cold</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns 0 for success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_get">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_get" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a runtime_pm reference and resume synchronously</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_put">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_put" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Put the runtime_pm reference back and mark as idle</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_get_ioctl">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_get_ioctl</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_get_ioctl" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a runtime_pm reference before ioctl</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>Any number greater than or equal to 0 for success, negative error
+code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_get_if_active">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_get_if_active</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_get_if_active" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a runtime_pm reference if device active</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>Any number greater than or equal to 0 for success, negative error
+code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_get_if_in_use">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_get_if_in_use</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_get_if_in_use" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a runtime_pm reference and resume if needed</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>True if device is awake and the reference was taken, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_get_noresume">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_get_noresume</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_get_noresume" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Bump runtime PM usage counter without resuming</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function should be used in inner places where it is surely already
+protected by outer-bound callers of <cite>xe_pm_runtime_get</cite>.
+It will warn if not protected.
+The reference should be put back after this function regardless, since it
+will always bump the usage counter, regardless.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_runtime_resume_and_get">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_runtime_resume_and_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_runtime_resume_and_get" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Resume, then get a runtime_pm ref if awake.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>True if device is awake and the reference was taken, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_assert_unbounded_bridge">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_assert_unbounded_bridge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_assert_unbounded_bridge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable PM on unbounded pcie parent bridge</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_set_vram_threshold">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_set_vram_threshold</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">threshold</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_set_vram_threshold" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set a vram threshold for allowing/blocking D3Cold</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">threshold</span></code></dt><dd><p>VRAM size in bites for the D3cold threshold</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns 0 for success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xe_pm_d3cold_allowed_toggle">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xe_pm_d3cold_allowed_toggle</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xe_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xe_pm_d3cold_allowed_toggle" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check conditions to toggle d3cold.allowed</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xe_device</span> <span class="pre">*xe</span></code></dt><dd><p>xe device instance</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>To be called during runtime_pm idle callback.
+Check for all the D3Cold conditions ahead of runtime suspend.</p>
 </div>
 </section>
 </section>

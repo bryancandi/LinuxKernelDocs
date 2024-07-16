@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -3958,7 +3958,7 @@ KVM_SET_ONE_REG.</p>
 <p>Note: These registers are immutable once any of the vCPUs of the VM has
 run at least once. A KVM_SET_ONE_REG in such a scenario will return
 a -EBUSY to userspace.</p>
-<p>(See <a class="reference internal" href="arm/hypercalls.html"><span class="doc">ARM Hypercall Interface</span></a> for more details.)</p>
+<p>(See <a class="reference internal" href="arm/hypercalls.html"><span class="doc">KVM/arm64-specific hypercalls exposed to guests</span></a> for more details.)</p>
 <p>MIPS registers are mapped using the lower 32 bits.  The upper 16 of that is
 the register group type:</p>
 <p>MIPS core registers (see above) have the following id bit patterns:</p>
@@ -6090,7 +6090,7 @@ operating system that uses the PIT for timing (e.g. Linux 2.4.x).</p>
 <h3>4.100 KVM_PPC_CONFIGURE_V3_MMU<a class="headerlink" href="#kvm-ppc-configure-v3-mmu" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
-<dd class="field-odd"><p>KVM_CAP_PPC_RADIX_MMU or KVM_CAP_PPC_HASH_MMU_V3</p>
+<dd class="field-odd"><p>KVM_CAP_PPC_MMU_RADIX or KVM_CAP_PPC_MMU_HASH_V3</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
 <dd class="field-even"><p>ppc</p>
@@ -6131,7 +6131,7 @@ the Power ISA V3.00, Book III section 5.7.6.1.</p>
 <h3>4.101 KVM_PPC_GET_RMMU_INFO<a class="headerlink" href="#kvm-ppc-get-rmmu-info" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
-<dd class="field-odd"><p>KVM_CAP_PPC_RADIX_MMU</p>
+<dd class="field-odd"><p>KVM_CAP_PPC_MMU_RADIX</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
 <dd class="field-even"><p>ppc</p>
@@ -8443,7 +8443,7 @@ the state of a gfn/page as needed.</p>
 <dd class="field-even"><p>struct kvm_create_guest_memfd(in)</p>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>0 on success, &lt;0 on error</p>
+<dd class="field-odd"><p>A file descriptor on success, &lt;0 on error</p>
 </dd>
 </dl>
 <p>KVM_CREATE_GUEST_MEMFD creates an anonymous file and returns a file descriptor
@@ -8956,6 +8956,12 @@ executing the guest, or it can decide to suspend, dump, or restart the guest.</p
 <p>Note that KVM does not skip the faulting instruction as it does for
 KVM_EXIT_MMIO, but userspace has to emulate any change to the processing state
 if it decides to decode and emulate the instruction.</p>
+<p>This feature isn’t available to protected VMs, as userspace does not
+have access to the state that is required to perform the emulation.
+Instead, a data abort exception is directly injected in the guest.
+Note that although KVM_CAP_ARM_NISV_TO_USER will be reported if
+queried outside of a protected VM context, the feature will not be
+exposed if queried on a protected VM file descriptor.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* KVM_EXIT_X86_RDMSR / KVM_EXIT_X86_WRMSR */
 struct {
         __u8 error; /* user -&gt; kernel */
@@ -10359,8 +10365,8 @@ capability via KVM_ENABLE_CAP ioctl on the vcpu fd. Note that this
 will disable the use of APIC hardware virtualization even if supported
 by the CPU, as it’s incompatible with SynIC auto-EOI behavior.</p>
 </section>
-<section id="kvm-cap-ppc-radix-mmu">
-<h3>8.3 KVM_CAP_PPC_RADIX_MMU<a class="headerlink" href="#kvm-cap-ppc-radix-mmu" title="Link to this heading">¶</a></h3>
+<section id="kvm-cap-ppc-mmu-radix">
+<h3>8.3 KVM_CAP_PPC_MMU_RADIX<a class="headerlink" href="#kvm-cap-ppc-mmu-radix" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ppc</p>
@@ -10371,8 +10377,8 @@ available, means that the kernel can support guests using the
 radix MMU defined in Power ISA V3.00 (as implemented in the POWER9
 processor).</p>
 </section>
-<section id="kvm-cap-ppc-hash-mmu-v3">
-<h3>8.4 KVM_CAP_PPC_HASH_MMU_V3<a class="headerlink" href="#kvm-cap-ppc-hash-mmu-v3" title="Link to this heading">¶</a></h3>
+<section id="kvm-cap-ppc-mmu-hash-v3">
+<h3>8.4 KVM_CAP_PPC_MMU_HASH_V3<a class="headerlink" href="#kvm-cap-ppc-mmu-hash-v3" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ppc</p>
@@ -11163,6 +11169,8 @@ block sizes is exposed in KVM_CAP_ARM_SUPPORTED_BLOCK_SIZES as a
 means the VM type with value &#64;n is supported.  Possible values of &#64;n are:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#define KVM_X86_DEFAULT_VM    0
 #define KVM_X86_SW_PROTECTED_VM       1
+#define KVM_X86_SEV_VM        2
+#define KVM_X86_SEV_ES_VM     3
 </pre></div>
 </div>
 <p>Note, KVM_X86_SW_PROTECTED_VM is currently only for development and testing.

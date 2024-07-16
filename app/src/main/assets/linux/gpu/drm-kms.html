@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -475,6 +475,7 @@ involve drivers.</p>
     struct list_head encoder_list;
     int num_total_plane;
     struct list_head plane_list;
+    struct raw_spinlock panic_lock;
     int num_crtc;
     struct list_head crtc_list;
     struct list_head property_list;
@@ -552,6 +553,7 @@ involve drivers.</p>
     bool fb_modifiers_not_supported;
     bool normalize_zpos;
     struct drm_property *modifiers_property;
+    struct drm_property *size_hints_property;
     uint32_t cursor_width, cursor_height;
     struct drm_atomic_state *suspend_state;
     const struct drm_mode_config_helper_funcs *helper_private;
@@ -623,6 +625,11 @@ need any locks.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">plane_list</span></code></dt><dd><p>List of plane objects linked with <a class="reference internal" href="#c.drm_plane" title="drm_plane"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane.head</span></code></a>. This is invariant
 over the lifetime of a device and hence doesn’t need any locks.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">panic_lock</span></code></dt><dd><p>Raw spinlock used to protect critical sections of code that access
+the display hardware or modeset software state, which the panic
+printing code must be protected against. See <a class="reference internal" href="#c.drm_panic_trylock" title="drm_panic_trylock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_trylock()</span></code></a>,
+<a class="reference internal" href="#c.drm_panic_lock" title="drm_panic_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_lock()</span></code></a> and <a class="reference internal" href="#c.drm_panic_unlock" title="drm_panic_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_unlock()</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_crtc</span></code></dt><dd><p>Number of CRTCs on this device linked with <a class="reference internal" href="#c.drm_crtc" title="drm_crtc"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc.head</span></code></a>. This is invariant over the lifetime
 of a device and hence doesn’t need any locks.</p>
@@ -880,6 +887,8 @@ atomic mode checking from <a class="reference internal" href="drm-kms-helpers.ht
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">modifiers_property</span></code></dt><dd><p>Plane property to list support modifier/format
 combination.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_hints_property</span></code></dt><dd><p>Plane SIZE_HINTS property.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cursor_width</span></code></dt><dd><p>hint to userspace for max cursor width</p>
 </dd>
@@ -5810,6 +5819,7 @@ property.</p>
     struct drm_property *scaling_filter_property;
     struct drm_property *hotspot_x_property;
     struct drm_property *hotspot_y_property;
+    struct kmsg_dumper kmsg_panic;
 };
 </pre></div>
 </div>
@@ -5903,6 +5913,8 @@ scaling.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">hotspot_x_property</span></code></dt><dd><p>property to set mouse hotspot x offset.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hotspot_y_property</span></code></dt><dd><p>property to set mouse hotspot y offset.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kmsg_panic</span></code></dt><dd><p>Used to register a panic notifier for this plane</p>
 </dd>
 </dl>
 </div>
@@ -6333,6 +6345,27 @@ plane.</p>
 <p><strong>Return</strong></p>
 <p>Zero for success or -errno</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_plane_add_size_hints_property">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_plane_add_size_hints_property</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane" title="drm_plane"><span class="n"><span class="pre">drm_plane</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">plane</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-uapi.html#c.drm_plane_size_hint" title="drm_plane_size_hint"><span class="n"><span class="pre">drm_plane_size_hint</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hints</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">num_hints</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_plane_add_size_hints_property" title="Link to this definition">¶</a><br /></dt>
+<dd><p>create a size hints property</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane</span> <span class="pre">*plane</span></code></dt><dd><p>drm plane</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_plane_size_hint</span> <span class="pre">*hints</span></code></dt><dd><p>size hints</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">num_hints</span></code></dt><dd><p>number of size hints</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Create a size hints property for the plane.</p>
+<p><strong>Return</strong></p>
+<p>Zero for success or -errno</p>
+</div>
 </section>
 <section id="plane-composition-functions-reference">
 <h3>Plane Composition Functions Reference<a class="headerlink" href="#plane-composition-functions-reference" title="Link to this heading">¶</a></h3>
@@ -6725,6 +6758,191 @@ by user-space.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>This structure tracks state needed to walk the list of plane damage clips.</p>
+</section>
+<section id="plane-panic-feature">
+<h3>Plane Panic Feature<a class="headerlink" href="#plane-panic-feature" title="Link to this heading">¶</a></h3>
+<p>To enable DRM panic for a driver, the primary plane must implement a
+<a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.get_scanout_buffer</span></code></a> helper function. It is then
+automatically registered to the drm panic handler.
+When a panic occurs, the <a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.get_scanout_buffer</span></code></a> will be
+called, and the driver can provide a framebuffer so the panic handler can
+draw the panic screen on it. Currently only linear buffer and a few color
+formats are supported.
+Optionally the driver can also provide a <a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.panic_flush</span></code></a>
+callback, that will be called after that, to send additional commands to the
+hardware to make the scanout buffer visible.</p>
+</section>
+<section id="plane-panic-functions-reference">
+<h3>Plane Panic Functions Reference<a class="headerlink" href="#plane-panic-functions-reference" title="Link to this heading">¶</a></h3>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_scanout_buffer">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_scanout_buffer</span></span></span><a class="headerlink" href="#c.drm_scanout_buffer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>DRM scanout buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_scanout_buffer {
+    const struct drm_format_info *format;
+    struct iosys_map map[DRM_FORMAT_MAX_PLANES];
+    unsigned int width;
+    unsigned int height;
+    unsigned int pitch[DRM_FORMAT_MAX_PLANES];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">format</span></code></dt><dd><p>drm format of the scanout buffer.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">map</span></code></dt><dd><p>Virtual address of the scanout buffer, either in memory or iomem.
+The scanout buffer should be in linear format, and can be directly
+sent to the display hardware. Tearing is not an issue for the panic
+screen.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">width</span></code></dt><dd><p>Width of the scanout buffer, in pixels.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of the scanout buffer, in pixels.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pitch</span></code></dt><dd><p>Length in bytes between the start of two consecutive lines.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This structure holds the information necessary for drm_panic to draw the
+panic screen, and display it.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.drm_panic_trylock">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_panic_trylock</span></span></span><a class="headerlink" href="#c.drm_panic_trylock" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">drm_panic_trylock</span> <span class="pre">(dev,</span> <span class="pre">flags)</span></code></p>
+<blockquote>
+<div><p>try to enter the panic printing critical section</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>unsigned long irq flags you need to pass to the unlock() counterpart</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function must be called by any panic printing code. The panic printing
+attempt must be aborted if the trylock fails.</p>
+<p>Panic printing code can make the following assumptions while holding the
+panic lock:</p>
+<ul class="simple">
+<li><p>Anything protected by <a class="reference internal" href="#c.drm_panic_lock" title="drm_panic_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_lock()</span></code></a> and <a class="reference internal" href="#c.drm_panic_unlock" title="drm_panic_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_unlock()</span></code></a> pairs is safe
+to access.</p></li>
+<li><p>Furthermore the panic printing code only registers in <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>
+and gets removed in <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>. This allows the panic code to
+safely access any state which is invariant in between these two function
+calls, like the list of planes <a class="reference internal" href="#c.drm_mode_config" title="drm_mode_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config.plane_list</span></code></a> or most of the
+<a class="reference internal" href="#c.drm_plane" title="drm_plane"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane</span></code></a> structure.</p></li>
+</ul>
+<p>Specifically thanks to the protection around plane updates in
+<a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_swap_state" title="drm_atomic_helper_swap_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_swap_state()</span></code></a> the following additional guarantees hold:</p>
+<ul class="simple">
+<li><p>It is safe to deference the drm_plane.state pointer.</p></li>
+<li><p>Anything in <a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_state</span></code></a> or the driver’s subclass thereof which
+stays invariant after the atomic check code has finished is safe to access.
+Specifically this includes the reference counted pointers to framebuffer
+and buffer objects.</p></li>
+<li><p>Anything set up by <a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.fb_prepare</span></code></a> and cleaned up
+<a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.fb_cleanup</span></code></a> is safe to access, as long as it stays
+invariant between these two calls. This also means that for drivers using
+dynamic buffer management the framebuffer is pinned, and therefer all
+relevant datastructures can be accessed without taking any further locks
+(which would be impossible in panic context anyway).</p></li>
+<li><p>Importantly, software and hardware state set up by
+<a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.begin_fb_access</span></code></a> and
+<a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.end_fb_access</span></code></a> is not safe to access.</p></li>
+</ul>
+<p>Drivers must not make any assumptions about the actual state of the hardware,
+unless they explicitly protected these hardware access with <a class="reference internal" href="#c.drm_panic_lock" title="drm_panic_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_lock()</span></code></a>
+and <a class="reference internal" href="#c.drm_panic_unlock" title="drm_panic_unlock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_unlock()</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> when failing to acquire the raw spinlock, nonzero on success.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.drm_panic_lock">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_panic_lock</span></span></span><a class="headerlink" href="#c.drm_panic_lock" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">drm_panic_lock</span> <span class="pre">(dev,</span> <span class="pre">flags)</span></code></p>
+<blockquote>
+<div><p>protect panic printing relevant state</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>unsigned long irq flags you need to pass to the unlock() counterpart</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function must be called to protect software and hardware state that the
+panic printing code must be able to rely on. The protected sections must be
+as small as possible. It uses the irqsave/irqrestore variant, and can be
+called from irq handler. Examples include:</p>
+<ul class="simple">
+<li><p>Access to peek/poke or other similar registers, if that is the way the
+driver prints the pixels into the scanout buffer at panic time.</p></li>
+<li><p>Updates to pointers like <a class="reference internal" href="#c.drm_plane" title="drm_plane"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane.state</span></code></a>, allowing the panic handler to
+safely deference these. This is done in <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_swap_state" title="drm_atomic_helper_swap_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_swap_state()</span></code></a>.</p></li>
+<li><p>An state that isn’t invariant and that the driver must be able to access
+during panic printing.</p></li>
+</ul>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.drm_panic_unlock">
+<span class="sig-name descname"><span class="n"><span class="pre">drm_panic_unlock</span></span></span><a class="headerlink" href="#c.drm_panic_unlock" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">drm_panic_unlock</span> <span class="pre">(dev,</span> <span class="pre">flags)</span></code></p>
+<blockquote>
+<div><p>end of the panic printing critical section</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>irq flags that were returned when acquiring the lock</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Unlocks the raw spinlock acquired by either <a class="reference internal" href="#c.drm_panic_lock" title="drm_panic_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_lock()</span></code></a> or
+<a class="reference internal" href="#c.drm_panic_trylock" title="drm_panic_trylock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_trylock()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_panic_register">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panic_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panic_register" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Initialize DRM panic for a device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>the drm device on which the panic screen will be displayed.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_panic_unregister">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panic_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panic_unregister" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>the drm device previously registered.</p>
+</dd>
+</dl>
+</div>
 </section>
 </section>
 <section id="display-modes-function-reference">
@@ -11787,6 +12005,12 @@ does, or it may be inherited from the state the firmware left the
 system in during boot.</p></li>
 <li><p>An IGT test must be submitted where reasonable.</p></li>
 </ul>
+<p>For historical reasons, non-standard, driver-specific properties exist. If a KMS
+driver wants to add support for one of those properties, the requirements for
+new properties apply where possible. Additionally, the documented behavior must
+match the de facto semantics of the existing property to ensure compatibility.
+Developers of the driver that first added the property should help with those
+tasks and must ACK the documented behavior if possible.</p>
 </section>
 <section id="property-types-and-blob-property-support">
 <h3>Property Types and Blob Property Support<a class="headerlink" href="#property-types-and-blob-property-support" title="Link to this heading">¶</a></h3>
@@ -12961,6 +13185,21 @@ plane will have the IN_FORMATS property, even when it only supports
 DRM_FORMAT_MOD_LINEAR. Before linux kernel release v5.1 there have been
 various bugs in this area with inconsistencies between the capability
 flag and per-plane properties.</p>
+</dd>
+<dt>SIZE_HINTS:</dt><dd><p>Blob property which contains the set of recommended plane size
+which can used for simple “cursor like” use cases (eg. no scaling).
+Using these hints frees userspace from extensive probing of
+supported plane sizes through atomic/setcursor ioctls.</p>
+<p>The blob contains an array of <a class="reference internal" href="drm-uapi.html#c.drm_plane_size_hint" title="drm_plane_size_hint"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_size_hint</span></code></a>, in
+order of preference. For optimal usage userspace should pick
+the first size that satisfies its own requirements.</p>
+<p>Drivers should only attach this property to planes that
+support a very limited set of sizes.</p>
+<p>Note that property value 0 (ie. no blob) is reserved for potential
+future use. Current userspace is expected to ignore the property
+if the value is 0, and fall back to some other means (eg.
+<a class="reference internal" href="drm-uapi.html#c.DRM_CAP_CURSOR_WIDTH" title="DRM_CAP_CURSOR_WIDTH"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_WIDTH</span></code></a> and <a class="reference internal" href="drm-uapi.html#c.DRM_CAP_CURSOR_HEIGHT" title="DRM_CAP_CURSOR_HEIGHT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_HEIGHT</span></code></a>) to determine
+the appropriate plane size to use.</p>
 </dd>
 </dl>
 </section>

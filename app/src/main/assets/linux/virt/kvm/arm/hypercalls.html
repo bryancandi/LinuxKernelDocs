@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>ARM Hypercall Interface &#8212; The Linux Kernel  documentation</title>
+    <title>KVM/arm64-specific hypercalls exposed to guests &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
     <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -161,166 +161,59 @@
 <!-- Copyright © 2023, Oracle and/or its affiliates. -->
 
 
-<section id="arm-hypercall-interface">
-<h1>ARM Hypercall Interface<a class="headerlink" href="#arm-hypercall-interface" title="Link to this heading">¶</a></h1>
-<p>KVM handles the hypercall services as requested by the guests. New hypercall
-services are regularly made available by the ARM specification or by KVM (as
-vendor services) if they make sense from a virtualization point of view.</p>
-<p>This means that a guest booted on two different versions of KVM can observe
-two different “firmware” revisions. This could cause issues if a given guest
-is tied to a particular version of a hypercall service, or if a migration
-causes a different version to be exposed out of the blue to an unsuspecting
-guest.</p>
-<p>In order to remedy this situation, KVM exposes a set of “firmware
-pseudo-registers” that can be manipulated using the GET/SET_ONE_REG
-interface. These registers can be saved/restored by userspace, and set
-to a convenient value as required.</p>
-<p>The following registers are defined:</p>
-<ul>
-<li><p>KVM_REG_ARM_PSCI_VERSION:</p>
-<p>KVM implements the PSCI (Power State Coordination Interface)
-specification in order to provide services such as CPU on/off, reset
-and power-off to the guest.</p>
-<ul class="simple">
-<li><p>Only valid if the vcpu has the KVM_ARM_VCPU_PSCI_0_2 feature set
-(and thus has already been initialized)</p></li>
-<li><p>Returns the current PSCI version on GET_ONE_REG (defaulting to the
-highest PSCI version implemented by KVM and compatible with v0.2)</p></li>
-<li><p>Allows any PSCI version implemented by KVM and compatible with
-v0.2 to be set with SET_ONE_REG</p></li>
-<li><p>Affects the whole VM (even if the register view is per-vcpu)</p></li>
-</ul>
-</li>
-<li><dl class="simple">
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1:</dt><dd><p>Holds the state of the firmware support to mitigate CVE-2017-5715, as
-offered by KVM to the guest via a HVC call. The workaround is described
-under SMCCC_ARCH_WORKAROUND_1 in [1].</p>
-</dd>
-</dl>
-<p>Accepted values are:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1_NOT_AVAIL:</dt><dd><p>KVM does not offer
-firmware support for the workaround. The mitigation status for the
-guest is unknown.</p>
-</dd>
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1_AVAIL:</dt><dd><p>The workaround HVC call is
-available to the guest and required for the mitigation.</p>
-</dd>
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1_NOT_REQUIRED:</dt><dd><p>The workaround HVC call
-is available to the guest, but it is not needed on this VCPU.</p>
-</dd>
-</dl>
-</div></blockquote>
-</li>
-<li><dl class="simple">
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2:</dt><dd><p>Holds the state of the firmware support to mitigate CVE-2018-3639, as
-offered by KVM to the guest via a HVC call. The workaround is described
-under SMCCC_ARCH_WORKAROUND_2 in <a class="footnote-reference brackets" href="#id2" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>.</p>
-</dd>
-</dl>
-<p>Accepted values are:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_NOT_AVAIL:</dt><dd><p>A workaround is not
-available. KVM does not offer firmware support for the workaround.</p>
-</dd>
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_UNKNOWN:</dt><dd><p>The workaround state is
-unknown. KVM does not offer firmware support for the workaround.</p>
-</dd>
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_AVAIL:</dt><dd><p>The workaround is available,
-and can be disabled by a vCPU. If
-KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_ENABLED is set, it is active for
-this vCPU.</p>
-</dd>
-<dt>KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_NOT_REQUIRED:</dt><dd><p>The workaround is always active on this vCPU or it is not needed.</p>
-</dd>
-</dl>
-</div></blockquote>
-</li>
-</ul>
-<section id="bitmap-feature-firmware-registers">
-<h2>Bitmap Feature Firmware Registers<a class="headerlink" href="#bitmap-feature-firmware-registers" title="Link to this heading">¶</a></h2>
-<p>Contrary to the above registers, the following registers exposes the
-hypercall services in the form of a feature-bitmap to the userspace. This
-bitmap is translated to the services that are available to the guest.
-There is a register defined per service call owner and can be accessed via
-GET/SET_ONE_REG interface.</p>
-<p>By default, these registers are set with the upper limit of the features
-that are supported. This way userspace can discover all the usable
-hypercall services via GET_ONE_REG. The user-space can write-back the
-desired bitmap back via SET_ONE_REG. The features for the registers that
-are untouched, probably because userspace isn’t aware of them, will be
-exposed as is to the guest.</p>
-<p>Note that KVM will not allow the userspace to configure the registers
-anymore once any of the vCPUs has run at least once. Instead, it will
-return a -EBUSY.</p>
-<p>The pseudo-firmware bitmap register are as follows:</p>
-<ul>
-<li><dl class="simple">
-<dt>KVM_REG_ARM_STD_BMAP:</dt><dd><p>Controls the bitmap of the ARM Standard Secure Service Calls.</p>
-</dd>
-</dl>
-<p>The following bits are accepted:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>Bit-0: KVM_REG_ARM_STD_BIT_TRNG_V1_0:</dt><dd><p>The bit represents the services offered under v1.0 of ARM True Random
-Number Generator (TRNG) specification, ARM DEN0098.</p>
-</dd>
-</dl>
-</div></blockquote>
-</li>
-<li><dl class="simple">
-<dt>KVM_REG_ARM_STD_HYP_BMAP:</dt><dd><p>Controls the bitmap of the ARM Standard Hypervisor Service Calls.</p>
-</dd>
-</dl>
-<p>The following bits are accepted:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>Bit-0: KVM_REG_ARM_STD_HYP_BIT_PV_TIME:</dt><dd><p>The bit represents the Paravirtualized Time service as represented by
-ARM DEN0057A.</p>
-</dd>
-</dl>
-</div></blockquote>
-</li>
-<li><dl class="simple">
-<dt>KVM_REG_ARM_VENDOR_HYP_BMAP:</dt><dd><p>Controls the bitmap of the Vendor specific Hypervisor Service Calls.</p>
-</dd>
-</dl>
-<p>The following bits are accepted:</p>
-<blockquote>
-<div><dl class="simple">
-<dt>Bit-0: KVM_REG_ARM_VENDOR_HYP_BIT_FUNC_FEAT</dt><dd><p>The bit represents the ARM_SMCCC_VENDOR_HYP_KVM_FEATURES_FUNC_ID
-and ARM_SMCCC_VENDOR_HYP_CALL_UID_FUNC_ID function-ids.</p>
-</dd>
-<dt>Bit-1: KVM_REG_ARM_VENDOR_HYP_BIT_PTP:</dt><dd><p>The bit represents the Precision Time Protocol KVM service.</p>
-</dd>
-</dl>
-</div></blockquote>
-</li>
-</ul>
-<p>Errors:</p>
-<blockquote>
-<div><table class="docutils align-default">
+<section id="kvm-arm64-specific-hypercalls-exposed-to-guests">
+<h1>KVM/arm64-specific hypercalls exposed to guests<a class="headerlink" href="#kvm-arm64-specific-hypercalls-exposed-to-guests" title="Link to this heading">¶</a></h1>
+<p>This file documents the KVM/arm64-specific hypercalls which may be
+exposed by KVM/arm64 to guest operating systems. These hypercalls are
+issued using the HVC instruction according to version 1.1 of the Arm SMC
+Calling Convention (DEN0028/C):</p>
+<p><a class="reference external" href="https://developer.arm.com/docs/den0028/c">https://developer.arm.com/docs/den0028/c</a></p>
+<p>All KVM/arm64-specific hypercalls are allocated within the “Vendor
+Specific Hypervisor Service Call” range with a UID of
+<code class="docutils literal notranslate"><span class="pre">28b46fb6-2ec5-11e9-a9ca-4b564d003a74</span></code>. This UID should be queried by the
+guest using the standard “Call UID” function for the service range in
+order to determine that the KVM/arm64-specific hypercalls are available.</p>
+<section id="arm-smccc-vendor-hyp-kvm-features-func-id">
+<h2><code class="docutils literal notranslate"><span class="pre">ARM_SMCCC_VENDOR_HYP_KVM_FEATURES_FUNC_ID</span></code><a class="headerlink" href="#arm-smccc-vendor-hyp-kvm-features-func-id" title="Link to this heading">¶</a></h2>
+<p>Provides a discovery mechanism for other KVM/arm64 hypercalls.</p>
+<table class="docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p>-ENOENT</p></td>
-<td><p>Unknown register accessed.</p></td>
+<tr class="row-odd"><td><p>Presence:</p></td>
+<td colspan="3"><p>Mandatory for the KVM/arm64 UID</p></td>
 </tr>
-<tr class="row-even"><td><p>-EBUSY</p></td>
-<td><p>Attempt a ‘write’ to the register after the VM has started.</p></td>
+<tr class="row-even"><td><p>Calling convention:</p></td>
+<td colspan="3"><p>HVC32</p></td>
 </tr>
-<tr class="row-odd"><td><p>-EINVAL</p></td>
-<td><p>Invalid bitmap written to the register.</p></td>
+<tr class="row-odd"><td><p>Function ID:</p></td>
+<td><p>(uint32)</p></td>
+<td colspan="2"><p>0x86000000</p></td>
+</tr>
+<tr class="row-even"><td><p>Arguments:</p></td>
+<td colspan="3"><p>None</p></td>
+</tr>
+<tr class="row-odd"><td rowspan="4"><p>Return Values:</p></td>
+<td><p>(uint32)</p></td>
+<td><p>R0</p></td>
+<td><p>Bitmap of available function numbers 0-31</p></td>
+</tr>
+<tr class="row-even"><td><p>(uint32)</p></td>
+<td><p>R1</p></td>
+<td><p>Bitmap of available function numbers 32-63</p></td>
+</tr>
+<tr class="row-odd"><td><p>(uint32)</p></td>
+<td><p>R2</p></td>
+<td><p>Bitmap of available function numbers 64-95</p></td>
+</tr>
+<tr class="row-even"><td><p>(uint32)</p></td>
+<td><p>R3</p></td>
+<td><p>Bitmap of available function numbers 96-127</p></td>
 </tr>
 </tbody>
 </table>
-</div></blockquote>
-<aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id2" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
-<p><a class="reference external" href="https://developer.arm.com/-/media/developer/pdf/ARM_DEN_0070A_Firmware_interfaces_for_mitigating_CVE-2017-5715.pdf">https://developer.arm.com/-/media/developer/pdf/ARM_DEN_0070A_Firmware_interfaces_for_mitigating_CVE-2017-5715.pdf</a></p>
-</aside>
-</aside>
+</section>
+<section id="arm-smccc-vendor-hyp-kvm-ptp-func-id">
+<h2><code class="docutils literal notranslate"><span class="pre">ARM_SMCCC_VENDOR_HYP_KVM_PTP_FUNC_ID</span></code><a class="headerlink" href="#arm-smccc-vendor-hyp-kvm-ptp-func-id" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="ptp_kvm.html"><span class="doc">PTP_KVM support for arm/arm64</span></a></p>
 </section>
 </section>
 

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -248,7 +248,7 @@ a page will cause no race conditions is enough.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct page_pool_params {
-    unsigned int    flags;
+    struct page_pool_params_fast  fast;
     unsigned int    order;
     unsigned int    pool_size;
     int nid;
@@ -257,13 +257,15 @@ a page will cause no race conditions is enough.</p>
     enum dma_data_direction dma_dir;
     unsigned int    max_len;
     unsigned int    offset;
+    struct page_pool_params_slow  slow;
     STRUCT_GROUP( struct net_device *netdev;
+    unsigned int    flags;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>PP_FLAG_DMA_MAP, PP_FLAG_DMA_SYNC_DEV</p>
+<dt><code class="docutils literal notranslate"><span class="pre">fast</span></code></dt><dd><p>params accessed frequently on hotpath</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">order</span></code></dt><dd><p>2^order pages on allocation</p>
 </dd>
@@ -281,7 +283,11 @@ a page will cause no race conditions is enough.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>DMA sync address offset for PP_FLAG_DMA_SYNC_DEV</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">slow</span></code></dt><dd><p>params with slowpath access only (initialization and Netlink)</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">netdev</span></code></dt><dd><p>netdev this pool will serve (leave as NULL if none or multiple)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>PP_FLAG_DMA_MAP, PP_FLAG_DMA_SYNC_DEV, PP_FLAG_SYSTEM_POOL</p>
 </dd>
 </dl>
 </div>
@@ -366,14 +372,14 @@ it returns va of the allocated page or page fragment.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.page_pool_get_dma_dir">
-<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">dma_data_direction</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_dma_dir</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_dma_dir" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">dma_data_direction</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_dma_dir</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_dma_dir" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Retrieve the stored DMA direction.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which page was allocated</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which page was allocated</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -464,14 +470,14 @@ as configured in <a class="reference internal" href="#c.page_pool_params" title=
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.page_pool_get_dma_addr">
-<span class="n"><span class="pre">dma_addr_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_dma_addr</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pool_get_dma_addr" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_dma_addr" title="Link to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">dma_addr_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pool_get_dma_addr</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pool_get_dma_addr" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pool_get_dma_addr" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Retrieve the stored DMA address.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>page allocated from a page pool</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>page allocated from a page pool</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

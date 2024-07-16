@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -312,12 +312,12 @@ that are run. If there is dump data, then the
 /sys/kernel/fadump_release_mem file is created, and the reserved
 memory is held.</p>
 <p>If there is no waiting dump data, then only the memory required to
-hold CPU state, HPTE region, boot memory dump, FADump header and
-elfcore header, is usually reserved at an offset greater than boot
-memory size (see Fig. 1). This area is <em>not</em> released: this region
-will be kept permanently reserved, so that it can act as a receptacle
-for a copy of the boot memory content in addition to CPU state and
-HPTE region, in the case a crash does occur.</p>
+hold CPU state, HPTE region, boot memory dump, and FADump header is
+usually reserved at an offset greater than boot memory size (see Fig. 1).
+This area is <em>not</em> released: this region will be kept permanently
+reserved, so that it can act as a receptacle for a copy of the boot
+memory content in addition to CPU state and HPTE region, in the case
+a crash does occur.</p>
 <p>Since this reserved memory area is used only after the system crash,
 there is no point in blocking this significant chunk of memory from
 production kernel. Hence, the implementation uses the Linux kernel’s
@@ -329,22 +329,22 @@ kernel memory and most of the user space memory except the user pages
 that were present in CMA region:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>o Memory Reservation during first kernel
 
-Low memory                                                 Top of memory
-0    boot memory size   |&lt;--- Reserved dump area ---&gt;|       |
-|           |           |    Permanent Reservation   |       |
-V           V           |                            |       V
-+-----------+-----/ /---+---+----+-------+-----+-----+----+--+
-|           |           |///|////|  DUMP | HDR | ELF |////|  |
-+-----------+-----/ /---+---+----+-------+-----+-----+----+--+
-      |                   ^    ^     ^      ^           ^
-      |                   |    |     |      |           |
-      \                  CPU  HPTE   /      |           |
-       ------------------------------       |           |
-    Boot memory content gets transferred    |           |
-    to reserved area by firmware at the     |           |
-    time of crash.                          |           |
-                                        FADump Header   |
-                                         (meta area)    |
+Low memory                                                  Top of memory
+0    boot memory size   |&lt;------ Reserved dump area -----&gt;|     |
+|           |           |      Permanent Reservation      |     |
+V           V           |                                 |     V
++-----------+-----/ /---+---+----+-----------+-------+----+-----+
+|           |           |///|////|    DUMP   |  HDR  |////|     |
++-----------+-----/ /---+---+----+-----------+-------+----+-----+
+      |                   ^    ^       ^         ^      ^
+      |                   |    |       |         |      |
+      \                  CPU  HPTE     /         |      |
+       --------------------------------          |      |
+    Boot memory content gets transferred         |      |
+    to reserved area by firmware at the          |      |
+    time of crash.                               |      |
+                                         FADump Header  |
+                                          (meta area)   |
                                                         |
                                                         |
                     Metadata: This area holds a metadata structure whose
@@ -362,19 +362,32 @@ Low memory                                              Top of memory
 0      boot memory size                                      |
 |           |&lt;------------ Crash preserved area ------------&gt;|
 V           V           |&lt;--- Reserved dump area ---&gt;|       |
-+-----------+-----/ /---+---+----+-------+-----+-----+----+--+
-|           |           |///|////|  DUMP | HDR | ELF |////|  |
-+-----------+-----/ /---+---+----+-------+-----+-----+----+--+
-      |                                           |
-      V                                           V
- Used by second                             /proc/vmcore
- kernel to boot
++----+---+--+-----/ /---+---+----+-------+-----+-----+-------+
+|    |ELF|  |           |///|////|  DUMP | HDR |/////|       |
++----+---+--+-----/ /---+---+----+-------+-----+-----+-------+
+     |   |  |                            |     |             |
+     -----  ------------------------------     ---------------
+       \              |                               |
+         \            |                               |
+           \          |                               |
+             \        |    ----------------------------
+               \      |   /
+                 \    |  /
+                   \  | /
+                /proc/vmcore
+
 
       +---+
       |///| -&gt; Regions (CPU, HPTE &amp; Metadata) marked like this in the above
       +---+    figures are not always present. For example, OPAL platform
                does not have CPU &amp; HPTE regions while Metadata region is
                not supported on pSeries currently.
+
+      +---+
+      |ELF| -&gt; elfcorehdr, it is created in second kernel after crash.
+      +---+
+
+      Note: Memory from 0 to the boot memory size is used by second kernel
 
                  Fig. 2
 </pre></div>
@@ -537,30 +550,10 @@ how to mount the debugfs filesystem.</p>
 <section id="todo">
 <h2>TODO:<a class="headerlink" href="#todo" title="Link to this heading">¶</a></h2>
 <blockquote>
-<div><ul>
+<div><ul class="simple">
 <li><p>Need to come up with the better approach to find out more
 accurate boot memory size that is required for a kernel to
 boot successfully when booted with restricted memory.</p></li>
-<li><p>The FADump implementation introduces a FADump crash info structure
-in the scratch area before the ELF core header. The idea of introducing
-this structure is to pass some important crash info data to the second
-kernel which will help second kernel to populate ELF core header with
-correct data before it gets exported through /proc/vmcore. The current
-design implementation does not address a possibility of introducing
-additional fields (in future) to this structure without affecting
-compatibility. Need to come up with the better approach to address this.</p>
-<p>The possible approaches are:</p>
-<blockquote>
-<div><p>1. Introduce version field for version tracking, bump up the version
-whenever a new field is added to the structure in future. The version
-field can be used to find out what fields are valid for the current
-version of the structure.
-2. Reserve the area of predefined size (say PAGE_SIZE) for this
-structure and have unused area as reserved (initialized to zero)
-for future field additions.</p>
-</div></blockquote>
-<p>The advantage of approach 1 over 2 is we don’t need to reserve extra space.</p>
-</li>
 </ul>
 </div></blockquote>
 <p>Author: Mahesh Salgaonkar &lt;<a class="reference external" href="mailto:mahesh&#37;&#52;&#48;linux&#46;vnet&#46;ibm&#46;com">mahesh<span>&#64;</span>linux<span>&#46;</span>vnet<span>&#46;</span>ibm<span>&#46;</span>com</a>&gt;</p>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -1192,9 +1192,6 @@ or LP-111 mode before call to s_stream().</p>
     int (*g_input_status)(struct v4l2_subdev *sd, u32 *status);
     int (*s_stream)(struct v4l2_subdev *sd, int enable);
     int (*g_pixelaspect)(struct v4l2_subdev *sd, struct v4l2_fract *aspect);
-    int (*s_dv_timings)(struct v4l2_subdev *sd, struct v4l2_dv_timings *timings);
-    int (*g_dv_timings)(struct v4l2_subdev *sd, struct v4l2_dv_timings *timings);
-    int (*query_dv_timings)(struct v4l2_subdev *sd, struct v4l2_dv_timings *timings);
     int (*s_rx_buffer)(struct v4l2_subdev *sd, void *buf, unsigned int *size);
     int (*pre_streamon)(struct v4l2_subdev *sd, u32 flags);
     int (*post_streamoff)(struct v4l2_subdev *sd);
@@ -1240,14 +1237,6 @@ already started or stopped subdev. Also see call_s_stream wrapper in
 v4l2-subdev.c.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">g_pixelaspect</span></code></dt><dd><p>callback to return the pixelaspect ratio.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">s_dv_timings</span></code></dt><dd><p>Set custom dv timings in the sub device. This is used
-when sub device is capable of setting detailed timing information
-in the hardware to generate/detect the video signal.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">g_dv_timings</span></code></dt><dd><p>Get custom dv timings in the sub device.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">query_dv_timings</span></code></dt><dd><p>callback for VIDIOC_QUERY_DV_TIMINGS() ioctl handler code.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">s_rx_buffer</span></code></dt><dd><p>set a host allocated memory buffer for the subdev. The subdev
 can adjust <strong>size</strong> to a lower value and must not write more data to the
@@ -1581,6 +1570,7 @@ processing when shutdown is true.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct v4l2_subdev_krouting {
+    unsigned int len_routes;
     unsigned int num_routes;
     struct v4l2_subdev_route *routes;
 };
@@ -1588,6 +1578,8 @@ processing when shutdown is true.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">len_routes</span></code></dt><dd><p>length of routes array, in routes</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_routes</span></code></dt><dd><p>number of routes</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">routes</span></code></dt><dd><p><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_route</span></code></p>
@@ -1654,6 +1646,9 @@ of the main argument is set to <code class="docutils literal notranslate"><span 
     int (*set_frame_interval)(struct v4l2_subdev *sd,struct v4l2_subdev_state *state, struct v4l2_subdev_frame_interval *interval);
     int (*get_edid)(struct v4l2_subdev *sd, struct v4l2_edid *edid);
     int (*set_edid)(struct v4l2_subdev *sd, struct v4l2_edid *edid);
+    int (*s_dv_timings)(struct v4l2_subdev *sd, unsigned int pad, struct v4l2_dv_timings *timings);
+    int (*g_dv_timings)(struct v4l2_subdev *sd, unsigned int pad, struct v4l2_dv_timings *timings);
+    int (*query_dv_timings)(struct v4l2_subdev *sd, unsigned int pad, struct v4l2_dv_timings *timings);
     int (*dv_timings_cap)(struct v4l2_subdev *sd, struct v4l2_dv_timings_cap *cap);
     int (*enum_dv_timings)(struct v4l2_subdev *sd, struct v4l2_enum_dv_timings *timings);
 #ifdef CONFIG_MEDIA_CONTROLLER;
@@ -1696,6 +1691,14 @@ ioctl handler code.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">get_edid</span></code></dt><dd><p>callback for VIDIOC_SUBDEV_G_EDID() ioctl handler code.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_edid</span></code></dt><dd><p>callback for VIDIOC_SUBDEV_S_EDID() ioctl handler code.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">s_dv_timings</span></code></dt><dd><p>Set custom dv timings in the sub device. This is used
+when sub device is capable of setting detailed timing information
+in the hardware to generate/detect the video signal.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">g_dv_timings</span></code></dt><dd><p>Get custom dv timings in the sub device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">query_dv_timings</span></code></dt><dd><p>callback for VIDIOC_QUERY_DV_TIMINGS() ioctl handler code.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dv_timings_cap</span></code></dt><dd><p>callback for VIDIOC_SUBDEV_DV_TIMINGS_CAP() ioctl handler
 code.</p>
@@ -2760,6 +2763,47 @@ operations can use this helper to implement the legacy
 </dl>
 <p><strong>Description</strong></p>
 <p>Unlocks the given subdev state.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.v4l2_subdev_lock_states">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_subdev_lock_states</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state1</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state2</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_subdev_lock_states" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Lock two sub-device states</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_state</span> <span class="pre">*state1</span></code></dt><dd><p>One subdevice state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_state</span> <span class="pre">*state2</span></code></dt><dd><p>The other subdevice state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Locks the state of two sub-devices.</p>
+<p>The states must be unlocked with <a class="reference internal" href="#c.v4l2_subdev_unlock_states" title="v4l2_subdev_unlock_states"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_unlock_states()</span></code></a> after use.</p>
+<p>This differs from calling <a class="reference internal" href="#c.v4l2_subdev_lock_state" title="v4l2_subdev_lock_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_lock_state()</span></code></a> on both states so that if
+the states share the same lock, the lock is acquired only once (so no
+deadlock occurs). The caller is responsible for ensuring the locks will
+always be acquired in the same order.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.v4l2_subdev_unlock_states">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_subdev_unlock_states</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state1</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev_state" title="v4l2_subdev_state"><span class="n"><span class="pre">v4l2_subdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state2</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_subdev_unlock_states" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Unlock two sub-device states</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_state</span> <span class="pre">*state1</span></code></dt><dd><p>One subdevice state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev_state</span> <span class="pre">*state2</span></code></dt><dd><p>The other subdevice state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Unlocks the state of two sub-devices.</p>
+<p>This differs from calling <a class="reference internal" href="#c.v4l2_subdev_unlock_state" title="v4l2_subdev_unlock_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_unlock_state()</span></code></a> on both states so that
+if the states share the same lock, the lock is released only once.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_subdev_get_unlocked_active_state">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -198,13 +198,16 @@ Chinese (Simplified)
 <h3>rustc<a class="headerlink" href="#rustc" title="Link to this heading">¶</a></h3>
 <p>需要一个特定版本的Rust编译器。较新的版本可能会也可能不会工作，因为就目前而言，内核依赖
 于一些不稳定的Rust特性。</p>
-<p>如果使用的是 <code class="docutils literal notranslate"><span class="pre">rustup</span></code> ，请进入检出的源代码目录并运行:</p>
+<p>如果使用的是 <code class="docutils literal notranslate"><span class="pre">rustup</span></code> ，请进入内核编译目录（或者用 <code class="docutils literal notranslate"><span class="pre">--path=&lt;build-dir&gt;</span></code> 参数
+来 <code class="docutils literal notranslate"><span class="pre">设置</span></code> sub-command)并运行:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>rustup override set $(scripts/min-tool-version.sh rustc)
 </pre></div>
 </div>
-<p>或者从以下网址获取一个独立的安装程序或安装 <code class="docutils literal notranslate"><span class="pre">rustup</span></code> ：</p>
+<p>+这将配置你的工作目录使用正确版本的 <code class="docutils literal notranslate"><span class="pre">rustc</span></code>，而不影响你的默认工具链。</p>
+<p>请注意覆盖应用当前的工作目录（和它的子目录）。</p>
+<p>如果你使用 <code class="docutils literal notranslate"><span class="pre">rustup</span></code>， 可以从下面的链接拉取一个单独的安装程序:</p>
 <blockquote>
-<div><p><a class="reference external" href="https://www.rust-lang.org">https://www.rust-lang.org</a></p>
+<div><p><a class="reference external" href="https://forge.rust-lang.org/infra/other-installation-methods.html#standalone">https://forge.rust-lang.org/infra/other-installation-methods.html#standalone</a></p>
 </div></blockquote>
 </section>
 <section id="rust">
@@ -215,19 +218,21 @@ Chinese (Simplified)
 </pre></div>
 </div>
 <p>这些组件是按工具链安装的，因此以后升级Rust编译器版本需要重新添加组件。</p>
-<p>否则，如果使用独立的安装程序，可以将Rust仓库克隆到工具链的安装文件夹中:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git clone --recurse-submodules \
-        --branch $(scripts/min-tool-version.sh rustc) \
-        https://github.com/rust-lang/rust \
-        $(rustc --print sysroot)/lib/rustlib/src/rust
+<p>否则，如果使用独立的安装程序，可以将Rust源码树下载到安装工具链的文件夹中:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>curl -L &quot;https://static.rust-lang.org/dist/rust-src-$(scripts/min-tool-version.sh rustc).tar.gz&quot; |
+        tar -xzf - -C &quot;$(rustc --print sysroot)/lib&quot; \
+        &quot;rust-src-$(scripts/min-tool-version.sh rustc)/rust-src/lib/&quot; \
+        --strip-components=3
 </pre></div>
 </div>
-<p>在这种情况下，以后升级Rust编译器版本需要手动更新这个克隆的仓库。</p>
+<p>在这种情况下，以后升级Rust编译器版本需要手动更新这个源代码树（这可以通过移除
+<code class="docutils literal notranslate"><span class="pre">$(rustc</span> <span class="pre">--print</span> <span class="pre">sysroot)/lib/rustlib/src/rust</span></code> ，然后重新执行上
+面的命令做到）。</p>
 </section>
 <section id="libclang">
 <h3>libclang<a class="headerlink" href="#libclang" title="Link to this heading">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">bindgen</span></code> 使用 <code class="docutils literal notranslate"><span class="pre">libclang</span></code> （LLVM的一部分）来理解内核中的C代码，这意味着需要安
-装LLVM；同在开启 <code class="docutils literal notranslate"><span class="pre">CC=clang</span></code> 或 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> 时编译内核一样。</p>
+装LLVM；同在开启``LLVM=1`` 时编译内核一样。</p>
 <p>Linux发行版中可能会有合适的包，所以最好先检查一下。</p>
 <p>适用于部分系统和架构的二进制文件也可到以下网址下载：</p>
 <blockquote>
@@ -244,9 +249,18 @@ Chinese (Simplified)
 <h3>bindgen<a class="headerlink" href="#bindgen" title="Link to this heading">¶</a></h3>
 <p>内核的C端绑定是在构建时使用 <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> 工具生成的。这需要特定的版本。</p>
 <p>通过以下方式安装它（注意，这将从源码下载并构建该工具）:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked --version $(scripts/min-tool-version.sh bindgen) bindgen
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked --version $(scripts/min-tool-version.sh bindgen) bindgen-cli
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">bindgen</span></code> 需要找到合适的 <code class="docutils literal notranslate"><span class="pre">libclang</span></code> 才能工作。如果没有找到（或者找到的
+<code class="docutils literal notranslate"><span class="pre">libclang</span></code> 与应该使用的 <code class="docutils literal notranslate"><span class="pre">libclang</span></code> 不同），则可以使用 <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code>
+理解的环境变量（Rust绑定创建的 <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> 用来访问 <code class="docutils literal notranslate"><span class="pre">libclang</span></code>）:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LLVM_CONFIG_PATH</span></code> 可以指向一个 <code class="docutils literal notranslate"><span class="pre">llvm-config</span></code> 可执行文件。</p></li>
+<li><p>或者 <code class="docutils literal notranslate"><span class="pre">LIBCLANG_PATH</span></code> 可以指向 <code class="docutils literal notranslate"><span class="pre">libclang</span></code> 共享库或包含它的目录。</p></li>
+<li><p>或者 <code class="docutils literal notranslate"><span class="pre">CLANG_PATH</span></code> 可以指向 <code class="docutils literal notranslate"><span class="pre">clang</span></code> 可执行文件。</p></li>
+</ul>
+<p>详情请参阅 <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code> 的文档:</p>
 </section>
 </section>
 <section id="id3">
@@ -295,7 +309,10 @@ Chinese (Simplified)
 <p><a class="reference external" href="https://rust-analyzer.github.io/">rust-analyzer</a> 语言服务器可以和许多编辑器
 一起使用，以实现语法高亮、补全、转到定义和其他功能。</p>
 <p><code class="docutils literal notranslate"><span class="pre">rust-analyzer</span></code> 需要一个配置文件， <code class="docutils literal notranslate"><span class="pre">rust-project.json</span></code>, 它可以由 <code class="docutils literal notranslate"><span class="pre">rust-analyzer</span></code>
-Make 目标生成。</p>
+Make 目标生成:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 rust-analyzer
+</pre></div>
+</div>
 </section>
 </section>
 <section id="id5">
@@ -315,10 +332,6 @@ Make 目标生成。</p>
 <h2>构建<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
 <p>用完整的LLVM工具链构建内核是目前支持的最佳设置。即:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1
-</pre></div>
-</div>
-<p>对于不支持完整LLVM工具链的架构，使用:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make CC=clang
 </pre></div>
 </div>
 <p>使用GCC对某些配置也是可行的，但目前它是非常试验性的。</p>

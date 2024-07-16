@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -547,8 +547,8 @@ from VIDIOC_CREATE_BUFS(), *num_planes != 0 and it
 describes the requested number of planes and sizes[]
 contains the requested plane sizes. In this case
 *num_buffers are being allocated additionally to
-q-&gt;num_buffers. If either *num_planes or the requested
-sizes are invalid callback must return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>.</p>
+the buffers already allocated. If either *num_planes
+or the requested sizes are invalid callback must return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wait_prepare</span></code></dt><dd><p>release any locks taken while calling vb2 functions;
 it is called before an ioctl needs to wait for a new
@@ -721,6 +721,7 @@ the <a class="reference internal" href="#c.vb2_buffer" title="vb2_buffer"><code 
     u32 timestamp_flags;
     gfp_t gfp_flags;
     u32 min_queued_buffers;
+    u32 min_reqbufs_allocation;
     struct device                   *alloc_devs[VB2_MAX_PLANES];
 };
 </pre></div>
@@ -821,9 +822,22 @@ to force the buffer allocation to a specific memory zone.</p>
 <strong>start_streaming</strong> can be called. Used when a DMA engine
 cannot be started unless at least this number of buffers
 have been queued into the driver.
-VIDIOC_REQBUFS will ensure at least <strong>min_queued_buffers</strong>
+VIDIOC_REQBUFS will ensure at least <strong>min_queued_buffers</strong> + 1
 buffers will be allocated. Note that VIDIOC_CREATE_BUFS will not
 modify the requested buffer count.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">min_reqbufs_allocation</span></code></dt><dd><p>the minimum number of buffers to be allocated when
+calling VIDIOC_REQBUFS. Note that VIDIOC_CREATE_BUFS will <em>not</em>
+modify the requested buffer count and does not use this field.
+Drivers can set this if there has to be a certain number of
+buffers available for the hardware to work effectively.
+This allows calling VIDIOC_REQBUFS with a buffer count of 1 and
+it will be automatically adjusted to a workable buffer count.
+If set, then <strong>min_reqbufs_allocation</strong> must be larger than
+<strong>min_queued_buffers</strong> + 1.
+If this field is &gt; 3, then it is highly recommended that the
+driver implements the V4L2_CID_MIN_BUFFERS_FOR_CAPTURE/OUTPUT
+control.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">alloc_devs</span></code></dt><dd><p><a class="reference internal" href="../infrastructure.html#c.device" title="device"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> memory type/allocator-specific per-plane device</p>
 </dd>
@@ -1015,7 +1029,7 @@ call and the queue is not busy, memory will be reallocated.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vb2_core_create_bufs">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">vb2_core_create_bufs</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.vb2_queue" title="vb2_queue"><span class="n"><span class="pre">vb2_queue</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.vb2_memory" title="vb2_memory"><span class="n"><span class="pre">vb2_memory</span></span></a><span class="w"> </span><span class="n"><span class="pre">memory</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">count</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requested_planes</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requested_sizes</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vb2_core_create_bufs" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">vb2_core_create_bufs</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.vb2_queue" title="vb2_queue"><span class="n"><span class="pre">vb2_queue</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.vb2_memory" title="vb2_memory"><span class="n"><span class="pre">vb2_memory</span></span></a><span class="w"> </span><span class="n"><span class="pre">memory</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">count</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requested_planes</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">requested_sizes</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">first_index</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vb2_core_create_bufs" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate buffers and any required auxiliary structs</p>
 </dd></dl>
 
@@ -1033,6 +1047,9 @@ call and the queue is not busy, memory will be reallocated.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">requested_planes</span></code></dt><dd><p>number of planes requested.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">requested_sizes[]</span></code></dt><dd><p>array with the size of the planes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*first_index</span></code></dt><dd><p>index of the first created buffer, all allocated buffers have
+indices in the range [first_index..first_index+count-1]</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1073,6 +1090,24 @@ called internally by VB2 by an API-specific handler, like
 <p>This function calls vb2_ops-&gt;buf_prepare callback in the driver
 (if provided), in which driver-specific buffer initialization can
 be performed.</p>
+<p><strong>Return</strong></p>
+<p>returns zero on success; an error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.vb2_core_remove_bufs">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">vb2_core_remove_bufs</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.vb2_queue" title="vb2_queue"><span class="n"><span class="pre">vb2_queue</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vb2_core_remove_bufs" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vb2_queue</span> <span class="pre">*q</span></code></dt><dd><p>pointer to <a class="reference internal" href="#c.vb2_queue" title="vb2_queue"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vb2_queue</span></code></a> with videobuf2 queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">start</span></code></dt><dd><p>first index of the range of buffers to remove.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">count</span></code></dt><dd><p>number of buffers to remove.</p>
+</dd>
+</dl>
 <p><strong>Return</strong></p>
 <p>returns zero on success; an error code otherwise.</p>
 </div>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -380,7 +380,7 @@ files.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clear_schemes_tried_regions</span></code>: Clear the DAMON-based operating scheme
 action tried regions directory for each DAMON-based operation scheme of the
 kdamond.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">update_schemes_effective_bytes</span></code>: Update the contents of
+<li><p><code class="docutils literal notranslate"><span class="pre">update_schemes_effective_quotas</span></code>: Update the contents of
 <code class="docutils literal notranslate"><span class="pre">effective_bytes</span></code> files for each DAMON-based operation scheme of the
 kdamond.  For more details, refer to <a class="reference internal" href="#sysfs-quotas"><span class="std std-ref">quotas directory</span></a>.</p></li>
 </ul>
@@ -513,7 +513,7 @@ Based on the user-specified <a class="reference internal" href="#sysfs-schemes-q
 effective size quota is further adjusted.  Reading <code class="docutils literal notranslate"><span class="pre">effective_bytes</span></code> returns
 the current effective size quota.  The file is not updated in real time, so
 users should ask DAMON sysfs interface to update the content of the file for
-the stats by writing a special keyword, <code class="docutils literal notranslate"><span class="pre">update_schemes_effective_bytes</span></code> to
+the stats by writing a special keyword, <code class="docutils literal notranslate"><span class="pre">update_schemes_effective_quotas</span></code> to
 the relevant <code class="docutils literal notranslate"><span class="pre">kdamonds/&lt;N&gt;/state</span></code> file.</p>
 <p>Under <code class="docutils literal notranslate"><span class="pre">weights</span></code> directory, three files (<code class="docutils literal notranslate"><span class="pre">sz_permil</span></code>,
 <code class="docutils literal notranslate"><span class="pre">nr_accesses_permil</span></code>, and <code class="docutils literal notranslate"><span class="pre">age_permil</span></code>) exist.
@@ -565,19 +565,19 @@ to <code class="docutils literal notranslate"><span class="pre">N-1</span></code
 in the numeric order.</p>
 <p>Each filter directory contains six files, namely <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">matcing</span></code>,
 <code class="docutils literal notranslate"><span class="pre">memcg_path</span></code>, <code class="docutils literal notranslate"><span class="pre">addr_start</span></code>, <code class="docutils literal notranslate"><span class="pre">addr_end</span></code>, and <code class="docutils literal notranslate"><span class="pre">target_idx</span></code>.  To <code class="docutils literal notranslate"><span class="pre">type</span></code>
-file, you can write one of four special keywords: <code class="docutils literal notranslate"><span class="pre">anon</span></code> for anonymous pages,
-<code class="docutils literal notranslate"><span class="pre">memcg</span></code> for specific memory cgroup, <code class="docutils literal notranslate"><span class="pre">addr</span></code> for specific address range (an
-open-ended interval), or <code class="docutils literal notranslate"><span class="pre">target</span></code> for specific DAMON monitoring target
-filtering.  In case of the memory cgroup filtering, you can specify the memory
-cgroup of the interest by writing the path of the memory cgroup from the
-cgroups mount point to <code class="docutils literal notranslate"><span class="pre">memcg_path</span></code> file.  In case of the address range
-filtering, you can specify the start and end address of the range to
-<code class="docutils literal notranslate"><span class="pre">addr_start</span></code> and <code class="docutils literal notranslate"><span class="pre">addr_end</span></code> files, respectively.  For the DAMON monitoring
-target filtering, you can specify the index of the target between the list of
-the DAMON context’s monitoring targets list to <code class="docutils literal notranslate"><span class="pre">target_idx</span></code> file.  You can
-write <code class="docutils literal notranslate"><span class="pre">Y</span></code> or <code class="docutils literal notranslate"><span class="pre">N</span></code> to <code class="docutils literal notranslate"><span class="pre">matching</span></code> file to filter out pages that does or does
-not match to the type, respectively.  Then, the scheme’s action will not be
-applied to the pages that specified to be filtered out.</p>
+file, you can write one of five special keywords: <code class="docutils literal notranslate"><span class="pre">anon</span></code> for anonymous pages,
+<code class="docutils literal notranslate"><span class="pre">memcg</span></code> for specific memory cgroup, <code class="docutils literal notranslate"><span class="pre">young</span></code> for young pages, <code class="docutils literal notranslate"><span class="pre">addr</span></code> for
+specific address range (an open-ended interval), or <code class="docutils literal notranslate"><span class="pre">target</span></code> for specific
+DAMON monitoring target filtering.  In case of the memory cgroup filtering, you
+can specify the memory cgroup of the interest by writing the path of the memory
+cgroup from the cgroups mount point to <code class="docutils literal notranslate"><span class="pre">memcg_path</span></code> file.  In case of the
+address range filtering, you can specify the start and end address of the range
+to <code class="docutils literal notranslate"><span class="pre">addr_start</span></code> and <code class="docutils literal notranslate"><span class="pre">addr_end</span></code> files, respectively.  For the DAMON
+monitoring target filtering, you can specify the index of the target between
+the list of the DAMON context’s monitoring targets list to <code class="docutils literal notranslate"><span class="pre">target_idx</span></code> file.
+You can write <code class="docutils literal notranslate"><span class="pre">Y</span></code> or <code class="docutils literal notranslate"><span class="pre">N</span></code> to <code class="docutils literal notranslate"><span class="pre">matching</span></code> file to filter out pages that does
+or does not match to the type, respectively.  Then, the scheme’s action will
+not be applied to the pages that specified to be filtered out.</p>
 <p>For example, below restricts a DAMOS action to be applied to only non-anonymous
 pages of all memory cgroups except <code class="docutils literal notranslate"><span class="pre">/having_care_already</span></code>.:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo 2 &gt; nr_filters
@@ -587,7 +587,7 @@ echo Y &gt; 0/matching
 # # further filter out all cgroups except one at &#39;/having_care_already&#39;
 echo memcg &gt; 1/type
 echo /having_care_already &gt; 1/memcg_path
-echo N &gt; 1/matching
+echo Y &gt; 1/matching
 </pre></div>
 </div>
 <p>Note that <code class="docutils literal notranslate"><span class="pre">anon</span></code> and <code class="docutils literal notranslate"><span class="pre">memcg</span></code> filters are currently supported only when

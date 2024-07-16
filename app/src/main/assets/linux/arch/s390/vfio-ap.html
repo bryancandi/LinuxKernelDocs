@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -110,6 +110,7 @@
 <li class="toctree-l3"><a class="reference internal" href="cds.html">Linux for S/390 and zSeries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="3270.html">IBM 3270 Display System support</a></li>
 <li class="toctree-l3"><a class="reference internal" href="driver-model.html">S/390 driver model interfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mm.html">Memory Management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="monreader.html">Linux API for read access to z/VM Monitor Records</a></li>
 <li class="toctree-l3"><a class="reference internal" href="qeth.html">IBM s390 QDIO Ethernet Driver</a></li>
 <li class="toctree-l3"><a class="reference internal" href="s390dbf.html">S390 Debug Feature</a></li>
@@ -524,7 +525,7 @@ mediated device. When a device is registered with the VFIO mediated device
 framework, the sysfs attribute files identified in the ‘mdev_attr_groups’
 structure will be created in the vfio_ap mediated device’s directory. The
 sysfs attributes for a vfio_ap mediated device are:</p>
-<dl class="simple">
+<dl>
 <dt>assign_adapter / unassign_adapter:</dt><dd><p>Write-only attributes for assigning/unassigning an AP adapter to/from the
 vfio_ap mediated device. To assign/unassign an adapter, the APID of the
 adapter is echoed into the respective attribute file.</p>
@@ -552,6 +553,28 @@ respective attribute file.</p>
 </dd>
 <dt>control_domains:</dt><dd><p>A read-only file for displaying the control domain numbers assigned to the
 vfio_ap mediated device.</p>
+</dd>
+<dt>ap_config:</dt><dd><p>A read/write file that, when written to, allows all three of the
+vfio_ap mediated device’s ap matrix masks to be replaced in one shot.
+Three masks are given, one for adapters, one for domains, and one for
+control domains. If the given state cannot be set then no changes are
+made to the vfio-ap mediated device.</p>
+<p>The format of the data written to ap_config is as follows:
+{amask},{dmask},{cmask}n</p>
+<p>n is a newline character.</p>
+<p>amask, dmask, and cmask are masks identifying which adapters, domains,
+and control domains should be assigned to the mediated device.</p>
+<p>The format of a mask is as follows:
+0xNN..NN</p>
+<p>Where NN..NN is 64 hexadecimal characters representing a 256-bit value.
+The leftmost (highest order) bit represents adapter/domain 0.</p>
+<p>For an example set of masks that represent your mdev’s current
+configuration, simply cat ap_config.</p>
+<p>Setting an adapter or domain number greater than the maximum allowed for
+the system will result in an error.</p>
+<p>This attribute is intended to be used by automation. End users would be
+better served using the respective assign/unassign attributes for
+adapters, domains, and control domains.</p>
 </dd>
 </dl>
 </dd>
@@ -777,7 +800,7 @@ vfio_ap module is:
 following Kconfig elements selected:
 * IOMMU_SUPPORT
 * S390
-* ZCRYPT
+* AP
 * VFIO
 * KVM</p>
 <p>If using make menuconfig select the following to build the vfio_ap module:</p>

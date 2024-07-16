@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -628,6 +628,7 @@ use this macro once, and calling it replaces <a class="reference internal" href=
     unsigned long           irq_flags;
     bool queue_empty;
     bool must_async;
+    bool defer_optimize_message;
 };
 </pre></div>
 </div>
@@ -751,6 +752,8 @@ SPI_TRANS_FAIL_NO_START.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">last_cs</span></code></dt><dd><p>the last chip_select that is recorded by set_cs, -1 on non chip
 selected</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">last_cs_index_mask</span></code></dt><dd><p>bit mask the last chip selects that were used</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xfer_completion</span></code></dt><dd><p>used by core transfer_one_message()</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">max_dma_len</span></code></dt><dd><p>Maximum length of a DMA transfer for the device.</p>
@@ -853,6 +856,10 @@ for spi_sync transfers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">must_async</span></code></dt><dd><p>disable all fast paths in the core</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">defer_optimize_message</span></code></dt><dd><p>set to true if controller cannot pre-optimize messages
+and needs to defer the optimization step until the message is actually
+being transferred</p>
+</dd>
 </dl>
 </div>
 <p><strong>Note</strong></p>
@@ -921,12 +928,13 @@ management during spi_message processing.</p>
     unsigned dummy_data:1;
     unsigned cs_off:1;
     unsigned cs_change:1;
-    unsigned tx_nbits:3;
-    unsigned rx_nbits:3;
+    unsigned tx_nbits:4;
+    unsigned rx_nbits:4;
     unsigned timestamped:1;
 #define SPI_NBITS_SINGLE        0x01 ;
 #define SPI_NBITS_DUAL          0x02 ;
 #define SPI_NBITS_QUAD          0x04 ;
+#define SPI_NBITS_OCTAL 0x08 ;
     u8 bits_per_word;
     struct spi_delay        delay;
     struct spi_delay        cs_change_delay;
@@ -950,9 +958,9 @@ management during spi_message processing.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">error</span></code></dt><dd><p>Error status logged by SPI controller driver.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tx_dma</span></code></dt><dd><p>DMA address of tx_buf, if <strong>spi_message.is_dma_mapped</strong></p>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_dma</span></code></dt><dd><p>DMA address of tx_buf, currently not for client use</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rx_dma</span></code></dt><dd><p>DMA address of rx_buf, if <strong>spi_message.is_dma_mapped</strong></p>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_dma</span></code></dt><dd><p>DMA address of rx_buf, currently not for client use</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_sg</span></code></dt><dd><p>Scatterlist for transmit, currently not for client use</p>
 </dd>
@@ -1079,7 +1087,6 @@ and its transfers, ignore them until its completion callback.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct spi_message {
     struct list_head        transfers;
     struct spi_device       *spi;
-    unsigned is_dma_mapped:1;
     bool pre_optimized;
     bool optimized;
     bool prepared;
@@ -1100,9 +1107,6 @@ and its transfers, ignore them until its completion callback.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">transfers</span></code></dt><dd><p>list of transfer segments in this transaction</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">spi</span></code></dt><dd><p>SPI device to which the transaction is queued</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">is_dma_mapped</span></code></dt><dd><p>if true, the caller provided both DMA and CPU virtual
-addresses for each transfer buffer</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pre_optimized</span></code></dt><dd><p>peripheral driver pre-optimized the message</p>
 </dd>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -1622,7 +1622,7 @@ extensions and a few limitations:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">``n``</span></code> is unsupported</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">``p``*</span></code> is handled by pointer()</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">``p*``</span></code> is handled by pointer()</p></li>
 </ul>
 </div></blockquote>
 <p>See pointer() or <a class="reference internal" href="printk-formats.html"><span class="doc">How to get printk format specifiers right</span></a> for more
@@ -3327,6 +3327,50 @@ without trailing padding. If padding is required, use <a class="reference intern
 must be discoverable by the compiler.</p>
 </div>
 <dl class="c macro">
+<dt class="sig sig-object c" id="c.memtostr">
+<span class="sig-name descname"><span class="n"><span class="pre">memtostr</span></span></span><a class="headerlink" href="#c.memtostr" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">memtostr</span> <span class="pre">(dest,</span> <span class="pre">src)</span></code></p>
+<blockquote>
+<div><p>Copy a possibly non-NUL-term string to a NUL-term string</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dest</span></code></dt><dd><p>Pointer to destination NUL-terminates string</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">src</span></code></dt><dd><p>Pointer to character array (likely marked as __nonstring)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is a replacement for <a class="reference internal" href="#c.strncpy" title="strncpy"><code class="xref c c-func docutils literal notranslate"><span class="pre">strncpy()</span></code></a> uses where the source is not
+a NUL-terminated string.</p>
+<p>Note that sizes of <strong>dest</strong> and <strong>src</strong> must be known at compile-time.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.memtostr_pad">
+<span class="sig-name descname"><span class="n"><span class="pre">memtostr_pad</span></span></span><a class="headerlink" href="#c.memtostr_pad" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">memtostr_pad</span> <span class="pre">(dest,</span> <span class="pre">src)</span></code></p>
+<blockquote>
+<div><p>Copy a possibly non-NUL-term string to a NUL-term string with NUL padding in the destination</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dest</span></code></dt><dd><p>Pointer to destination NUL-terminates string</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">src</span></code></dt><dd><p>Pointer to character array (likely marked as __nonstring)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is a replacement for <a class="reference internal" href="#c.strncpy" title="strncpy"><code class="xref c c-func docutils literal notranslate"><span class="pre">strncpy()</span></code></a> uses where the source is not
+a NUL-terminated string.</p>
+<p>Note that sizes of <strong>dest</strong> and <strong>src</strong> must be known at compile-time.</p>
+</div>
+<dl class="c macro">
 <dt class="sig sig-object c" id="c.memset_after">
 <span class="sig-name descname"><span class="n"><span class="pre">memset_after</span></span></span><a class="headerlink" href="#c.memset_after" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
@@ -3431,7 +3475,7 @@ and not a constant. Instead use <a class="reference internal" href="#c.str_has_p
 </dl>
 <p><strong>Note</strong></p>
 <p>Strings allocated by kstrdup_const should be freed by kfree_const and
-must not be passed to <a class="reference internal" href="mm-api.html#c.krealloc" title="krealloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">krealloc()</span></code></a>.</p>
+must not be passed to krealloc().</p>
 <p><strong>Return</strong></p>
 <p>source string if it is in .rodata section otherwise
 fallback to kstrdup.</p>
@@ -3968,6 +4012,10 @@ bitmap_to_arr32(buf, src, nbits)            Copy nbits from buf to u32[] dst
 bitmap_to_arr64(buf, src, nbits)            Copy nbits from buf to u64[] dst
 bitmap_get_value8(map, start)               Get 8bit value from map at start
 bitmap_set_value8(map, value, start)        Set 8bit value to map at start
+bitmap_read(map, start, nbits)              Read an nbits-sized value from
+                                            map at start
+bitmap_write(map, value, start, nbits)      Write an nbits-sized value to
+                                            map at start
 </pre></div>
 </div>
 <p>Note, bitmap_zero() and bitmap_fill() operate over the region of
@@ -4717,9 +4765,9 @@ That is <code class="docutils literal notranslate"><span class="pre">(u32</span>
 but we expect the lower 32-bits of u64.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.bitmap_get_value8">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bitmap_get_value8</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">map</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bitmap_get_value8" title="Link to this definition">¶</a><br /></dt>
-<dd><p>get an 8-bit value within a memory region</p>
+<dt class="sig sig-object c" id="c.bitmap_read">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bitmap_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">map</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">nbits</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bitmap_read" title="Link to this definition">¶</a><br /></dt>
+<dd><p>read a value of n-bits from the memory region</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -4727,17 +4775,20 @@ but we expect the lower 32-bits of u64.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*map</span></code></dt><dd><p>address to the bitmap memory region</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">start</span></code></dt><dd><p>bit offset of the 8-bit value; must be a multiple of 8</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">start</span></code></dt><dd><p>bit offset of the n-bit value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">nbits</span></code></dt><dd><p>size of value in bits, nonzero, up to BITS_PER_LONG</p>
 </dd>
 </dl>
-<p><strong>Description</strong></p>
-<p>Returns the 8-bit value located at the <strong>start</strong> bit offset within the <strong>src</strong>
-memory region.</p>
+<p><strong>Return</strong></p>
+<p>value of <strong>nbits</strong> bits located at the <strong>start</strong> bit offset within the
+<strong>map</strong> memory region. For <strong>nbits</strong> = 0 and <strong>nbits</strong> &gt; BITS_PER_LONG the return
+value is undefined.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.bitmap_set_value8">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bitmap_set_value8</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">map</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bitmap_set_value8" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set an 8-bit value within a memory region</p>
+<dt class="sig sig-object c" id="c.bitmap_write">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bitmap_write</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">map</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">nbits</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.bitmap_write" title="Link to this definition">¶</a><br /></dt>
+<dd><p>write n-bit value within a memory region</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -4745,11 +4796,23 @@ memory region.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*map</span></code></dt><dd><p>address to the bitmap memory region</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">value</span></code></dt><dd><p>the 8-bit value; values wider than 8 bits may clobber bitmap</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">value</span></code></dt><dd><p>value to write, clamped to nbits</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">start</span></code></dt><dd><p>bit offset of the 8-bit value; must be a multiple of 8</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">start</span></code></dt><dd><p>bit offset of the n-bit value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">nbits</span></code></dt><dd><p>size of value in bits, nonzero, up to BITS_PER_LONG.</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.bitmap_write" title="bitmap_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">bitmap_write()</span></code></a> behaves as-if implemented as <strong>nbits</strong> calls of __assign_bit(),
+i.e. bits beyond <strong>nbits</strong> are ignored:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>for (bit = 0; bit &lt; nbits; bit++)</dt><dd><p>__assign_bit(start + bit, bitmap, val &amp; BIT(bit));</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>For <strong>nbits</strong> == 0 and <strong>nbits</strong> &gt; BITS_PER_LONG no writes are performed.</p>
 </div>
 </section>
 <section id="command-line-parsing">
@@ -7425,6 +7488,24 @@ it is dangerous and must be handled in the same way as <a class="reference inter
 </dl>
 </div>
 <dl class="c macro">
+<dt class="sig sig-object c" id="c.kfifo_skip_count">
+<span class="sig-name descname"><span class="n"><span class="pre">kfifo_skip_count</span></span></span><a class="headerlink" href="#c.kfifo_skip_count" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">kfifo_skip_count</span> <span class="pre">(fifo,</span> <span class="pre">count)</span></code></p>
+<blockquote>
+<div><p>skip output data</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fifo</span></code></dt><dd><p>address of the fifo to be used</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">count</span></code></dt><dd><p>count of data to skip</p>
+</dd>
+</dl>
+</div>
+<dl class="c macro">
 <dt class="sig sig-object c" id="c.kfifo_skip">
 <span class="sig-name descname"><span class="n"><span class="pre">kfifo_skip</span></span></span><a class="headerlink" href="#c.kfifo_skip" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
@@ -7690,7 +7771,7 @@ for locking and doesn’t disable interrupts.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This macro get some data from the fifo and return the numbers of elements
+<p>This macro gets some data from the fifo and returns the numbers of elements
 copied.</p>
 <p>Note that with only one concurrent reader and one concurrent
 writer, you don’t need extra locking to use these macro.</p>
@@ -7717,7 +7798,7 @@ writer, you don’t need extra locking to use these macro.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This macro get the data from the fifo and return the numbers of elements
+<p>This macro gets the data from the fifo and returns the numbers of elements
 copied.</p>
 </div>
 <dl class="c macro">
@@ -7800,11 +7881,11 @@ writer, you don’t need extra locking to use these macro.</p>
 writer, you don’t need extra locking to use these macro.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.kfifo_dma_in_prepare">
-<span class="sig-name descname"><span class="n"><span class="pre">kfifo_dma_in_prepare</span></span></span><a class="headerlink" href="#c.kfifo_dma_in_prepare" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.kfifo_dma_in_prepare_mapped">
+<span class="sig-name descname"><span class="n"><span class="pre">kfifo_dma_in_prepare_mapped</span></span></span><a class="headerlink" href="#c.kfifo_dma_in_prepare_mapped" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">kfifo_dma_in_prepare</span> <span class="pre">(fifo,</span> <span class="pre">sgl,</span> <span class="pre">nents,</span> <span class="pre">len)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">kfifo_dma_in_prepare_mapped</span> <span class="pre">(fifo,</span> <span class="pre">sgl,</span> <span class="pre">nents,</span> <span class="pre">len,</span> <span class="pre">dma)</span></code></p>
 <blockquote>
 <div><p>setup a scatterlist for DMA input</p>
 </div></blockquote>
@@ -7818,6 +7899,8 @@ writer, you don’t need extra locking to use these macro.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">nents</span></code></dt><dd><p>number of entries in the scatterlist array</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">len</span></code></dt><dd><p>number of elements to transfer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma</span></code></dt><dd><p>mapped dma address to fill into <strong>sgl</strong></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -7844,17 +7927,17 @@ writer, you don’t need extra locking to use these macros.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This macro finish a DMA IN operation. The in counter will be updated by
+<p>This macro finishes a DMA IN operation. The in counter will be updated by
 the len parameter. No error checking will be done.</p>
 <p>Note that with only one concurrent reader and one concurrent
 writer, you don’t need extra locking to use these macros.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.kfifo_dma_out_prepare">
-<span class="sig-name descname"><span class="n"><span class="pre">kfifo_dma_out_prepare</span></span></span><a class="headerlink" href="#c.kfifo_dma_out_prepare" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.kfifo_dma_out_prepare_mapped">
+<span class="sig-name descname"><span class="n"><span class="pre">kfifo_dma_out_prepare_mapped</span></span></span><a class="headerlink" href="#c.kfifo_dma_out_prepare_mapped" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">kfifo_dma_out_prepare</span> <span class="pre">(fifo,</span> <span class="pre">sgl,</span> <span class="pre">nents,</span> <span class="pre">len)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">kfifo_dma_out_prepare_mapped</span> <span class="pre">(fifo,</span> <span class="pre">sgl,</span> <span class="pre">nents,</span> <span class="pre">len,</span> <span class="pre">dma)</span></code></p>
 <blockquote>
 <div><p>setup a scatterlist for DMA output</p>
 </div></blockquote>
@@ -7868,6 +7951,8 @@ writer, you don’t need extra locking to use these macros.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">nents</span></code></dt><dd><p>number of entries in the scatterlist array</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">len</span></code></dt><dd><p>number of elements to transfer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma</span></code></dt><dd><p>mapped dma address to fill into <strong>sgl</strong></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -7896,7 +7981,7 @@ writer, you don’t need extra locking to use these macros.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This macro finish a DMA OUT operation. The out counter will be updated by
+<p>This macro finishes a DMA OUT operation. The out counter will be updated by
 the len parameter. No error checking will be done.</p>
 <p>Note that with only one concurrent reader and one concurrent
 writer, you don’t need extra locking to use these macros.</p>
@@ -7921,8 +8006,65 @@ writer, you don’t need extra locking to use these macros.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This macro get the data from the fifo and return the numbers of elements
+<p>This macro gets the data from the fifo and returns the numbers of elements
 copied. The data is not removed from the fifo.</p>
+<p>Note that with only one concurrent reader and one concurrent
+writer, you don’t need extra locking to use these macro.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.kfifo_out_linear">
+<span class="sig-name descname"><span class="n"><span class="pre">kfifo_out_linear</span></span></span><a class="headerlink" href="#c.kfifo_out_linear" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">kfifo_out_linear</span> <span class="pre">(fifo,</span> <span class="pre">tail,</span> <span class="pre">n)</span></code></p>
+<blockquote>
+<div><p>gets a tail of/offset to available data</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fifo</span></code></dt><dd><p>address of the fifo to be used</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tail</span></code></dt><dd><p>pointer to an unsigned int to store the value of tail</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">n</span></code></dt><dd><p>max. number of elements to point at</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This macro obtains the offset (tail) to the available data in the fifo
+buffer and returns the
+numbers of elements available. It returns the available count till the end
+of data or till the end of the buffer. So that it can be used for linear
+data processing (like <a class="reference internal" href="#c.memcpy" title="memcpy"><code class="xref c c-func docutils literal notranslate"><span class="pre">memcpy()</span></code></a> of (<strong>fifo-&gt;data</strong> + <strong>tail</strong>) with count
+returned).</p>
+<p>Note that with only one concurrent reader and one concurrent
+writer, you don’t need extra locking to use these macro.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.kfifo_out_linear_ptr">
+<span class="sig-name descname"><span class="n"><span class="pre">kfifo_out_linear_ptr</span></span></span><a class="headerlink" href="#c.kfifo_out_linear_ptr" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">kfifo_out_linear_ptr</span> <span class="pre">(fifo,</span> <span class="pre">ptr,</span> <span class="pre">n)</span></code></p>
+<blockquote>
+<div><p>gets a pointer to the available data</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fifo</span></code></dt><dd><p>address of the fifo to be used</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ptr</span></code></dt><dd><p>pointer to data to store the pointer to tail</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">n</span></code></dt><dd><p>max. number of elements to point at</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Similarly to <a class="reference internal" href="#c.kfifo_out_linear" title="kfifo_out_linear"><code class="xref c c-func docutils literal notranslate"><span class="pre">kfifo_out_linear()</span></code></a>, this macro obtains the pointer to the
+available data in the fifo buffer and returns the numbers of elements
+available. It returns the available count till the end of available data or
+till the end of the buffer. So that it can be used for linear data
+processing (like <a class="reference internal" href="#c.memcpy" title="memcpy"><code class="xref c c-func docutils literal notranslate"><span class="pre">memcpy()</span></code></a> of <strong>ptr</strong> with count returned).</p>
 <p>Note that with only one concurrent reader and one concurrent
 writer, you don’t need extra locking to use these macro.</p>
 </div>
@@ -8436,9 +8578,9 @@ the worst case an finit_module() system call can end up allocating virtual
 memory 3 times:</p>
 <blockquote>
 <div><ol class="arabic simple">
-<li><p>kernel_read_file_from_fd() call uses <a class="reference internal" href="mm-api.html#c.vmalloc" title="vmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code></a></p></li>
+<li><p>kernel_read_file_from_fd() call uses vmalloc()</p></li>
 <li><p>optional module decompression uses <a class="reference internal" href="mm-api.html#c.vmap" title="vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmap()</span></code></a></p></li>
-<li><p>layout_and allocate() can use <a class="reference internal" href="mm-api.html#c.vzalloc" title="vzalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vzalloc()</span></code></a> or an arch specific variation of
+<li><p>layout_and allocate() can use vzalloc() or an arch specific variation of
 vmalloc to deal with ELF sections requiring special permissions</p></li>
 </ol>
 </div></blockquote>
@@ -8489,7 +8631,7 @@ this system</p></li>
 sizes we’ve dealt with on this system</p></li>
 <li><p>invalid_kread_bytes: bytes allocated and then freed on failures which
 happen due to the initial kernel_read_file_from_fd(). kernel_read_file_from_fd()
-uses <a class="reference internal" href="mm-api.html#c.vmalloc" title="vmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code></a>. These should typically not happen unless your system is
+uses vmalloc(). These should typically not happen unless your system is
 under memory pressure.</p></li>
 <li><p>invalid_decompress_bytes: number of bytes allocated and freed due to
 memory allocations in the module decompression path that use <a class="reference internal" href="mm-api.html#c.vmap" title="vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmap()</span></code></a>.
@@ -8512,7 +8654,7 @@ duplicate failed modules are non-fatal, however they typically are
 indicative of userspace not seeing a module in userspace loaded yet and
 unnecessarily trying to load a module before the kernel even has a chance
 to begin to process prior requests. Although duplicate failures can be
-non-fatal, we should try to reduce <a class="reference internal" href="mm-api.html#c.vmalloc" title="vmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">vmalloc()</span></code></a> pressure proactively, so
+non-fatal, we should try to reduce vmalloc() pressure proactively, so
 ideally after boot this will be close to as 0 as possible.  If module
 decompression was used we also add to this counter the cost of the
 initial kernel_read_file_from_fd() of the compressed module. If module
@@ -12881,7 +13023,7 @@ there is no security label assigned to the key.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.security_audit_rule_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_audit_rule_init</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">field</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">op</span></span>, <span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">rulestr</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lsmrule</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_audit_rule_init" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_audit_rule_init</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">field</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">op</span></span>, <span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">rulestr</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lsmrule</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_audit_rule_init" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate and init an LSM audit rule struct</p>
 </dd></dl>
 
@@ -12895,6 +13037,8 @@ there is no security label assigned to the key.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">*rulestr</span></code></dt><dd><p>rule context</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">**lsmrule</span></code></dt><dd><p>receive buffer for audit rule struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>GFP flag used for kmalloc</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -14720,54 +14864,6 @@ To update existing limits use queue_limits_start_update() and
 <p>Returns 0 if successful, else a negative error code.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_bounce_limit">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_bounce_limit</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">blk_bounce</span></span><span class="w"> </span><span class="n"><span class="pre">bounce</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_bounce_limit" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set bounce buffer limit for queue</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">blk_bounce</span> <span class="pre">bounce</span></code></dt><dd><p>bounce limit to enforce</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>Force bouncing for ISA DMA ranges or highmem.</p>
-<p>DEPRECATED, don’t use in new code.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_max_hw_sectors">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_max_hw_sectors</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">max_hw_sectors</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_max_hw_sectors" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set max sectors for a request for this queue</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">max_hw_sectors</span></code></dt><dd><p>max hardware sectors in the usual 512b unit</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>Enables a low level driver to set a hard upper limit,
-max_hw_sectors, on the size of requests.  max_hw_sectors is set by
-the device driver based upon the capabilities of the I/O
-controller.</p>
-<p>max_dev_sectors is a hard limit imposed by the storage device for
-READ/WRITE requests. It is set by the disk driver.</p>
-<p>max_sectors is a soft limit imposed by the block layer for
-filesystem type requests.  This value can be overridden on a
-per-device basis in /sys/block/&lt;device&gt;/queue/max_sectors_kb.
-The soft limit can not exceed max_hw_sectors.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.blk_queue_chunk_sectors">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_chunk_sectors</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">chunk_sectors</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_chunk_sectors" title="Link to this definition">¶</a><br /></dt>
 <dd><p>set size of the chunk for this queue</p>
@@ -14849,66 +14945,11 @@ to split single page bios.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">max_zone_append_sectors</span></code></dt><dd><p>maximum number of sectors to write per command</p>
 </dd>
 </dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_max_segments">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_max_segments</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">short</span></span><span class="w"> </span><span class="n"><span class="pre">max_segments</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_max_segments" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set max hw segments for a request for this queue</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">short</span> <span class="pre">max_segments</span></code></dt><dd><p>max number of segments</p>
-</dd>
-</dl>
 <p><strong>Description</strong></p>
-<blockquote>
-<div><p>Enables a low level driver to set an upper limit on the number of
-hw data segments in a request.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_max_discard_segments">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_max_discard_segments</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">short</span></span><span class="w"> </span><span class="n"><span class="pre">max_segments</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_max_discard_segments" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set max segments for discard requests</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">short</span> <span class="pre">max_segments</span></code></dt><dd><p>max number of segments</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>Enables a low level driver to set an upper limit on the number of
-segments in a discard request.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_max_segment_size">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_max_segment_size</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">max_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_max_segment_size" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set max segment size for blk_rq_map_sg</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">max_size</span></code></dt><dd><p>max size of segment in bytes</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>Enables a low level driver to set an upper limit on the size of a
-coalesced segment</p>
-</div></blockquote>
+<p>Sets the maximum number of sectors allowed for zone append commands. If
+Specifying 0 for <strong>max_zone_append_sectors</strong> indicates that the queue does
+not natively support zone append operations and that the block layer must
+emulate these operations using regular writes.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.blk_queue_logical_block_size">
@@ -15066,30 +15107,6 @@ sustained throughput is desired.</p>
 </div></blockquote>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_io_opt">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_io_opt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">opt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_io_opt" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set optimal request size for the queue</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">opt</span></code></dt><dd><p>optimal request size in bytes</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>Storage devices may report an optimal I/O size, which is the
-device’s preferred unit for sustained I/O.  This is rarely reported
-for disk drives.  For RAID arrays it is usually the stripe width or
-the internal track size.  A properly aligned multiple of
-optimal_io_size is the preferred request size for workloads where
-sustained throughput is desired.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.blk_stack_limits">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_stack_limits</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">queue_limits</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">t</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">queue_limits</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">b</span></span>, <span class="n"><span class="pre">sector_t</span></span><span class="w"> </span><span class="n"><span class="pre">start</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_stack_limits" title="Link to this definition">¶</a><br /></dt>
 <dd><p>adjust queue_limits for stacked devices</p>
@@ -15169,80 +15186,6 @@ attempt to combine the values and ensure proper alignment.</p>
 scatter list such that it includes the pad buffer.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_segment_boundary">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_segment_boundary</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_segment_boundary" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set boundary rules for segment merging</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">mask</span></code></dt><dd><p>the memory boundary mask</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_virt_boundary">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_virt_boundary</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_virt_boundary" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set boundary rules for bio merging</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">mask</span></code></dt><dd><p>the memory boundary mask</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_dma_alignment">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_dma_alignment</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_dma_alignment" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set dma length and memory alignment</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">mask</span></code></dt><dd><p>alignment mask</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>set required memory and length alignment for direct dma transactions.
-this is used when building direct io requests for the queue.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_update_dma_alignment">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_update_dma_alignment</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_update_dma_alignment" title="Link to this definition">¶</a><br /></dt>
-<dd><p>update dma length and memory alignment</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">mask</span></code></dt><dd><p>alignment mask</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<blockquote>
-<div><p>update required memory and length alignment for direct dma transactions.
-If the requested alignment is larger than the current alignment, then
-the current queue alignment is updated to the new value, otherwise it
-is left alone.  The design of this is to allow multiple objects
-(driver, device, transport etc) to set their respective
-alignments without having them interfere.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.blk_set_queue_depth">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_set_queue_depth</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">depth</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_set_queue_depth" title="Link to this definition">¶</a><br /></dt>
 <dd><p>tell the block layer about the device queue depth</p>
@@ -15275,42 +15218,6 @@ alignments without having them interfere.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Tell the block layer about the write cache of <strong>q</strong>.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_required_elevator_features">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_required_elevator_features</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">features</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_required_elevator_features" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Set a queue required elevator features</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the target device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">features</span></code></dt><dd><p>Required elevator features OR’ed together</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Tell the block layer that for the device controlled through <strong>q</strong>, only the
-only elevators that can be used are those that implement at least the set of
-features specified by <strong>features</strong>.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.blk_queue_can_use_dma_map_merging">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">blk_queue_can_use_dma_map_merging</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">request_queue</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.blk_queue_can_use_dma_map_merging" title="Link to this definition">¶</a><br /></dt>
-<dd><p>configure queue for merging segments.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request_queue</span> <span class="pre">*q</span></code></dt><dd><p>the request queue for the device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the device pointer for dma</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Tell the block layer about merging the segments by dma map of <strong>q</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.disk_set_zoned">
@@ -17527,7 +17434,7 @@ machinery were to be shut off, as some advocate for PREEMPTION kernels.</p>
 <p>This helper is for long-running softirq handlers, such as NAPI threads in
 networking. The caller should initialize the variable passed in as <strong>old_ts</strong>
 at the beginning of the softirq handler. When invoked frequently, this macro
-will invoke rcu_softirq_qs() every 100 milliseconds thereafter, which will
+will invoke <a class="reference internal" href="#c.rcu_softirq_qs" title="rcu_softirq_qs"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_softirq_qs()</span></code></a> every 100 milliseconds thereafter, which will
 provide both RCU and RCU-Tasks quiescent states. Note that this macro
 modifies its old_ts argument.</p>
 <p>Because regions of code that have disabled softirq act as RCU read-side
@@ -18238,6 +18145,39 @@ Calls to this function must not race with callback invocation.  One way
 to avoid such races is to enclose the call to <a class="reference internal" href="#c.rcu_head_after_call_rcu" title="rcu_head_after_call_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_head_after_call_rcu()</span></code></a>
 in an RCU read-side critical section that includes a read-side fetch
 of the pointer to the structure containing <strong>rhp</strong>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rcu_softirq_qs">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rcu_softirq_qs</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rcu_softirq_qs" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Provide a set of RCU quiescent states in softirq processing</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span></code></dt><dd><p>no arguments</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Mark a quiescent state for RCU, Tasks RCU, and Tasks Trace RCU.
+This is a special-purpose function to be used in the softirq
+infrastructure and perhaps the occasional long-running softirq
+handler.</p>
+<p>Note that from RCU’s viewpoint, a call to <a class="reference internal" href="#c.rcu_softirq_qs" title="rcu_softirq_qs"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_softirq_qs()</span></code></a> is
+equivalent to momentarily completely enabling preemption.  For
+example, given this code:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>local_bh_disable();
+do_something();
+rcu_softirq_qs();  // A
+do_something_else();
+local_bh_enable();  // B
+</pre></div>
+</div>
+<p>A call to <a class="reference internal" href="#c.synchronize_rcu" title="synchronize_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu()</span></code></a> that began concurrently with the
+call to do_something() would be guaranteed to wait only until
+execution reached statement A.  Without that <a class="reference internal" href="#c.rcu_softirq_qs" title="rcu_softirq_qs"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_softirq_qs()</span></code></a>,
+that same <a class="reference internal" href="#c.synchronize_rcu" title="synchronize_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu()</span></code></a> would instead be guaranteed to wait
+until execution reached statement B.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.rcu_is_cpu_rrupt_from_idle">
@@ -20914,6 +20854,7 @@ they can once again use their fastpaths.</p>
     holdouts_func_t holdouts_func;
     postgp_func_t postgp_func;
     call_rcu_func_t call_func;
+    unsigned int wait_state;
     struct rcu_tasks_percpu __percpu *rtpcpu;
     int percpu_enqueue_shift;
     int percpu_enqueue_lim;
@@ -20969,6 +20910,8 @@ they can once again use their fastpaths.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">postgp_func</span></code></dt><dd><p>This flavor’s post-grace-period function (optional).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">call_func</span></code></dt><dd><p>This flavor’s <a class="reference internal" href="#c.call_rcu" title="call_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu()</span></code></a>-equivalent function.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait_state</span></code></dt><dd><p>Task state for synchronous grace-period waits (default TASK_UNINTERRUPTIBLE).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rtpcpu</span></code></dt><dd><p>This flavor’s rcu_tasks_percpu structure.</p>
 </dd>

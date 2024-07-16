@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -258,7 +258,7 @@ has a requirements for a minimum number of vectors the driver can pass a
 min_vecs argument set to this limit, and the PCI core will return -ENOSPC
 if it can’t meet the minimum number of vectors.</p>
 <p>The flags argument is used to specify which type of interrupt can be used
-by the device and the driver (PCI_IRQ_LEGACY, PCI_IRQ_MSI, PCI_IRQ_MSIX).
+by the device and the driver (PCI_IRQ_INTX, PCI_IRQ_MSI, PCI_IRQ_MSIX).
 A convenient short-hand (PCI_IRQ_ALL_TYPES) is also available to ask for
 any possible kind of interrupt.  If the PCI_IRQ_AFFINITY flag is set,
 <a class="reference internal" href="#c.pci_alloc_irq_vectors" title="pci_alloc_irq_vectors"><code class="xref c c-func docutils literal notranslate"><span class="pre">pci_alloc_irq_vectors()</span></code></a> will spread the interrupts around the available CPUs.</p>
@@ -626,8 +626,8 @@ pair should, in general, be used instead.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">PCI_IRQ_MSIX</span></code>      Allow trying MSI-X vector allocations</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">PCI_IRQ_MSI</span></code>       Allow trying MSI vector allocations</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">PCI_IRQ_LEGACY</span></code>    Allow trying legacy INTx interrupts, if
-and only if <strong>min_vecs</strong> == 1</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PCI_IRQ_INTX</span></code>      Allow trying INTx interrupts, if and
+only if <strong>min_vecs</strong> == 1</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">PCI_IRQ_AFFINITY</span></code>  Auto-manage IRQs affinity by spreading
 the vectors around available CPUs</p></li>
 </ul>
@@ -723,60 +723,6 @@ requirements (e.g., by <a class="reference internal" href="#c.pci_enable_msi" ti
 <a class="reference internal" href="#c.pci_alloc_irq_vectors" title="pci_alloc_irq_vectors"><code class="xref c c-func docutils literal notranslate"><span class="pre">pci_alloc_irq_vectors()</span></code></a> without the <code class="docutils literal notranslate"><span class="pre">PCI_IRQ_AFFINITY</span></code> flag). Return a
 generic set of CPU IDs representing all possible CPUs available
 during system boot if the device is in legacy INTx mode.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.pci_ims_alloc_irq">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">msi_map</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pci_ims_alloc_irq</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">pci_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">msi_instance_cookie</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">icookie</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../core-api/genericirq.html#c.irq_affinity_desc" title="irq_affinity_desc"><span class="n"><span class="pre">irq_affinity_desc</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">affdesc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pci_ims_alloc_irq" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Allocate an interrupt on a PCI/IMS interrupt domain</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pci_dev</span> <span class="pre">*dev</span></code></dt><dd><p>The PCI device to operate on</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">union</span> <span class="pre">msi_instance_cookie</span> <span class="pre">*icookie</span></code></dt><dd><p>Pointer to an IMS implementation specific cookie for this
-IMS instance (PASID, queue ID, pointer...).
-The cookie content is copied into the MSI descriptor for the
-interrupt chip callbacks or domain specific setup functions.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">irq_affinity_desc</span> <span class="pre">*affdesc</span></code></dt><dd><p>Optional pointer to an interrupt affinity descriptor</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>There is no index for IMS allocations as IMS is an implementation
-specific storage and does not have any direct associations between
-index, which might be a pure software construct, and device
-functionality. This association is established by the driver either via
-the index - if there is a hardware table - or in case of purely software
-managed IMS implementation the association happens via the
-irq_write_msi_msg() callback of the implementation specific interrupt
-chip, which utilizes the provided <strong>icookie</strong> to store the MSI message in
-the appropriate place.</p>
-<p><strong>Return</strong></p>
-<p>A struct msi_map</p>
-<blockquote>
-<div><p>On success msi_map::index contains the allocated index (&gt;= 0) and
-msi_map::virq the allocated Linux interrupt number (&gt; 0).</p>
-<p>On fail msi_map::index contains the error code and msi_map::virq
-is set to 0.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.pci_ims_free_irq">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pci_ims_free_irq</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">pci_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">msi_map</span></span><span class="w"> </span><span class="n"><span class="pre">map</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pci_ims_free_irq" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Allocate an interrupt on a PCI/IMS interrupt domain which was allocated via <a class="reference internal" href="#c.pci_ims_alloc_irq" title="pci_ims_alloc_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">pci_ims_alloc_irq()</span></code></a></p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pci_dev</span> <span class="pre">*dev</span></code></dt><dd><p>The PCI device to operate on</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">msi_map</span> <span class="pre">map</span></code></dt><dd><p>A struct msi_map describing the interrupt to free as
-returned from <a class="reference internal" href="#c.pci_ims_alloc_irq" title="pci_ims_alloc_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">pci_ims_alloc_irq()</span></code></a></p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.pci_free_irq_vectors">

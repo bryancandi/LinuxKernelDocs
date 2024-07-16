@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -249,12 +249,18 @@ before. It is usually not tried again.</p>
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">client</span></code></dt><dd><p>DRM client</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pitch</span></code></dt><dd><p>Buffer pitch</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">gem</span></code></dt><dd><p>GEM object backing this buffer</p>
+<p>FIXME: The dependency on GEM here isn’t required, we could
+convert the driver handle to a dma-buf instead and use the
+backend-agnostic dma-buf vmap support instead. This would
+require that the handle2fd prime ioctl is reworked to pull the
+fd_install step out of the driver backend hooks, to make that
+final step optional for internal users.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">map</span></code></dt><dd><p>Virtual address for the buffer</p>
 </dd>
@@ -372,6 +378,26 @@ is fbdev which cannot free the buffer if userspace has open file descriptors.</p
 The driver has to be unloaded before the client can be unloaded.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_client_dev_unregister">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_unregister" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Unregister clients</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function releases all clients by calling each client’s
+<a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.unregister</span></code></a> callback. The callback function
+is responsibe for releaseing all resources including the client
+itself.</p>
+<p>The helper <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a> calls this function. Drivers
+that use it don’t need to call this function themselves.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_client_dev_hotplug">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_hotplug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_hotplug" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Send hotplug event to clients</p>
@@ -387,6 +413,52 @@ The driver has to be unloaded before the client can be unloaded.</p>
 <p>This function calls the <a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.hotplug</span></code></a> callback on the attached clients.</p>
 <p><a class="reference internal" href="drm-kms-helpers.html#c.drm_kms_helper_hotplug_event" title="drm_kms_helper_hotplug_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_hotplug_event()</span></code></a> calls this function, so drivers that use it
 don’t need to call this function themselves.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_client_buffer_vmap_local">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_buffer_vmap_local</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_client_buffer" title="drm_client_buffer"><span class="n"><span class="pre">drm_client_buffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">map_copy</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_buffer_vmap_local" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Map DRM client buffer into address space</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_client_buffer</span> <span class="pre">*buffer</span></code></dt><dd><p>DRM client buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iosys_map</span> <span class="pre">*map_copy</span></code></dt><dd><p>Returns the mapped memory’s address</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function maps a client buffer into kernel address space. If the
+buffer is already mapped, it returns the existing mapping’s address.</p>
+<p>Client buffer mappings are not ref’counted. Each call to
+<a class="reference internal" href="#c.drm_client_buffer_vmap_local" title="drm_client_buffer_vmap_local"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_client_buffer_vmap_local()</span></code></a> should be closely followed by a call to
+<a class="reference internal" href="#c.drm_client_buffer_vunmap_local" title="drm_client_buffer_vunmap_local"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_client_buffer_vunmap_local()</span></code></a>. See <a class="reference internal" href="#c.drm_client_buffer_vmap" title="drm_client_buffer_vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_client_buffer_vmap()</span></code></a> for
+long-term mappings.</p>
+<p>The returned address is a copy of the internal value. In contrast to
+other vmap interfaces, you don’t need it for the client’s vunmap
+function. So you can modify it at will during blit and draw operations.</p>
+<p><strong>Return</strong></p>
+<blockquote>
+<div><p>0 on success, or a negative errno code otherwise.</p>
+</div></blockquote>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_client_buffer_vunmap_local">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_buffer_vunmap_local</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_client_buffer" title="drm_client_buffer"><span class="n"><span class="pre">drm_client_buffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_buffer_vunmap_local" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Unmap DRM client buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_client_buffer</span> <span class="pre">*buffer</span></code></dt><dd><p>DRM client buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function removes a client buffer’s memory mapping established
+with <a class="reference internal" href="#c.drm_client_buffer_vunmap_local" title="drm_client_buffer_vunmap_local"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_client_buffer_vunmap_local()</span></code></a>. Calling this function is only
+required by clients that manage their buffer mappings by themselves.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_client_buffer_vmap">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -1027,6 +1027,8 @@ probe helpers.</p>
     void (*atomic_disable)(struct drm_plane *plane, struct drm_atomic_state *state);
     int (*atomic_async_check)(struct drm_plane *plane, struct drm_atomic_state *state);
     void (*atomic_async_update)(struct drm_plane *plane, struct drm_atomic_state *state);
+    int (*get_scanout_buffer)(struct drm_plane *plane, struct drm_scanout_buffer *sb);
+    void (*panic_flush)(struct drm_plane *plane);
 };
 </pre></div>
 </div>
@@ -1192,6 +1194,32 @@ for deferring if needed, until a common solution is created.</p></li>
 </ul>
 </dd>
 </dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_scanout_buffer</span></code></dt><dd><p>Get the current scanout buffer, to display a message with drm_panic.
+The driver should do the minimum changes to provide a buffer,
+that can be used to display the panic screen. Currently only linear
+buffers are supported. Non-linear buffer support is on the TODO list.
+The device <code class="xref c c-type docutils literal notranslate"><span class="pre">dev.mode_config</span></code>.panic_lock is taken before calling this
+function, so you can safely access the <code class="xref c c-type docutils literal notranslate"><span class="pre">plane.state</span></code>
+It is called from a panic callback, and must follow its restrictions.
+Please look the documentation at <a class="reference internal" href="drm-kms.html#c.drm_panic_trylock" title="drm_panic_trylock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_trylock()</span></code></a> for an in-depth
+discussions of what’s safe and what is not allowed.
+It’s a best effort mode, so it’s expected that in some complex cases
+the panic screen won’t be displayed.
+The returned <a class="reference internal" href="drm-kms.html#c.drm_scanout_buffer" title="drm_scanout_buffer"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_scanout_buffer.map</span></code></a> must be valid if no error code is
+returned.</p>
+<p>Return:
+<code class="docutils literal notranslate"><span class="pre">0</span></code> on success, negative errno on failure.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">panic_flush</span></code></dt><dd><p>It is used by drm_panic, and is called after the panic screen is
+drawn to the scanout buffer. In this function, the driver
+can send additional commands to the hardware, to make the scanout
+buffer visible.
+It is only called if get_scanout_buffer() returned successfully, and
+the <code class="xref c c-type docutils literal notranslate"><span class="pre">dev.mode_config</span></code>.panic_lock is held during the entire sequence.
+It is called from a panic callback, and must follow its restrictions.
+Please look the documentation at <a class="reference internal" href="drm-kms.html#c.drm_panic_trylock" title="drm_panic_trylock"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panic_trylock()</span></code></a> for an in-depth
+discussions of what’s safe and what is not allowed.</p>
 </dd>
 </dl>
 </div>
@@ -5341,6 +5369,28 @@ DMA GEM objects backed by non-coherent memory. Calling this function
 in a plane’s .atomic_update ensures that all the data in the backing
 memory have been written to RAM.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fb_dma_get_scanout_buffer">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fb_dma_get_scanout_buffer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_plane" title="drm_plane"><span class="n"><span class="pre">drm_plane</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">plane</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_scanout_buffer" title="drm_scanout_buffer"><span class="n"><span class="pre">drm_scanout_buffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fb_dma_get_scanout_buffer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Provide a scanout buffer in case of panic</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane</span> <span class="pre">*plane</span></code></dt><dd><p>DRM primary plane</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_scanout_buffer</span> <span class="pre">*sb</span></code></dt><dd><p>scanout buffer for the panic handler</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 or negative error code</p>
+<p><strong>Description</strong></p>
+<p>Generic get_scanout_buffer() implementation, for drivers that uses the
+drm_fb_dma_helper. It won’t call vmap in the panic context, so the driver
+should make sure the primary plane is vmapped, otherwise the panic screen
+won’t get displayed.</p>
+</div>
 </section>
 <section id="framebuffer-gem-helper-reference">
 <h2>Framebuffer GEM Helper Reference<a class="headerlink" href="#framebuffer-gem-helper-reference" title="Link to this heading">¶</a></h2>
@@ -6654,6 +6704,11 @@ starting from the first bridge to the last. These are called after completing
 <p>If a bridge sets <strong>pre_enable_prev_first</strong>, then the <strong>post_disable</strong> for that
 bridge will be called before the previous one to reverse the <strong>pre_enable</strong>
 calling direction.</p>
+<p>With pre_enable_prev_first flag enable in Bridge B, D, E then the resulting
+<strong>post_disable</strong> order would be,
+Bridge B, Bridge A, Bridge E, Bridge D, Bridge C.</p>
+<p><strong>Example</strong></p>
+<p>Bridge A ---&gt; Bridge B ---&gt; Bridge C ---&gt; Bridge D ---&gt; Bridge E</p>
 <p><strong>Note</strong></p>
 <p>the bridge passed should be the one closest to the encoder</p>
 </div>
@@ -6678,6 +6733,11 @@ starting from the last bridge to the first. These are called before calling
 <a class="reference internal" href="#c.drm_encoder_helper_funcs" title="drm_encoder_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_encoder_helper_funcs.atomic_enable</span></code></a></p>
 <p>If a bridge sets <strong>pre_enable_prev_first</strong>, then the pre_enable for the
 prev bridge will be called before pre_enable of this bridge.</p>
+<p>With pre_enable_prev_first flag enable in Bridge B, D, E then the resulting
+<strong>pre_enable</strong> order would be,
+Bridge C, Bridge D, Bridge E, Bridge A, Bridge B.</p>
+<p><strong>Example</strong></p>
+<p>Bridge A ---&gt; Bridge B ---&gt; Bridge C ---&gt; Bridge D ---&gt; Bridge E</p>
 <p><strong>Note</strong></p>
 <p>the bridge passed should be the one closest to the encoder</p>
 </div>
@@ -8061,6 +8121,48 @@ CTA-861-G defines content types and expected processing by a sink device</p>
 <p>This structure represents a DP VSC SDP of drm
 It is based on DP 1.4 spec [Table 2-116: VSC SDP Header Bytes] and
 [Table 2-117: VSC SDP Payload for DB16 through DB18]</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_dp_as_sdp">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_as_sdp</span></span></span><a class="headerlink" href="#c.drm_dp_as_sdp" title="Link to this definition">¶</a><br /></dt>
+<dd><p>drm DP Adaptive Sync SDP</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_dp_as_sdp {
+    unsigned char sdp_type;
+    unsigned char revision;
+    unsigned char length;
+    int vtotal;
+    int target_rr;
+    int duration_incr_ms;
+    int duration_decr_ms;
+    enum operation_mode mode;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">sdp_type</span></code></dt><dd><p>Secondary-data packet type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">revision</span></code></dt><dd><p>Revision Number</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">length</span></code></dt><dd><p>Number of valid data bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vtotal</span></code></dt><dd><p>Minimum Vertical Vtotal</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">target_rr</span></code></dt><dd><p>Target Refresh</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">duration_incr_ms</span></code></dt><dd><p>Successive frame duration increase</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">duration_decr_ms</span></code></dt><dd><p>Successive frame duration decrease</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This structure represents a DP AS SDP of drm
+It is based on DP 2.1 spec [Table 2-126:  Adaptive-Sync SDP Header Bytes] and
+[Table 2-127: Adaptive-Sync SDP Payload for DB0 through DB8]</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dsc_sink_supports_format">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dsc_sink_supports_format</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dsc_dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_DSC_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">output_format</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dsc_sink_supports_format" title="Link to this definition">¶</a><br /></dt>
@@ -8269,7 +8371,17 @@ drm_panel prepare function) has powered the panel.</p></li>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wait_hpd_asserted</span></code></dt><dd><p>wait for HPD to be asserted</p>
 <p>This is mainly useful for eDP panels drivers to wait for an eDP
-panel to finish powering on. This is an optional function.</p>
+panel to finish powering on. It is optional for DP AUX controllers
+to implement this function. It is required for DP AUX endpoints
+(panel drivers) to call this function after powering up but before
+doing AUX transfers unless the DP AUX endpoint driver knows that
+we’re not using the AUX controller’s HPD. One example of the panel
+driver not needing to call this is if HPD is hooked up to a GPIO
+that the panel driver can read directly.</p>
+<p>If a DP AUX controller does not implement this function then it
+may still support eDP panels that use the AUX controller’s built-in
+HPD signal by implementing a long wait for HPD in the transfer()
+callback, though this is deprecated.</p>
 <p>This function will efficiently wait for the HPD signal to be
 asserted. The <cite>wait_us</cite> parameter that is passed in says that we
 know that the HPD signal is expected to be asserted within <cite>wait_us</cite>
@@ -9081,7 +9193,7 @@ corresponds to <strong>aux</strong>. For these devices, it’s advised to call
 <a class="reference internal" href="#c.drm_dp_aux_register" title="drm_dp_aux_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_aux_register()</span></code></a> in <a class="reference internal" href="drm-kms.html#c.drm_connector_funcs" title="drm_connector_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_funcs.late_register</span></code></a>, and likewise to
 call <a class="reference internal" href="#c.drm_dp_aux_unregister" title="drm_dp_aux_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_aux_unregister()</span></code></a> in <a class="reference internal" href="drm-kms.html#c.drm_connector_funcs" title="drm_connector_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_funcs.early_unregister</span></code></a>.
 Functions which don’t follow this will likely Oops when
-<code class="docutils literal notranslate"><span class="pre">CONFIG_DRM_DP_AUX_CHARDEV</span></code> is enabled.</p>
+<code class="docutils literal notranslate"><span class="pre">CONFIG_DRM_DISPLAY_DP_AUX_CHARDEV</span></code> is enabled.</p>
 <p>For devices where the AUX channel is a device that exists independently of
 the <a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device</span></code></a> that uses it, such as SoCs and bridge devices, it is
 recommended to call <a class="reference internal" href="#c.drm_dp_aux_register" title="drm_dp_aux_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_aux_register()</span></code></a> after a <a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device</span></code></a> has been
@@ -9422,6 +9534,23 @@ pre-emphasis level 3.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Returns 0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_as_sdp_supported">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_as_sdp_supported</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_as_sdp_supported" title="Link to this definition">¶</a><br /></dt>
+<dd><p>check if adaptive sync sdp is supported</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">dpcd[DP_RECEIVER_CAP_SIZE]</span></code></dt><dd><p>DisplayPort configuration data</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns true if adaptive sync sdp is supported, else returns false</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_vsc_sdp_supported">
@@ -10731,6 +10860,26 @@ transmissions.</p>
 <p>This struct represents the toplevel displayport MST topology manager.
 There should be one instance of this for every MST capable DP connector
 on the GPU.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_dp_mst_mode">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_mst_mode</span></span></span><a class="headerlink" href="#c.drm_dp_mst_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>sink’s MST mode capability</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_DP_SST</span></code></dt><dd><p>The sink does not support MST nor single stream sideband
+messaging.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_DP_MST</span></code></dt><dd><p>Sink supports MST, more than one stream and single
+stream sideband messaging.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_DP_SST_SIDEBAND_MSG</span></code></dt><dd><p>Sink supports only one stream and single
+stream sideband messaging.</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__drm_dp_mst_state_iter_get">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__drm_dp_mst_state_iter_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><span class="n"><span class="pre">drm_dp_mst_topology_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_state" title="drm_dp_mst_topology_state"><span class="n"><span class="pre">drm_dp_mst_topology_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_state</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__drm_dp_mst_state_iter_get" title="Link to this definition">¶</a><br /></dt>
@@ -10997,7 +11146,7 @@ allocation/deallocation at branch devices along the virtual channel.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_add_payload_part2">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_add_payload_part2</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">payload</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_add_payload_part2" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_add_payload_part2</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_atomic_payload" title="drm_dp_mst_atomic_payload"><span class="n"><span class="pre">drm_dp_mst_atomic_payload</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">payload</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_add_payload_part2" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Execute payload update part 2</p>
 </dd></dl>
 
@@ -11005,8 +11154,6 @@ allocation/deallocation at branch devices along the virtual channel.</p>
 <p><strong>Parameters</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_topology_mgr</span> <span class="pre">*mgr</span></code></dt><dd><p>Manager to use.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>The global atomic state</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_atomic_payload</span> <span class="pre">*payload</span></code></dt><dd><p>The payload to update</p>
 </dd>
@@ -11042,8 +11189,8 @@ timeslots this stream requires in each MTP.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_read_mst_cap">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_read_mst_cap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_read_mst_cap" title="Link to this definition">¶</a><br /></dt>
-<dd><p>check whether or not a sink supports MST</p>
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_mode" title="drm_dp_mst_mode"><span class="n"><span class="pre">drm_dp_mst_mode</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_read_mst_cap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">dpcd</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_RECEIVER_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_read_mst_cap" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Read the sink’s MST mode capability</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -11055,7 +11202,7 @@ timeslots this stream requires in each MTP.</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the sink supports MST, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise</p>
+<p><a class="reference internal" href="#c.drm_dp_mst_mode" title="drm_dp_mst_mode"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_dp_mst_mode</span></code></a> to indicate MST mode capability</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_mst_topology_mgr_set_mst">
@@ -11690,6 +11837,22 @@ in the global atomic state</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_topology_mgr</span> <span class="pre">*mgr</span></code></dt><dd><p>manager to destroy</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_mst_aux_for_parent">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_mst_aux_for_parent</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_port" title="drm_dp_mst_port"><span class="n"><span class="pre">drm_dp_mst_port</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">port</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_mst_aux_for_parent" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the AUX device for an MST port’s parent</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_mst_port</span> <span class="pre">*port</span></code></dt><dd><p>MST port whose parent’s AUX device is returned</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Return the AUX device for <strong>port</strong>’s parent or NULL if port’s parent is the
+root port.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_mst_dsc_aux_for_port">
@@ -13079,8 +13242,31 @@ otherwise.</p>
 <p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_compression_mode_ext">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_compression_mode_ext</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">mipi_dsi_compression_algo</span></span><span class="w"> </span><span class="n"><span class="pre">algo</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">pps_selector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_compression_mode_ext" title="Link to this definition">¶</a><br /></dt>
+<dd><p>enable/disable DSC on the peripheral</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_device</span> <span class="pre">*dsi</span></code></dt><dd><p>DSI peripheral device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">enable</span></code></dt><dd><p>Whether to enable or disable the DSC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mipi_dsi_compression_algo</span> <span class="pre">algo</span></code></dt><dd><p>Selected compression algorithm</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">pps_selector</span></code></dt><dd><p>Select PPS from the table of pre-stored or uploaded PPS entries</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Enable or disable Display Stream Compression on the peripheral.</p>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_compression_mode">
-<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_compression_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_compression_mode" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_compression_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_compression_mode" title="Link to this definition">¶</a><br /></dt>
 <dd><p>enable/disable DSC on the peripheral</p>
 </dd></dl>
 
@@ -13100,7 +13286,7 @@ default Picture Parameter Set and VESA DSC 1.1 algorithm.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_picture_parameter_set">
-<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_picture_parameter_set</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dsc_picture_parameter_set" title="drm_dsc_picture_parameter_set"><span class="n"><span class="pre">drm_dsc_picture_parameter_set</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pps</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_picture_parameter_set" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_picture_parameter_set</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dsc_picture_parameter_set" title="drm_dsc_picture_parameter_set"><span class="n"><span class="pre">drm_dsc_picture_parameter_set</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pps</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_picture_parameter_set" title="Link to this definition">¶</a><br /></dt>
 <dd><p>transmit the DSC PPS to the peripheral</p>
 </dd></dl>
 
@@ -14448,6 +14634,26 @@ in case the hotplug interrupt is known to be unreliable.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drmm_kms_helper_poll_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drmm_kms_helper_poll_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drmm_kms_helper_poll_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>initialize and enable output polling</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>drm_device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function initializes and then also enables output polling support for
+<strong>dev</strong> similar to <a class="reference internal" href="#c.drm_kms_helper_poll_init" title="drm_kms_helper_poll_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_poll_init()</span></code></a>. Polling will automatically be
+cleaned up when the DRM device goes away.</p>
+<p>See <a class="reference internal" href="#c.drm_kms_helper_poll_init" title="drm_kms_helper_poll_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_poll_init()</span></code></a> for more information.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, or a negative errno code otherwise.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_connector_helper_hpd_irq_event">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_helper_hpd_irq_event</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_helper_hpd_irq_event" title="Link to this definition">¶</a><br /></dt>
 <dd><p>hotplug processing</p>
@@ -14585,6 +14791,29 @@ if the driver does not need any special processing.</p>
 <p><strong>Return</strong></p>
 <p>The number of modes added to the connector.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_connector_helper_detect_from_ddc">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_helper_detect_from_ddc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_modeset_acquire_ctx" title="drm_modeset_acquire_ctx"><span class="n"><span class="pre">drm_modeset_acquire_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">force</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_helper_detect_from_ddc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Read EDID and detect connector status.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>The connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_modeset_acquire_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>Acquire context</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">force</span></code></dt><dd><p>Perform screen-destructive operations, if necessary</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Detects the connector status by reading the EDID using <a class="reference internal" href="#c.drm_probe_ddc" title="drm_probe_ddc"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_probe_ddc()</span></code></a>,
+which requires connector-&gt;ddc to be set. Returns connector_status_connected
+on success or connector_status_disconnected on failure.</p>
+<p><strong>Return</strong></p>
+<p>The connector status as defined by <a class="reference internal" href="drm-kms.html#c.drm_connector_status" title="drm_connector_status"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_connector_status</span></code></a>.</p>
+</div>
 </section>
 <section id="edid-helper-functions-reference">
 <h2>EDID Helper Functions Reference<a class="headerlink" href="#edid-helper-functions-reference" title="Link to this heading">¶</a></h2>
@@ -14680,23 +14909,6 @@ product_id = 0x2d08</p>
 <p>Sanity check the header of the base EDID block.</p>
 <p><strong>Return</strong></p>
 <p>8 if the header is perfect, down to 0 if it’s totally wrong.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_edid_are_equal">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_are_equal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid1</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid2</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_are_equal" title="Link to this definition">¶</a><br /></dt>
-<dd><p>compare two edid blobs.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid1</span></code></dt><dd><p>pointer to first blob</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">edid</span> <span class="pre">*edid2</span></code></dt><dd><p>pointer to second blob
-This helper can be used during probing to determine if
-edid had changed.</p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_edid_block_valid">
@@ -14990,9 +15202,68 @@ order. Having either of them bypasses actual EDID reads.</p>
 <p>Pointer to EDID, or NULL if probe/read failed.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_edid_get_product_id">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_get_product_id</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_edid_get_product_id" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_edid_product_id</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_get_product_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the vendor and product identification</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_edid_product_id</span> <span class="pre">*id</span></code></dt><dd><p>Where to place the product id</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_edid_print_product_id">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_print_product_id</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_printer" title="drm_printer"><span class="n"><span class="pre">drm_printer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_edid_product_id</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">id</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">raw</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_print_product_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Print decoded product id to printer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_printer</span> <span class="pre">*p</span></code></dt><dd><p>drm printer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid_product_id</span> <span class="pre">*id</span></code></dt><dd><p>EDID product id</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">raw</span></code></dt><dd><p>If true, also print the raw hex</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>See VESA E-EDID 1.4 section 3.4.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_edid_get_panel_id">
-<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_get_panel_id</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adapter</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_get_panel_id" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Get a panel’s ID through DDC</p>
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_get_panel_id</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_edid_get_panel_id" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_get_panel_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a panel’s ID from EDID</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID that contains panel ID.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function uses the first block of the EDID of a panel and (assuming
+that the EDID is valid) extracts the ID out of it. The ID is a 32-bit value
+(16 bits of manufacturer ID and 16 bits of per-manufacturer ID) that’s
+supposed to be different for each different modem of panel.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>A 32-bit ID that should be different for each make/model of panel.</dt><dd><p>See the functions <a class="reference internal" href="#c.drm_edid_encode_panel_id" title="drm_edid_encode_panel_id"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_encode_panel_id()</span></code></a> and
+<a class="reference internal" href="#c.drm_edid_decode_panel_id" title="drm_edid_decode_panel_id"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_decode_panel_id()</span></code></a> for some details on the structure of this
+ID. Return 0 if the EDID size is less than a base block.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_edid_read_base_block">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_read_base_block</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adapter</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_read_base_block" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a panel’s EDID base block</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -15002,25 +15273,22 @@ order. Having either of them bypasses actual EDID reads.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This function reads the first block of the EDID of a panel and (assuming
-that the EDID is valid) extracts the ID out of it. The ID is a 32-bit value
-(16 bits of manufacturer ID and 16 bits of per-manufacturer ID) that’s
-supposed to be different for each different modem of panel.</p>
+<p>This function returns the drm_edid containing the first block of the EDID of
+a panel.</p>
 <p>This function is intended to be used during early probing on devices where
 more than one panel might be present. Because of its intended use it must
-assume that the EDID of the panel is correct, at least as far as the ID
-is concerned (in other words, we don’t process any overrides here).</p>
+assume that the EDID of the panel is correct, at least as far as the base
+block is concerned (in other words, we don’t process any overrides here).</p>
+<p>Caller should call <a class="reference internal" href="#c.drm_edid_free" title="drm_edid_free"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_free()</span></code></a> after use.</p>
+<p>WARNING: Only use this function when the connector is unknown. For example,
+during the early probe of panel. The EDID read from the function is temporary
+and should be replaced by the full EDID returned from other drm_edid_read.</p>
 <p><strong>NOTE</strong></p>
 <p>it’s expected that this function and <a class="reference internal" href="#c.drm_do_get_edid" title="drm_do_get_edid"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_do_get_edid()</span></code></a> will both
 be read the EDID, but there is no caching between them. Since we’re only
 reading the first block, hopefully this extra overhead won’t be too big.</p>
 <p><strong>Return</strong></p>
-<dl class="simple">
-<dt>A 32-bit ID that should be different for each make/model of panel.</dt><dd><p>See the functions <a class="reference internal" href="#c.drm_edid_encode_panel_id" title="drm_edid_encode_panel_id"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_encode_panel_id()</span></code></a> and
-<a class="reference internal" href="#c.drm_edid_decode_panel_id" title="drm_edid_decode_panel_id"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_decode_panel_id()</span></code></a> for some details on the structure of this
-ID.</p>
-</dd>
-</dl>
+<p>Pointer to allocated EDID base block, or NULL on any failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_get_edid_switcheroo">
@@ -15113,6 +15381,25 @@ mode.</p>
 <p>Creates a new mode matching the specified CEA VIC.</p>
 <p><strong>Return</strong></p>
 <p>A new drm_display_mode on success or NULL on failure</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_edid_match">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_edid_match" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_edid_ident</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ident</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_match" title="Link to this definition">¶</a><br /></dt>
+<dd><p>match drm_edid with given identity</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*drm_edid</span></code></dt><dd><p>EDID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid_ident</span> <span class="pre">*ident</span></code></dt><dd><p>the EDID identity to match with</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Check if the EDID matches with the given identity.</p>
+<p><strong>Return</strong></p>
+<p>True if the given identity matched with EDID, false otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_edid_get_monitor_name">

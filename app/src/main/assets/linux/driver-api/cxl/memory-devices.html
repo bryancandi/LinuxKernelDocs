@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -478,7 +478,7 @@ cxl_pci is focused around CXL memory devices.</p>
 </dl>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__cxl_pci_mbox_send_cmd">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__cxl_pci_mbox_send_cmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cxl_memdev_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cxl_mbox_cmd</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mbox_cmd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__cxl_pci_mbox_send_cmd" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__cxl_pci_mbox_send_cmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_mbox_cmd" title="cxl_mbox_cmd"><span class="n"><span class="pre">cxl_mbox_cmd</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mbox_cmd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__cxl_pci_mbox_send_cmd" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Execute a mailbox command</p>
 </dd></dl>
 
@@ -521,6 +521,560 @@ if there are intervening switches in the path. If there are switches, a
 secondary action is to enumerate those (implemented in cxl_core). Finally the
 cxl_mem driver adds the device it is bound to as a CXL endpoint-port for use
 in higher level operations.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_memdev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_memdev</span></span></span><a class="headerlink" href="#c.cxl_memdev" title="Link to this definition">¶</a><br /></dt>
+<dd><p>CXL bus object representing a Type-3 Memory Device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_memdev {
+    struct device dev;
+    struct cdev cdev;
+    struct cxl_dev_state *cxlds;
+    struct work_struct detach_work;
+    struct cxl_nvdimm_bridge *cxl_nvb;
+    struct cxl_nvdimm *cxl_nvd;
+    struct cxl_port *endpoint;
+    int id;
+    int depth;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>driver core device object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cdev</span></code></dt><dd><p>char dev core object for ioctl operations</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cxlds</span></code></dt><dd><p>The device state backing this device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">detach_work</span></code></dt><dd><p>active memdev lost a port in its ancestry</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cxl_nvb</span></code></dt><dd><p>coordinate removal of <strong>cxl_nvd</strong> if present</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cxl_nvd</span></code></dt><dd><p>optional bridge to an nvdimm if the device supports pmem</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">endpoint</span></code></dt><dd><p>connection to the CXL port topology for this memory device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>id number of this memdev instance.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">depth</span></code></dt><dd><p>endpoint port depth</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_mbox_cmd">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_mbox_cmd</span></span></span><a class="headerlink" href="#c.cxl_mbox_cmd" title="Link to this definition">¶</a><br /></dt>
+<dd><p>A command to be submitted to hardware.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_mbox_cmd {
+    u16 opcode;
+    void *payload_in;
+    void *payload_out;
+    size_t size_in;
+    size_t size_out;
+    size_t min_out;
+    int poll_count;
+    int poll_interval_ms;
+    u16 return_code;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">opcode</span></code></dt><dd><p>(input) The command set and command submitted to hardware.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">payload_in</span></code></dt><dd><p>(input) Pointer to the input payload.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">payload_out</span></code></dt><dd><p>(output) Pointer to the output payload. Must be allocated by
+the caller.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_in</span></code></dt><dd><p>(input) Number of bytes to load from <strong>payload_in</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_out</span></code></dt><dd><p>(input) Max number of bytes loaded into <strong>payload_out</strong>.
+(output) Number of bytes generated by the device. For fixed size
+outputs commands this is always expected to be deterministic. For
+variable sized output commands, it tells the exact number of bytes
+written.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">min_out</span></code></dt><dd><p>(input) internal command output payload size validation</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">poll_count</span></code></dt><dd><p>(input) Number of timeouts to attempt.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">poll_interval_ms</span></code></dt><dd><p>(input) Time between mailbox background command polling
+interval timeouts.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">return_code</span></code></dt><dd><p>(output) Error code returned from hardware.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This is the primary mechanism used to send commands to the hardware.
+All the fields except <strong>payload_*</strong> correspond exactly to the fields described in
+Command Register section of the CXL 2.0 8.2.8.4.5. <strong>payload_in</strong> and
+<strong>payload_out</strong> are written to, and read from the Command Payload Registers
+defined in CXL 2.0 8.2.8.4.8.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_event_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_event_state</span></span></span><a class="headerlink" href="#c.cxl_event_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Event log driver state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_event_state {
+    struct cxl_get_event_payload *buf;
+    struct mutex log_lock;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">buf</span></code></dt><dd><p>Buffer to receive event data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">log_lock</span></code></dt><dd><p>Serialize event_buf and log use</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_poison_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_poison_state</span></span></span><a class="headerlink" href="#c.cxl_poison_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Driver poison state info</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_poison_state {
+    u32 max_errors;
+    unsigned long enabled_cmds[BITS_TO_LONGS(CXL_POISON_ENABLED_MAX)];
+    struct cxl_mbox_poison_out *list_out;
+    struct mutex lock;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">max_errors</span></code></dt><dd><p>Maximum media error records held in device cache</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enabled_cmds</span></code></dt><dd><p>All poison commands enabled in the CEL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">list_out</span></code></dt><dd><p>The poison list payload returned by device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>Protect reads of the poison list</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Reads of the poison list are synchronized to ensure that a reader
+does not get an incomplete list because their request overlapped
+(was interrupted or preceded by) another read request of the same
+DPA range. CXL Spec 3.0 Section 8.2.9.8.4.1</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_fw_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_fw_state</span></span></span><a class="headerlink" href="#c.cxl_fw_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Firmware upload / activation state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_fw_state {
+    unsigned long state[BITS_TO_LONGS(CXL_FW_STATE_BITS)];
+    bool oneshot;
+    int num_slots;
+    int cur_slot;
+    int next_slot;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>fw_uploader state bitmask</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oneshot</span></code></dt><dd><p>whether the fw upload fits in a single transfer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_slots</span></code></dt><dd><p>Number of FW slots available</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cur_slot</span></code></dt><dd><p>Slot number currently active</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">next_slot</span></code></dt><dd><p>Slot number for the new firmware</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_security_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_security_state</span></span></span><a class="headerlink" href="#c.cxl_security_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Device security state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_security_state {
+    unsigned long state;
+    unsigned long enabled_cmds[BITS_TO_LONGS(CXL_SEC_ENABLED_MAX)];
+    int poll_tmo_secs;
+    bool sanitize_active;
+    struct delayed_work poll_dwork;
+    struct kernfs_node *sanitize_node;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>state of last security operation</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enabled_cmds</span></code></dt><dd><p>All security commands enabled in the CEL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">poll_tmo_secs</span></code></dt><dd><p>polling timeout</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sanitize_active</span></code></dt><dd><p>sanitize completion pending</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">poll_dwork</span></code></dt><dd><p>polling work item</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sanitize_node</span></code></dt><dd><p>sanitation sysfs file to notify</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_dpa_perf">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_dpa_perf</span></span></span><a class="headerlink" href="#c.cxl_dpa_perf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>DPA performance property entry</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_dpa_perf {
+    struct range dpa_range;
+    struct access_coordinate coord[ACCESS_COORDINATE_MAX];
+    int qos_class;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dpa_range</span></code></dt><dd><p>range for DPA address</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">coord</span></code></dt><dd><p>QoS performance data (i.e. latency, bandwidth)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">qos_class</span></code></dt><dd><p>QoS Class cookies</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_dev_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_dev_state</span></span></span><a class="headerlink" href="#c.cxl_dev_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>The driver device state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_dev_state {
+    struct device *dev;
+    struct cxl_memdev *cxlmd;
+    struct cxl_register_map reg_map;
+    struct cxl_regs regs;
+    int cxl_dvsec;
+    bool rcd;
+    bool media_ready;
+    struct resource dpa_res;
+    struct resource pmem_res;
+    struct resource ram_res;
+    u64 serial;
+    enum cxl_devtype type;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>The device associated with this CXL state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cxlmd</span></code></dt><dd><p>The device representing the CXL.mem capabilities of <strong>dev</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reg_map</span></code></dt><dd><p>component and ras register mapping parameters</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">regs</span></code></dt><dd><p>Parsed register blocks</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cxl_dvsec</span></code></dt><dd><p>Offset to the PCIe device DVSEC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rcd</span></code></dt><dd><p>operating in RCD mode (CXL 3.0 9.11.8 CXL Devices Attached to an RCH)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">media_ready</span></code></dt><dd><p>Indicate whether the device media is usable</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dpa_res</span></code></dt><dd><p>Overall DPA resource tree for the device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pmem_res</span></code></dt><dd><p>Active Persistent memory capacity configuration</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ram_res</span></code></dt><dd><p>Active Volatile memory capacity configuration</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">serial</span></code></dt><dd><p>PCIe Device Serial Number</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Generic Memory Class device or Vendor Specific Memory device</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>cxl_dev_state represents the CXL driver/device state.  It provides an
+interface to mailbox commands as well as some cached data about the device.
+Currently only memory devices are represented.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_memdev_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_memdev_state</span></span></span><a class="headerlink" href="#c.cxl_memdev_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Generic Type-3 Memory Device Class driver data</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_memdev_state {
+    struct cxl_dev_state cxlds;
+    size_t payload_size;
+    size_t lsa_size;
+    struct mutex mbox_mutex;
+    char firmware_version[0x10];
+    unsigned long enabled_cmds[BITS_TO_LONGS(CXL_MEM_COMMAND_ID_MAX)];
+    unsigned long exclusive_cmds[BITS_TO_LONGS(CXL_MEM_COMMAND_ID_MAX)];
+    u64 total_bytes;
+    u64 volatile_only_bytes;
+    u64 persistent_only_bytes;
+    u64 partition_align_bytes;
+    u64 active_volatile_bytes;
+    u64 active_persistent_bytes;
+    u64 next_volatile_bytes;
+    u64 next_persistent_bytes;
+    struct cxl_dpa_perf ram_perf;
+    struct cxl_dpa_perf pmem_perf;
+    struct cxl_event_state event;
+    struct cxl_poison_state poison;
+    struct cxl_security_state security;
+    struct cxl_fw_state fw;
+    struct rcuwait mbox_wait;
+    int (*mbox_send)(struct cxl_memdev_state *mds, struct cxl_mbox_cmd *cmd);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">cxlds</span></code></dt><dd><p>Core driver state common across Type-2 and Type-3 devices</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">payload_size</span></code></dt><dd><p>Size of space for payload
+(CXL 2.0 8.2.8.4.3 Mailbox Capabilities Register)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lsa_size</span></code></dt><dd><p>Size of Label Storage Area
+(CXL 2.0 8.2.9.5.1.1 Identify Memory Device)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mbox_mutex</span></code></dt><dd><p>Mutex to synchronize mailbox access.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">firmware_version</span></code></dt><dd><p>Firmware version for the memory device.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enabled_cmds</span></code></dt><dd><p>Hardware commands found enabled in CEL.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">exclusive_cmds</span></code></dt><dd><p>Commands that are kernel-internal only</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">total_bytes</span></code></dt><dd><p>sum of all possible capacities</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">volatile_only_bytes</span></code></dt><dd><p>hard volatile capacity</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">persistent_only_bytes</span></code></dt><dd><p>hard persistent capacity</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">partition_align_bytes</span></code></dt><dd><p>alignment size for partition-able capacity</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">active_volatile_bytes</span></code></dt><dd><p>sum of hard + soft volatile</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">active_persistent_bytes</span></code></dt><dd><p>sum of hard + soft persistent</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">next_volatile_bytes</span></code></dt><dd><p>volatile capacity change pending device reset</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">next_persistent_bytes</span></code></dt><dd><p>persistent capacity change pending device reset</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ram_perf</span></code></dt><dd><p>performance data entry matched to RAM partition</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pmem_perf</span></code></dt><dd><p>performance data entry matched to PMEM partition</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">event</span></code></dt><dd><p>event log driver state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">poison</span></code></dt><dd><p>poison driver state info</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">security</span></code></dt><dd><p>security driver state info</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fw</span></code></dt><dd><p>firmware upload / activation state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mbox_wait</span></code></dt><dd><p>RCU wait for mbox send completely</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mbox_send</span></code></dt><dd><p><strong>dev</strong> specific transport for transmitting mailbox commands</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>CXL 8.1.12.1 PCI Header - Class Code Register Memory Device defines
+common memory device functionality like the presence of a mailbox and
+the functionality related to that like Identify Memory Device and Get
+Partition Info
+See CXL 3.0 8.2.9.8.2 Capacity Configuration and Label Storage for
+details on capacity parameters.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_mem_command">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_mem_command</span></span></span><a class="headerlink" href="#c.cxl_mem_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Driver representation of a memory device command</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_mem_command {
+    struct cxl_command_info info;
+    enum cxl_opcode opcode;
+    u32 flags;
+#define CXL_CMD_FLAG_FORCE_ENABLE BIT(0);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">info</span></code></dt><dd><p>Command information as it exists for the UAPI</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">opcode</span></code></dt><dd><p>The actual bits used for the mailbox protocol</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Set of flags effecting driver behavior.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CXL_CMD_FLAG_FORCE_ENABLE</span></code>: In cases of error, commands with this flag
+will be enabled by the driver regardless of what hardware may have
+advertised.</p></li>
+</ul>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The cxl_mem_command is the driver’s internal representation of commands that
+are supported by the driver. Some of these commands may not be supported by
+the hardware. The driver will use <strong>info</strong> to validate the fields passed in by
+the user then submit the <strong>opcode</strong> to the hardware.</p>
+<p>See <a class="reference internal" href="#c.cxl_command_info" title="cxl_command_info"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_command_info</span></code></a>.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.cxl_hdm">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_hdm</span></span></span><a class="headerlink" href="#c.cxl_hdm" title="Link to this definition">¶</a><br /></dt>
+<dd><p>HDM Decoder registers and cached / decoded capabilities</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_hdm {
+    struct cxl_component_regs regs;
+    unsigned int decoder_count;
+    unsigned int target_count;
+    unsigned int interleave_mask;
+    unsigned long iw_cap_mask;
+    struct cxl_port *port;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">regs</span></code></dt><dd><p>mapped registers, see <a class="reference internal" href="#c.devm_cxl_setup_hdm" title="devm_cxl_setup_hdm"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_cxl_setup_hdm()</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">decoder_count</span></code></dt><dd><p>number of decoders for this port</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">target_count</span></code></dt><dd><p>for switch decoders, max downstream port targets</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">interleave_mask</span></code></dt><dd><p>interleave granularity capability, see check_interleave_cap()</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">iw_cap_mask</span></code></dt><dd><p>bitmask of supported interleave ways, see check_interleave_cap()</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>mapped cxl_port, see <a class="reference internal" href="#c.devm_cxl_setup_hdm" title="devm_cxl_setup_hdm"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_cxl_setup_hdm()</span></code></a></p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.set_exclusive_cxl_commands">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_exclusive_cxl_commands</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cmds</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.set_exclusive_cxl_commands" title="Link to this definition">¶</a><br /></dt>
+<dd><p>atomically disable user cxl commands</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_memdev_state</span> <span class="pre">*mds</span></code></dt><dd><p>The device state to operate on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*cmds</span></code></dt><dd><p>bitmap of commands to mark exclusive</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Grab the cxl_memdev_rwsem in write mode to flush in-flight
+invocations of the ioctl path and then disable future execution of
+commands with the command ids set in <strong>cmds</strong>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.clear_exclusive_cxl_commands">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">clear_exclusive_cxl_commands</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cmds</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.clear_exclusive_cxl_commands" title="Link to this definition">¶</a><br /></dt>
+<dd><p>atomically enable user cxl commands</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_memdev_state</span> <span class="pre">*mds</span></code></dt><dd><p>The device state to modify</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*cmds</span></code></dt><dd><p>bitmap of commands to mark available for userspace</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.cxl_mem_get_fw_info">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_mem_get_fw_info</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_mem_get_fw_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get Firmware info</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_memdev_state</span> <span class="pre">*mds</span></code></dt><dd><p>The device data for the operation</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Retrieve firmware info for the device specified.</p>
+<p>See CXL-3.0 8.2.9.3.1 Get FW Info</p>
+<p><strong>Return</strong></p>
+<p>0 if no error: or the result of the mailbox command.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.cxl_mem_activate_fw">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_mem_activate_fw</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">slot</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_mem_activate_fw" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Activate Firmware</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_memdev_state</span> <span class="pre">*mds</span></code></dt><dd><p>The device data for the operation</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">slot</span></code></dt><dd><p>slot number to activate</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Activate firmware in a given slot for the device specified.</p>
+<p>See CXL-3.0 8.2.9.3.3 Activate FW</p>
+<p><strong>Return</strong></p>
+<p>0 if no error: or the result of the mailbox command.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.cxl_mem_abort_fw_xfer">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_mem_abort_fw_xfer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_memdev_state" title="cxl_memdev_state"><span class="n"><span class="pre">cxl_memdev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mds</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_mem_abort_fw_xfer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Abort an in-progress FW transfer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_memdev_state</span> <span class="pre">*mds</span></code></dt><dd><p>The device data for the operation</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Abort an in-progress firmware transfer for the device specified.</p>
+<p>See CXL-3.0 8.2.9.3.2 Transfer FW</p>
+<p><strong>Return</strong></p>
+<p>0 if no error: or the result of the mailbox command.</p>
+</div>
 </section>
 <section id="cxl-port">
 <h3>CXL Port<a class="headerlink" href="#cxl-port" title="Link to this heading">¶</a></h3>
@@ -1048,6 +1602,57 @@ attached to an endpoint</p>
 </dd>
 </dl>
 </div>
+<p>Compute Express Link Host Managed Device Memory, starting with the
+CXL 2.0 specification, is managed by an array of HDM Decoder register
+instances per CXL port and per CXL endpoint. Define common helpers
+for enumerating these registers and capabilities.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.devm_cxl_setup_hdm">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_hdm" title="cxl_hdm"><span class="n"><span class="pre">cxl_hdm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">devm_cxl_setup_hdm</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_port" title="cxl_port"><span class="n"><span class="pre">cxl_port</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">port</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_endpoint_dvsec_info" title="cxl_endpoint_dvsec_info"><span class="n"><span class="pre">cxl_endpoint_dvsec_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_cxl_setup_hdm" title="Link to this definition">¶</a><br /></dt>
+<dd><p>map HDM decoder component registers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_port</span> <span class="pre">*port</span></code></dt><dd><p>cxl_port to map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_endpoint_dvsec_info</span> <span class="pre">*info</span></code></dt><dd><p>cached DVSEC range register info</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.devm_cxl_enumerate_decoders">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_cxl_enumerate_decoders</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_hdm" title="cxl_hdm"><span class="n"><span class="pre">cxl_hdm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxlhdm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_endpoint_dvsec_info" title="cxl_endpoint_dvsec_info"><span class="n"><span class="pre">cxl_endpoint_dvsec_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_cxl_enumerate_decoders" title="Link to this definition">¶</a><br /></dt>
+<dd><p>add decoder objects per HDM register set</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_hdm</span> <span class="pre">*cxlhdm</span></code></dt><dd><p>Structure to populate with HDM capabilities</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_endpoint_dvsec_info</span> <span class="pre">*info</span></code></dt><dd><p>cached DVSEC range register info</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.cxl_coordinates_combine">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_coordinates_combine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_coordinate</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">out</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_coordinate</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">c1</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_coordinate</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">c2</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_coordinates_combine" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Combine the two input coordinates</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">access_coordinate</span> <span class="pre">*out</span></code></dt><dd><p>Output coordinate of c1 and c2 combined</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">access_coordinate</span> <span class="pre">*c1</span></code></dt><dd><p>input coordinates</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">access_coordinate</span> <span class="pre">*c2</span></code></dt><dd><p>input coordinates</p>
+</dd>
+</dl>
+</div>
 <p>The CXL core provides a set of interfaces that can be consumed by CXL aware
 drivers. The interfaces allow for creation, modification, and destruction of
 regions, memory devices, ports, and decoders. CXL aware drivers must register
@@ -1323,7 +1928,7 @@ code.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.cxl_hdm_decode_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_hdm_decode_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cxl_dev_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxlds</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">cxl_hdm</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxlhdm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_endpoint_dvsec_info" title="cxl_endpoint_dvsec_info"><span class="n"><span class="pre">cxl_endpoint_dvsec_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_hdm_decode_init" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cxl_hdm_decode_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_dev_state" title="cxl_dev_state"><span class="n"><span class="pre">cxl_dev_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxlds</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_hdm" title="cxl_hdm"><span class="n"><span class="pre">cxl_hdm</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cxlhdm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_endpoint_dvsec_info" title="cxl_endpoint_dvsec_info"><span class="n"><span class="pre">cxl_endpoint_dvsec_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_hdm_decode_init" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Setup HDM decoding for the endpoint</p>
 </dd></dl>
 

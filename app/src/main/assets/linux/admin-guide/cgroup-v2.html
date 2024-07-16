@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.9.0</p>
+<p class="blurb">6.10.0</p>
 
 
 
@@ -1073,12 +1073,15 @@ The (optional) utilization clamping support allows to hint the schedutil
 cpufreq governor about the minimum desired frequency which should always be
 provided by a CPU, as well as the maximum desired frequency, which should not
 be exceeded by a CPU.</p>
-<p>WARNING: cgroup2 doesn’t yet support control of realtime processes and
-the cpu controller can only be enabled when all RT processes are in
-the root cgroup.  Be aware that system management software may already
-have placed RT processes into nonroot cgroups during the system boot
-process, and these processes may need to be moved to the root cgroup
-before the cpu controller can be enabled.</p>
+<p>WARNING: cgroup2 doesn’t yet support control of realtime processes. For
+a kernel built with the CONFIG_RT_GROUP_SCHED option enabled for group
+scheduling of realtime processes, the cpu controller can only be enabled
+when all RT processes are in the root cgroup.  This limitation does
+not apply if CONFIG_RT_GROUP_SCHED is disabled.  Be aware that system
+management software may already have placed RT processes into nonroot
+cgroups during the system boot process, and these processes may need
+to be moved to the root cgroup before the cpu controller can be enabled
+with a CONFIG_RT_GROUP_SCHED enabled kernel.</p>
 <section id="cpu-interface-files">
 <h4>CPU Interface Files<a class="headerlink" href="#cpu-interface-files" title="Link to this heading">¶</a></h4>
 <p>All time durations are in microseconds.</p>
@@ -1373,7 +1376,7 @@ addition to other kernel memory use cases.</p>
 </dd>
 <dt>sec_pagetables</dt><dd><p>Amount of memory allocated for secondary page tables,
 this currently includes KVM mmu allocations on x86
-and arm64.</p>
+and arm64 and IOMMU page tables.</p>
 </dd>
 <dt>percpu (npn)</dt><dd><p>Amount of memory used for storing per-cpu kernel
 data structures.</p>
@@ -1472,6 +1475,12 @@ active workingset before they got reclaimed.</p>
 <dt>pglazyfree (npn)</dt><dd><p>Amount of pages postponed to be freed under memory pressure</p>
 </dd>
 <dt>pglazyfreed (npn)</dt><dd><p>Amount of reclaimed lazyfree pages</p>
+</dd>
+<dt>zswpin</dt><dd><p>Number of pages moved in to memory from zswap.</p>
+</dd>
+<dt>zswpout</dt><dd><p>Number of pages moved out of memory to zswap.</p>
+</dd>
+<dt>zswpwb</dt><dd><p>Number of pages written from zswap to swap.</p>
 </dd>
 <dt>thp_fault_alloc (npn)</dt><dd><p>Number of transparent hugepages which were allocated to satisfy
 a page fault. This counter is not present when CONFIG_TRANSPARENT_HUGEPAGE
@@ -2082,9 +2091,23 @@ used by the kernel.</p>
 cgroups.  The default is “max”.</p>
 <p>Hard limit of number of processes.</p>
 </dd>
-<dt>pids.current</dt><dd><p>A read-only single value file which exists on all cgroups.</p>
+<dt>pids.current</dt><dd><p>A read-only single value file which exists on non-root cgroups.</p>
 <p>The number of processes currently in the cgroup and its
 descendants.</p>
+</dd>
+<dt>pids.peak</dt><dd><p>A read-only single value file which exists on non-root cgroups.</p>
+<p>The maximum value that the number of processes in the cgroup and its
+descendants has ever reached.</p>
+</dd>
+<dt>pids.events</dt><dd><p>A read-only flat-keyed file which exists on non-root cgroups. The
+following entries are defined. Unless specified otherwise, a value
+change in this file generates a file modified event.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>max</dt><dd><p>Number of times fork failed because limit was hit.</p>
+</dd>
+</dl>
+</div></blockquote>
 </dd>
 </dl>
 </div></blockquote>
