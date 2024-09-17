@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -155,7 +155,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pm/index.html">Power Management</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -250,6 +249,7 @@ files can be found in mm/swap.c.</p>
 <li><p>dirtytime_expire_seconds</p></li>
 <li><p>dirty_writeback_centisecs</p></li>
 <li><p>drop_caches</p></li>
+<li><p>enable_soft_offline</p></li>
 <li><p>extfrag_threshold</p></li>
 <li><p>highmem_is_dirtyable</p></li>
 <li><p>hugetlb_shm_group</p></li>
@@ -440,6 +440,38 @@ used:</p>
 </div>
 <p>These are informational only.  They do not mean that anything is wrong
 with your system.  To disable them, echo 4 (bit 2) into drop_caches.</p>
+</section>
+<section id="enable-soft-offline">
+<h2>enable_soft_offline<a class="headerlink" href="#enable-soft-offline" title="Link to this heading">¶</a></h2>
+<p>Correctable memory errors are very common on servers. Soft-offline is kernel’s
+solution for memory pages having (excessive) corrected memory errors.</p>
+<p>For different types of page, soft-offline has different behaviors / costs.</p>
+<ul class="simple">
+<li><p>For a raw error page, soft-offline migrates the in-use page’s content to
+a new raw page.</p></li>
+<li><p>For a page that is part of a transparent hugepage, soft-offline splits the
+transparent hugepage into raw pages, then migrates only the raw error page.
+As a result, user is transparently backed by 1 less hugepage, impacting
+memory access performance.</p></li>
+<li><p>For a page that is part of a HugeTLB hugepage, soft-offline first migrates
+the entire HugeTLB hugepage, during which a free hugepage will be consumed
+as migration target.  Then the original hugepage is dissolved into raw
+pages without compensation, reducing the capacity of the HugeTLB pool by 1.</p></li>
+</ul>
+<p>It is user’s call to choose between reliability (staying away from fragile
+physical memory) vs performance / capacity implications in transparent and
+HugeTLB cases.</p>
+<p>For all architectures, enable_soft_offline controls whether to soft offline
+memory pages.  When set to 1, kernel attempts to soft offline the pages
+whenever it thinks needed.  When set to 0, kernel returns EOPNOTSUPP to
+the request to soft offline the pages.  Its default value is 1.</p>
+<p>It is worth mentioning that after setting enable_soft_offline to 0, the
+following requests to soft offline pages will not be performed:</p>
+<ul class="simple">
+<li><p>Request to soft offline pages from RAS Correctable Errors Collector.</p></li>
+<li><p>On ARM, the request to soft offline pages from GHES driver.</p></li>
+<li><p>On PARISC, the request to soft offline pages from Page Deallocation Table.</p></li>
+</ul>
 </section>
 <section id="extfrag-threshold">
 <h2>extfrag_threshold<a class="headerlink" href="#extfrag-threshold" title="Link to this heading">¶</a></h2>

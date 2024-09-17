@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -1185,6 +1185,7 @@ or unaligned OUT)</p>
 #define DWC3_REVISION_290A      0x5533290a;
 #define DWC3_REVISION_300A      0x5533300a;
 #define DWC3_REVISION_310A      0x5533310a;
+#define DWC3_REVISION_320A      0x5533320a;
 #define DWC3_REVISION_330A      0x5533330a;
 #define DWC31_REVISION_ANY      0x0;
 #define DWC31_REVISION_110A     0x3131302a;
@@ -1284,6 +1285,7 @@ or unaligned OUT)</p>
     int last_fifo_depth;
     int num_ep_resized;
     struct dentry           *debug_root;
+    u32 gsbuscfg0_reqinfo;
 };
 </pre></div>
 </div>
@@ -1591,6 +1593,10 @@ address.</p>
 fifo resized.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">debug_root</span></code></dt><dd><p>root debugfs directory for this device to put its files in.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gsbuscfg0_reqinfo</span></code></dt><dd><p>store GSBUSCFG0.DATRDREQINFO, DESRDREQINFO,
+DATWRREQINFO, and DESWRREQINFO value passed from
+glue driver.</p>
 </dd>
 </dl>
 </div>
@@ -2039,6 +2045,20 @@ and wait for its completion.</p>
 <p><strong>Description</strong></p>
 <p>Caller should handle locking. This function will issue <strong>cmd</strong> with given
 <strong>params</strong> to <strong>dep</strong> and wait for its completion.</p>
+<p>According to the programming guide, if the link state is in L1/L2/U3,
+then sending the Start Transfer command may not complete. The
+programming guide suggested to bring the link state back to ON/U0 by
+performing remote wakeup prior to sending the command. However, don’t
+initiate remote wakeup when the user/function does not send wakeup
+request via wakeup ops. Send the command when it’s allowed.</p>
+<p>For L2 or U3 link state, the gadget is in USB suspend. Care should be
+taken when sending Start Transfer command to ensure that it’s done after
+USB resume.</p>
+<p><strong>Notes</strong></p>
+<p>For L1 link state, issuing a command requires the clearing of
+GUSB2PHYCFG.SUSPENDUSB2, which turns on the signal required to complete
+the given command (usually within 50us). This should happen within the
+command timeout set by driver. No additional step is needed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dwc3_gadget_start_config">

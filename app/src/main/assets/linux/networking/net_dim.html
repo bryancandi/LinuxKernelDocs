@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -162,7 +162,8 @@
 <li><p><a class="reference internal" href="#net-dim-algorithm" id="id4">Net DIM Algorithm</a></p></li>
 <li><p><a class="reference internal" href="#registering-a-network-device-to-dim" id="id5">Registering a Network Device to DIM</a></p></li>
 <li><p><a class="reference internal" href="#example" id="id6">Example</a></p></li>
-<li><p><a class="reference internal" href="#dynamic-interrupt-moderation-dim-library-api" id="id7">Dynamic Interrupt Moderation (DIM) library API</a></p></li>
+<li><p><a class="reference internal" href="#tuning-dim" id="id7">Tuning DIM</a></p></li>
+<li><p><a class="reference internal" href="#dynamic-interrupt-moderation-dim-library-api" id="id8">Dynamic Interrupt Moderation (DIM) library API</a></p></li>
 </ul>
 </li>
 </ul>
@@ -315,8 +316,44 @@ usage is not complete but it should make the outline of the usage clear.</p>
 </pre></div>
 </div>
 </section>
+<section id="tuning-dim">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Tuning DIM</a><a class="headerlink" href="#tuning-dim" title="Link to this heading">¶</a></h2>
+<p>Net DIM serves a range of network devices and delivers excellent acceleration
+benefits. Yet, it has been observed that some preset configurations of DIM may
+not align seamlessly with the varying specifications of network devices, and
+this discrepancy has been identified as a factor to the suboptimal performance
+outcomes of DIM-enabled network devices, related to a mismatch in profiles.</p>
+<p>To address this issue, Net DIM introduces a per-device control to modify and
+access a device’s <code class="docutils literal notranslate"><span class="pre">rx-profile</span></code> and <code class="docutils literal notranslate"><span class="pre">tx-profile</span></code> parameters:
+Assume that the target network device is named ethx, and ethx only declares
+support for RX profile setting and supports modification of <code class="docutils literal notranslate"><span class="pre">usec</span></code> field
+and <code class="docutils literal notranslate"><span class="pre">pkts</span></code> field (See the data structure:
+<a class="reference internal" href="#c.dim_cq_moder" title="dim_cq_moder"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim_cq_moder</span></code></a>).</p>
+<p>You can use ethtool to modify the current RX DIM profile where all
+values are 64:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ethtool -C ethx rx-profile 1,1,n_2,2,n_3,n,n_n,4,n_n,n,n
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">n</span></code> means do not modify this field, and <code class="docutils literal notranslate"><span class="pre">_</span></code> separates structure
+elements of the profile array.</p>
+<p>Querying the current profiles using:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ethtool -c ethx
+...
+rx-profile:
+{.usec =   1, .pkts =   1, .comps = n/a,},
+{.usec =   2, .pkts =   2, .comps = n/a,},
+{.usec =   3, .pkts =  64, .comps = n/a,},
+{.usec =  64, .pkts =   4, .comps = n/a,},
+{.usec =  64, .pkts =  64, .comps = n/a,}
+tx-profile:   n/a
+</pre></div>
+</div>
+<p>If the network device does not support specific fields of DIM profiles,
+the corresponding <code class="docutils literal notranslate"><span class="pre">n/a</span></code> will display. If the <code class="docutils literal notranslate"><span class="pre">n/a</span></code> field is being
+modified, error messages will be reported.</p>
+</section>
 <section id="dynamic-interrupt-moderation-dim-library-api">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Dynamic Interrupt Moderation (DIM) library API</a><a class="headerlink" href="#dynamic-interrupt-moderation-dim-library-api" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Dynamic Interrupt Moderation (DIM) library API</a><a class="headerlink" href="#dynamic-interrupt-moderation-dim-library-api" title="Link to this heading">¶</a></h2>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.dim_cq_moder">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dim_cq_moder</span></span></span><a class="headerlink" href="#c.dim_cq_moder" title="Link to this definition">¶</a><br /></dt>
@@ -330,6 +367,7 @@ usage is not complete but it should make the outline of the usage clear.</p>
     u16 pkts;
     u16 comps;
     u8 cq_period_mode;
+    struct rcu_head rcu;
 };
 </pre></div>
 </div>
@@ -342,6 +380,48 @@ usage is not complete but it should make the outline of the usage clear.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">comps</span></code></dt><dd><p>Completion counter</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cq_period_mode</span></code></dt><dd><p>CQ period count mode (from CQE/EQE)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rcu</span></code></dt><dd><p>for asynchronous kfree_rcu</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.dim_irq_moder">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dim_irq_moder</span></span></span><a class="headerlink" href="#c.dim_irq_moder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Structure for irq moderation information. Used to collect irq moderation related information.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct dim_irq_moder {
+    u8 profile_flags;
+    u8 coal_flags;
+    u8 dim_rx_mode;
+    u8 dim_tx_mode;
+    struct dim_cq_moder __rcu *rx_profile;
+    struct dim_cq_moder __rcu *tx_profile;
+    void (*rx_dim_work)(struct work_struct *work);
+    void (*tx_dim_work)(struct work_struct *work);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">profile_flags</span></code></dt><dd><p>DIM_PROFILE_*</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">coal_flags</span></code></dt><dd><p>DIM_COALESCE_* for Rx and Tx</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dim_rx_mode</span></code></dt><dd><p>Rx DIM period count mode: CQE or EQE</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dim_tx_mode</span></code></dt><dd><p>Tx DIM period count mode: CQE or EQE</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_profile</span></code></dt><dd><p>DIM profile list for Rx</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_profile</span></code></dt><dd><p>DIM profile list for Tx</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_dim_work</span></code></dt><dd><p>Rx DIM worker scheduled by <a class="reference internal" href="#c.net_dim" title="net_dim"><code class="xref c c-func docutils literal notranslate"><span class="pre">net_dim()</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_dim_work</span></code></dt><dd><p>Tx DIM worker scheduled by <a class="reference internal" href="#c.net_dim" title="net_dim"><code class="xref c c-func docutils literal notranslate"><span class="pre">net_dim()</span></code></a></p>
 </dd>
 </dl>
 </div>
@@ -556,6 +636,140 @@ tired parking</p>
 </div>
 <p><strong>Description</strong></p>
 <p>These describe the result of a step.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_init_irq_moder">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_init_irq_moder</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">profile_flags</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">coal_flags</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">rx_mode</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">tx_mode</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">rx_dim_work</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tx_dim_work</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_init_irq_moder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>collect information to initialize irq moderation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">profile_flags</span></code></dt><dd><p>Rx or Tx profile modification capability</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">coal_flags</span></code></dt><dd><p>irq moderation params flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">rx_mode</span></code></dt><dd><p>CQ period mode for Rx</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">tx_mode</span></code></dt><dd><p>CQ period mode for Tx</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*rx_dim_work)(struct</span> <span class="pre">work_struct</span> <span class="pre">*work)</span></code></dt><dd><p>Rx worker called after dim decision</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*tx_dim_work)(struct</span> <span class="pre">work_struct</span> <span class="pre">*work)</span></code></dt><dd><p>Tx worker called after dim decision</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_free_irq_moder">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_free_irq_moder</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_free_irq_moder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>free fields for irq moderation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_setting">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_setting</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_dim_setting" title="dim"><span class="n"><span class="pre">dim</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dim</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">is_tx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_setting" title="Link to this definition">¶</a><br /></dt>
+<dd><p>initialize DIM’s cq mode and schedule worker</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim</span> <span class="pre">*dim</span></code></dt><dd><p>DIM context</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">is_tx</span></code></dt><dd><p>true indicates the tx direction, false indicates the rx direction</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_work_cancel">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_work_cancel</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_dim_work_cancel" title="dim"><span class="n"><span class="pre">dim</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dim</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_work_cancel" title="Link to this definition">¶</a><br /></dt>
+<dd><p>synchronously cancel dim’s worker</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim</span> <span class="pre">*dim</span></code></dt><dd><p>DIM context</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_get_rx_irq_moder">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dim_cq_moder" title="dim_cq_moder"><span class="n"><span class="pre">dim_cq_moder</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_get_rx_irq_moder</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_dim_get_rx_irq_moder" title="dim"><span class="n"><span class="pre">dim</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dim</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_get_rx_irq_moder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>get DIM rx results based on profile_ix</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim</span> <span class="pre">*dim</span></code></dt><dd><p>DIM context</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>DIM irq moderation</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_get_tx_irq_moder">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dim_cq_moder" title="dim_cq_moder"><span class="n"><span class="pre">dim_cq_moder</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_get_tx_irq_moder</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_dim_get_tx_irq_moder" title="dim"><span class="n"><span class="pre">dim</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dim</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_get_tx_irq_moder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>get DIM tx results based on profile_ix</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim</span> <span class="pre">*dim</span></code></dt><dd><p>DIM context</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>DIM irq moderation</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_set_rx_mode">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_set_rx_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">rx_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_set_rx_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set DIM rx cq mode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">rx_mode</span></code></dt><dd><p>target rx cq mode</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.net_dim_set_tx_mode">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_dim_set_tx_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">tx_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.net_dim_set_tx_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set DIM tx cq mode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>target network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">tx_mode</span></code></dt><dd><p>target tx cq mode</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dim_on_top">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dim_on_top</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dim_on_top" title="dim"><span class="n"><span class="pre">dim</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dim</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dim_on_top" title="Link to this definition">¶</a><br /></dt>

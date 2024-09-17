@@ -13,7 +13,7 @@
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="EISA bus support" href="../eisa.html" />
+    <link rel="next" title="Compute Express Link Subsystem Maturity Map" href="maturity-map.html" />
     <link rel="prev" title="Compute Express Link" href="index.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -1262,7 +1262,7 @@ interleave-width, and the target list are mutable.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct cxl_root_decoder {
     struct resource *res;
     atomic_t region_id;
-    cxl_calc_hb_fn calc_hb;
+    cxl_hpa_to_spa_fn hpa_to_spa;
     void *platform_data;
     struct mutex range_lock;
     int qos_class;
@@ -1276,7 +1276,7 @@ interleave-width, and the target list are mutable.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">region_id</span></code></dt><dd><p>region id for next region provisioning event</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">calc_hb</span></code></dt><dd><p>which host bridge covers the n’th position by granularity</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hpa_to_spa</span></code></dt><dd><p>translate CXL host-physical-address to Platform system-physical-address</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">platform_data</span></code></dt><dd><p>platform specific configuration data</p>
 </dd>
@@ -1346,6 +1346,7 @@ interleave-width, and the target list are mutable.</p>
     struct cxl_region_params params;
     struct access_coordinate coord[ACCESS_COORDINATE_MAX];
     struct notifier_block memory_notifier;
+    struct notifier_block adist_notifier;
 };
 </pre></div>
 </div>
@@ -1370,6 +1371,8 @@ interleave-width, and the target list are mutable.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">coord</span></code></dt><dd><p>QoS access coordinates for the region</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">memory_notifier</span></code></dt><dd><p>notifier for setting the access coordinates to node</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">adist_notifier</span></code></dt><dd><p>notifier for calculating the abstract distance of node</p>
 </dd>
 </dl>
 </div>
@@ -1765,7 +1768,7 @@ expected to be configured by the caller before registering via
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.cxl_root_decoder_alloc">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_root_decoder" title="cxl_root_decoder"><span class="n"><span class="pre">cxl_root_decoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">cxl_root_decoder_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_port" title="cxl_port"><span class="n"><span class="pre">cxl_port</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">port</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_targets</span></span>, <span class="n"><span class="pre">cxl_calc_hb_fn</span></span><span class="w"> </span><span class="n"><span class="pre">calc_hb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_root_decoder_alloc" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_root_decoder" title="cxl_root_decoder"><span class="n"><span class="pre">cxl_root_decoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">cxl_root_decoder_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.cxl_port" title="cxl_port"><span class="n"><span class="pre">cxl_port</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">port</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_targets</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.cxl_root_decoder_alloc" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate a root level decoder</p>
 </dd></dl>
 
@@ -1775,8 +1778,6 @@ expected to be configured by the caller before registering via
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cxl_port</span> <span class="pre">*port</span></code></dt><dd><p>owning CXL root of this decoder</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">nr_targets</span></code></dt><dd><p>static number of downstream targets</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">cxl_calc_hb_fn</span> <span class="pre">calc_hb</span></code></dt><dd><p>which host bridge covers the n’th position by granularity</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>

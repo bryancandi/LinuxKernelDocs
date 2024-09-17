@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -77,6 +77,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Development tools</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="testing-overview.html">Kernel Testing Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="checkpatch.html">Checkpatch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clang-format.html">clang-format</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coccinelle.html">Coccinelle</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sparse.html">Sparse</a></li>
 <li class="toctree-l2"><a class="reference internal" href="kcov.html">KCOV: code coverage for fuzzing</a></li>
@@ -99,6 +100,7 @@
 <li class="toctree-l2"><a class="reference internal" href="kunit/index.html">KUnit - Linux Kernel Unit Testing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ktap.html">The Kernel Test Anything Protocol (KTAP), version 1</a></li>
 <li class="toctree-l2"><a class="reference internal" href="checkuapi.html">UAPI Checker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpio-sloppy-logic-analyzer.html">Linux Kernel GPIO based sloppy logic analyzer</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="testing-overview.html">Testing guide</a></li>
@@ -252,6 +254,12 @@ parameters.</p>
 <p>in the Makefile. Think of this as applying <code class="docutils literal notranslate"><span class="pre">__no_sanitize_memory</span></code> to every
 function in the file or directory. Most users won’t need KMSAN_SANITIZE, unless
 their code gets broken by KMSAN (e.g. runs at early boot time).</p>
+<p>KMSAN checks can also be temporarily disabled for the current task using
+<code class="docutils literal notranslate"><span class="pre">kmsan_disable_current()</span></code> and <code class="docutils literal notranslate"><span class="pre">kmsan_enable_current()</span></code> calls. Each
+<code class="docutils literal notranslate"><span class="pre">kmsan_enable_current()</span></code> call must be preceded by a
+<code class="docutils literal notranslate"><span class="pre">kmsan_disable_current()</span></code> call; these call pairs may be nested. One needs to
+be careful with these calls, keeping the regions short and preferring other
+ways to disable instrumentation, where possible.</p>
 </section>
 </section>
 <section id="support">
@@ -452,10 +460,10 @@ In such cases they are ignored at runtime.</p>
 <section id="per-task-kmsan-state">
 <h4>Per-task KMSAN state<a class="headerlink" href="#per-task-kmsan-state" title="Link to this heading">¶</a></h4>
 <p>Every task_struct has an associated KMSAN task state that holds the KMSAN
-context (see above) and a per-task flag disallowing KMSAN reports:</p>
+context (see above) and a per-task counter disallowing KMSAN reports:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kmsan_context {
   ...
-  bool allow_reporting;
+  unsigned int depth;
   struct kmsan_context_state cstate;
   ...
 }

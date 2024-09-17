@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -436,7 +436,7 @@ the same device.</p>
     __u8 dst_pending_confirm:1;
     __u8 ip_summed:2;
     __u8 ooo_okay:1;
-    __u8 mono_delivery_time:1;
+    __u8 tstamp_type:2;
 #ifdef CONFIG_NET_XGRESS;
     __u8 tc_at_ingress:1;
     __u8 tc_skip_classify:1;
@@ -627,10 +627,8 @@ page_pool support on driver)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ooo_okay</span></code></dt><dd><p>allow the mapping of a socket to a queue to be changed</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">mono_delivery_time</span></code></dt><dd><p>When set, skb-&gt;tstamp has the
-delivery_time in mono clock base (i.e. EDT).  Otherwise, the
-skb-&gt;tstamp has the (rcv) timestamp at ingress and
-delivery_time at egress.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">tstamp_type</span></code></dt><dd><p>When set, skb-&gt;tstamp has the
+delivery_time clock base of skb-&gt;tstamp.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tc_at_ingress</span></code></dt><dd><p>used within tc_classify to distinguish in/egress</p>
 </dd>
@@ -3813,20 +3811,22 @@ always call kfree_skb</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.kfree_skb_reason">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__fix_address</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kfree_skb_reason</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">skb_drop_reason</span></span><span class="w"> </span><span class="n"><span class="pre">reason</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kfree_skb_reason" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.sk_skb_reason_drop">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__fix_address</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sk_skb_reason_drop</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sock" title="sock"><span class="n"><span class="pre">sock</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sk</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">skb_drop_reason</span></span><span class="w"> </span><span class="n"><span class="pre">reason</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sk_skb_reason_drop" title="Link to this definition">¶</a><br /></dt>
 <dd><p>free an sk_buff with special reason</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sock</span> <span class="pre">*sk</span></code></dt><dd><p>the socket to receive <strong>skb</strong>, or NULL if not applicable</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*skb</span></code></dt><dd><p>buffer to free</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">skb_drop_reason</span> <span class="pre">reason</span></code></dt><dd><p>reason why this skb is dropped</p>
-<p>Drop a reference to the buffer and free it if the usage count has
-hit zero. Meanwhile, pass the drop reason to ‘kfree_skb’
-tracepoint.</p>
+<p>Drop a reference to the buffer and free it if the usage count has hit
+zero. Meanwhile, pass the receiving socket and drop reason to
+‘kfree_skb’ tracepoint.</p>
 </dd>
 </dl>
 </div>
@@ -11117,9 +11117,9 @@ during any kernel release.</p>
     unsigned short          neigh_priv_len;
     unsigned short          dev_id;
     unsigned short          dev_port;
-    unsigned short          padded;
-    spinlock_t addr_list_lock;
     int irq;
+    u32 priv_len;
+    spinlock_t addr_list_lock;
     struct netdev_hw_addr_list      uc;
     struct netdev_hw_addr_list      mc;
     struct netdev_hw_addr_list      dev_addrs;
@@ -11245,13 +11245,13 @@ during any kernel release.</p>
     struct lock_class_key   *qdisc_tx_busylock;
     bool proto_down;
     bool threaded;
-    unsigned wol_enabled:1;
     struct list_head        net_notifier_list;
 #if IS_ENABLED(CONFIG_MACSEC);
     const struct macsec_ops *macsec_ops;
 #endif;
     const struct udp_tunnel_nic_info        *udp_tunnel_nic_info;
     struct udp_tunnel_nic   *udp_tunnel_nic;
+    struct ethtool_netdev_state *ethtool;
     struct bpf_xdp_entity   xdp_state[__MAX_XDP_MODE];
     u8 dev_addr_shadow[MAX_ADDR_LEN];
     netdevice_tracker linkwatch_dev_tracker;
@@ -11265,6 +11265,8 @@ during any kernel release.</p>
 #if IS_ENABLED(CONFIG_PAGE_POOL);
     struct hlist_head       page_pools;
 #endif;
+    struct dim_irq_moder    *irq_moder;
+    u8 priv[]  ;
 };
 </pre></div>
 </div>
@@ -11477,11 +11479,11 @@ the same link layer address</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dev_port</span></code></dt><dd><p>Used to differentiate devices that share
 the same function</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">padded</span></code></dt><dd><p>How much padding added by alloc_netdev()</p>
+<dt><code class="docutils literal notranslate"><span class="pre">irq</span></code></dt><dd><p>Device IRQ number</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">priv_len</span></code></dt><dd><p>Size of the -&gt;priv flexible array</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">addr_list_lock</span></code></dt><dd><p>XXX: need comments on this one</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">irq</span></code></dt><dd><p>Device IRQ number</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">uc</span></code></dt><dd><p>unicast mac addresses</p>
 </dd>
@@ -11644,8 +11646,6 @@ switch port.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">threaded</span></code></dt><dd><p>napi threaded mode is enabled</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">wol_enabled</span></code></dt><dd><p>Wake-on-LAN is enabled</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">net_notifier_list</span></code></dt><dd><p>List of per-net netdev notifier block
 that follow this device when it is moved
 to another network namespace.</p>
@@ -11656,6 +11656,8 @@ to another network namespace.</p>
 offload capabilities of the device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">udp_tunnel_nic</span></code></dt><dd><p>UDP tunnel offload state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ethtool</span></code></dt><dd><p>ethtool related state</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">xdp_state</span></code></dt><dd><p>stores info on attached XDP BPF programs</p>
 </dd>
@@ -11683,6 +11685,10 @@ moves out.</p>
 </div></blockquote>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">page_pools</span></code></dt><dd><p>page pools created for this netdevice</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">irq_moder</span></code></dt><dd><p>dim parameters used if IS_ENABLED(CONFIG_DIMLIB).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">priv</span></code></dt><dd><p>Flexible array containing private data</p>
 </dd>
 </dl>
 </div>
@@ -14542,6 +14548,8 @@ value if there was a change which triggered auto-neg.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_1000BASEKX</span></code></dt><dd><p>1000Base-KX - with Clause 73 AN</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_10G_QXGMII</span></code></dt><dd><p>10G-QXGMII - 4 ports over 10G USXGMII</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_MAX</span></code></dt><dd><p>Book keeping</p>
 </dd>
 </dl>
@@ -14850,6 +14858,7 @@ Once complete, move to UP to restart the PHY.
     unsigned interrupts:1;
     unsigned irq_suspended:1;
     unsigned irq_rerun:1;
+    unsigned default_timestamp:1;
     int rate_matching;
     enum phy_state state;
     u32 dev_flags;
@@ -14960,6 +14969,9 @@ handling shall be postponed until PHY has resumed</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">irq_rerun</span></code></dt><dd><p>Flag indicating interrupts occurred while PHY was suspended,
 requiring a rerun of the interrupt handler after resume</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">default_timestamp</span></code></dt><dd><p>Flag indicating whether we are using the phy
+timestamp as the default one</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rate_matching</span></code></dt><dd><p>Current rate matching mode</p>
 </dd>
@@ -15886,6 +15898,25 @@ PHY_MAC_INTERRUPT</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_is_default_hwtstamp">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_is_default_hwtstamp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_is_default_hwtstamp" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Is the PHY hwtstamp the default timestamp</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>Pointer to phy_device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is used to get default timestamping device taking into account
+the new API choice, which is selecting the timestamping from MAC by
+default if the phydev does not have default_timestamp flag enabled.</p>
+<p><strong>Return</strong></p>
+<p>True if phy is the default hw timestamp, false otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phy_is_internal">
@@ -17742,7 +17773,7 @@ device. Any error returns a negative number.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mdio_bus_match">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mdio_bus_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdio_bus_match" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mdio_bus_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device_driver" title="device_driver"><span class="n"><span class="pre">device_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdio_bus_match" title="Link to this definition">¶</a><br /></dt>
 <dd><p>determine if given MDIO driver supports the given MDIO device</p>
 </dd></dl>
 
@@ -17751,7 +17782,7 @@ device. Any error returns a negative number.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>target MDIO device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>given MDIO driver</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">device_driver</span> <span class="pre">*drv</span></code></dt><dd><p>given MDIO driver</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -17831,7 +17862,7 @@ interface mode (<strong>interface</strong>) are different.</p>
     bool poll_fixed_state;
     bool mac_managed_pm;
     bool mac_requires_rxc;
-    bool ovr_an_inband;
+    bool default_an_inband;
     void (*get_fixed_state)(struct phylink_config *config, struct phylink_link_state *state);
     unsigned long supported_interfaces[BITS_TO_LONGS(PHY_INTERFACE_MODE_MAX)];
     unsigned long mac_capabilities;
@@ -17853,7 +17884,8 @@ if MAC link is at <code class="docutils literal notranslate"><span class="pre">M
 The PHY driver should start the clock signal as soon as
 possible and avoid stopping it during suspend events.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ovr_an_inband</span></code></dt><dd><p>if true, override PCS to MLO_AN_INBAND</p>
+<dt><code class="docutils literal notranslate"><span class="pre">default_an_inband</span></code></dt><dd><p>if true, defaults to MLO_AN_INBAND rather than
+MLO_AN_PHY. A fixed-link specification will override.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_fixed_state</span></code></dt><dd><p>callback to execute to determine the fixed link state,
 if MAC link is at <code class="docutils literal notranslate"><span class="pre">MLO_AN_FIXED</span></code> mode.</p>

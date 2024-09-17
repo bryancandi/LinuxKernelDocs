@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -1128,9 +1128,9 @@ emulation, so far.</p>
 <p>Sets the given PCM operators to the pcm instance.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.snd_pcm_set_sync">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_pcm_set_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_pcm_substream</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">substream</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_pcm_set_sync" title="Link to this definition">¶</a><br /></dt>
-<dd><p>set the PCM sync id</p>
+<dt class="sig sig-object c" id="c.snd_pcm_set_sync_per_card">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_pcm_set_sync_per_card</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_pcm_substream</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">substream</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_pcm_hw_params</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">params</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">id</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_pcm_set_sync_per_card" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set the PCM sync id with card number</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1138,9 +1138,26 @@ emulation, so far.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">snd_pcm_substream</span> <span class="pre">*substream</span></code></dt><dd><p>the pcm substream</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">snd_pcm_hw_params</span> <span class="pre">*params</span></code></dt><dd><p>modified hardware parameters</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">char</span> <span class="pre">*id</span></code></dt><dd><p>identifier (max 12 bytes)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">len</span></code></dt><dd><p>identifier length (max 12 bytes)</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Sets the PCM sync identifier for the card.</p>
+<p>Sets the PCM sync identifier for the card with zero padding.</p>
+<p>User space or any user should use this 16-byte identifier for a comparison only
+to check if two IDs are similar or different. Special case is the identifier
+containing only zeros. Interpretation for this combination is - empty (not set).
+The contents of the identifier should not be interpreted in any other way.</p>
+<p>The synchronization ID must be unique per clock source (usually one sound card,
+but multiple soundcard may use one PCM word clock source which means that they
+are fully synchronized).</p>
+<p>This routine composes this ID using card number in first four bytes and
+12-byte additional ID. When other ID composition is used (e.g. for multiple
+sound cards), make sure that the composition does not clash with this
+composition scheme.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.snd_interval_refine">
@@ -2596,6 +2613,21 @@ negative error code.</p>
 opposite, or a negative error code if endian not specified.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.snd_pcm_set_sync">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_pcm_set_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_pcm_substream</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">substream</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_pcm_set_sync" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set the PCM sync id</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">snd_pcm_substream</span> <span class="pre">*substream</span></code></dt><dd><p>the pcm substream</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Use the default PCM sync identifier for the specific card.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.snd_pcm_set_runtime_buffer">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_pcm_set_runtime_buffer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_pcm_substream</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">substream</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_dma_buffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bufp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_pcm_set_runtime_buffer" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Set the PCM runtime buffer</p>
@@ -3882,7 +3914,8 @@ control exists, it is destroyed first.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Removes the control from the card and then releases the instance.
-You don’t need to call <a class="reference internal" href="#c.snd_ctl_free_one" title="snd_ctl_free_one"><code class="xref c c-func docutils literal notranslate"><span class="pre">snd_ctl_free_one()</span></code></a>.</p>
+You don’t need to call <a class="reference internal" href="#c.snd_ctl_free_one" title="snd_ctl_free_one"><code class="xref c c-func docutils literal notranslate"><span class="pre">snd_ctl_free_one()</span></code></a>.
+Passing NULL to <strong>kcontrol</strong> argument is allowed as noop.</p>
 <p>Note that this function takes card-&gt;controls_rwsem lock internally.</p>
 <p><strong>Return</strong></p>
 <p>0 if successful, or a negative error code on failure.</p>
@@ -7350,7 +7383,7 @@ can frequently also be used as bypass paths.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.snd_soc_dapm_new_controls">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_soc_dapm_new_controls</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_soc_dapm_context</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dapm</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_soc_dapm_widget</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">widget</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">num</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_soc_dapm_new_controls" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">snd_soc_dapm_new_controls</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_soc_dapm_context</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dapm</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">snd_soc_dapm_widget</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">widget</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">num</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.snd_soc_dapm_new_controls" title="Link to this definition">¶</a><br /></dt>
 <dd><p>create new dapm controls</p>
 </dd></dl>
 
@@ -7361,7 +7394,7 @@ can frequently also be used as bypass paths.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">snd_soc_dapm_widget</span> <span class="pre">*widget</span></code></dt><dd><p>widget array</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">num</span></code></dt><dd><p>number of widgets</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">num</span></code></dt><dd><p>number of widgets</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

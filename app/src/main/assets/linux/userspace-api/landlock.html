@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -153,7 +153,7 @@
 <dd class="field-odd"><p>Mickaël Salaün</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>April 2024</p>
+<dd class="field-even"><p>July 2024</p>
 </dd>
 </dl>
 <p>The goal of Landlock is to enable to restrict ambient rights (e.g. global
@@ -509,10 +509,10 @@ are not subject to these restrictions.</p>
 <p>The following access rights apply only to files:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_EXECUTE</span></code>: Execute a file.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code>: Open a file with write access. Note that
-you might additionally need the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code> right in order
-to overwrite files with <em class="manpage">open(2)</em> using <code class="docutils literal notranslate"><span class="pre">O_TRUNC</span></code> or
-<em class="manpage">creat(2)</em>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_WRITE_FILE</span></code>: Open a file with write access.  When
+opening files for writing, you will often additionally need the
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code> right.  In many cases, these system calls
+truncate existing files when overwriting them (e.g., <em class="manpage">creat(2)</em>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_READ_FILE</span></code>: Open a file with read access.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code>: Truncate a file with <em class="manpage">truncate(2)</em>,
 <em class="manpage">ftruncate(2)</em>, <em class="manpage">creat(2)</em>, or <em class="manpage">open(2)</em> with
@@ -605,7 +605,7 @@ Future Landlock evolutions will enable to restrict them.</p>
 <h4>Network flags<a class="headerlink" href="#network-flags" title="Link to this heading">¶</a></h4>
 <p>These flags enable to restrict a sandboxed process to a set of network
 actions. This is supported since the Landlock ABI version 4.</p>
-<p>TCP sockets with allowed actions:</p>
+<p>The following access rights apply to TCP port numbers:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code>: Bind a TCP socket to a local port.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_CONNECT_TCP</span></code>: Connect an active TCP socket to
@@ -650,7 +650,7 @@ related file descriptor on success.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.landlock_ruleset_attr">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_ruleset_attr</span></span></span><a class="headerlink" href="#c.landlock_ruleset_attr" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Ruleset definition</p>
+<dd><p>Ruleset definition.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -663,26 +663,29 @@ related file descriptor on success.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">handled_access_fs</span></code></dt><dd><p>Bitmask of actions (cf. <a class="reference internal" href="#filesystem-flags">Filesystem flags</a>)
-that is handled by this ruleset and should then be forbidden if no
-rule explicitly allow them: it is a deny-by-default list that should
-contain as much Landlock access rights as possible. Indeed, all
-Landlock filesystem access rights that are not part of
-handled_access_fs are allowed.  This is needed for backward
-compatibility reasons.  One exception is the
-<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_REFER</span></code> access right, which is always implicitly
-handled, but must still be explicitly handled to add new rules with
-this access right.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">handled_access_fs</span></code></dt><dd><p>Bitmask of handled filesystem actions
+(cf. <a class="reference internal" href="#filesystem-flags">Filesystem flags</a>).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">handled_access_net</span></code></dt><dd><p>Bitmask of actions (cf. <a class="reference internal" href="#network-flags">Network flags</a>)
-that is handled by this ruleset and should then be forbidden if no
-rule explicitly allow them.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">handled_access_net</span></code></dt><dd><p>Bitmask of handled network actions (cf. <a class="reference internal" href="#network-flags">Network
+flags</a>).</p>
 </dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>Argument of <a class="reference internal" href="#c.sys_landlock_create_ruleset" title="sys_landlock_create_ruleset"><code class="xref c c-func docutils literal notranslate"><span class="pre">sys_landlock_create_ruleset()</span></code></a>.  This structure can grow in
-future versions.</p>
+<p>Argument of <a class="reference internal" href="#c.sys_landlock_create_ruleset" title="sys_landlock_create_ruleset"><code class="xref c c-func docutils literal notranslate"><span class="pre">sys_landlock_create_ruleset()</span></code></a>.</p>
+<p>This structure defines a set of <em>handled access rights</em>, a set of actions on
+different object types, which should be denied by default when the ruleset is
+enacted.  Vice versa, access rights that are not specifically listed here are
+not going to be denied by this ruleset when it is enacted.</p>
+<p>For historical reasons, the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_REFER</span></code> right is always denied
+by default, even when its bit is not set in <strong>handled_access_fs</strong>.  In order to
+add new rules with this access right, the bit must still be set explicitly
+(cf. <a class="reference internal" href="#filesystem-flags">Filesystem flags</a>).</p>
+<p>The explicit listing of <em>handled access rights</em> is required for backwards
+compatibility reasons.  In most use cases, processes that use Landlock will
+<em>handle</em> a wide range or all access rights that they know about at build time
+(and that they have tested with a kernel that supported them all).</p>
+<p>This structure can grow in future Landlock versions.</p>
 </section>
 <section id="extending-a-ruleset">
 <h3>Extending a ruleset<a class="headerlink" href="#extending-a-ruleset" title="Link to this heading">¶</a></h3>
@@ -701,8 +704,7 @@ with the new rule.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">enum</span> <span class="pre">landlock_rule_type</span> <span class="pre">rule_type</span></code></dt><dd><p>Identify the structure type pointed to by <strong>rule_attr</strong>:
 <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_PATH_BENEATH</span></code> or <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_NET_PORT</span></code>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">__user</span> <span class="pre">*const</span> <span class="pre">rule_attr</span></code></dt><dd><p>Pointer to a rule (only of type <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
-<span class="pre">landlock_path_beneath_attr</span></code></a> for now).</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">__user</span> <span class="pre">*const</span> <span class="pre">rule_attr</span></code></dt><dd><p>Pointer to a rule (matching the <strong>rule_type</strong>).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>Must be 0.</p>
 </dd>
@@ -715,18 +717,20 @@ ruleset.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code>: Landlock is supported by the kernel but disabled at boot time;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EAFNOSUPPORT</span></code>: <strong>rule_type</strong> is <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RULE_NET_PORT</span></code> but TCP/IP is not
 supported by the running kernel;</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <strong>flags</strong> is not 0, or inconsistent access in the rule (i.e.
+<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <strong>flags</strong> is not 0;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: The rule accesses are inconsistent (i.e.
 <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a> or
-<a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.allowed_access</span></code></a> is not a subset of the
-ruleset handled accesses), or <a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.port</span></code></a> is
-greater than 65535;</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ENOMSG</span></code>: Empty accesses (e.g. <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a>);</p></li>
+<a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.allowed_access</span></code></a> is not a subset of the ruleset
+handled accesses)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <a class="reference internal" href="#c.landlock_net_port_attr" title="landlock_net_port_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_net_port_attr.port</span></code></a> is greater than 65535;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ENOMSG</span></code>: Empty accesses (e.g. <a class="reference internal" href="#c.landlock_path_beneath_attr" title="landlock_path_beneath_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_path_beneath_attr.allowed_access</span></code></a> is
+0);</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EBADF</span></code>: <strong>ruleset_fd</strong> is not a file descriptor for the current thread, or a
 member of <strong>rule_attr</strong> is not a file descriptor as expected;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EBADFD</span></code>: <strong>ruleset_fd</strong> is not a ruleset file descriptor, or a member of
 <strong>rule_attr</strong> is not the expected file descriptor type;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EPERM</span></code>: <strong>ruleset_fd</strong> has no write access to the underlying ruleset;</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">EFAULT</span></code>: <strong>rule_attr</strong> inconsistency.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EFAULT</span></code>: <strong>rule_attr</strong> was not a valid address.</p></li>
 </ul>
 </div>
 <dl class="c enum">
@@ -791,17 +795,17 @@ file.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">allowed_access</span></code></dt><dd><p>Bitmask of allowed access network for a port
+<dt><code class="docutils literal notranslate"><span class="pre">allowed_access</span></code></dt><dd><p>Bitmask of allowed network actions for a port
 (cf. <a class="reference internal" href="#network-flags">Network flags</a>).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">port</span></code></dt><dd><p>Network port in host endianness.</p>
-<p>It should be noted that port 0 passed to <em class="manpage">bind(2)</em> will
-bind to an available port from a specific port range. This can be
-configured thanks to the <code class="docutils literal notranslate"><span class="pre">/proc/sys/net/ipv4/ip_local_port_range</span></code>
-sysctl (also used for IPv6). A Landlock rule with port 0 and the
-<code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code> right means that requesting to bind
-on port 0 is allowed and it will automatically translate to binding
-on the related port range.</p>
+<p>It should be noted that port 0 passed to <em class="manpage">bind(2)</em> will bind
+to an available port from the ephemeral port range.  This can be
+configured with the <code class="docutils literal notranslate"><span class="pre">/proc/sys/net/ipv4/ip_local_port_range</span></code> sysctl
+(also used for IPv6).</p>
+<p>A Landlock rule with port 0 and the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_NET_BIND_TCP</span></code>
+right means that requesting to bind on port 0 is allowed and it will
+automatically translate to binding on the related port range.</p>
 </dd>
 </dl>
 </div>

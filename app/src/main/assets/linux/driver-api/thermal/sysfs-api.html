@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -212,7 +212,6 @@
 <section id="generic-thermal-sysfs-driver-how-to">
 <h1>Generic Thermal Sysfs driver How To<a class="headerlink" href="#generic-thermal-sysfs-driver-how-to" title="Link to this heading">¶</a></h1>
 <p>Written by Sujith Thomas &lt;<a class="reference external" href="mailto:sujith&#46;thomas&#37;&#52;&#48;intel&#46;com">sujith<span>&#46;</span>thomas<span>&#64;</span>intel<span>&#46;</span>com</a>&gt;, Zhang Rui &lt;<a class="reference external" href="mailto:rui&#46;zhang&#37;&#52;&#48;intel&#46;com">rui<span>&#46;</span>zhang<span>&#64;</span>intel<span>&#46;</span>com</a>&gt;</p>
-<p>Updated: 2 January 2008</p>
 <p>Copyright (c)  2008 Intel Corporation</p>
 <section id="introduction">
 <h2>0. Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
@@ -238,28 +237,28 @@ temperature) and throttle appropriate devices.</p>
 <section id="thermal-zone-device-interface">
 <h3>1.1 thermal zone device interface<a class="headerlink" href="#thermal-zone-device-interface" title="Link to this heading">¶</a></h3>
 <blockquote>
-<div><div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct thermal_zone_device
-*thermal_zone_device_register(char *type,
-                              int trips, int mask, void *devdata,
-                              struct thermal_zone_device_ops *ops,
-                              const struct thermal_zone_params *tzp,
-                              int passive_delay, int polling_delay))
+<div><div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct thermal_zone_device *
+thermal_zone_device_register_with_trips(const char *type,
+                                const struct thermal_trip *trips,
+                                int num_trips, void *devdata,
+                                const struct thermal_zone_device_ops *ops,
+                                const struct thermal_zone_params *tzp,
+                                unsigned int passive_delay,
+                                unsigned int polling_delay)
 </pre></div>
 </div>
-<p>This interface function adds a new thermal zone device (sensor) to
+<p>This interface function adds a new thermal zone device (sensor) to the
 /sys/class/thermal folder as <cite>thermal_zone[0-*]</cite>. It tries to bind all the
-thermal cooling devices registered at the same time.</p>
+thermal cooling devices registered to it at the same time.</p>
 <dl>
 <dt>type:</dt><dd><p>the thermal zone type.</p>
 </dd>
-<dt>trips:</dt><dd><p>the total number of trip points this thermal zone supports.</p>
-</dd>
-<dt>mask:</dt><dd><p>Bit string: If ‘n’th bit is set, then trip point ‘n’ is writable.</p>
+<dt>trips:</dt><dd><p>the table of trip points for this thermal zone.</p>
 </dd>
 <dt>devdata:</dt><dd><p>device private data</p>
 </dd>
 <dt>ops:</dt><dd><p>thermal zone device call-backs.</p>
-<dl>
+<dl class="simple">
 <dt>.bind:</dt><dd><p>bind the thermal zone device with a thermal cooling device.</p>
 </dd>
 <dt>.unbind:</dt><dd><p>unbind the thermal zone device with a thermal cooling device.</p>
@@ -270,33 +269,27 @@ thermal cooling devices registered at the same time.</p>
 is updated, the trip points immediately below and above the
 current temperature are found.</p>
 </dd>
-<dt>.get_mode:</dt><dd><p>get the current mode (enabled/disabled) of the thermal zone.</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>“enabled” means the kernel thermal management is
-enabled.</p></li>
-<li><p>“disabled” will prevent kernel thermal driver action
-upon trip points so that user applications can take
-charge of thermal management.</p></li>
-</ul>
-</div></blockquote>
+<dt>.change_mode:</dt><dd><p>change the mode (enabled/disabled) of the thermal zone.</p>
 </dd>
-<dt>.set_mode:</dt><dd><p>set the mode (enabled/disabled) of the thermal zone.</p>
+<dt>.set_trip_temp:</dt><dd><p>set the temperature of a given trip point.</p>
 </dd>
-<dt>.get_trip_type:</dt><dd><p>get the type of certain trip point.</p>
-</dd>
-<dt>.get_trip_temp:</dt><dd><p>get the temperature above which the certain trip point
-will be fired.</p>
+<dt>.get_crit_temp:</dt><dd><p>get the critical temperature for this thermal zone.</p>
 </dd>
 <dt>.set_emul_temp:</dt><dd><p>set the emulation temperature which helps in debugging
 different threshold temperature points.</p>
+</dd>
+<dt>.get_trend:</dt><dd><p>get the trend of most recent zone temperature changes.</p>
+</dd>
+<dt>.hot:</dt><dd><p>hot trip point crossing handler.</p>
+</dd>
+<dt>.critical:</dt><dd><p>critical trip point crossing handler.</p>
 </dd>
 </dl>
 </dd>
 <dt>tzp:</dt><dd><p>thermal zone platform parameters.</p>
 </dd>
-<dt>passive_delay:</dt><dd><p>number of milliseconds to wait between polls when
-performing passive cooling.</p>
+<dt>passive_delay:</dt><dd><p>number of milliseconds to wait between polls when performing passive
+cooling.</p>
 </dd>
 <dt>polling_delay:</dt><dd><p>number of milliseconds to wait between polls when checking
 whether trip points have been crossed (0 for interrupt driven systems).</p>

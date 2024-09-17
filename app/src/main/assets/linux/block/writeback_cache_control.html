@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -183,40 +183,46 @@ worry if the underlying devices need any explicit cache flushing and how
 the Forced Unit Access is implemented.  The REQ_PREFLUSH and REQ_FUA flags
 may both be set on a single bio.</p>
 </section>
-<section id="implementation-details-for-bio-based-block-drivers">
-<h2>Implementation details for bio based block drivers<a class="headerlink" href="#implementation-details-for-bio-based-block-drivers" title="Link to this heading">¶</a></h2>
-<p>These drivers will always see the REQ_PREFLUSH and REQ_FUA bits as they sit
-directly below the submit_bio interface.  For remapping drivers the REQ_FUA
-bits need to be propagated to underlying devices, and a global flush needs
-to be implemented for bios with the REQ_PREFLUSH bit set.  For real device
-drivers that do not have a volatile cache the REQ_PREFLUSH and REQ_FUA bits
-on non-empty bios can simply be ignored, and REQ_PREFLUSH requests without
-data can be completed successfully without doing any work.  Drivers for
-devices with volatile caches need to implement the support for these
-flags themselves without any help from the block layer.</p>
-</section>
-<section id="implementation-details-for-request-fn-based-block-drivers">
-<h2>Implementation details for request_fn based block drivers<a class="headerlink" href="#implementation-details-for-request-fn-based-block-drivers" title="Link to this heading">¶</a></h2>
+<section id="feature-settings-for-block-drivers">
+<h2>Feature settings for block drivers<a class="headerlink" href="#feature-settings-for-block-drivers" title="Link to this heading">¶</a></h2>
 <p>For devices that do not support volatile write caches there is no driver
 support required, the block layer completes empty REQ_PREFLUSH requests before
 entering the driver and strips off the REQ_PREFLUSH and REQ_FUA bits from
-requests that have a payload.  For devices with volatile write caches the
-driver needs to tell the block layer that it supports flushing caches by
-doing:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>blk_queue_write_cache(sdkp-&gt;disk-&gt;queue, true, false);
-</pre></div>
-</div>
-<p>and handle empty REQ_OP_FLUSH requests in its prep_fn/request_fn.  Note that
-REQ_PREFLUSH requests with a payload are automatically turned into a sequence
-of an empty REQ_OP_FLUSH request followed by the actual write by the block
-layer.  For devices that also support the FUA bit the block layer needs
-to be told to pass through the REQ_FUA bit using:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>blk_queue_write_cache(sdkp-&gt;disk-&gt;queue, true, true);
-</pre></div>
-</div>
-<p>and the driver must handle write requests that have the REQ_FUA bit set
-in prep_fn/request_fn.  If the FUA bit is not natively supported the block
-layer turns it into an empty REQ_OP_FLUSH request after the actual write.</p>
+requests that have a payload.</p>
+<p>For devices with volatile write caches the driver needs to tell the block layer
+that it supports flushing caches by setting the</p>
+<blockquote>
+<div><p>BLK_FEAT_WRITE_CACHE</p>
+</div></blockquote>
+<p>flag in the queue_limits feature field.  For devices that also support the FUA
+bit the block layer needs to be told to pass on the REQ_FUA bit by also setting
+the</p>
+<blockquote>
+<div><p>BLK_FEAT_FUA</p>
+</div></blockquote>
+<p>flag in the features field of the queue_limits structure.</p>
+</section>
+<section id="implementation-details-for-bio-based-block-drivers">
+<h2>Implementation details for bio based block drivers<a class="headerlink" href="#implementation-details-for-bio-based-block-drivers" title="Link to this heading">¶</a></h2>
+<p>For bio based drivers the REQ_PREFLUSH and REQ_FUA bit are simply passed on to
+the driver if the driver sets the BLK_FEAT_WRITE_CACHE flag and the driver
+needs to handle them.</p>
+<p><em>NOTE</em>: The REQ_FUA bit also gets passed on when the BLK_FEAT_FUA flags is
+_not_ set.  Any bio based driver that sets BLK_FEAT_WRITE_CACHE also needs to
+handle REQ_FUA.</p>
+<p>For remapping drivers the REQ_FUA bits need to be propagated to underlying
+devices, and a global flush needs to be implemented for bios with the
+REQ_PREFLUSH bit set.</p>
+</section>
+<section id="implementation-details-for-blk-mq-drivers">
+<h2>Implementation details for blk-mq drivers<a class="headerlink" href="#implementation-details-for-blk-mq-drivers" title="Link to this heading">¶</a></h2>
+<p>When the BLK_FEAT_WRITE_CACHE flag is set, REQ_OP_WRITE | REQ_PREFLUSH requests
+with a payload are automatically turned into a sequence of a REQ_OP_FLUSH
+request followed by the actual write by the block layer.</p>
+<p>When the BLK_FEAT_FUA flags is set, the REQ_FUA bit is simply passed on for the
+REQ_OP_WRITE request, else a REQ_OP_FLUSH request is sent by the block layer
+after the completion of the write request for bio submissions with the REQ_FUA
+bit set.</p>
 </section>
 </section>
 

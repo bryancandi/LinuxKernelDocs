@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -573,6 +573,43 @@ set in this mask will be shared by all channels.</p>
 </dl>
 </div>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.iio_scan_type">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iio_scan_type</span></span></span><a class="headerlink" href="#c.iio_scan_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>specification for channel data format in buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iio_scan_type {
+    char sign;
+    u8 realbits;
+    u8 storagebits;
+    u8 shift;
+    u8 repeat;
+    enum iio_endian endianness;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">sign</span></code></dt><dd><p>‘s’ or ‘u’ to specify signed or unsigned</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">realbits</span></code></dt><dd><p>Number of valid bits of data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">storagebits</span></code></dt><dd><p>Realbits + padding</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">shift</span></code></dt><dd><p>Shift right by this before masking out realbits.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">repeat</span></code></dt><dd><p>Number of times real/storage bits repeats. When the
+repeat element is more than 1, then the type element in
+sysfs will show a repeat value. Otherwise, the number
+of repetitions is omitted.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">endianness</span></code></dt><dd><p>little or big endian</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.iio_chan_spec">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iio_chan_spec</span></span></span><a class="headerlink" href="#c.iio_chan_spec" title="Link to this definition">¶</a><br /></dt>
 <dd><p>specification of a single channel</p>
@@ -586,14 +623,13 @@ set in this mask will be shared by all channels.</p>
     int channel2;
     unsigned long           address;
     int scan_index;
-    struct {
-        char sign;
-        u8 realbits;
-        u8 storagebits;
-        u8 shift;
-        u8 repeat;
-        enum iio_endian endianness;
-    } scan_type;
+    union {
+        struct iio_scan_type scan_type;
+        struct {
+            const struct iio_scan_type *ext_scan_type;
+            unsigned int num_ext_scan_type;
+        };
+    };
     long info_mask_separate;
     long info_mask_separate_available;
     long info_mask_shared_by_type;
@@ -611,6 +647,7 @@ set in this mask will be shared by all channels.</p>
     unsigned indexed:1;
     unsigned output:1;
     unsigned differential:1;
+    unsigned has_ext_scan_type:1;
 };
 </pre></div>
 </div>
@@ -629,24 +666,19 @@ value here specifies the modifier.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">scan_index</span></code></dt><dd><p>Monotonic index to give ordering in scans when read
 from a buffer.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type</span></code></dt><dd><p>struct describing the scan type</p>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.sign</span></code></dt><dd><p>‘s’ or ‘u’ to specify signed or unsigned</p>
+<dt><code class="docutils literal notranslate"><span class="pre">scan_type</span></code></dt><dd><p>struct describing the scan type - mutually exclusive
+with ext_scan_type.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.realbits</span></code></dt><dd><p>Number of valid bits of data</p>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_struct}</span></code></dt><dd><p>anonymous</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.storagebits</span></code></dt><dd><p>Realbits + padding</p>
+<dt><code class="docutils literal notranslate"><span class="pre">ext_scan_type</span></code></dt><dd><p>Used in rare cases where there is more than one scan
+format for a channel. When this is used, the flag
+has_ext_scan_type must be set and the driver must
+implement get_current_scan_type in <a class="reference internal" href="#c.iio_info" title="iio_info"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iio_info</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.shift</span></code></dt><dd><p>Shift right by this before masking out
-realbits.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.repeat</span></code></dt><dd><p>Number of times real/storage bits repeats.
-When the repeat element is more than 1, then
-the type element in sysfs will show a repeat
-value. Otherwise, the number of repetitions
-is omitted.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">scan_type.endianness</span></code></dt><dd><p>little or big endian</p>
+<dt><code class="docutils literal notranslate"><span class="pre">num_ext_scan_type</span></code></dt><dd><p>Number of elements in ext_scan_type.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">info_mask_separate</span></code></dt><dd><p>What information is to be exported that is specific to
 this channel.</p>
@@ -707,6 +739,8 @@ attributes but not for event codes.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">output</span></code></dt><dd><p>Channel is output.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">differential</span></code></dt><dd><p>Channel is differential.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">has_ext_scan_type</span></code></dt><dd><p>True if ext_scan_type is used instead of scan_type.</p>
 </dd>
 </dl>
 </div>
@@ -769,6 +803,7 @@ given attribute type, false otherwise.</p>
     int (*write_event_value)(struct iio_dev *indio_dev,const struct iio_chan_spec *chan,enum iio_event_type type,enum iio_event_direction dir, enum iio_event_info info, int val, int val2);
     int (*read_event_label)(struct iio_dev *indio_dev,struct iio_chan_spec const *chan,enum iio_event_type type,enum iio_event_direction dir, char *label);
     int (*validate_trigger)(struct iio_dev *indio_dev, struct iio_trigger *trig);
+    int (*get_current_scan_type)(const struct iio_dev *indio_dev, const struct iio_chan_spec *chan);
     int (*update_scan_mode)(struct iio_dev *indio_dev, const unsigned long *scan_mask);
     int (*debugfs_reg_access)(struct iio_dev *indio_dev,unsigned reg, unsigned writeval, unsigned *readval);
     int (*fwnode_xlate)(struct iio_dev *indio_dev, const struct fwnode_reference_args *iiospec);
@@ -830,6 +865,10 @@ for better event identification.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">validate_trigger</span></code></dt><dd><p>function to validate the trigger when the
 current trigger gets changed.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_current_scan_type</span></code></dt><dd><p>must be implemented by drivers that use ext_scan_type
+in the channel spec to return the index of the currently
+active ext_scan type for a channel.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">update_scan_mode</span></code></dt><dd><p>function to configure device and scan buffer when
 channels have changed</p>
@@ -1138,6 +1177,28 @@ retrieved by <a class="reference internal" href="#c.iio_device_get_drvdata" titl
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iio_dev</span> <span class="pre">*indio_dev</span></code></dt><dd><p>IIO device structure for device</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.iio_get_current_scan_type">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.iio_scan_type" title="iio_scan_type"><span class="n"><span class="pre">iio_scan_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">iio_get_current_scan_type</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.iio_dev" title="iio_dev"><span class="n"><span class="pre">iio_dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">indio_dev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.iio_chan_spec" title="iio_chan_spec"><span class="n"><span class="pre">iio_chan_spec</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">chan</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iio_get_current_scan_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the current scan type for a channel</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">iio_dev</span> <span class="pre">*indio_dev</span></code></dt><dd><p>the IIO device to get the scan type for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">iio_chan_spec</span> <span class="pre">*chan</span></code></dt><dd><p>the channel to get the scan type for</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Most devices only have one scan type per channel and can just access it
+directly without calling this function. Core IIO code and drivers that
+implement ext_scan_type in the channel spec should use this function to
+get the current scan type for a channel.</p>
+<p><strong>Return</strong></p>
+<p>the current scan type for the channel or error.</p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.IIO_DEGREE_TO_RAD">

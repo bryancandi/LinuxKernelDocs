@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -452,7 +452,7 @@ is called when it is being uninhibited.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct input_handler {
     void *private;
     void (*event)(struct input_handle *handle, unsigned int type, unsigned int code, int value);
-    void (*events)(struct input_handle *handle, const struct input_value *vals, unsigned int count);
+    unsigned int (*events)(struct input_handle *handle, struct input_value *vals, unsigned int count);
     bool (*filter)(struct input_handle *handle, unsigned int type, unsigned int code, int value);
     bool (*match)(struct input_handler *handler, struct input_dev *dev);
     int (*connect)(struct input_handler *handler, struct input_dev *dev, const struct input_device_id *id);
@@ -477,7 +477,8 @@ it may not sleep</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">events</span></code></dt><dd><p>event sequence handler. This method is being called by
 input core with interrupts disabled and dev-&gt;event_lock
-spinlock held and so it may not sleep</p>
+spinlock held and so it may not sleep. The method must return
+number of events passed to it.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">filter</span></code></dt><dd><p>similar to <strong>event</strong>; separates normal event handlers from
 “filters”.</p>
@@ -1831,6 +1832,263 @@ entries</p>
 <p>This function is used to perform lookup in an input device using sparse
 keymap and report corresponding event. Returns <code class="docutils literal notranslate"><span class="pre">true</span></code> if lookup was
 successful and <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise.</p>
+</div>
+</section>
+<section id="ps-2-protocol-support">
+<h2>PS/2 protocol support<a class="headerlink" href="#ps-2-protocol-support" title="Link to this heading">¶</a></h2>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.ps2_disposition">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_disposition</span></span></span><a class="headerlink" href="#c.ps2_disposition" title="Link to this definition">¶</a><br /></dt>
+<dd><p>indicates how received byte should be handled</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">PS2_PROCESS</span></code></dt><dd><p>pass to the main protocol handler, process normally</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PS2_IGNORE</span></code></dt><dd><p>skip the byte</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PS2_ERROR</span></code></dt><dd><p>do not process the byte, abort command in progress</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.ps2dev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2dev</span></span></span><a class="headerlink" href="#c.ps2dev" title="Link to this definition">¶</a><br /></dt>
+<dd><p>represents a device using PS/2 protocol</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ps2dev {
+    struct serio *serio;
+    struct mutex cmd_mutex;
+    wait_queue_head_t wait;
+    unsigned long flags;
+    u8 cmdbuf[8];
+    u8 cmdcnt;
+    u8 nak;
+    ps2_pre_receive_handler_t pre_receive_handler;
+    ps2_receive_handler_t receive_handler;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">serio</span></code></dt><dd><p>a serio port used by the PS/2 device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmd_mutex</span></code></dt><dd><p>a mutex ensuring that only one command is executing at a time</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">wait</span></code></dt><dd><p>a waitqueue used to signal completion from the serio interrupt handler</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>various internal flags indicating stages of PS/2 command execution</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmdbuf</span></code></dt><dd><p>buffer holding command response</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmdcnt</span></code></dt><dd><p>outstanding number of bytes of the command response</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nak</span></code></dt><dd><p>a byte transmitted by the device when it refuses command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pre_receive_handler</span></code></dt><dd><p>checks communication errors and returns disposition
+(<a class="reference internal" href="#c.ps2_disposition" title="ps2_disposition"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ps2_disposition</span></code></a>) of the received data byte</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">receive_handler</span></code></dt><dd><p>main handler of particular PS/2 protocol, such as keyboard
+or mouse protocol</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_sendbyte">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_sendbyte</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_sendbyte" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">byte</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_sendbyte" title="Link to this definition">¶</a><br /></dt>
+<dd><p>sends a byte to the device and wait for acknowledgement</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>a PS/2 device to send the data to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">byte</span></code></dt><dd><p>data to be sent to the device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">timeout</span></code></dt><dd><p>timeout for sending the data and receiving an acknowledge</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The function doesn’t handle retransmission, the caller is expected to handle
+it when needed.</p>
+<p><a class="reference internal" href="#c.ps2_sendbyte" title="ps2_sendbyte"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_sendbyte()</span></code></a> can only be called from a process context.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_begin_command">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_begin_command</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_begin_command" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_begin_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>mark beginning of execution of a complex command</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>a PS/2 device executing the command</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Serializes a complex/compound command. Once command is finished
+<a class="reference internal" href="#c.ps2_end_command" title="ps2_end_command"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_end_command()</span></code></a> should be called.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_end_command">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_end_command</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_end_command" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_end_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>mark end of execution of a complex command</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>a PS/2 device executing the command</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_drain">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_drain</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_drain" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">maxbytes</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_drain" title="Link to this definition">¶</a><br /></dt>
+<dd><p>waits for device to transmit requested number of bytes and discards them</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>the PS/2 device that should be drained</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">maxbytes</span></code></dt><dd><p>maximum number of bytes to be drained</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">timeout</span></code></dt><dd><p>time to drain the device</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_is_keyboard_id">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_is_keyboard_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">id_byte</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_is_keyboard_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>checks received ID byte against the list of known keyboard IDs</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">id_byte</span></code></dt><dd><p>data byte that should be checked</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.__ps2_command">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__ps2_command</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__ps2_command" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">param</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">command</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__ps2_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send a command to PS/2 device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>the PS/2 device that should execute the command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*param</span></code></dt><dd><p>a buffer containing parameters to be sent along with the command,
+or place where the results of the command execution will be deposited,
+or both</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">command</span></code></dt><dd><p>command word that encodes the command itself, as well as number of
+additional parameter bytes that should be sent to the device and expected
+length of the command response</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Not serialized. Callers should use <a class="reference internal" href="#c.ps2_begin_command" title="ps2_begin_command"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_begin_command()</span></code></a> and <a class="reference internal" href="#c.ps2_end_command" title="ps2_end_command"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_end_command()</span></code></a>
+to ensure proper serialization for complex commands.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_command">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_command</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_command" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">param</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">command</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send a command to PS/2 device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>the PS/2 device that should execute the command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*param</span></code></dt><dd><p>a buffer containing parameters to be sent along with the command,
+or place where the results of the command execution will be deposited,
+or both</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">command</span></code></dt><dd><p>command word that encodes the command itself, as well as number of
+additional parameter bytes that should be sent to the device and expected
+length of the command response</p>
+</dd>
+</dl>
+<p><strong>Note</strong></p>
+<p><a class="reference internal" href="#c.ps2_command" title="ps2_command"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_command()</span></code></a> serializes the command execution so that only one
+command can be executed at a time for either individual port or the entire
+8042 controller.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_sliced_command">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_sliced_command</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_sliced_command" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">command</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_sliced_command" title="Link to this definition">¶</a><br /></dt>
+<dd><p>sends an extended PS/2 command to a mouse</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>the PS/2 device that should execute the command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">command</span></code></dt><dd><p>command byte</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The command is sent using “sliced” syntax understood by advanced devices,
+such as Logitech or Synaptics touchpads. The command is encoded as:
+0xE6 0xE8 rr 0xE8 ss 0xE8 tt 0xE8 uu where (rr*64)+(ss*16)+(tt*4)+uu
+is the command.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_init">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_init" title="ps2dev"><span class="n"><span class="pre">ps2dev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ps2dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_init" title="serio"><span class="n"><span class="pre">serio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">serio</span></span>, <span class="n"><span class="pre">ps2_pre_receive_handler_t</span></span><span class="w"> </span><span class="n"><span class="pre">pre_receive_handler</span></span>, <span class="n"><span class="pre">ps2_receive_handler_t</span></span><span class="w"> </span><span class="n"><span class="pre">receive_handler</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>initializes ps2dev structure</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ps2dev</span> <span class="pre">*ps2dev</span></code></dt><dd><p>structure to be initialized</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">serio</span> <span class="pre">*serio</span></code></dt><dd><p>serio port associated with the PS/2 device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ps2_pre_receive_handler_t</span> <span class="pre">pre_receive_handler</span></code></dt><dd><p>validation handler to check basic communication state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ps2_receive_handler_t</span> <span class="pre">receive_handler</span></code></dt><dd><p>main protocol handler</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Prepares ps2dev structure for use in drivers for PS/2 devices.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ps2_interrupt">
+<span class="n"><span class="pre">irqreturn_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ps2_interrupt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ps2_interrupt" title="serio"><span class="n"><span class="pre">serio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">serio</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ps2_interrupt" title="Link to this definition">¶</a><br /></dt>
+<dd><p>common interrupt handler for PS/2 devices</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">serio</span> <span class="pre">*serio</span></code></dt><dd><p>serio port for the device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">data</span></code></dt><dd><p>a data byte received from the device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>flags such as <code class="docutils literal notranslate"><span class="pre">SERIO_PARITY</span></code> or <code class="docutils literal notranslate"><span class="pre">SERIO_TIMEOUT</span></code> indicating state of
+the data transfer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.ps2_interrupt" title="ps2_interrupt"><code class="xref c c-func docutils literal notranslate"><span class="pre">ps2_interrupt()</span></code></a> invokes pre-receive handler, optionally handles command
+acknowledgement and response from the device, and finally passes the data
+to the main protocol handler for future processing.</p>
 </div>
 </section>
 </section>

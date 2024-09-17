@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -172,7 +172,7 @@
 <li><p><a class="reference internal" href="#case-5-pinning-in-order-to-write-to-the-data-within-the-page" id="id10">CASE 5: Pinning in order to write to the data within the page</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#page-maybe-dma-pinned-the-whole-point-of-pinning" id="id11">page_maybe_dma_pinned(): the whole point of pinning</a></p></li>
+<li><p><a class="reference internal" href="#folio-maybe-dma-pinned-the-whole-point-of-pinning" id="id11">folio_maybe_dma_pinned(): the whole point of pinning</a></p></li>
 <li><p><a class="reference internal" href="#another-way-of-thinking-about-foll-get-foll-pin-and-foll-longterm" id="id12">Another way of thinking about FOLL_GET, FOLL_PIN, and FOLL_LONGTERM</a></p></li>
 <li><p><a class="reference internal" href="#unit-testing" id="id13">Unit testing</a></p></li>
 <li><p><a class="reference internal" href="#other-diagnostics" id="id14">Other diagnostics</a></p></li>
@@ -290,7 +290,7 @@ these categories:</p>
 <h3><a class="toc-backref" href="#id6" role="doc-backlink">CASE 1: Direct IO (DIO)</a><a class="headerlink" href="#case-1-direct-io-dio" title="Link to this heading">¶</a></h3>
 <p>There are GUP references to pages that are serving
 as DIO buffers. These buffers are needed for a relatively short time (so they
-are not “long term”). No special synchronization with page_mkclean() or
+are not “long term”). No special synchronization with folio_mkclean() or
 munmap() is provided. Therefore, flags to set at the call site are:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>FOLL_PIN
 </pre></div>
@@ -302,7 +302,7 @@ the pin_user_pages*() routines that set FOLL_PIN.</p>
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">CASE 2: RDMA</a><a class="headerlink" href="#case-2-rdma" title="Link to this heading">¶</a></h3>
 <p>There are GUP references to pages that are serving as DMA
 buffers. These buffers are needed for a long time (“long term”). No special
-synchronization with page_mkclean() or munmap() is provided. Therefore, flags
+synchronization with folio_mkclean() or munmap() is provided. Therefore, flags
 to set at the call site are:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>FOLL_PIN | FOLL_LONGTERM
 </pre></div>
@@ -324,7 +324,7 @@ callbacks as above, but instead of stopping the device and unpinning in the
 callback, simply remove the range from the device’s page tables.</p>
 <p>Either way, as long as the driver unpins the pages upon mmu notifier callback,
 then there is proper synchronization with both filesystem and mm
-(page_mkclean(), munmap(), etc). Therefore, neither flag needs to be set.</p>
+(folio_mkclean(), munmap(), etc). Therefore, neither flag needs to be set.</p>
 </section>
 <section id="case-4-pinning-for-struct-page-manipulation-only">
 <h3><a class="toc-backref" href="#id9" role="doc-backlink">CASE 4: Pinning for struct page manipulation only</a><a class="headerlink" href="#case-4-pinning-for-struct-page-manipulation-only" title="Link to this heading">¶</a></h3>
@@ -351,17 +351,17 @@ put_page()</p>
 </dl>
 </section>
 </section>
-<section id="page-maybe-dma-pinned-the-whole-point-of-pinning">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">page_maybe_dma_pinned(): the whole point of pinning</a><a class="headerlink" href="#page-maybe-dma-pinned-the-whole-point-of-pinning" title="Link to this heading">¶</a></h2>
-<p>The whole point of marking pages as “DMA-pinned” or “gup-pinned” is to be able
-to query, “is this page DMA-pinned?” That allows code such as page_mkclean()
+<section id="folio-maybe-dma-pinned-the-whole-point-of-pinning">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">folio_maybe_dma_pinned(): the whole point of pinning</a><a class="headerlink" href="#folio-maybe-dma-pinned-the-whole-point-of-pinning" title="Link to this heading">¶</a></h2>
+<p>The whole point of marking folios as “DMA-pinned” or “gup-pinned” is to be able
+to query, “is this folio DMA-pinned?” That allows code such as folio_mkclean()
 (and file system writeback code in general) to make informed decisions about
-what to do when a page cannot be unmapped due to such pins.</p>
+what to do when a folio cannot be unmapped due to such pins.</p>
 <p>What to do in those cases is the subject of a years-long series of discussions
 and debates (see the References at the end of this document). It’s a TODO item
 here: fill in the details once that’s worked out. Meanwhile, it’s safe to say
 that having this available:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static inline bool page_maybe_dma_pinned(struct page *page)
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static inline bool folio_maybe_dma_pinned(struct folio *folio)
 </pre></div>
 </div>
 <p>...is a prerequisite to solving the long-running gup+DMA problem.</p>

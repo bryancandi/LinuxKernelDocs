@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -571,7 +571,11 @@ directories have one file per event (e.g. “llc_occupancy”,
 files provide a read out of the current value of the event for
 all tasks in the group. In CTRL_MON groups these files provide
 the sum for all tasks in the CTRL_MON group and all tasks in
-MON groups. Please see example section for more details on usage.</p>
+MON groups. Please see example section for more details on usage.
+On systems with Sub-NUMA Cluster (SNC) enabled there are extra
+directories for each node (located within the “mon_L3_XX” directory
+for the L3 cache they occupy). These are named “mon_sub_L3_YY”
+where “YY” is the node number.</p>
 </dd>
 <dt>“mon_hw_id”:</dt><dd><p>Available only with debug option. The identifier used by hardware
 for the monitor group. On x86 this is the RMID.</p>
@@ -674,8 +678,28 @@ each bit represents 5% of the capacity of the cache. You could partition
 the cache into four equal parts with masks: 0x1f, 0x3e0, 0x7c00, 0xf8000.</p>
 </section>
 </section>
+<section id="notes-on-sub-numa-cluster-mode">
+<h2><span class="section-number">24.4. </span>Notes on Sub-NUMA Cluster mode<a class="headerlink" href="#notes-on-sub-numa-cluster-mode" title="Link to this heading">¶</a></h2>
+<p>When SNC mode is enabled, Linux may load balance tasks between Sub-NUMA
+nodes much more readily than between regular NUMA nodes since the CPUs
+on Sub-NUMA nodes share the same L3 cache and the system may report
+the NUMA distance between Sub-NUMA nodes with a lower value than used
+for regular NUMA nodes.</p>
+<p>The top-level monitoring files in each “mon_L3_XX” directory provide
+the sum of data across all SNC nodes sharing an L3 cache instance.
+Users who bind tasks to the CPUs of a specific Sub-NUMA node can read
+the “llc_occupancy”, “mbm_total_bytes”, and “mbm_local_bytes” in the
+“mon_sub_L3_YY” directories to get node local data.</p>
+<p>Memory bandwidth allocation is still performed at the L3 cache
+level. I.e. throttling controls are applied to all SNC nodes.</p>
+<p>L3 cache allocation bitmaps also apply to all SNC nodes. But note that
+the amount of L3 cache represented by each bit is divided by the number
+of SNC nodes per L3 cache. E.g. with a 100MB cache on a system with 10-bit
+allocation masks each bit normally represents 10MB. With SNC mode enabled
+with two SNC nodes per L3 cache, each bit only represents 5MB.</p>
+</section>
 <section id="memory-bandwidth-allocation-and-monitoring">
-<h2><span class="section-number">24.4. </span>Memory bandwidth Allocation and monitoring<a class="headerlink" href="#memory-bandwidth-allocation-and-monitoring" title="Link to this heading">¶</a></h2>
+<h2><span class="section-number">24.5. </span>Memory bandwidth Allocation and monitoring<a class="headerlink" href="#memory-bandwidth-allocation-and-monitoring" title="Link to this heading">¶</a></h2>
 <p>For Memory bandwidth resource, by default the user controls the resource
 by indicating the percentage of total memory bandwidth.</p>
 <p>The minimum bandwidth percentage value for each cpu model is predefined
@@ -729,14 +753,14 @@ where as user can switch to the “MBA software controller” mode using
 a mount option ‘mba_MBps’. The schemata format is specified in the below
 sections.</p>
 <section id="l3-schemata-file-details-code-and-data-prioritization-disabled">
-<h3><span class="section-number">24.4.1. </span>L3 schemata file details (code and data prioritization disabled)<a class="headerlink" href="#l3-schemata-file-details-code-and-data-prioritization-disabled" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.1. </span>L3 schemata file details (code and data prioritization disabled)<a class="headerlink" href="#l3-schemata-file-details-code-and-data-prioritization-disabled" title="Link to this heading">¶</a></h3>
 <p>With CDP disabled the L3 schemata format is:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>L3:&lt;cache_id0&gt;=&lt;cbm&gt;;&lt;cache_id1&gt;=&lt;cbm&gt;;...
 </pre></div>
 </div>
 </section>
 <section id="l3-schemata-file-details-cdp-enabled-via-mount-option-to-resctrl">
-<h3><span class="section-number">24.4.2. </span>L3 schemata file details (CDP enabled via mount option to resctrl)<a class="headerlink" href="#l3-schemata-file-details-cdp-enabled-via-mount-option-to-resctrl" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.2. </span>L3 schemata file details (CDP enabled via mount option to resctrl)<a class="headerlink" href="#l3-schemata-file-details-cdp-enabled-via-mount-option-to-resctrl" title="Link to this heading">¶</a></h3>
 <p>When CDP is enabled L3 control is split into two separate resources
 so you can specify independent masks for code and data like this:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>L3DATA:&lt;cache_id0&gt;=&lt;cbm&gt;;&lt;cache_id1&gt;=&lt;cbm&gt;;...
@@ -745,7 +769,7 @@ L3CODE:&lt;cache_id0&gt;=&lt;cbm&gt;;&lt;cache_id1&gt;=&lt;cbm&gt;;...
 </div>
 </section>
 <section id="l2-schemata-file-details">
-<h3><span class="section-number">24.4.3. </span>L2 schemata file details<a class="headerlink" href="#l2-schemata-file-details" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.3. </span>L2 schemata file details<a class="headerlink" href="#l2-schemata-file-details" title="Link to this heading">¶</a></h3>
 <p>CDP is supported at L2 using the ‘cdpl2’ mount option. The schemata
 format is either:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>L2:&lt;cache_id0&gt;=&lt;cbm&gt;;&lt;cache_id1&gt;=&lt;cbm&gt;;...
@@ -758,21 +782,21 @@ L2CODE:&lt;cache_id0&gt;=&lt;cbm&gt;;&lt;cache_id1&gt;=&lt;cbm&gt;;...</p>
 </div></blockquote>
 </section>
 <section id="memory-bandwidth-allocation-default-mode">
-<h3><span class="section-number">24.4.4. </span>Memory bandwidth Allocation (default mode)<a class="headerlink" href="#memory-bandwidth-allocation-default-mode" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.4. </span>Memory bandwidth Allocation (default mode)<a class="headerlink" href="#memory-bandwidth-allocation-default-mode" title="Link to this heading">¶</a></h3>
 <p>Memory b/w domain is L3 cache.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>MB:&lt;cache_id0&gt;=bandwidth0;&lt;cache_id1&gt;=bandwidth1;...
 </pre></div>
 </div>
 </section>
 <section id="memory-bandwidth-allocation-specified-in-mibps">
-<h3><span class="section-number">24.4.5. </span>Memory bandwidth Allocation specified in MiBps<a class="headerlink" href="#memory-bandwidth-allocation-specified-in-mibps" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.5. </span>Memory bandwidth Allocation specified in MiBps<a class="headerlink" href="#memory-bandwidth-allocation-specified-in-mibps" title="Link to this heading">¶</a></h3>
 <p>Memory bandwidth domain is L3 cache.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>MB:&lt;cache_id0&gt;=bw_MiBps0;&lt;cache_id1&gt;=bw_MiBps1;...
 </pre></div>
 </div>
 </section>
 <section id="slow-memory-bandwidth-allocation-smba">
-<h3><span class="section-number">24.4.6. </span>Slow Memory Bandwidth Allocation (SMBA)<a class="headerlink" href="#slow-memory-bandwidth-allocation-smba" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.6. </span>Slow Memory Bandwidth Allocation (SMBA)<a class="headerlink" href="#slow-memory-bandwidth-allocation-smba" title="Link to this heading">¶</a></h3>
 <p>AMD hardware supports Slow Memory Bandwidth Allocation (SMBA).
 CXL.memory is the only supported “slow” memory device. With the
 support of SMBA, the hardware enables bandwidth allocation on
@@ -789,7 +813,7 @@ is formatted as:</p>
 </div>
 </section>
 <section id="reading-writing-the-schemata-file">
-<h3><span class="section-number">24.4.7. </span>Reading/writing the schemata file<a class="headerlink" href="#reading-writing-the-schemata-file" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.7. </span>Reading/writing the schemata file<a class="headerlink" href="#reading-writing-the-schemata-file" title="Link to this heading">¶</a></h3>
 <p>Reading the schemata file will show the state of all resources
 on all domains. When writing you only need to specify those values
 which you wish to change.  E.g.</p>
@@ -804,7 +828,7 @@ L3CODE:0=fffff;1=fffff;2=fffff;3=fffff
 </div>
 </section>
 <section id="reading-writing-the-schemata-file-on-amd-systems">
-<h3><span class="section-number">24.4.8. </span>Reading/writing the schemata file (on AMD systems)<a class="headerlink" href="#reading-writing-the-schemata-file-on-amd-systems" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.8. </span>Reading/writing the schemata file (on AMD systems)<a class="headerlink" href="#reading-writing-the-schemata-file-on-amd-systems" title="Link to this heading">¶</a></h3>
 <p>Reading the schemata file will show the current bandwidth limit on all
 domains. The allocated resources are in multiples of one eighth GB/s.
 When writing to the file, you need to specify what cache id you wish to
@@ -822,7 +846,7 @@ configure the bandwidth limit.</p>
 </div>
 </section>
 <section id="reading-writing-the-schemata-file-on-amd-systems-with-smba-feature">
-<h3><span class="section-number">24.4.9. </span>Reading/writing the schemata file (on AMD systems) with SMBA feature<a class="headerlink" href="#reading-writing-the-schemata-file-on-amd-systems-with-smba-feature" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.5.9. </span>Reading/writing the schemata file (on AMD systems) with SMBA feature<a class="headerlink" href="#reading-writing-the-schemata-file-on-amd-systems-with-smba-feature" title="Link to this heading">¶</a></h3>
 <p>Reading and writing the schemata file is the same as without SMBA in
 above section.</p>
 <p>For example, to allocate 8GB/s limit on the first cache id:</p>
@@ -841,7 +865,7 @@ above section.</p>
 </section>
 </section>
 <section id="cache-pseudo-locking">
-<h2><span class="section-number">24.5. </span>Cache Pseudo-Locking<a class="headerlink" href="#cache-pseudo-locking" title="Link to this heading">¶</a></h2>
+<h2><span class="section-number">24.6. </span>Cache Pseudo-Locking<a class="headerlink" href="#cache-pseudo-locking" title="Link to this heading">¶</a></h2>
 <p>CAT enables a user to specify the amount of cache space that an
 application can fill. Cache pseudo-locking builds on the fact that a
 CPU can still read and write data pre-allocated outside its current
@@ -900,7 +924,7 @@ cache portion, and exposed as a character device.</p></li>
 pseudo-locked memory into its address space.</p></li>
 </ol>
 <section id="cache-pseudo-locking-interface">
-<h3><span class="section-number">24.5.1. </span>Cache Pseudo-Locking Interface<a class="headerlink" href="#cache-pseudo-locking-interface" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.6.1. </span>Cache Pseudo-Locking Interface<a class="headerlink" href="#cache-pseudo-locking-interface" title="Link to this heading">¶</a></h3>
 <p>A pseudo-locked region is created using the resctrl interface as follows:</p>
 <ol class="arabic simple">
 <li><p>Create a new resource group by creating a new directory in /sys/fs/resctrl.</p></li>
@@ -917,7 +941,7 @@ by user space in order to obtain access to the pseudo-locked memory region.</p>
 <p>An example of cache pseudo-locked region creation and usage can be found below.</p>
 </section>
 <section id="cache-pseudo-locking-debugging-interface">
-<h3><span class="section-number">24.5.2. </span>Cache Pseudo-Locking Debugging Interface<a class="headerlink" href="#cache-pseudo-locking-debugging-interface" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.6.2. </span>Cache Pseudo-Locking Debugging Interface<a class="headerlink" href="#cache-pseudo-locking-debugging-interface" title="Link to this heading">¶</a></h3>
 <p>The pseudo-locking debugging interface is enabled by default (if
 CONFIG_DEBUG_FS is enabled) and can be found in /sys/kernel/debug/resctrl.</p>
 <p>There is no explicit way for the kernel to test if a provided memory
@@ -957,7 +981,7 @@ pseudo_lock_l3 tracepoint.</p>
 <p>All measurements are recorded with the tracing infrastructure. This requires
 the relevant tracepoints to be enabled before the measurement is triggered.</p>
 <section id="example-of-latency-debugging-interface">
-<h4><span class="section-number">24.5.2.1. </span>Example of latency debugging interface<a class="headerlink" href="#example-of-latency-debugging-interface" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">24.6.2.1. </span>Example of latency debugging interface<a class="headerlink" href="#example-of-latency-debugging-interface" title="Link to this heading">¶</a></h4>
 <p>In this example a pseudo-locked region named “newlock” was created. Here is
 how we can measure the latency in cycles of reading from this region and
 visualize this data with a histogram that is available if CONFIG_HIST_TRIGGERS
@@ -992,7 +1016,7 @@ Totals:
 </div>
 </section>
 <section id="example-of-cache-hits-misses-debugging">
-<h4><span class="section-number">24.5.2.2. </span>Example of cache hits/misses debugging<a class="headerlink" href="#example-of-cache-hits-misses-debugging" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">24.6.2.2. </span>Example of cache hits/misses debugging<a class="headerlink" href="#example-of-cache-hits-misses-debugging" title="Link to this heading">¶</a></h4>
 <p>In this example a pseudo-locked region named “newlock” was created on the L2
 cache of a platform. Here is how we can obtain details of the cache hits
 and misses using the platform’s precision counters.</p>
@@ -1016,7 +1040,7 @@ pseudo_lock_mea-1672  [002] ....  3132.860500: pseudo_lock_l2: hits=4097 miss=0
 </div>
 </section>
 <section id="examples-for-rdt-allocation-usage">
-<h4><span class="section-number">24.5.2.3. </span>Examples for RDT allocation usage<a class="headerlink" href="#examples-for-rdt-allocation-usage" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">24.6.2.3. </span>Examples for RDT allocation usage<a class="headerlink" href="#examples-for-rdt-allocation-usage" title="Link to this heading">¶</a></h4>
 <ol class="arabic simple">
 <li><p>Example 1</p></li>
 </ol>
@@ -1202,7 +1226,7 @@ overlaps with exclusive group
 </div>
 </section>
 <section id="example-of-cache-pseudo-locking">
-<h4><span class="section-number">24.5.2.4. </span>Example of Cache Pseudo-Locking<a class="headerlink" href="#example-of-cache-pseudo-locking" title="Link to this heading">¶</a></h4>
+<h4><span class="section-number">24.6.2.4. </span>Example of Cache Pseudo-Locking<a class="headerlink" href="#example-of-cache-pseudo-locking" title="Link to this heading">¶</a></h4>
 <p>Lock portion of L2 cache from cache id 1 using CBM 0x3. Pseudo-locked
 region is exposed at /dev/pseudo_lock/newlock that can be provided to
 application for argument to mmap().</p>
@@ -1307,7 +1331,7 @@ int main(int argc, char *argv[])
 </section>
 </section>
 <section id="locking-between-applications">
-<h3><span class="section-number">24.5.3. </span>Locking between applications<a class="headerlink" href="#locking-between-applications" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.6.3. </span>Locking between applications<a class="headerlink" href="#locking-between-applications" title="Link to this heading">¶</a></h3>
 <p>Certain operations on the resctrl filesystem, composed of read/writes
 to/from multiple files, must be atomic.</p>
 <p>As an example, the allocation of an exclusive reservation of L3 cache
@@ -1425,15 +1449,15 @@ void main(void)
 </section>
 </section>
 <section id="examples-for-rdt-monitoring-along-with-allocation-usage">
-<h2><span class="section-number">24.6. </span>Examples for RDT Monitoring along with allocation usage<a class="headerlink" href="#examples-for-rdt-monitoring-along-with-allocation-usage" title="Link to this heading">¶</a></h2>
+<h2><span class="section-number">24.7. </span>Examples for RDT Monitoring along with allocation usage<a class="headerlink" href="#examples-for-rdt-monitoring-along-with-allocation-usage" title="Link to this heading">¶</a></h2>
 <section id="reading-monitored-data">
-<h3><span class="section-number">24.6.1. </span>Reading monitored data<a class="headerlink" href="#reading-monitored-data" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.7.1. </span>Reading monitored data<a class="headerlink" href="#reading-monitored-data" title="Link to this heading">¶</a></h3>
 <p>Reading an event file (for ex: mon_data/mon_L3_00/llc_occupancy) would
 show the current snapshot of LLC occupancy of the corresponding MON
 group or CTRL_MON group.</p>
 </section>
 <section id="example-1-monitor-ctrl-mon-group-and-subset-of-tasks-in-ctrl-mon-group">
-<h3><span class="section-number">24.6.2. </span>Example 1 (Monitor CTRL_MON group and subset of tasks in CTRL_MON group)<a class="headerlink" href="#example-1-monitor-ctrl-mon-group-and-subset-of-tasks-in-ctrl-mon-group" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.7.2. </span>Example 1 (Monitor CTRL_MON group and subset of tasks in CTRL_MON group)<a class="headerlink" href="#example-1-monitor-ctrl-mon-group-and-subset-of-tasks-in-ctrl-mon-group" title="Link to this heading">¶</a></h3>
 <p>On a two socket machine (one L3 cache per socket) with just four bits
 for cache bit masks:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t resctrl resctrl /sys/fs/resctrl
@@ -1473,7 +1497,7 @@ Tasks in group “p1” use the “lower” 50% of cache on both sockets.</p>
 </div>
 </section>
 <section id="example-2-monitor-a-task-from-its-creation">
-<h3><span class="section-number">24.6.3. </span>Example 2 (Monitor a task from its creation)<a class="headerlink" href="#example-2-monitor-a-task-from-its-creation" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.7.3. </span>Example 2 (Monitor a task from its creation)<a class="headerlink" href="#example-2-monitor-a-task-from-its-creation" title="Link to this heading">¶</a></h3>
 <p>On a two socket machine (one L3 cache per socket):</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t resctrl resctrl /sys/fs/resctrl
 # cd /sys/fs/resctrl
@@ -1493,7 +1517,7 @@ below is monitored from its creation.</p>
 </div>
 </section>
 <section id="example-3-monitor-without-cat-support-or-before-creating-cat-groups">
-<h3><span class="section-number">24.6.4. </span>Example 3 (Monitor without CAT support or before creating CAT groups)<a class="headerlink" href="#example-3-monitor-without-cat-support-or-before-creating-cat-groups" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.7.4. </span>Example 3 (Monitor without CAT support or before creating CAT groups)<a class="headerlink" href="#example-3-monitor-without-cat-support-or-before-creating-cat-groups" title="Link to this heading">¶</a></h3>
 <p>Assume a system like HSW has only CQM and no CAT support. In this case
 the resctrl will still mount but cannot create CTRL_MON directories.
 But user can create different MON groups within the root group thereby
@@ -1524,7 +1548,7 @@ domain(socket) 0.</p>
 </div>
 </section>
 <section id="example-4-monitor-real-time-tasks">
-<h3><span class="section-number">24.6.5. </span>Example 4 (Monitor real time tasks)<a class="headerlink" href="#example-4-monitor-real-time-tasks" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.7.5. </span>Example 4 (Monitor real time tasks)<a class="headerlink" href="#example-4-monitor-real-time-tasks" title="Link to this heading">¶</a></h3>
 <p>A single socket system which has real time tasks running on cores 4-7
 and non real time tasks on other cpus. We want to monitor the cache
 occupancy of the real time threads on these cores.</p>
@@ -1545,9 +1569,9 @@ occupancy of the real time threads on these cores.</p>
 </section>
 </section>
 <section id="intel-rdt-errata">
-<h2><span class="section-number">24.7. </span>Intel RDT Errata<a class="headerlink" href="#intel-rdt-errata" title="Link to this heading">¶</a></h2>
+<h2><span class="section-number">24.8. </span>Intel RDT Errata<a class="headerlink" href="#intel-rdt-errata" title="Link to this heading">¶</a></h2>
 <section id="intel-mbm-counters-may-report-system-memory-bandwidth-incorrectly">
-<h3><span class="section-number">24.7.1. </span>Intel MBM Counters May Report System Memory Bandwidth Incorrectly<a class="headerlink" href="#intel-mbm-counters-may-report-system-memory-bandwidth-incorrectly" title="Link to this heading">¶</a></h3>
+<h3><span class="section-number">24.8.1. </span>Intel MBM Counters May Report System Memory Bandwidth Incorrectly<a class="headerlink" href="#intel-mbm-counters-may-report-system-memory-bandwidth-incorrectly" title="Link to this heading">¶</a></h3>
 <p>Errata SKX99 for Skylake server and BDF102 for Broadwell server.</p>
 <p>Problem: Intel Memory Bandwidth Monitoring (MBM) counters track metrics
 according to the assigned Resource Monitor ID (RMID) for that logical

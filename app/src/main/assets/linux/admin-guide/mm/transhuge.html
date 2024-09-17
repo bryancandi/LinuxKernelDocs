@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -172,7 +172,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pm/index.html">Power Management</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -420,12 +419,11 @@ PMD-mappable transparent hugepage:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cat /sys/kernel/mm/transparent_hugepage/hpage_pmd_size
 </pre></div>
 </div>
-<p>khugepaged will be automatically started when one or more hugepage
-sizes are enabled (either by directly setting “always” or “madvise”,
-or by setting “inherit” while the top-level enabled is set to “always”
-or “madvise”), and it’ll be automatically shutdown when the last
-hugepage size is disabled (either by directly setting “never”, or by
-setting “inherit” while the top-level enabled is set to “never”).</p>
+<p>khugepaged will be automatically started when PMD-sized THP is enabled
+(either of the per-size anon control or the top-level control are set
+to “always” or “madvise”), and it’ll be automatically shutdown when
+PMD-sized THP is disabled (when both the per-size anon control and the
+top-level control are “never”)</p>
 </section>
 <section id="khugepaged-controls">
 <h3>Khugepaged controls<a class="headerlink" href="#khugepaged-controls" title="Link to this heading">¶</a></h3>
@@ -541,6 +539,27 @@ all mounts;</p>
 <dt>force</dt><dd><p>Force the huge option on for all - very useful for testing;</p>
 </dd>
 </dl>
+<p>Shmem can also use “multi-size THP” (mTHP) by adding a new sysfs knob to
+control mTHP allocation:
+‘/sys/kernel/mm/transparent_hugepage/hugepages-&lt;size&gt;kB/shmem_enabled’,
+and its value for each mTHP is essentially consistent with the global
+setting.  An ‘inherit’ option is added to ensure compatibility with these
+global settings.  Conversely, the options ‘force’ and ‘deny’ are dropped,
+which are rather testing artifacts from the old ages.</p>
+<dl class="simple">
+<dt>always</dt><dd><p>Attempt to allocate &lt;size&gt; huge pages every time we need a new page;</p>
+</dd>
+<dt>inherit</dt><dd><p>Inherit the top-level “shmem_enabled” value. By default, PMD-sized hugepages
+have enabled=”inherit” and all other hugepage sizes have enabled=”never”;</p>
+</dd>
+<dt>never</dt><dd><p>Do not allocate &lt;size&gt; huge pages;</p>
+</dd>
+<dt>within_size</dt><dd><p>Only allocate &lt;size&gt; huge page if it will be fully within i_size.
+Also respect fadvise()/madvise() hints;</p>
+</dd>
+<dt>advise</dt><dd><p>Only allocate &lt;size&gt; huge pages if requested with fadvise()/madvise();</p>
+</dd>
+</dl>
 </section>
 <section id="need-of-application-restart">
 <h2>Need of application restart<a class="headerlink" href="#need-of-application-restart" title="Link to this heading">¶</a></h2>
@@ -552,11 +571,6 @@ also applies to the regions registered in khugepaged.</p>
 </section>
 <section id="monitoring-usage">
 <h2>Monitoring usage<a class="headerlink" href="#monitoring-usage" title="Link to this heading">¶</a></h2>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Currently the below counters only record events relating to
-PMD-sized THP. Events relating to other THP sizes are not included.</p>
-</div>
 <p>The number of PMD-sized anonymous transparent huge pages currently used by the
 system is available by reading the AnonHugePages field in <code class="docutils literal notranslate"><span class="pre">/proc/meminfo</span></code>.
 To identify what applications are using PMD-sized anonymous transparent huge
@@ -592,17 +606,20 @@ allocation was successful.</p>
 of pages that should be collapsed into one huge page but failed
 the allocation.</p>
 </dd>
-<dt>thp_file_alloc</dt><dd><p>is incremented every time a file huge page is successfully
-allocated.</p>
+<dt>thp_file_alloc</dt><dd><p>is incremented every time a shmem huge page is successfully
+allocated (Note that despite being named after “file”, the counter
+measures only shmem).</p>
 </dd>
-<dt>thp_file_fallback</dt><dd><p>is incremented if a file huge page is attempted to be allocated
-but fails and instead falls back to using small pages.</p>
+<dt>thp_file_fallback</dt><dd><p>is incremented if a shmem huge page is attempted to be allocated
+but fails and instead falls back to using small pages. (Note that
+despite being named after “file”, the counter measures only shmem).</p>
 </dd>
-<dt>thp_file_fallback_charge</dt><dd><p>is incremented if a file huge page cannot be charged and instead
+<dt>thp_file_fallback_charge</dt><dd><p>is incremented if a shmem huge page cannot be charged and instead
 falls back to using small pages even though the allocation was
-successful.</p>
+successful. (Note that despite being named after “file”, the
+counter measures only shmem).</p>
 </dd>
-<dt>thp_file_mapped</dt><dd><p>is incremented every time a file huge page is mapped into
+<dt>thp_file_mapped</dt><dd><p>is incremented every time a file or shmem huge page is mapped into
 user address space.</p>
 </dd>
 <dt>thp_split_page</dt><dd><p>is incremented every time a huge page is split into base
@@ -660,6 +677,28 @@ piece without splitting.</p>
 <dt>swpout_fallback</dt><dd><p>is incremented if a huge page has to be split before swapout.
 Usually because failed to allocate some continuous swap space
 for the huge page.</p>
+</dd>
+<dt>shmem_alloc</dt><dd><p>is incremented every time a shmem huge page is successfully
+allocated.</p>
+</dd>
+<dt>shmem_fallback</dt><dd><p>is incremented if a shmem huge page is attempted to be allocated
+but fails and instead falls back to using small pages.</p>
+</dd>
+<dt>shmem_fallback_charge</dt><dd><p>is incremented if a shmem huge page cannot be charged and instead
+falls back to using small pages even though the allocation was
+successful.</p>
+</dd>
+<dt>split</dt><dd><p>is incremented every time a huge page is successfully split into
+smaller orders. This can happen for a variety of reasons but a
+common reason is that a huge page is old and is being reclaimed.</p>
+</dd>
+<dt>split_failed</dt><dd><p>is incremented if kernel fails to split huge
+page. This can happen if the page was pinned by somebody.</p>
+</dd>
+<dt>split_deferred</dt><dd><p>is incremented when a huge page is put onto split queue.
+This happens when a huge page is partially unmapped and splitting
+it would free up some memory. Pages on split queue are going to
+be split under memory pressure, if splitting is possible.</p>
 </dd>
 </dl>
 <p>As the system ages, allocating huge pages may be expensive as the

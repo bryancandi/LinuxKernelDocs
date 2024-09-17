@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -172,7 +172,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../pm/index.html">Power Management</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -275,17 +274,51 @@ detail) of DAMON, you should ensure <a class="reference internal" href="../../..
 mounted.</p>
 </section>
 </section>
+<section id="snapshot-data-access-patterns">
+<h2>Snapshot Data Access Patterns<a class="headerlink" href="#snapshot-data-access-patterns" title="Link to this heading">¶</a></h2>
+<p>The commands below show the memory access pattern of a program at the moment of
+the execution.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/sjp38/masim; cd masim; make
+$ sudo damo start &quot;./masim ./configs/stairs.cfg --quiet&quot;
+$ sudo ./damo show
+0   addr [85.541 TiB  , 85.541 TiB ) (57.707 MiB ) access 0 %   age 10.400 s
+1   addr [85.541 TiB  , 85.542 TiB ) (413.285 MiB) access 0 %   age 11.400 s
+2   addr [127.649 TiB , 127.649 TiB) (57.500 MiB ) access 0 %   age 1.600 s
+3   addr [127.649 TiB , 127.649 TiB) (32.500 MiB ) access 0 %   age 500 ms
+4   addr [127.649 TiB , 127.649 TiB) (9.535 MiB  ) access 100 % age 300 ms
+5   addr [127.649 TiB , 127.649 TiB) (8.000 KiB  ) access 60 %  age 0 ns
+6   addr [127.649 TiB , 127.649 TiB) (6.926 MiB  ) access 0 %   age 1 s
+7   addr [127.998 TiB , 127.998 TiB) (120.000 KiB) access 0 %   age 11.100 s
+8   addr [127.998 TiB , 127.998 TiB) (8.000 KiB  ) access 40 %  age 100 ms
+9   addr [127.998 TiB , 127.998 TiB) (4.000 KiB  ) access 0 %   age 11 s
+total size: 577.590 MiB
+$ sudo ./damo stop
+</pre></div>
+</div>
+<p>The first command of the above example downloads and builds an artificial
+memory access generator program called <code class="docutils literal notranslate"><span class="pre">masim</span></code>.  The second command asks DAMO
+to execute the artificial generator process start via the given command and
+make DAMON monitors the generator process.  The third command retrieves the
+current snapshot of the monitored access pattern of the process from DAMON and
+shows the pattern in a human readable format.</p>
+<p>Each line of the output shows which virtual address range (<code class="docutils literal notranslate"><span class="pre">addr</span> <span class="pre">[XX,</span> <span class="pre">XX)</span></code>)
+of the process is how frequently (<code class="docutils literal notranslate"><span class="pre">access</span> <span class="pre">XX</span> <span class="pre">%</span></code>) accessed for how long time
+(<code class="docutils literal notranslate"><span class="pre">age</span> <span class="pre">XX</span></code>).  For example, the fifth region of ~9 MiB size is being most
+frequently accessed for last 300 milliseconds.  Finally, the fourth command
+stops DAMON.</p>
+<p>Note that DAMON can monitor not only virtual address spaces but multiple types
+of address spaces including the physical address space.</p>
+</section>
 <section id="recording-data-access-patterns">
 <h2>Recording Data Access Patterns<a class="headerlink" href="#recording-data-access-patterns" title="Link to this heading">¶</a></h2>
 <p>The commands below record the memory access patterns of a program and save the
 monitoring results to a file.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/sjp38/masim
-$ cd masim; make; ./masim ./configs/zigzag.cfg &amp;
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ./masim ./configs/zigzag.cfg &amp;
 $ sudo damo record -o damon.data $(pidof masim)
 </pre></div>
 </div>
-<p>The first two lines of the commands download an artificial memory access
-generator program and run it in the background.  The generator will repeatedly
+<p>The line of the commands run the artificial memory access
+generator program again.  The generator will repeatedly
 access two 100 MiB sized memory regions one by one.  You can substitute this
 with your real workload.  The last line asks <code class="docutils literal notranslate"><span class="pre">damo</span></code> to record the access
 pattern in the <code class="docutils literal notranslate"><span class="pre">damon.data</span></code> file.</p>

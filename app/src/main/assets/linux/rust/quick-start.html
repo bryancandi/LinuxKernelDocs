@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -154,13 +154,79 @@ English
 <section id="quick-start">
 <h1>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h1>
 <p>This document describes how to get started with kernel development in Rust.</p>
+<p>There are a few ways to install a Rust toolchain needed for kernel development.
+A simple way is to use the packages from your Linux distribution if they are
+suitable -- the first section below explains this approach. An advantage of this
+approach is that, typically, the distribution will match the LLVM used by Rust
+and Clang.</p>
+<p>Another way is using the prebuilt stable versions of LLVM+Rust provided on
+<a class="reference external" href="https://kernel.org/pub/tools/llvm/rust/">kernel.org</a>. These are the same slim
+and fast LLVM toolchains from <a class="reference internal" href="../kbuild/llvm.html#getting-llvm"><span class="std std-ref">Getting LLVM</span></a> with versions
+of Rust added to them that Rust for Linux supports. Two sets are provided: the
+“latest LLVM” and “matching LLVM” (please see the link for more information).</p>
+<p>Alternatively, the next two “Requirements” sections explain each component and
+how to install them through <code class="docutils literal notranslate"><span class="pre">rustup</span></code>, the standalone installers from Rust
+and/or building them.</p>
+<p>The rest of the document explains other aspects on how to get started.</p>
+<section id="distributions">
+<h2>Distributions<a class="headerlink" href="#distributions" title="Link to this heading">¶</a></h2>
+<section id="arch-linux">
+<h3>Arch Linux<a class="headerlink" href="#arch-linux" title="Link to this heading">¶</a></h3>
+<p>Arch Linux provides recent Rust releases and thus it should generally work out
+of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>pacman -S rust rust-src rust-bindgen
+</pre></div>
+</div>
+</section>
+<section id="debian">
+<h3>Debian<a class="headerlink" href="#debian" title="Link to this heading">¶</a></h3>
+<p>Debian Unstable (Sid), outside of the freeze period, provides recent Rust
+releases and thus it should generally work out of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>apt install rustc rust-src bindgen rustfmt rust-clippy
+</pre></div>
+</div>
+</section>
+<section id="fedora-linux">
+<h3>Fedora Linux<a class="headerlink" href="#fedora-linux" title="Link to this heading">¶</a></h3>
+<p>Fedora Linux provides recent Rust releases and thus it should generally work out
+of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>dnf install rust rust-src bindgen-cli rustfmt clippy
+</pre></div>
+</div>
+</section>
+<section id="gentoo-linux">
+<h3>Gentoo Linux<a class="headerlink" href="#gentoo-linux" title="Link to this heading">¶</a></h3>
+<p>Gentoo Linux (and especially the testing branch) provides recent Rust releases
+and thus it should generally work out of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>USE=&#39;rust-src rustfmt clippy&#39; emerge dev-lang/rust dev-util/bindgen
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">LIBCLANG_PATH</span></code> may need to be set.</p>
+</section>
+<section id="nix">
+<h3>Nix<a class="headerlink" href="#nix" title="Link to this heading">¶</a></h3>
+<p>Nix (unstable channel) provides recent Rust releases and thus it should
+generally work out of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>{ pkgs ? import &lt;nixpkgs&gt; {} }:
+pkgs.mkShell {
+  nativeBuildInputs = with pkgs; [ rustc rust-bindgen rustfmt clippy ];
+  RUST_LIB_SRC = &quot;${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}&quot;;
+}
+</pre></div>
+</div>
+</section>
+<section id="opensuse">
+<h3>openSUSE<a class="headerlink" href="#opensuse" title="Link to this heading">¶</a></h3>
+<p>openSUSE Slowroll and openSUSE Tumbleweed provide recent Rust releases and thus
+they should generally work out of the box, e.g.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>zypper install rust rust1.79-src rust-bindgen clang
+</pre></div>
+</div>
+</section>
+</section>
 <section id="requirements-building">
 <h2>Requirements: Building<a class="headerlink" href="#requirements-building" title="Link to this heading">¶</a></h2>
 <p>This section explains how to fetch the tools needed for building.</p>
-<p>Some of these requirements might be available from Linux distributions
-under names like <code class="docutils literal notranslate"><span class="pre">rustc</span></code>, <code class="docutils literal notranslate"><span class="pre">rust-src</span></code>, <code class="docutils literal notranslate"><span class="pre">rust-bindgen</span></code>, etc. However,
-at the time of writing, they are likely not to be recent enough unless
-the distribution tracks the latest releases.</p>
 <p>To easily check whether the requirements are met, the following target
 can be used:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 rustavailable
@@ -171,15 +237,14 @@ can be used:</p>
 if that is the case.</p>
 <section id="rustc">
 <h3>rustc<a class="headerlink" href="#rustc" title="Link to this heading">¶</a></h3>
-<p>A particular version of the Rust compiler is required. Newer versions may or
-may not work because, for the moment, the kernel depends on some unstable
-Rust features.</p>
+<p>A recent version of the Rust compiler is required.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">rustup</span></code> is being used, enter the kernel build directory (or use
-<code class="docutils literal notranslate"><span class="pre">--path=&lt;build-dir&gt;</span></code> argument to the <code class="docutils literal notranslate"><span class="pre">set</span></code> sub-command) and run:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>rustup override set $(scripts/min-tool-version.sh rustc)
+<code class="docutils literal notranslate"><span class="pre">--path=&lt;build-dir&gt;</span></code> argument to the <code class="docutils literal notranslate"><span class="pre">set</span></code> sub-command) and run,
+for instance:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>rustup override set stable
 </pre></div>
 </div>
-<p>This will configure your working directory to use the correct version of
+<p>This will configure your working directory to use the given version of
 <code class="docutils literal notranslate"><span class="pre">rustc</span></code> without affecting your default toolchain.</p>
 <p>Note that the override applies to the current working directory (and its
 sub-directories).</p>
@@ -200,9 +265,9 @@ cross-compile <code class="docutils literal notranslate"><span class="pre">core<
 version later on requires re-adding the component.</p>
 <p>Otherwise, if a standalone installer is used, the Rust source tree may be
 downloaded into the toolchain’s installation folder:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>curl -L &quot;https://static.rust-lang.org/dist/rust-src-$(scripts/min-tool-version.sh rustc).tar.gz&quot; |
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>curl -L &quot;https://static.rust-lang.org/dist/rust-src-$(rustc --version | cut -d&#39; &#39; -f2).tar.gz&quot; |
         tar -xzf - -C &quot;$(rustc --print sysroot)/lib&quot; \
-        &quot;rust-src-$(scripts/min-tool-version.sh rustc)/rust-src/lib/&quot; \
+        &quot;rust-src-$(rustc --version | cut -d&#39; &#39; -f2)/rust-src/lib/&quot; \
         --strip-components=3
 </pre></div>
 </div>
@@ -231,25 +296,22 @@ to fetch pre-built releases and distribution packages.</p>
 <section id="bindgen">
 <h3>bindgen<a class="headerlink" href="#bindgen" title="Link to this heading">¶</a></h3>
 <p>The bindings to the C side of the kernel are generated at build time using
-the <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> tool. A particular version is required.</p>
-<p>Install it via (note that this will download and build the tool from source):</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked --version $(scripts/min-tool-version.sh bindgen) bindgen-cli
+the <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> tool.</p>
+<p>Install it, for instance, via (note that this will download and build the tool
+from source):</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cargo install --locked bindgen-cli
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">bindgen</span></code> needs to find a suitable <code class="docutils literal notranslate"><span class="pre">libclang</span></code> in order to work. If it is
-not found (or a different <code class="docutils literal notranslate"><span class="pre">libclang</span></code> than the one found should be used),
-the process can be tweaked using the environment variables understood by
-<code class="docutils literal notranslate"><span class="pre">clang-sys</span></code> (the Rust bindings crate that <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> uses to access
-<code class="docutils literal notranslate"><span class="pre">libclang</span></code>):</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">LLVM_CONFIG_PATH</span></code> can be pointed to an <code class="docutils literal notranslate"><span class="pre">llvm-config</span></code> executable.</p></li>
-<li><p>Or <code class="docutils literal notranslate"><span class="pre">LIBCLANG_PATH</span></code> can be pointed to a <code class="docutils literal notranslate"><span class="pre">libclang</span></code> shared library
-or to the directory containing it.</p></li>
-<li><p>Or <code class="docutils literal notranslate"><span class="pre">CLANG_PATH</span></code> can be pointed to a <code class="docutils literal notranslate"><span class="pre">clang</span></code> executable.</p></li>
-</ul>
-<p>For details, please see <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code>’s documentation at:</p>
+<p><code class="docutils literal notranslate"><span class="pre">bindgen</span></code> uses the <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code> crate to find a suitable <code class="docutils literal notranslate"><span class="pre">libclang</span></code> (which
+may be linked statically, dynamically or loaded at runtime). By default, the
+<code class="docutils literal notranslate"><span class="pre">cargo</span></code> command above will produce a <code class="docutils literal notranslate"><span class="pre">bindgen</span></code> binary that will load
+<code class="docutils literal notranslate"><span class="pre">libclang</span></code> at runtime. If it is not found (or a different <code class="docutils literal notranslate"><span class="pre">libclang</span></code> than
+the one found should be used), the process can be tweaked, e.g. by using the
+<code class="docutils literal notranslate"><span class="pre">LIBCLANG_PATH</span></code> environment variable. For details, please see <code class="docutils literal notranslate"><span class="pre">clang-sys</span></code>’s
+documentation at:</p>
 <blockquote>
-<div><p><a class="reference external" href="https://github.com/KyleMayes/clang-sys#environment-variables">https://github.com/KyleMayes/clang-sys#environment-variables</a></p>
+<div><p><a class="reference external" href="https://github.com/KyleMayes/clang-sys#linking">https://github.com/KyleMayes/clang-sys#linking</a></p>
+<p><a class="reference external" href="https://github.com/KyleMayes/clang-sys#environment-variables">https://github.com/KyleMayes/clang-sys#environment-variables</a></p>
 </div></blockquote>
 </section>
 </section>
@@ -282,16 +344,6 @@ can be installed manually:</p>
 </pre></div>
 </div>
 <p>The standalone installers also come with <code class="docutils literal notranslate"><span class="pre">clippy</span></code>.</p>
-</section>
-<section id="cargo">
-<h3>cargo<a class="headerlink" href="#cargo" title="Link to this heading">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">cargo</span></code> is the Rust native build system. It is currently required to run
-the tests since it is used to build a custom standard library that contains
-the facilities provided by the custom <code class="docutils literal notranslate"><span class="pre">alloc</span></code> in the kernel. The tests can
-be run using the <code class="docutils literal notranslate"><span class="pre">rusttest</span></code> Make target.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">rustup</span></code> is being used, all the profiles already install the tool,
-thus nothing needs to be done.</p>
-<p>The standalone installers also come with <code class="docutils literal notranslate"><span class="pre">cargo</span></code>.</p>
 </section>
 <section id="rustdoc">
 <h3>rustdoc<a class="headerlink" href="#rustdoc" title="Link to this heading">¶</a></h3>
@@ -349,13 +401,11 @@ the <code class="docutils literal notranslate"><span class="pre">Rust</span> <sp
 <p>If GDB/Binutils is used and Rust symbols are not getting demangled, the reason
 is the toolchain does not support Rust’s new v0 mangling scheme yet.
 There are a few ways out:</p>
-<blockquote>
-<div><ul class="simple">
+<ul class="simple">
 <li><p>Install a newer release (GDB &gt;= 10.2, Binutils &gt;= 2.36).</p></li>
 <li><p>Some versions of GDB (e.g. vanilla GDB 10.1) are able to use
 the pre-demangled names embedded in the debug info (<code class="docutils literal notranslate"><span class="pre">CONFIG_DEBUG_INFO</span></code>).</p></li>
 </ul>
-</div></blockquote>
 </section>
 </section>
 

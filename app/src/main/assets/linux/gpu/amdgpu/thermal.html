@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -431,6 +431,50 @@ create a custom set of heuristics, write a string of numbers to the file
 starting with the number of the custom profile along with a setting
 for each heuristic parameter.  Due to differences across asic families
 the heuristic parameters vary from family to family.</p>
+</section>
+<section id="pm-policy">
+<h3>pm_policy<a class="headerlink" href="#pm-policy" title="Link to this heading">¶</a></h3>
+<p>Certain SOCs can support different power policies to optimize application
+performance. However, this policy is provided only at SOC level and not at a
+per-process level. This is useful especially when entire SOC is utilized for
+dedicated workload.</p>
+<p>The amdgpu driver provides a sysfs API for selecting the policy. Presently,
+only two types of policies are supported through this interface.</p>
+<blockquote>
+<div><p>Pstate Policy Selection - This is to select different Pstate profiles which
+decides clock/throttling preferences.</p>
+<p>XGMI PLPD Policy Selection - When multiple devices are connected over XGMI,
+this helps to select policy to be applied for per link power down.</p>
+</div></blockquote>
+<p>The list of available policies and policy levels vary between SOCs. They can
+be viewed under pm_policy node directory. If SOC doesn’t support any policy,
+this node won’t be available. The different policies supported will be
+available as separate nodes under pm_policy.</p>
+<blockquote>
+<div><p>cat /sys/bus/pci/devices/.../pm_policy/&lt;policy_type&gt;</p>
+</div></blockquote>
+<p>Reading the policy file shows the different levels supported. The level which
+is applied presently is denoted by * (asterisk). E.g.,</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">cat /sys/bus/pci/devices/.../pm_policy/soc_pstate</span>
+<span class="go">0 : soc_pstate_default</span>
+<span class="go">1 : soc_pstate_0</span>
+<span class="go">2 : soc_pstate_1*</span>
+<span class="go">3 : soc_pstate_2</span>
+
+<span class="go">cat /sys/bus/pci/devices/.../pm_policy/xgmi_plpd</span>
+<span class="go">0 : plpd_disallow</span>
+<span class="go">1 : plpd_default</span>
+<span class="go">2 : plpd_optimized*</span>
+</pre></div>
+</div>
+<p>To apply a specific policy</p>
+<p>“echo  &lt;level&gt; &gt; /sys/bus/pci/devices/.../pm_policy/&lt;policy_type&gt;”</p>
+<p>For the levels listed in the example above, to select “plpd_optimized” for
+XGMI and “soc_pstate_2” for soc pstate policy -</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">echo &quot;2&quot; &gt; /sys/bus/pci/devices/.../pm_policy/xgmi_plpd</span>
+<span class="go">echo &quot;3&quot; &gt; /sys/bus/pci/devices/.../pm_policy/soc_pstate</span>
+</pre></div>
+</div>
 </section>
 <section id="busy-percent">
 <h3>*_busy_percent<a class="headerlink" href="#busy-percent" title="Link to this heading">¶</a></h3>

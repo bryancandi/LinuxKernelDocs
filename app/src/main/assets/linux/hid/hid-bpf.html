@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -165,26 +165,27 @@ existing HID interfaces.</p>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#high-level-view-of-hid-bpf" id="id8">High-level view of HID-BPF</a></p></li>
-<li><p><a class="reference internal" href="#available-types-of-programs" id="id9">Available types of programs</a></p></li>
-<li><p><a class="reference internal" href="#developer-api" id="id10">Developer API:</a></p>
+<li><p><a class="reference internal" href="#in-tree-hid-bpf-programs-and-udev-hid-bpf" id="id9">In-tree HID-BPF programs and <code class="docutils literal notranslate"><span class="pre">udev-hid-bpf</span></code></a></p></li>
+<li><p><a class="reference internal" href="#available-types-of-programs" id="id10">Available types of programs</a></p></li>
+<li><p><a class="reference internal" href="#developer-api" id="id11">Developer API:</a></p>
 <ul>
-<li><p><a class="reference internal" href="#user-api-data-structures-available-in-programs" id="id11">User API data structures available in programs:</a></p></li>
-<li><p><a class="reference internal" href="#available-tracing-functions-to-attach-a-hid-bpf-program" id="id12">Available tracing functions to attach a HID-BPF program:</a></p></li>
-<li><p><a class="reference internal" href="#available-api-that-can-be-used-in-all-hid-bpf-programs" id="id13">Available API that can be used in all HID-BPF programs:</a></p></li>
-<li><p><a class="reference internal" href="#available-api-that-can-be-used-in-syscall-hid-bpf-programs" id="id14">Available API that can be used in syscall HID-BPF programs:</a></p></li>
+<li><p><a class="reference internal" href="#available-struct-ops-for-hid-bpf" id="id12">Available <code class="docutils literal notranslate"><span class="pre">struct_ops</span></code> for HID-BPF:</a></p></li>
+<li><p><a class="reference internal" href="#user-api-data-structures-available-in-programs" id="id13">User API data structures available in programs:</a></p></li>
+<li><p><a class="reference internal" href="#available-api-that-can-be-used-in-all-hid-bpf-struct-ops-programs" id="id14">Available API that can be used in all HID-BPF struct_ops programs:</a></p></li>
+<li><p><a class="reference internal" href="#available-api-that-can-be-used-in-syscall-hid-bpf-programs-or-in-sleepable-hid-bpf-struct-ops-programs" id="id15">Available API that can be used in syscall HID-BPF programs or in sleepable HID-BPF struct_ops programs:</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#general-overview-of-a-hid-bpf-program" id="id15">General overview of a HID-BPF program</a></p>
+<li><p><a class="reference internal" href="#general-overview-of-a-hid-bpf-program" id="id16">General overview of a HID-BPF program</a></p>
 <ul>
-<li><p><a class="reference internal" href="#accessing-the-data-attached-to-the-context" id="id16">Accessing the data attached to the context</a></p></li>
-<li><p><a class="reference internal" href="#effect-of-a-hid-bpf-program" id="id17">Effect of a HID-BPF program</a></p></li>
+<li><p><a class="reference internal" href="#accessing-the-data-attached-to-the-context" id="id17">Accessing the data attached to the context</a></p></li>
+<li><p><a class="reference internal" href="#effect-of-a-hid-bpf-program" id="id18">Effect of a HID-BPF program</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#attaching-a-bpf-program-to-a-device" id="id18">Attaching a bpf program to a device</a></p></li>
-<li><p><a class="reference internal" href="#an-almost-complete-example-of-a-bpf-enhanced-hid-device" id="id19">An (almost) complete example of a BPF enhanced HID device</a></p>
+<li><p><a class="reference internal" href="#attaching-a-bpf-program-to-a-device" id="id19">Attaching a bpf program to a device</a></p></li>
+<li><p><a class="reference internal" href="#an-almost-complete-example-of-a-bpf-enhanced-hid-device" id="id20">An (almost) complete example of a BPF enhanced HID device</a></p>
 <ul>
-<li><p><a class="reference internal" href="#filtering-events" id="id20">Filtering events</a></p></li>
-<li><p><a class="reference internal" href="#controlling-the-device" id="id21">Controlling the device</a></p></li>
+<li><p><a class="reference internal" href="#filtering-events" id="id21">Filtering events</a></p></li>
+<li><p><a class="reference internal" href="#controlling-the-device" id="id22">Controlling the device</a></p></li>
 </ul>
 </li>
 </ul>
@@ -284,32 +285,124 @@ input API from eBPF</em>.</p>
 protocol, and rely on the HID kernel processing to translate the HID data into
 input events.</p>
 </section>
+<section id="in-tree-hid-bpf-programs-and-udev-hid-bpf">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">In-tree HID-BPF programs and <code class="docutils literal notranslate"><span class="pre">udev-hid-bpf</span></code></a><a class="headerlink" href="#in-tree-hid-bpf-programs-and-udev-hid-bpf" title="Link to this heading">¶</a></h2>
+<p>Official device fixes are shipped in the kernel tree as source in the
+<code class="docutils literal notranslate"><span class="pre">drivers/hid/bpf/progs</span></code> directory. This allows to add selftests to them in
+<code class="docutils literal notranslate"><span class="pre">tools/testing/selftests/hid</span></code>.</p>
+<p>However, the compilation of these objects is not part of a regular kernel compilation
+given that they need an external tool to be loaded. This tool is currently
+<a class="reference external" href="https://libevdev.pages.freedesktop.org/udev-hid-bpf/index.html">udev-hid-bpf</a>.</p>
+<p>For convenience, that external repository duplicates the files from here in
+<code class="docutils literal notranslate"><span class="pre">drivers/hid/bpf/progs</span></code> into its own <code class="docutils literal notranslate"><span class="pre">src/bpf/stable</span></code> directory. This allows
+distributions to not have to pull the entire kernel source tree to ship and package
+those HID-BPF fixes. <code class="docutils literal notranslate"><span class="pre">udev-hid-bpf</span></code> also has capabilities of handling multiple
+objects files depending on the kernel the user is running.</p>
+</section>
 <section id="available-types-of-programs">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Available types of programs</a><a class="headerlink" href="#available-types-of-programs" title="Link to this heading">¶</a></h2>
-<p>HID-BPF is built “on top” of BPF, meaning that we use tracing method to
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Available types of programs</a><a class="headerlink" href="#available-types-of-programs" title="Link to this heading">¶</a></h2>
+<p>HID-BPF is built “on top” of BPF, meaning that we use bpf struct_ops method to
 declare our programs.</p>
 <p>HID-BPF has the following attachment types available:</p>
 <ol class="arabic simple">
-<li><p>event processing/filtering with <code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_device_event&quot;)</span></code> in libbpf</p></li>
+<li><p>event processing/filtering with <code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops/hid_device_event&quot;)</span></code> in libbpf</p></li>
 <li><p>actions coming from userspace with <code class="docutils literal notranslate"><span class="pre">SEC(&quot;syscall&quot;)</span></code> in libbpf</p></li>
-<li><p>change of the report descriptor with <code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_rdesc_fixup&quot;)</span></code> in libbpf</p></li>
+<li><p>change of the report descriptor with <code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops/hid_rdesc_fixup&quot;)</span></code> or
+<code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops.s/hid_rdesc_fixup&quot;)</span></code> in libbpf</p></li>
 </ol>
-<p>A <code class="docutils literal notranslate"><span class="pre">hid_bpf_device_event</span></code> is calling a BPF program when an event is received from
+<p>A <code class="docutils literal notranslate"><span class="pre">hid_device_event</span></code> is calling a BPF program when an event is received from
 the device. Thus we are in IRQ context and can act on the data or notify userspace.
 And given that we are in IRQ context, we can not talk back to the device.</p>
 <p>A <code class="docutils literal notranslate"><span class="pre">syscall</span></code> means that userspace called the syscall <code class="docutils literal notranslate"><span class="pre">BPF_PROG_RUN</span></code> facility.
 This time, we can do any operations allowed by HID-BPF, and talking to the device is
 allowed.</p>
-<p>Last, <code class="docutils literal notranslate"><span class="pre">hid_bpf_rdesc_fixup</span></code> is different from the others as there can be only one
+<p>Last, <code class="docutils literal notranslate"><span class="pre">hid_rdesc_fixup</span></code> is different from the others as there can be only one
 BPF program of this type. This is called on <code class="docutils literal notranslate"><span class="pre">probe</span></code> from the driver and allows to
-change the report descriptor from the BPF program. Once a <code class="docutils literal notranslate"><span class="pre">hid_bpf_rdesc_fixup</span></code>
+change the report descriptor from the BPF program. Once a <code class="docutils literal notranslate"><span class="pre">hid_rdesc_fixup</span></code>
 program has been loaded, it is not possible to overwrite it unless the program which
 inserted it allows us by pinning the program and closing all of its fds pointing to it.</p>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">hid_rdesc_fixup</span></code> can be declared as sleepable (<code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops.s/hid_rdesc_fixup&quot;)</span></code>).</p>
 </section>
 <section id="developer-api">
-<h2><a class="toc-backref" href="#id10" role="doc-backlink">Developer API:</a><a class="headerlink" href="#developer-api" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Developer API:</a><a class="headerlink" href="#developer-api" title="Link to this heading">¶</a></h2>
+<section id="available-struct-ops-for-hid-bpf">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Available <code class="docutils literal notranslate"><span class="pre">struct_ops</span></code> for HID-BPF:</a><a class="headerlink" href="#available-struct-ops-for-hid-bpf" title="Link to this heading">¶</a></h3>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.hid_bpf_ops">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_ops</span></span></span><a class="headerlink" href="#c.hid_bpf_ops" title="Link to this definition">¶</a><br /></dt>
+<dd><p>A BPF struct_ops of callbacks allowing to attach HID-BPF programs to a HID device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct hid_bpf_ops {
+    int hid_id;
+    u32 flags;
+    int (*hid_device_event)(struct hid_bpf_ctx *ctx, enum hid_report_type report_type, u64 source);
+    int (*hid_rdesc_fixup)(struct hid_bpf_ctx *ctx);
+    int (*hid_hw_request)(struct hid_bpf_ctx *ctx, unsigned char reportnum,enum hid_report_type rtype, enum hid_class_request reqtype, u64 source);
+    int (*hid_hw_output_report)(struct hid_bpf_ctx *ctx, u64 source);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">hid_id</span></code></dt><dd><p>the HID uniq ID to attach to. This is writeable before <code class="docutils literal notranslate"><span class="pre">load()</span></code>, and
+cannot be changed after</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>flags used while attaching the struct_ops to the device. Currently only
+available value is <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">BPF_F_BEFORE</span></code>.
+Writeable only before <code class="docutils literal notranslate"><span class="pre">load()</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hid_device_event</span></code></dt><dd><p>called whenever an event is coming in from the device</p>
+<p>It has the following arguments:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>: The HID-BPF context as <a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span></code></a></p>
+<p>Return: <code class="docutils literal notranslate"><span class="pre">0</span></code> on success and keep processing; a positive
+value to change the incoming size buffer; a negative
+error code to interrupt the processing of this event</p>
+<p>Context: Interrupt context.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hid_rdesc_fixup</span></code></dt><dd><p>called when the probe function parses the report descriptor
+of the HID device</p>
+<p>It has the following arguments:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>: The HID-BPF context as <a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span></code></a></p>
+<p>Return: <code class="docutils literal notranslate"><span class="pre">0</span></code> on success and keep processing; a positive
+value to change the incoming size buffer; a negative
+error code to interrupt the processing of this device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hid_hw_request</span></code></dt><dd><p>called whenever a hid_hw_raw_request() call is emitted
+on the HID device</p>
+<p>It has the following arguments:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>: The HID-BPF context as <a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span></code></a></p>
+<p><code class="docutils literal notranslate"><span class="pre">reportnum</span></code>: the report number, as in hid_hw_raw_request()</p>
+<p><code class="docutils literal notranslate"><span class="pre">rtype</span></code>: the report type (<code class="docutils literal notranslate"><span class="pre">HID_INPUT_REPORT</span></code>, <code class="docutils literal notranslate"><span class="pre">HID_FEATURE_REPORT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HID_OUTPUT_REPORT</span></code>)</p>
+<p><code class="docutils literal notranslate"><span class="pre">reqtype</span></code>: the request</p>
+<p><code class="docutils literal notranslate"><span class="pre">source</span></code>: a u64 referring to a uniq but identifiable source. If <code class="docutils literal notranslate"><span class="pre">0</span></code>, the
+kernel itself emitted that call. For hidraw, <code class="docutils literal notranslate"><span class="pre">source</span></code> is set
+to the associated <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*</span></code>.</p>
+<p>Return: <code class="docutils literal notranslate"><span class="pre">0</span></code> to keep processing the request by hid-core; any other value
+stops hid-core from processing that event. A positive value should be
+returned with the number of bytes returned in the incoming buffer; a
+negative error code interrupts the processing of this call.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hid_hw_output_report</span></code></dt><dd><p>called whenever a hid_hw_output_report() call is emitted
+on the HID device</p>
+<p>It has the following arguments:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ctx</span></code>: The HID-BPF context as <a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span></code></a></p>
+<p><code class="docutils literal notranslate"><span class="pre">source</span></code>: a u64 referring to a uniq but identifiable source. If <code class="docutils literal notranslate"><span class="pre">0</span></code>, the
+kernel itself emitted that call. For hidraw, <code class="docutils literal notranslate"><span class="pre">source</span></code> is set
+to the associated <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*</span></code>.</p>
+<p>Return: <code class="docutils literal notranslate"><span class="pre">0</span></code> to keep processing the request by hid-core; any other value
+stops hid-core from processing that event. A positive value should be
+returned with the number of bytes written to the device; a negative error
+code interrupts the processing of this call.</p>
+</dd>
+</dl>
+</div>
+</section>
 <section id="user-api-data-structures-available-in-programs">
-<h3><a class="toc-backref" href="#id11" role="doc-backlink">User API data structures available in programs:</a><a class="headerlink" href="#user-api-data-structures-available-in-programs" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">User API data structures available in programs:</a><a class="headerlink" href="#user-api-data-structures-available-in-programs" title="Link to this heading">¶</a></h3>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.hid_bpf_ctx">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_ctx</span></span></span><a class="headerlink" href="#c.hid_bpf_ctx" title="Link to this definition">¶</a><br /></dt>
@@ -319,10 +412,8 @@ inserted it allows us by pinning the program and closing all of its fds pointing
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct hid_bpf_ctx {
-    __u32 index;
-    const struct hid_device *hid;
+    struct hid_device *hid;
     __u32 allocated_size;
-    enum hid_report_type report_type;
     union {
         __s32 retval;
         __s32 size;
@@ -332,19 +423,13 @@ inserted it allows us by pinning the program and closing all of its fds pointing
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">index</span></code></dt><dd><p>program index in the jump table. No special meaning (a smaller index
-doesn’t mean the program will be executed before another program with
-a bigger index).</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hid</span></code></dt><dd><p>the <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_device</span></code> representing the device itself</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hid</span></code></dt><dd><p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_device</span></code> representing the device itself</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">allocated_size</span></code></dt><dd><p>Allocated size of data.</p>
 <p>This is how much memory is available and can be requested
 by the HID program.
 Note that for <code class="docutils literal notranslate"><span class="pre">HID_BPF_RDESC_FIXUP</span></code>, that memory is set to
 <code class="docutils literal notranslate"><span class="pre">4096</span></code> (4 KB)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">report_type</span></code></dt><dd><p>used for <code class="docutils literal notranslate"><span class="pre">hid_bpf_device_event()</span></code></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -362,75 +447,11 @@ once all BPF programs have been run).</p>
 </div>
 <p><strong>Description</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">data</span></code> is not directly accessible from the context. We need to issue
-a call to <code class="docutils literal notranslate"><span class="pre">hid_bpf_get_data()</span></code> in order to get a pointer to that field.</p>
-<p>All of these fields are currently read-only.</p>
-<dl class="c enum">
-<dt class="sig sig-object c" id="c.hid_bpf_attach_flags">
-<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_attach_flags</span></span></span><a class="headerlink" href="#c.hid_bpf_attach_flags" title="Link to this definition">¶</a><br /></dt>
-<dd><p>flags used when attaching a HIF-BPF program</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Constants</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_NONE</span></code></dt><dd><p>no specific flag is used, the kernel choses where to
-insert the program</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_INSERT_HEAD</span></code></dt><dd><p>insert the given program before any other program
-currently attached to the device. This doesn’t
-guarantee that this program will always be first</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_MAX</span></code></dt><dd><p>sentinel value, not to be used by the callers</p>
-</dd>
-</dl>
-</div>
+a call to <a class="reference internal" href="#c.hid_bpf_get_data" title="hid_bpf_get_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_get_data()</span></code></a> in order to get a pointer to that field.</p>
+<p><code class="docutils literal notranslate"><span class="pre">hid</span></code> and <code class="docutils literal notranslate"><span class="pre">allocated_size</span></code> are read-only, <code class="docutils literal notranslate"><span class="pre">size</span></code> and <code class="docutils literal notranslate"><span class="pre">retval</span></code> are read-write.</p>
 </section>
-<section id="available-tracing-functions-to-attach-a-hid-bpf-program">
-<h3><a class="toc-backref" href="#id12" role="doc-backlink">Available tracing functions to attach a HID-BPF program:</a><a class="headerlink" href="#available-tracing-functions-to-attach-a-hid-bpf-program" title="Link to this heading">¶</a></h3>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.hid_bpf_device_event">
-<span class="pre">noinline</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_device_event</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_device_event" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Called whenever an event is coming in from the device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>The HID-BPF context</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p><strong>return</strong> <code class="docutils literal notranslate"><span class="pre">0</span></code> on success and keep processing; a positive value to change the
-incoming size buffer; a negative error code to interrupt the processing
-of this event</p>
-<p>Declare an <code class="docutils literal notranslate"><span class="pre">fmod_ret</span></code> tracing bpf program to this function and attach this
-program through <a class="reference internal" href="#c.hid_bpf_attach_prog" title="hid_bpf_attach_prog"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_attach_prog()</span></code></a> to have this helper called for
-any incoming event from the device itself.</p>
-<p>The function is called while on IRQ context, so we can not sleep.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.hid_bpf_rdesc_fixup">
-<span class="pre">noinline</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_rdesc_fixup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_rdesc_fixup" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Called when the probe function parses the report descriptor of the HID device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>The HID-BPF context</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p><strong>return</strong> 0 on success and keep processing; a positive value to change the
-incoming size buffer; a negative error code to interrupt the processing
-of this event</p>
-<p>Declare an <code class="docutils literal notranslate"><span class="pre">fmod_ret</span></code> tracing bpf program to this function and attach this
-program through <a class="reference internal" href="#c.hid_bpf_attach_prog" title="hid_bpf_attach_prog"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_attach_prog()</span></code></a> to have this helper called before any
-parsing of the report descriptor by HID.</p>
-</div>
-</section>
-<section id="available-api-that-can-be-used-in-all-hid-bpf-programs">
-<h3><a class="toc-backref" href="#id13" role="doc-backlink">Available API that can be used in all HID-BPF programs:</a><a class="headerlink" href="#available-api-that-can-be-used-in-all-hid-bpf-programs" title="Link to this heading">¶</a></h3>
+<section id="available-api-that-can-be-used-in-all-hid-bpf-struct-ops-programs">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Available API that can be used in all HID-BPF struct_ops programs:</a><a class="headerlink" href="#available-api-that-can-be-used-in-all-hid-bpf-struct-ops-programs" title="Link to this heading">¶</a></h3>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hid_bpf_get_data">
 <span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="n"><span class="pre">__u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_get_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">rdwr_buf_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_get_data" title="Link to this definition">¶</a><br /></dt>
@@ -451,29 +472,8 @@ parsing of the report descriptor by HID.</p>
 <p><strong>returns</strong> <code class="docutils literal notranslate"><span class="pre">NULL</span></code> on error, an <code class="docutils literal notranslate"><span class="pre">__u8</span></code> memory pointer on success</p>
 </div>
 </section>
-<section id="available-api-that-can-be-used-in-syscall-hid-bpf-programs">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Available API that can be used in syscall HID-BPF programs:</a><a class="headerlink" href="#available-api-that-can-be-used-in-syscall-hid-bpf-programs" title="Link to this heading">¶</a></h3>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.hid_bpf_attach_prog">
-<span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_attach_prog</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hid_id</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">prog_fd</span></span>, <span class="n"><span class="pre">__u32</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_attach_prog" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Attach the given <strong>prog_fd</strong> to the given HID device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">hid_id</span></code></dt><dd><p>the system unique identifier of the HID device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">prog_fd</span></code></dt><dd><p>an fd in the user process representing the program to attach</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>any logical OR combination of <a class="reference internal" href="#c.hid_bpf_attach_flags" title="hid_bpf_attach_flags"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">hid_bpf_attach_flags</span></code></a></p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p><strong>returns</strong> an fd of a bpf_link object on success (&gt; <code class="docutils literal notranslate"><span class="pre">0</span></code>), an error code otherwise.
-Closing this fd will detach the program from the HID device (unless the bpf_link
-is pinned to the BPF file system).</p>
-</div>
+<section id="available-api-that-can-be-used-in-syscall-hid-bpf-programs-or-in-sleepable-hid-bpf-struct-ops-programs">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Available API that can be used in syscall HID-BPF programs or in sleepable HID-BPF struct_ops programs:</a><a class="headerlink" href="#available-api-that-can-be-used-in-syscall-hid-bpf-programs-or-in-sleepable-hid-bpf-struct-ops-programs" title="Link to this heading">¶</a></h3>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.hid_bpf_allocate_context">
 <span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_allocate_context</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hid_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_allocate_context" title="Link to this definition">¶</a><br /></dt>
@@ -545,6 +545,28 @@ is pinned to the BPF file system).</p>
 <p>Returns the number of bytes transferred on success, a negative error code otherwise.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.hid_bpf_try_input_report">
+<span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_try_input_report</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hid_report_type</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buf</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">buf__sz</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_try_input_report" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Inject a HID report in the kernel from a HID device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>the HID-BPF context previously allocated in <a class="reference internal" href="#c.hid_bpf_allocate_context" title="hid_bpf_allocate_context"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_allocate_context()</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">hid_report_type</span> <span class="pre">type</span></code></dt><dd><p>the type of the report (<code class="docutils literal notranslate"><span class="pre">HID_INPUT_REPORT</span></code>, <code class="docutils literal notranslate"><span class="pre">HID_FEATURE_REPORT</span></code>, <code class="docutils literal notranslate"><span class="pre">HID_OUTPUT_REPORT</span></code>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*buf</span></code></dt><dd><p>a <code class="docutils literal notranslate"><span class="pre">PTR_TO_MEM</span></code> buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">size_t</span> <span class="pre">buf__sz</span></code></dt><dd><p>the size of the data to transfer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">0</span></code> on success, a negative error code otherwise. This function will immediately
+fail if the device is not available, thus can be safely used in IRQ context.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.hid_bpf_input_report">
 <span class="pre">__bpf_kfunc</span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hid_bpf_input_report</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.hid_bpf_ctx" title="hid_bpf_ctx"><span class="n"><span class="pre">hid_bpf_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hid_report_type</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buf</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">buf__sz</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hid_bpf_input_report" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Inject a HID report in the kernel from a HID device</p>
@@ -563,14 +585,16 @@ is pinned to the BPF file system).</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Returns <code class="docutils literal notranslate"><span class="pre">0</span></code> on success, a negative error code otherwise.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">0</span></code> on success, a negative error code otherwise. This function will wait for the
+device to be available before injecting the event, thus needs to be called in sleepable
+context.</p>
 </div>
 </section>
 </section>
 <section id="general-overview-of-a-hid-bpf-program">
-<h2><a class="toc-backref" href="#id15" role="doc-backlink">General overview of a HID-BPF program</a><a class="headerlink" href="#general-overview-of-a-hid-bpf-program" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">General overview of a HID-BPF program</a><a class="headerlink" href="#general-overview-of-a-hid-bpf-program" title="Link to this heading">¶</a></h2>
 <section id="accessing-the-data-attached-to-the-context">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Accessing the data attached to the context</a><a class="headerlink" href="#accessing-the-data-attached-to-the-context" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Accessing the data attached to the context</a><a class="headerlink" href="#accessing-the-data-attached-to-the-context" title="Link to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_bpf_ctx</span></code> doesn’t export the <code class="docutils literal notranslate"><span class="pre">data</span></code> fields directly and to access
 it, a bpf program needs to first call <a class="reference internal" href="#c.hid_bpf_get_data" title="hid_bpf_get_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_get_data()</span></code></a>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">offset</span></code> can be any integer, but <code class="docutils literal notranslate"><span class="pre">size</span></code> needs to be constant, known at compile
@@ -605,18 +629,19 @@ if (!x)
 </ol>
 </section>
 <section id="effect-of-a-hid-bpf-program">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Effect of a HID-BPF program</a><a class="headerlink" href="#effect-of-a-hid-bpf-program" title="Link to this heading">¶</a></h3>
-<p>For all HID-BPF attachment types except for <a class="reference internal" href="#c.hid_bpf_rdesc_fixup" title="hid_bpf_rdesc_fixup"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_rdesc_fixup()</span></code></a>, several eBPF
-programs can be attached to the same device.</p>
-<p>Unless <code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_INSERT_HEAD</span></code> is added to the flags while attaching the
-program, the new program is appended at the end of the list.
-<code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_INSERT_HEAD</span></code> will insert the new program at the beginning of the
-list which is useful for e.g. tracing where we need to get the unprocessed events
-from the device.</p>
-<p>Note that if there are multiple programs using the <code class="docutils literal notranslate"><span class="pre">HID_BPF_FLAG_INSERT_HEAD</span></code> flag,
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Effect of a HID-BPF program</a><a class="headerlink" href="#effect-of-a-hid-bpf-program" title="Link to this heading">¶</a></h3>
+<p>For all HID-BPF attachment types except for <code class="xref c c-func docutils literal notranslate"><span class="pre">hid_rdesc_fixup()</span></code>, several eBPF
+programs can be attached to the same device. If a HID-BPF struct_ops has a
+<code class="xref c c-func docutils literal notranslate"><span class="pre">hid_rdesc_fixup()</span></code> while another is already attached to the device, the
+kernel will return <cite>-EINVAL</cite> when attaching the struct_ops.</p>
+<p>Unless <code class="docutils literal notranslate"><span class="pre">BPF_F_BEFORE</span></code> is added to the flags while attaching the program, the new
+program is appended at the end of the list.
+<code class="docutils literal notranslate"><span class="pre">BPF_F_BEFORE</span></code> will insert the new program at the beginning of the list which is
+useful for e.g. tracing where we need to get the unprocessed events from the device.</p>
+<p>Note that if there are multiple programs using the <code class="docutils literal notranslate"><span class="pre">BPF_F_BEFORE</span></code> flag,
 only the most recently loaded one is actually the first in the list.</p>
-<section id="sec-fmod-ret-hid-bpf-device-event">
-<h4><code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_device_event&quot;)</span></code><a class="headerlink" href="#sec-fmod-ret-hid-bpf-device-event" title="Link to this heading">¶</a></h4>
+<section id="sec-struct-ops-hid-device-event">
+<h4><code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops/hid_device_event&quot;)</span></code><a class="headerlink" href="#sec-struct-ops-hid-device-event" title="Link to this heading">¶</a></h4>
 <p>Whenever a matching event is raised, the eBPF programs are called one after the other
 and are working on the same data buffer.</p>
 <p>If a program changes the data associated with the context, the next one will see
@@ -639,38 +664,37 @@ Once the context is retrieved, one can also request a pointer to kernel memory w
 <a class="reference internal" href="#c.hid_bpf_get_data" title="hid_bpf_get_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">hid_bpf_get_data()</span></code></a>. This memory is big enough to support all input/output/feature
 reports of the given device.</p>
 </section>
-<section id="sec-fmod-ret-hid-bpf-rdesc-fixup">
-<h4><code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_rdesc_fixup&quot;)</span></code><a class="headerlink" href="#sec-fmod-ret-hid-bpf-rdesc-fixup" title="Link to this heading">¶</a></h4>
-<p>The <code class="docutils literal notranslate"><span class="pre">hid_bpf_rdesc_fixup</span></code> program works in a similar manner to
-<code class="docutils literal notranslate"><span class="pre">.report_fixup</span></code> of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_driver</span></code>.</p>
+<section id="sec-struct-ops-hid-rdesc-fixup">
+<h4><code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops/hid_rdesc_fixup&quot;)</span></code><a class="headerlink" href="#sec-struct-ops-hid-rdesc-fixup" title="Link to this heading">¶</a></h4>
+<p>The <code class="docutils literal notranslate"><span class="pre">hid_rdesc_fixup</span></code> program works in a similar manner to <code class="docutils literal notranslate"><span class="pre">.report_fixup</span></code>
+of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hid_driver</span></code>.</p>
 <p>When the device is probed, the kernel sets the data buffer of the context with the
 content of the report descriptor. The memory associated with that buffer is
 <code class="docutils literal notranslate"><span class="pre">HID_MAX_DESCRIPTOR_SIZE</span></code> (currently 4kB).</p>
 <p>The eBPF program can modify the data buffer at-will and the kernel uses the
 modified content and size as the report descriptor.</p>
-<p>Whenever a <code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_rdesc_fixup&quot;)</span></code> program is attached (if no
-program was attached before), the kernel immediately disconnects the HID device
-and does a reprobe.</p>
-<p>In the same way, when the <code class="docutils literal notranslate"><span class="pre">SEC(&quot;fmod_ret/hid_bpf_rdesc_fixup&quot;)</span></code> program is
-detached, the kernel issues a disconnect on the device.</p>
+<p>Whenever a struct_ops containing a <code class="docutils literal notranslate"><span class="pre">SEC(&quot;struct_ops/hid_rdesc_fixup&quot;)</span></code> program
+is attached (if no program was attached before), the kernel immediately disconnects
+the HID device and does a reprobe.</p>
+<p>In the same way, when this struct_ops is detached, the kernel issues a disconnect
+on the device.</p>
 <p>There is no <code class="docutils literal notranslate"><span class="pre">detach</span></code> facility in HID-BPF. Detaching a program happens when
-all the user space file descriptors pointing at a program are closed.
+all the user space file descriptors pointing at a HID-BPF struct_ops link are closed.
 Thus, if we need to replace a report descriptor fixup, some cooperation is
 required from the owner of the original report descriptor fixup.
-The previous owner will likely pin the program in the bpffs, and we can then
+The previous owner will likely pin the struct_ops link in the bpffs, and we can then
 replace it through normal bpf operations.</p>
 </section>
 </section>
 </section>
 <section id="attaching-a-bpf-program-to-a-device">
-<h2><a class="toc-backref" href="#id18" role="doc-backlink">Attaching a bpf program to a device</a><a class="headerlink" href="#attaching-a-bpf-program-to-a-device" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">libbpf</span></code> does not export any helper to attach a HID-BPF program.
-Users need to use a dedicated <code class="docutils literal notranslate"><span class="pre">syscall</span></code> program which will call
-<code class="docutils literal notranslate"><span class="pre">hid_bpf_attach_prog(hid_id,</span> <span class="pre">program_fd,</span> <span class="pre">flags)</span></code>.</p>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Attaching a bpf program to a device</a><a class="headerlink" href="#attaching-a-bpf-program-to-a-device" title="Link to this heading">¶</a></h2>
+<p>We now use standard struct_ops attachment through <code class="docutils literal notranslate"><span class="pre">bpf_map__attach_struct_ops()</span></code>.
+But given that we need to attach a struct_ops to a dedicated HID device, the caller
+must set <code class="docutils literal notranslate"><span class="pre">hid_id</span></code> in the struct_ops map before loading the program in the kernel.</p>
 <p><code class="docutils literal notranslate"><span class="pre">hid_id</span></code> is the unique system ID of the HID device (the last 4 numbers in the
 sysfs path: <code class="docutils literal notranslate"><span class="pre">/sys/bus/hid/devices/xxxx:yyyy:zzzz:0000</span></code>)</p>
-<p><code class="docutils literal notranslate"><span class="pre">progam_fd</span></code> is the opened file descriptor of the program to attach.</p>
-<p><code class="docutils literal notranslate"><span class="pre">flags</span></code> is of type <code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">hid_bpf_attach_flags</span></code>.</p>
+<p>One can also set <code class="docutils literal notranslate"><span class="pre">flags</span></code>, which is of type <code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">hid_bpf_attach_flags</span></code>.</p>
 <p>We can not rely on hidraw to bind a BPF program to a HID device. hidraw is an
 artefact of the processing of the HID device, and is not stable. Some drivers
 even disable it, so that removes the tracing capabilities on those devices
@@ -685,7 +709,7 @@ binary stream.</p>
 component that loads the eBPF program.</p>
 </section>
 <section id="an-almost-complete-example-of-a-bpf-enhanced-hid-device">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">An (almost) complete example of a BPF enhanced HID device</a><a class="headerlink" href="#an-almost-complete-example-of-a-bpf-enhanced-hid-device" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">An (almost) complete example of a BPF enhanced HID device</a><a class="headerlink" href="#an-almost-complete-example-of-a-bpf-enhanced-hid-device" title="Link to this heading">¶</a></h2>
 <p><em>Foreword: for most parts, this could be implemented as a kernel driver</em></p>
 <p>Let’s imagine we have a new tablet device that has some haptic capabilities
 to simulate the surface the user is scratching on. This device would also have
@@ -695,7 +719,7 @@ physical position of the switch through a feature report.</p>
 <p>And of course, the switch is relying on some userspace component to control the
 haptic feature of the device itself.</p>
 <section id="filtering-events">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">Filtering events</a><a class="headerlink" href="#filtering-events" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Filtering events</a><a class="headerlink" href="#filtering-events" title="Link to this heading">¶</a></h3>
 <p>The first step consists in filtering events from the device. Given that the switch
 position is actually reported in the flow of the pen events, using hidraw to implement
 that filtering would mean that we wake up userspace for every single event.</p>
@@ -713,32 +737,15 @@ char _license[] SEC(&quot;license&quot;) = &quot;GPL&quot;;
 extern __u8 *hid_bpf_get_data(struct hid_bpf_ctx *ctx,
                             unsigned int offset,
                             const size_t __sz) __ksym;
-extern int hid_bpf_attach_prog(unsigned int hid_id, int prog_fd, u32 flags) __ksym;
 
 struct {
       __uint(type, BPF_MAP_TYPE_RINGBUF);
       __uint(max_entries, 4096 * 64);
 } ringbuf SEC(&quot;.maps&quot;);
 
-struct attach_prog_args {
-      int prog_fd;
-      unsigned int hid;
-      unsigned int flags;
-      int retval;
-};
-
-SEC(&quot;syscall&quot;)
-int attach_prog(struct attach_prog_args *ctx)
-{
-      ctx-&gt;retval = hid_bpf_attach_prog(ctx-&gt;hid,
-                                        ctx-&gt;prog_fd,
-                                        ctx-&gt;flags);
-      return 0;
-}
-
 __u8 current_value = 0;
 
-SEC(&quot;?fmod_ret/hid_bpf_device_event&quot;)
+SEC(&quot;struct_ops/hid_device_event&quot;)
 int BPF_PROG(filter_switch, struct hid_bpf_ctx *hid_ctx)
 {
       __u8 *data = hid_bpf_get_data(hid_ctx, 0 /* offset */, 192 /* size */);
@@ -761,44 +768,43 @@ int BPF_PROG(filter_switch, struct hid_bpf_ctx *hid_ctx)
 
       return 0;
 }
+
+SEC(&quot;.struct_ops.link&quot;)
+struct hid_bpf_ops haptic_tablet = {
+      .hid_device_event = (void *)filter_switch,
+};
 </pre></div>
 </div>
-<p>To attach <code class="docutils literal notranslate"><span class="pre">filter_switch</span></code>, userspace needs to call the <code class="docutils literal notranslate"><span class="pre">attach_prog</span></code> syscall
-program first:</p>
+<p>To attach <code class="docutils literal notranslate"><span class="pre">haptic_tablet</span></code>, userspace needs to set <code class="docutils literal notranslate"><span class="pre">hid_id</span></code> first:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static int attach_filter(struct hid *hid_skel, int hid_id)
 {
-      int err, prog_fd;
-      int ret = -1;
-      struct attach_prog_args args = {
-              .hid = hid_id,
-      };
-      DECLARE_LIBBPF_OPTS(bpf_test_run_opts, tattrs,
-              .ctx_in = &amp;args,
-              .ctx_size_in = sizeof(args),
-      );
+      int err, link_fd;
 
-      args.prog_fd = bpf_program__fd(hid_skel-&gt;progs.filter_switch);
-
-      prog_fd = bpf_program__fd(hid_skel-&gt;progs.attach_prog);
-
-      err = bpf_prog_test_run_opts(prog_fd, &amp;tattrs);
+      hid_skel-&gt;struct_ops.haptic_tablet-&gt;hid_id = hid_id;
+      err = hid__load(skel);
       if (err)
               return err;
 
-      return args.retval; /* the fd of the created bpf_link */
+      link_fd = bpf_map__attach_struct_ops(hid_skel-&gt;maps.haptic_tablet);
+      if (!link_fd) {
+              fprintf(stderr, &quot;can not attach HID-BPF program: %m\n&quot;);
+              return -1;
+      }
+
+      return link_fd; /* the fd of the created bpf_link */
 }
 </pre></div>
 </div>
 <p>Our userspace program can now listen to notifications on the ring buffer, and
 is awaken only when the value changes.</p>
 <p>When the userspace program doesn’t need to listen to events anymore, it can just
-close the returned fd from <code class="xref c c-func docutils literal notranslate"><span class="pre">attach_filter()</span></code>, which will tell the kernel to
+close the returned bpf link from <code class="xref c c-func docutils literal notranslate"><span class="pre">attach_filter()</span></code>, which will tell the kernel to
 detach the program from the HID device.</p>
 <p>Of course, in other use cases, the userspace program can also pin the fd to the
 BPF filesystem through a call to <code class="xref c c-func docutils literal notranslate"><span class="pre">bpf_obj_pin()</span></code>, as with any bpf_link.</p>
 </section>
 <section id="controlling-the-device">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">Controlling the device</a><a class="headerlink" href="#controlling-the-device" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Controlling the device</a><a class="headerlink" href="#controlling-the-device" title="Link to this heading">¶</a></h3>
 <p>To be able to change the haptic feedback from the tablet, the userspace program
 needs to emit a feature report on the device itself.</p>
 <p>Instead of using hidraw for that, we can create a <code class="docutils literal notranslate"><span class="pre">SEC(&quot;syscall&quot;)</span></code> program

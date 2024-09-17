@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -163,7 +163,6 @@
 <li class="toctree-l2"><a class="reference internal" href="parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pm/index.html">Power Management</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -375,6 +374,11 @@ memory protection and reclaim dynamics. Any userspace tuning
 will not be tracked by the memory controller (even if cgroup
 v2 is remounted later on).</p></li>
 </ul>
+</dd>
+<dt>pids_localevents</dt><dd><p>The option restores v1-like behavior of pids.events:max, that is only
+local (inside cgroup proper) fork failures are counted. Without this
+option pids.events.max represents any pids.max enforcemnt across
+cgroup’s subtree.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -1265,15 +1269,10 @@ as -ENOMEM or silently ignore in cases like disk readahead.</p>
 <dt>memory.reclaim</dt><dd><p>A write-only nested-keyed file which exists for all cgroups.</p>
 <p>This is a simple interface to trigger memory reclaim in the
 target cgroup.</p>
-<p>This file accepts a single key, the number of bytes to reclaim.
-No nested keys are currently supported.</p>
 <p>Example:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;1G&quot; &gt; memory.reclaim
 </pre></div>
 </div>
-<p>The interface can be later extended with nested keys to
-configure the reclaim behavior. For example, specify the
-type of memory to reclaim from (anon, file, ..).</p>
 <p>Please note that the kernel can over or under reclaim from
 the target cgroup. If less bytes are reclaimed than the
 specified amount, -EAGAIN is returned.</p>
@@ -1284,6 +1283,26 @@ the memory reclaim normally is not exercised in this case.
 This means that the networking layer will not adapt based on
 reclaim induced by memory.reclaim.</p>
 </dd>
+</dl>
+</div></blockquote>
+<p>The following nested keys are defined.</p>
+<blockquote>
+<div><blockquote>
+<div><blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>swappiness</p></td>
+<td><p>Swappiness value to reclaim with</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>Specifying a swappiness value instructs the kernel to perform
+the reclaim with that swappiness value. Note that this has the
+same semantics as vm.swappiness applied to memcg reclaim with
+all the existing limitations and potential future extensions.</p>
+</div></blockquote>
+<dl>
 <dt>memory.peak</dt><dd><p>A read-only single value file which exists on non-root
 cgroups.</p>
 <p>The max memory usage recorded for the cgroup and its
@@ -1581,9 +1600,10 @@ cgroups.  The default is “max”.</p>
 limit, it will refuse to take any more stores before existing
 entries fault back in or are written out to disk.</p>
 </dd>
-<dt>memory.zswap.writeback</dt><dd><p>A read-write single value file. The default value is “1”. The
-initial value of the root cgroup is 1, and when a new cgroup is
-created, it inherits the current value of its parent.</p>
+<dt>memory.zswap.writeback</dt><dd><p>A read-write single value file. The default value is “1”.
+Note that this setting is hierarchical, i.e. the writeback would be
+implicitly disabled for child cgroups if the upper hierarchy
+does so.</p>
 <p>When this is set to 0, all swapping attempts to swapping devices
 are disabled. This included both zswap writebacks, and swapping due
 to zswap store failures. If the zswap store failures are recurring
@@ -2099,15 +2119,20 @@ descendants.</p>
 <p>The maximum value that the number of processes in the cgroup and its
 descendants has ever reached.</p>
 </dd>
-<dt>pids.events</dt><dd><p>A read-only flat-keyed file which exists on non-root cgroups. The
-following entries are defined. Unless specified otherwise, a value
-change in this file generates a file modified event.</p>
+<dt>pids.events</dt><dd><p>A read-only flat-keyed file which exists on non-root cgroups. Unless
+specified otherwise, a value change in this file generates a file
+modified event. The following entries are defined.</p>
 <blockquote>
 <div><dl class="simple">
-<dt>max</dt><dd><p>Number of times fork failed because limit was hit.</p>
+<dt>max</dt><dd><p>The number of times the cgroup’s total number of processes hit the pids.max
+limit (see also pids_localevents).</p>
 </dd>
 </dl>
 </div></blockquote>
+</dd>
+<dt>pids.events.local</dt><dd><p>Similar to pids.events but the fields in the file are local
+to the cgroup i.e. not hierarchical. The file modified event
+generated on this file reflects only the local events.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -2220,8 +2245,12 @@ from “cpuset.cpus.exclusive”.  If “cpuset.cpus.exclusive”
 has previously been set, “cpuset.cpus.exclusive.effective”
 is always a subset of it.</p>
 <p>Users can manually set it to a value that is different from
-“cpuset.cpus”.  The only constraint in setting it is that the
-list of CPUs must be exclusive with respect to its sibling.</p>
+“cpuset.cpus”.  One constraint in setting it is that the list of
+CPUs must be exclusive with respect to “cpuset.cpus.exclusive”
+of its sibling.  If “cpuset.cpus.exclusive” of a sibling cgroup
+isn’t set, its “cpuset.cpus” value, if set, cannot be a subset
+of it to leave at least one CPU available when the exclusive
+CPUs are taken away.</p>
 <p>For a parent cgroup, any one of its exclusive CPUs can only
 be distributed to at most one of its child cgroups.  Having an
 exclusive CPU appearing in two or more of its child cgroups is
@@ -2233,8 +2262,8 @@ are in its exclusive CPU set.</p>
 <dt>cpuset.cpus.exclusive.effective</dt><dd><p>A read-only multiple values file which exists on all non-root
 cpuset-enabled cgroups.</p>
 <p>This file shows the effective set of exclusive CPUs that
-can be used to create a partition root.  The content of this
-file will always be a subset of “cpuset.cpus” and its parent’s
+can be used to create a partition root.  The content
+of this file will always be a subset of its parent’s
 “cpuset.cpus.exclusive.effective” if its parent is not the root
 cgroup.  It will also be a subset of “cpuset.cpus.exclusive”
 if it is set.  If “cpuset.cpus.exclusive” is not set, it is
@@ -2498,6 +2527,15 @@ res_b 0
 </pre></div>
 </div>
 </dd>
+<dt>misc.peak</dt><dd><p>A read-only flat-keyed file shown in all cgroups.  It shows the
+historical maximum usage of the resources in the cgroup and its
+children.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ cat misc.peak
+res_a 10
+res_b 8
+</pre></div>
+</div>
+</dd>
 <dt>misc.max</dt><dd><p>A read-write flat-keyed file shown in the non root cgroups. Allowed
 maximum usage of the resources in the cgroup and its children.:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ cat misc.max
@@ -2527,6 +2565,10 @@ about to go over the max boundary.</p>
 </dd>
 </dl>
 </div></blockquote>
+</dd>
+<dt>misc.events.local</dt><dd><p>Similar to misc.events but the fields in the file are local to the
+cgroup i.e. not hierarchical. The file modified event generated on
+this file reflects only the local events.</p>
 </dd>
 </dl>
 </div></blockquote>

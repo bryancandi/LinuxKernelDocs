@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -586,55 +586,81 @@ are provided using conventional syntax.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.i2c_algorithm">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_algorithm</span></span></span><a class="headerlink" href="#c.i2c_algorithm" title="Link to this definition">¶</a><br /></dt>
-<dd><p>represent I2C transfer method</p>
+<dd><p>represent I2C transfer methods</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct i2c_algorithm {
-    int (*master_xfer)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
-    int (*master_xfer_atomic)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
+    union {
+        int (*xfer)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
+        int (*master_xfer)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
+    };
+    union {
+        int (*xfer_atomic)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
+        int (*master_xfer_atomic)(struct i2c_adapter *adap, struct i2c_msg *msgs, int num);
+    };
     int (*smbus_xfer)(struct i2c_adapter *adap, u16 addr,unsigned short flags, char read_write, u8 command, int size, union i2c_smbus_data *data);
     int (*smbus_xfer_atomic)(struct i2c_adapter *adap, u16 addr,unsigned short flags, char read_write, u8 command, int size, union i2c_smbus_data *data);
     u32 (*functionality)(struct i2c_adapter *adap);
 #if IS_ENABLED(CONFIG_I2C_SLAVE);
-    int (*reg_slave)(struct i2c_client *client);
-    int (*unreg_slave)(struct i2c_client *client);
+    union {
+        int (*reg_target)(struct i2c_client *client);
+        int (*reg_slave)(struct i2c_client *client);
+    };
+    union {
+        int (*unreg_target)(struct i2c_client *client);
+        int (*unreg_slave)(struct i2c_client *client);
+    };
 #endif;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">master_xfer</span></code></dt><dd><p>Issue a set of i2c transactions to the given I2C adapter
-defined by the msgs array, with num messages available to transfer via
-the adapter specified by adap.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">master_xfer_atomic</span></code></dt><dd><p>same as <strong>master_xfer</strong>. Yet, only using atomic context
-so e.g. PMICs can be accessed very late before shutdown. Optional.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">xfer</span></code></dt><dd><p>Transfer a given number of messages defined by the msgs array via
+the specified adapter.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">smbus_xfer</span></code></dt><dd><p>Issue smbus transactions to the given I2C adapter. If this
+<dt><code class="docutils literal notranslate"><span class="pre">master_xfer</span></code></dt><dd><p>deprecated, use <strong>xfer</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">xfer_atomic</span></code></dt><dd><p>Same as <strong>xfer</strong>. Yet, only using atomic context so e.g. PMICs
+can be accessed very late before shutdown. Optional.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">master_xfer_atomic</span></code></dt><dd><p>deprecated, use <strong>xfer_atomic</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">smbus_xfer</span></code></dt><dd><p>Issue SMBus transactions to the given I2C adapter. If this
 is not present, then the bus layer will try and convert the SMBus calls
 into I2C transfers instead.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">smbus_xfer_atomic</span></code></dt><dd><p>same as <strong>smbus_xfer</strong>. Yet, only using atomic context
+<dt><code class="docutils literal notranslate"><span class="pre">smbus_xfer_atomic</span></code></dt><dd><p>Same as <strong>smbus_xfer</strong>. Yet, only using atomic context
 so e.g. PMICs can be accessed very late before shutdown. Optional.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">functionality</span></code></dt><dd><p>Return the flags that this algorithm/adapter pair supports
 from the <code class="docutils literal notranslate"><span class="pre">I2C_FUNC_*</span></code> flags.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">reg_slave</span></code></dt><dd><p>Register given client to I2C slave mode of this adapter</p>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unreg_slave</span></code></dt><dd><p>Unregister given client from I2C slave mode of this adapter</p>
+<dt><code class="docutils literal notranslate"><span class="pre">reg_target</span></code></dt><dd><p>Register given client to local target mode of this adapter</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reg_slave</span></code></dt><dd><p>deprecated, use <strong>reg_target</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unreg_target</span></code></dt><dd><p>Unregister given client from local target mode of this adapter</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unreg_slave</span></code></dt><dd><p>deprecated, use <strong>unreg_target</strong></p>
 </dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>The following structs are for those who like to implement new bus drivers:
-i2c_algorithm is the interface to a class of hardware solutions which can
+<p>i2c_algorithm is the interface to a class of hardware solutions which can
 be addressed using the same bus algorithms - i.e. bit-banging or the PCF8584
 to name two of the most common.</p>
-<p>The return codes from the <code class="docutils literal notranslate"><span class="pre">master_xfer{_atomic}</span></code> fields should indicate the
+<p>The return codes from the <code class="docutils literal notranslate"><span class="pre">xfer{_atomic}</span></code> fields should indicate the
 type of error code that occurred during the transfer, as documented in the
 Kernel Documentation file <a class="reference internal" href="../i2c/fault-codes.html"><span class="doc">I2C/SMBUS Fault Codes</span></a>. Otherwise, the
 number of messages executed should be returned.</p>

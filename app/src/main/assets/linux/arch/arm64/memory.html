@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -104,6 +104,7 @@
 <li class="toctree-l3"><a class="reference internal" href="asymmetric-32bit.html">Asymmetric 32-bit SoCs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="booting.html">Booting AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cpu-feature-registers.html">ARM64 CPU Feature Registers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cpu-hotplug.html">CPU Hotplug and ACPI</a></li>
 <li class="toctree-l3"><a class="reference internal" href="elf_hwcaps.html">ARM64 ELF hwcaps</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hugetlbpage.html">HugeTLBpage on ARM64</a></li>
 <li class="toctree-l3"><a class="reference internal" href="kdump.html">crashkernel memory reservation on arm64</a></li>
@@ -186,12 +187,10 @@ virtual address, are used but the memory layout is the same.</p>
 <p>ARMv8.2 adds optional support for Large Virtual Address space. This is
 only available when running with a 64KB page size and expands the
 number of descriptors in the first level of translation.</p>
-<p>User addresses have bits 63:48 set to 0 while the kernel addresses have
-the same bits set to 1. TTBRx selection is given by bit 63 of the
-virtual address. The swapper_pg_dir contains only kernel (global)
-mappings while the user pgd contains only user (non-global) mappings.
-The swapper_pg_dir address is written to TTBR1 and never written to
-TTBR0.</p>
+<p>TTBRx selection is given by bit 55 of the virtual address. The
+swapper_pg_dir contains only kernel (global) mappings while the user pgd
+contains only user (non-global) mappings.  The swapper_pg_dir address is
+written to TTBR1 and never written to TTBR0.</p>
 <p>AArch64 Linux memory layout with 4KB pages + 4 levels (48-bit):</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span> Start                 End                     Size            Use
  -----------------------------------------------------------------------
@@ -228,28 +227,28 @@ TTBR0.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+--------+--------+--------+--------+--------+--------+--------+--------+
 |63    56|55    48|47    40|39    32|31    24|23    16|15     8|7      0|
 +--------+--------+--------+--------+--------+--------+--------+--------+
- |                 |         |         |         |         |
- |                 |         |         |         |         v
- |                 |         |         |         |   [11:0]  in-page offset
- |                 |         |         |         +-&gt; [20:12] L3 index
- |                 |         |         +-----------&gt; [29:21] L2 index
- |                 |         +---------------------&gt; [38:30] L1 index
- |                 +-------------------------------&gt; [47:39] L0 index
- +-------------------------------------------------&gt; [63] TTBR0/1
+          |        |         |         |         |         |
+          |        |         |         |         |         v
+          |        |         |         |         |   [11:0]  in-page offset
+          |        |         |         |         +-&gt; [20:12] L3 index
+          |        |         |         +-----------&gt; [29:21] L2 index
+          |        |         +---------------------&gt; [38:30] L1 index
+          |        +-------------------------------&gt; [47:39] L0 index
+          +----------------------------------------&gt; [55] TTBR0/1
 </pre></div>
 </div>
 <p>Translation table lookup with 64KB pages:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+--------+--------+--------+--------+--------+--------+--------+--------+
 |63    56|55    48|47    40|39    32|31    24|23    16|15     8|7      0|
 +--------+--------+--------+--------+--------+--------+--------+--------+
- |                 |    |               |              |
- |                 |    |               |              v
- |                 |    |               |            [15:0]  in-page offset
- |                 |    |               +----------&gt; [28:16] L3 index
- |                 |    +--------------------------&gt; [41:29] L2 index
- |                 +-------------------------------&gt; [47:42] L1 index (48-bit)
- |                                                   [51:42] L1 index (52-bit)
- +-------------------------------------------------&gt; [63] TTBR0/1
+          |        |    |               |              |
+          |        |    |               |              v
+          |        |    |               |            [15:0]  in-page offset
+          |        |    |               +----------&gt; [28:16] L3 index
+          |        |    +--------------------------&gt; [41:29] L2 index
+          |        +-------------------------------&gt; [47:42] L1 index (48-bit)
+          |                                          [51:42] L1 index (52-bit)
+          +----------------------------------------&gt; [55] TTBR0/1
 </pre></div>
 </div>
 <p>When using KVM without the Virtualization Host Extensions, the

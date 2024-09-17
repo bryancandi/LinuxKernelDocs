@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -758,6 +758,7 @@ has attempted to use it, never re-use this extension number.</p>
 #define I915_CONTEXT_PARAM_RINGSIZE     0xc;
 #define I915_CONTEXT_PARAM_PROTECTED_CONTENT    0xd;
 #define I915_CONTEXT_PARAM_LOW_LATENCY          0xe;
+#define I915_CONTEXT_PARAM_CONTEXT_IMAGE        0xf;
     __u64 value;
 };
 </pre></div>
@@ -3008,12 +3009,13 @@ VM, and destroy the old one.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Constants</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_LOW</span></code></dt><dd><p>Low priority group.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_MEDIUM</span></code></dt><dd><p>Medium priority group.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PANTHOR_GROUP_PRIORITY_HIGH</span></code></dt><dd><p>High priority group.</p>
+<p>Requires CAP_SYS_NICE or DRM_MASTER.</p>
 </dd>
 </dl>
 </div>
@@ -3351,6 +3353,7 @@ entries and usage.</p>
 <li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC_QUEUE_GET_PROPERTY</span></code></p></li>
 <li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_EXEC</span></code></p></li>
 <li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_WAIT_USER_FENCE</span></code></p></li>
+<li><p><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_XE_OBSERVATION</span></code></p></li>
 </ul>
 </dd>
 </dl>
@@ -3844,6 +3847,7 @@ is equal to DRM_XE_DEVICE_QUERY_GT_LIST, then the reply uses <a class="reference
     __u16 gt_id;
 #define DRM_XE_TOPO_DSS_GEOMETRY        1;
 #define DRM_XE_TOPO_DSS_COMPUTE         2;
+#define DRM_XE_TOPO_L3_BANK             3;
 #define DRM_XE_TOPO_EU_PER_DSS          4;
     __u16 type;
     __u32 num_bytes;
@@ -3881,6 +3885,7 @@ means 32 DSS are available for geometry.</p></li>
 containing the following in mask:
 <code class="docutils literal notranslate"><span class="pre">DSS_COMPUTE</span>&#160;&#160;&#160; <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">ff</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span> <span class="pre">00</span></code>
 means 32 DSS are available for compute.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_TOPO_L3_BANK</span></code> - To query the mask of enabled L3 banks</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_TOPO_EU_PER_DSS</span></code> - To query the mask of Execution Units (EU)
 available per Dual Sub Slices (DSS). For example a query response
 containing the following in mask:
@@ -4003,6 +4008,7 @@ of the micro-controller firmware.</p>
 #define DRM_XE_DEVICE_QUERY_GT_TOPOLOGY         5;
 #define DRM_XE_DEVICE_QUERY_ENGINE_CYCLES       6;
 #define DRM_XE_DEVICE_QUERY_UC_FW_VERSION       7;
+#define DRM_XE_DEVICE_QUERY_OA_UNITS            8;
     __u32 query;
     __u32 size;
     __u64 data;
@@ -4133,7 +4139,13 @@ be placed</p>
 <p>Object handles are nonzero.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cpu_caching</span></code></dt><dd><p>The CPU caching mode to select for this object. If
-mmaping the object the mode selected here will also be used.</p>
+mmaping the object the mode selected here will also be used. The
+exception is when mapping system memory (including data evicted
+to system) on discrete GPUs. The caching mode selected will
+then be overridden to DRM_XE_GEM_CPU_CACHING_WB, and coherency
+between GPU- and CPU is guaranteed. The caching mode of
+existing CPU-mappings will be updated transparently to
+user-space clients.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
 </dd>
@@ -4862,6 +4874,357 @@ instances list and check if user fence is complete:</p>
 </ul>
 </dd>
 </dl>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_observation_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_observation_type</span></span></span><a class="headerlink" href="#c.drm_xe_observation_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Observation stream types</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_TYPE_OA</span></code></dt><dd><p>OA observation stream type</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_observation_op">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_observation_op</span></span></span><a class="headerlink" href="#c.drm_xe_observation_op" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Observation stream ops</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_OP_STREAM_OPEN</span></code></dt><dd><p>Open an observation stream</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_OP_ADD_CONFIG</span></code></dt><dd><p>Add observation stream config</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_OP_REMOVE_CONFIG</span></code></dt><dd><p>Remove observation stream config</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_observation_param">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_observation_param</span></span></span><a class="headerlink" href="#c.drm_xe_observation_param" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Input of <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION</span></code></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_observation_param {
+    __u64 extensions;
+    __u64 observation_type;
+    __u64 observation_op;
+    __u64 param;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">observation_type</span></code></dt><dd><p>observation stream type, of enum <strong>drm_xe_observation_type</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">observation_op</span></code></dt><dd><p>observation stream op, of enum <strong>drm_xe_observation_op</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">param</span></code></dt><dd><p>Pointer to actual stream params</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The observation layer enables multiplexing observation streams of
+multiple types. The actual params for a particular stream operation are
+supplied via the <strong>param</strong> pointer (use __copy_from_user to get these
+params).</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_observation_ioctls">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_observation_ioctls</span></span></span><a class="headerlink" href="#c.drm_xe_observation_ioctls" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Observation stream fd ioctl’s</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_IOCTL_ENABLE</span></code></dt><dd><p>Enable data capture for an observation stream</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_IOCTL_DISABLE</span></code></dt><dd><p>Disable data capture for a observation stream</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_IOCTL_CONFIG</span></code></dt><dd><p>Change observation stream configuration</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_IOCTL_STATUS</span></code></dt><dd><p>Return observation stream status</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OBSERVATION_IOCTL_INFO</span></code></dt><dd><p>Return observation stream info</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Information exchanged between userspace and kernel for observation fd
+ioctl’s is stream type specific</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_oa_unit_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_unit_type</span></span></span><a class="headerlink" href="#c.drm_xe_oa_unit_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA unit types</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_UNIT_TYPE_OAG</span></code></dt><dd><p>OAG OA unit. OAR/OAC are considered
+sub-types of OAG. For OAR/OAC, use OAG.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_UNIT_TYPE_OAM</span></code></dt><dd><p>OAM OA unit</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_oa_unit">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_unit</span></span></span><a class="headerlink" href="#c.drm_xe_oa_unit" title="Link to this definition">¶</a><br /></dt>
+<dd><p>describe OA unit</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_oa_unit {
+    __u64 extensions;
+    __u32 oa_unit_id;
+    __u32 oa_unit_type;
+    __u64 capabilities;
+#define DRM_XE_OA_CAPS_BASE             (1 &lt;&lt; 0);
+    __u64 oa_timestamp_freq;
+    __u64 reserved[4];
+    __u64 num_engines;
+    struct drm_xe_engine_class_instance eci[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_unit_id</span></code></dt><dd><p>OA unit ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_unit_type</span></code></dt><dd><p>OA unit type of <strong>drm_xe_oa_unit_type</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">capabilities</span></code></dt><dd><p>OA capabilities bit-mask</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_timestamp_freq</span></code></dt><dd><p>OA timestamp freq</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_engines</span></code></dt><dd><p>number of engines in <strong>eci</strong> array</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">eci</span></code></dt><dd><p>engines attached to this OA unit</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_query_oa_units">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_query_oa_units</span></span></span><a class="headerlink" href="#c.drm_xe_query_oa_units" title="Link to this definition">¶</a><br /></dt>
+<dd><p>describe OA units</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_query_oa_units {
+    __u64 extensions;
+    __u32 num_oa_units;
+    __u32 pad;
+    __u64 oa_units[];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_oa_units</span></code></dt><dd><p>number of OA units returned in oau[]</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_units</span></code></dt><dd><p>struct <strong>drm_xe_oa_unit</strong> array returned for this device.
+Written below as a u64 array to avoid problems with nested flexible
+arrays with some compilers</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>If a query is made with a <a class="reference internal" href="#c.drm_xe_device_query" title="drm_xe_device_query"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_xe_device_query</span></code></a> where .query
+is equal to DRM_XE_DEVICE_QUERY_OA_UNITS, then the reply uses <a class="reference internal" href="#c.drm_xe_query_oa_units" title="drm_xe_query_oa_units"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_oa_units</span></code></a> in .data.</p>
+<p>OA unit properties for all OA units can be accessed using a code block
+such as the one below:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_query_oa_units</span><span class="w"> </span><span class="o">*</span><span class="n">qoa</span><span class="p">;</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_oa_unit</span><span class="w"> </span><span class="o">*</span><span class="n">oau</span><span class="p">;</span>
+<span class="n">u8</span><span class="w"> </span><span class="o">*</span><span class="n">poau</span><span class="p">;</span>
+
+<span class="c1">// malloc qoa and issue DRM_XE_DEVICE_QUERY_OA_UNITS. Then:</span>
+<span class="n">poau</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">u8</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">qoa</span><span class="o">-&gt;</span><span class="n">oa_units</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">qoa</span><span class="o">-&gt;</span><span class="n">num_oa_units</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">oau</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_xe_oa_unit</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">poau</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">// Access &#39;struct drm_xe_oa_unit&#39; fields here</span>
+<span class="w">        </span><span class="n">poau</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">oau</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">oau</span><span class="o">-&gt;</span><span class="n">num_engines</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">oau</span><span class="o">-&gt;</span><span class="n">eci</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_oa_format_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_format_type</span></span></span><a class="headerlink" href="#c.drm_xe_oa_format_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA format types as specified in PRM/Bspec 52198/60942</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_OAG</span></code></dt><dd><p>OAG report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_OAR</span></code></dt><dd><p>OAR report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_OAM</span></code></dt><dd><p>OAM report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_OAC</span></code></dt><dd><p>OAC report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_OAM_MPEC</span></code></dt><dd><p>OAM SAMEDIA or OAM MPEC report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_FMT_TYPE_PEC</span></code></dt><dd><p>PEC report format</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_xe_oa_property_id">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_property_id</span></span></span><a class="headerlink" href="#c.drm_xe_oa_property_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA stream property id’s</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_UNIT_ID</span></code></dt><dd><p>ID of the OA unit on which to open
+the OA stream, see <strong>oa_unit_id</strong> in ‘<a class="reference internal" href="#c.drm_xe_query_oa_units" title="drm_xe_query_oa_units"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_xe_query_oa_units</span></code></a>’. Defaults to 0 if not provided.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_SAMPLE_OA</span></code></dt><dd><p>A value of 1 requests inclusion of raw
+OA unit reports or stream samples in a global buffer attached to an
+OA unit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_METRIC_SET</span></code></dt><dd><p>OA metrics defining contents of OA
+reports, previously added via <strong>DRM_XE_OBSERVATION_OP_ADD_CONFIG</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_FORMAT</span></code></dt><dd><p>OA counter report format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_PERIOD_EXPONENT</span></code></dt><dd><p>Requests periodic OA unit
+sampling with sampling frequency proportional to 2^(period_exponent + 1)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_DISABLED</span></code></dt><dd><p>A value of 1 will open the OA
+stream in a DISABLED state (see <strong>DRM_XE_OBSERVATION_IOCTL_ENABLE</strong>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_EXEC_QUEUE_ID</span></code></dt><dd><p>Open the stream for a specific
+<strong>exec_queue_id</strong>. OA queries can be executed on this exec queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_OA_ENGINE_INSTANCE</span></code></dt><dd><p>Optional engine instance to
+pass along with <strong>DRM_XE_OA_PROPERTY_EXEC_QUEUE_ID</strong> or will default to 0.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_XE_OA_PROPERTY_NO_PREEMPT</span></code></dt><dd><p>Allow preemption and timeslicing
+to be disabled for the stream exec queue.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Stream params are specified as a chain of <strong>drm_xe_ext_set_property</strong>
+struct’s, with <strong>property</strong> values from enum <strong>drm_xe_oa_property_id</strong> and
+<strong>drm_xe_user_extension</strong> base.name set to <strong>DRM_XE_OA_EXTENSION_SET_PROPERTY</strong>.
+<strong>param</strong> field in struct <strong>drm_xe_observation_param</strong> points to the first
+<strong>drm_xe_ext_set_property</strong> struct.</p>
+<p>Exactly the same mechanism is also used for stream reconfiguration using the
+<strong>DRM_XE_OBSERVATION_IOCTL_CONFIG</strong> observation stream fd ioctl, though only a
+subset of properties below can be specified for stream reconfiguration.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_oa_config">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_config</span></span></span><a class="headerlink" href="#c.drm_xe_oa_config" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA metric configuration</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_oa_config {
+    __u64 extensions;
+    char uuid[36];
+    __u32 n_regs;
+    __u64 regs_ptr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">uuid</span></code></dt><dd><p>String formatted like “%08x-%04x-%04x-%04x-%012x”</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">n_regs</span></code></dt><dd><p>Number of regs in <strong>regs_ptr</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">regs_ptr</span></code></dt><dd><p>Pointer to (register address, value) pairs for OA config
+registers. Expected length of buffer is: (2 * sizeof(u32) * <strong>n_regs</strong>).</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Multiple OA configs can be added using <strong>DRM_XE_OBSERVATION_OP_ADD_CONFIG</strong>. A
+particular config can be specified when opening an OA stream using
+<strong>DRM_XE_OA_PROPERTY_OA_METRIC_SET</strong> property.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_oa_stream_status">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_stream_status</span></span></span><a class="headerlink" href="#c.drm_xe_oa_stream_status" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA stream status returned from <strong>DRM_XE_OBSERVATION_IOCTL_STATUS</strong> observation stream fd ioctl. Userspace can call the ioctl to query stream status in response to EIO errno from observation fd read().</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_oa_stream_status {
+    __u64 extensions;
+    __u64 oa_status;
+#define DRM_XE_OASTATUS_MMIO_TRG_Q_FULL         (1 &lt;&lt; 3);
+#define DRM_XE_OASTATUS_COUNTER_OVERFLOW        (1 &lt;&lt; 2);
+#define DRM_XE_OASTATUS_BUFFER_OVERFLOW         (1 &lt;&lt; 1);
+#define DRM_XE_OASTATUS_REPORT_LOST             (1 &lt;&lt; 0);
+    __u64 reserved[3];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_status</span></code></dt><dd><p>OA stream status (see Bspec 46717/61226)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>reserved for future use</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_xe_oa_stream_info">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_xe_oa_stream_info</span></span></span><a class="headerlink" href="#c.drm_xe_oa_stream_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>OA stream info returned from <strong>DRM_XE_OBSERVATION_IOCTL_INFO</strong> observation stream fd ioctl</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_xe_oa_stream_info {
+    __u64 extensions;
+    __u64 oa_buf_size;
+    __u64 reserved[3];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">extensions</span></code></dt><dd><p>Pointer to the first extension struct, if any</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">oa_buf_size</span></code></dt><dd><p>OA buffer size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">reserved</span></code></dt><dd><p>reserved for future use</p>
+</dd>
+</dl>
+</div>
 </section>
 </section>
 

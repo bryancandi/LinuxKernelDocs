@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -272,16 +272,10 @@ attached using bio_integrity_add_page().</p>
 </section>
 <section id="block-device">
 <h3>4.2 Block Device<a class="headerlink" href="#block-device" title="Link to this heading">¶</a></h3>
-<p>Because the format of the protection data is tied to the physical
-disk, each block device has been extended with a block integrity
-profile (struct blk_integrity).  This optional profile is registered
-with the block layer using <a class="reference internal" href="../core-api/kernel-api.html#c.blk_integrity_register" title="blk_integrity_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">blk_integrity_register()</span></code></a>.</p>
-<p>The profile contains callback functions for generating and verifying
-the protection data, as well as getting and setting application tags.
-The profile also contains a few constants to aid in completing,
-merging and splitting the integrity metadata.</p>
+<p>Block devices can set up the integrity information in the integrity
+sub-struture of the queue_limits structure.</p>
 <p>Layered block devices will need to pick a profile that’s appropriate
-for all subdevices.  <a class="reference internal" href="../core-api/kernel-api.html#c.blk_integrity_compare" title="blk_integrity_compare"><code class="xref c c-func docutils literal notranslate"><span class="pre">blk_integrity_compare()</span></code></a> can help with that.  DM
+for all subdevices.  <a class="reference internal" href="../core-api/kernel-api.html#c.queue_limits_stack_integrity" title="queue_limits_stack_integrity"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_limits_stack_integrity()</span></code></a> can help with that.  DM
 and MD linear, RAID0 and RAID1 are currently supported.  RAID4/5/6
 will require extra work due to the application tag.</p>
 </section>
@@ -355,39 +349,6 @@ there is room in the bip bio_vec array (nr_pages).</p>
 contain the integrity metadata received from the storage device.
 It is up to the receiver to process them and verify data
 integrity upon completion.</p>
-</div></blockquote>
-</div></blockquote>
-</section>
-<section id="registering-a-block-device-as-capable-of-exchanging-integrity-metadata">
-<h3>5.4 Registering A Block Device As Capable Of Exchanging Integrity Metadata<a class="headerlink" href="#registering-a-block-device-as-capable-of-exchanging-integrity-metadata" title="Link to this heading">¶</a></h3>
-<blockquote>
-<div><p>To enable integrity exchange on a block device the gendisk must be
-registered as capable:</p>
-<p><cite>int blk_integrity_register(gendisk, blk_integrity);</cite></p>
-<blockquote>
-<div><p>The blk_integrity struct is a template and should contain the
-following:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct blk_integrity my_profile = {
-    .name                   = &quot;STANDARDSBODY-TYPE-VARIANT-CSUM&quot;,
-    .generate_fn            = my_generate_fn,
-    .verify_fn              = my_verify_fn,
-    .tuple_size             = sizeof(struct my_tuple_size),
-    .tag_size               = &lt;tag bytes per hw sector&gt;,
-};
-</pre></div>
-</div>
-<p>‘name’ is a text string which will be visible in sysfs.  This is
-part of the userland API so chose it carefully and never change
-it.  The format is standards body-type-variant.
-E.g. T10-DIF-TYPE1-IP or T13-EPP-0-CRC.</p>
-<p>‘generate_fn’ generates appropriate integrity metadata (for WRITE).</p>
-<p>‘verify_fn’ verifies that the data buffer matches the integrity
-metadata.</p>
-<p>‘tuple_size’ must be set to match the size of the integrity
-metadata per sector.  I.e. 8 for DIF and EPP.</p>
-<p>‘tag_size’ must be set to identify how many bytes of tag space
-are available per hardware sector.  For DIF this is either 2 or
-0 depending on the value of the Control Mode Page ATO bit.</p>
 </div></blockquote>
 </div></blockquote>
 <hr class="docutils" />

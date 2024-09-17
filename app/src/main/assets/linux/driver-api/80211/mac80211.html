@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -431,14 +431,6 @@ The callback for <strong>set_frag_threshold</strong> should be set as well.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_SUPPORTS_TDLS_BUFFER_STA</span></code></dt><dd><p>Hardware supports buffer STA on
 TDLS links.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_DEAUTH_NEED_MGD_TX_PREP</span></code></dt><dd><p>The driver requires the
-mgd_prepare_tx() callback to be called before transmission of a
-deauthentication frame in case the association was completed but no
-beacon was heard. This is required in multi-channel scenarios, where the
-virtual interface might not be given air time for the transmission of
-the frame, as it is not synced with the AP/P2P GO yet, and thus the
-deauthentication frame might not be transmitted.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_DOESNT_SUPPORT_QOS_NDP</span></code></dt><dd><p>The driver (or firmware) doesn’t
 support QoS NDP for AP probing - that’s most likely a driver bug.</p>
 </dd>
@@ -729,7 +721,7 @@ information for an 802.11 PHY.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ieee80211_ops {
     void (*tx)(struct ieee80211_hw *hw,struct ieee80211_tx_control *control, struct sk_buff *skb);
     int (*start)(struct ieee80211_hw *hw);
-    void (*stop)(struct ieee80211_hw *hw);
+    void (*stop)(struct ieee80211_hw *hw, bool suspend);
 #ifdef CONFIG_PM;
     int (*suspend)(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan);
     int (*resume)(struct ieee80211_hw *hw);
@@ -1342,12 +1334,9 @@ bound to a channel before it is associated, but as it isn’t associated
 yet it need not necessarily be given airtime, in particular since any
 transmission to a P2P GO needs to be synchronized against the GO’s
 powersave state. mac80211 will call this function before transmitting a
-management frame prior to having successfully associated to allow the
-driver to give it channel time for the transmission, to get a response
-and to be able to synchronize with the GO.
-For drivers that set <code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_DEAUTH_NEED_MGD_TX_PREP</span></code>, mac80211
-would also call this function before transmitting a deauthentication
-frame in case that no beacon was heard from the AP/P2P GO.
+management frame prior to transmitting that frame to allow the driver
+to give it channel time for the transmission, to get a response and be
+able to synchronize with the GO.
 The callback will be called before each transmission and upon return
 mac80211 will transmit the frame right away.
 Additional information is passed in the <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ieee80211_prep_tx_info</span></code>

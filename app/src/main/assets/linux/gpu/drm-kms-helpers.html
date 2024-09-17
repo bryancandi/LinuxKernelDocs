@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -3969,11 +3969,8 @@ release the memory for the structure themselves.</p>
 <p>The fb helper functions are useful to provide an fbdev on top of a drm kernel
 mode setting driver. They can be used mostly independently from the crtc
 helper functions used by many drivers to implement the kernel mode setting
-interfaces.</p>
-<p>Drivers that support a dumb buffer with a virtual address and mmap support,
-should try out the generic fbdev emulation using <a class="reference internal" href="#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a>.
-It will automatically set up deferred I/O if the driver requires a shadow
-buffer.</p>
+interfaces. Drivers that use one of the shared memory managers, TTM, SHMEM,
+DMA, should instead use the corresponding fbdev emulation.</p>
 <p>Existing fbdev implementations should restore the fbdev console by using
 <a class="reference internal" href="#c.drm_fb_helper_lastclose" title="drm_fb_helper_lastclose"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_lastclose()</span></code></a> as their <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.lastclose</span></code></a> callback.
 They should also notify the fb helper code from updates to the output
@@ -4004,8 +4001,89 @@ always run in process context since the fb_*() function could be running in
 atomic context. If <a class="reference internal" href="#c.drm_fb_helper_deferred_io" title="drm_fb_helper_deferred_io"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_deferred_io()</span></code></a> is used as the deferred_io
 callback it will also schedule dirty_work with the damage collected from the
 mmap page writes.</p>
-<p>Deferred I/O is not compatible with SHMEM. Such drivers should request an
-fbdev shadow buffer and call <a class="reference internal" href="#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a> instead.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fbdev_dma_setup">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fbdev_dma_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">preferred_bpp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fbdev_dma_setup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Setup fbdev emulation for GEM DMA helpers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">preferred_bpp</span></code></dt><dd><p>Preferred bits per pixel for the device.
+32 is used if this is zero.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function sets up fbdev emulation for GEM DMA drivers that support
+dumb buffers with a virtual address and that can be mmap’ed.
+<a class="reference internal" href="#c.drm_fbdev_dma_setup" title="drm_fbdev_dma_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_dma_setup()</span></code></a> shall be called after the DRM driver registered
+the new DRM device with <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
+<p>Restore, hotplug events and teardown are all taken care of. Drivers that do
+suspend/resume need to call <a class="reference internal" href="#c.drm_fb_helper_set_suspend_unlocked" title="drm_fb_helper_set_suspend_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_set_suspend_unlocked()</span></code></a> themselves.
+Simple drivers might use <a class="reference internal" href="#c.drm_mode_config_helper_suspend" title="drm_mode_config_helper_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_mode_config_helper_suspend()</span></code></a>.</p>
+<p>This function is safe to call even when there are no connectors present.
+Setup will be retried on the next hotplug event.</p>
+<p>The fbdev is destroyed by <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fbdev_shmem_setup">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fbdev_shmem_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">preferred_bpp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fbdev_shmem_setup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Setup fbdev emulation for GEM SHMEM helpers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">preferred_bpp</span></code></dt><dd><p>Preferred bits per pixel for the device.
+32 is used if this is zero.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function sets up fbdev emulation for GEM DMA drivers that support
+dumb buffers with a virtual address and that can be mmap’ed.
+<a class="reference internal" href="#c.drm_fbdev_shmem_setup" title="drm_fbdev_shmem_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_shmem_setup()</span></code></a> shall be called after the DRM driver registered
+the new DRM device with <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
+<p>Restore, hotplug events and teardown are all taken care of. Drivers that do
+suspend/resume need to call <a class="reference internal" href="#c.drm_fb_helper_set_suspend_unlocked" title="drm_fb_helper_set_suspend_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_set_suspend_unlocked()</span></code></a> themselves.
+Simple drivers might use <a class="reference internal" href="#c.drm_mode_config_helper_suspend" title="drm_mode_config_helper_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_mode_config_helper_suspend()</span></code></a>.</p>
+<p>This function is safe to call even when there are no connectors present.
+Setup will be retried on the next hotplug event.</p>
+<p>The fbdev is destroyed by <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fbdev_ttm_setup">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fbdev_ttm_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">preferred_bpp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fbdev_ttm_setup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Setup fbdev emulation for TTM-based drivers</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">preferred_bpp</span></code></dt><dd><p>Preferred bits per pixel for the device.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function sets up fbdev emulation for TTM-based drivers that support
+dumb buffers with a virtual address and that can be mmap’ed.
+<a class="reference internal" href="#c.drm_fbdev_ttm_setup" title="drm_fbdev_ttm_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_ttm_setup()</span></code></a> shall be called after the DRM driver registered
+the new DRM device with <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
+<p>Restore, hotplug events and teardown are all taken care of. Drivers that do
+suspend/resume need to call <a class="reference internal" href="#c.drm_fb_helper_set_suspend_unlocked" title="drm_fb_helper_set_suspend_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_set_suspend_unlocked()</span></code></a> themselves.
+Simple drivers might use <a class="reference internal" href="#c.drm_mode_config_helper_suspend" title="drm_mode_config_helper_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_mode_config_helper_suspend()</span></code></a>.</p>
+<p>In order to provide fixed mmap-able memory ranges, fbdev emulation
+uses a shadow buffer in system memory. The implementation blits the shadow
+fbdev buffer onto the real buffer in regular intervals.</p>
+<p>This function is safe to call even when there are no connectors present.
+Setup will be retried on the next hotplug event.</p>
+<p>The fbdev is destroyed by <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>.</p>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_fb_helper_surface_size">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fb_helper_surface_size</span></span></span><a class="headerlink" href="#c.drm_fb_helper_surface_size" title="Link to this definition">¶</a><br /></dt>
@@ -4644,35 +4722,6 @@ that only need to call <a class="reference internal" href="#c.drm_fb_helper_rest
 <p>This function can be used as the
 <a class="reference internal" href="drm-kms.html#c.drm_mode_config_funcs" title="drm_mode_config_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config_funcs.output_poll_changed</span></code></a> callback for drivers that only
 need to call drm_fbdev.hotplug_event().</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_fbdev_generic_setup">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fbdev_generic_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">preferred_bpp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fbdev_generic_setup" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Setup generic fbdev emulation</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">preferred_bpp</span></code></dt><dd><p>Preferred bits per pixel for the device.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function sets up generic fbdev emulation for drivers that supports
-dumb buffers with a virtual address and that can be mmap’ed.
-<a class="reference internal" href="#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a> shall be called after the DRM driver registered
-the new DRM device with <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
-<p>Restore, hotplug events and teardown are all taken care of. Drivers that do
-suspend/resume need to call <a class="reference internal" href="#c.drm_fb_helper_set_suspend_unlocked" title="drm_fb_helper_set_suspend_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_set_suspend_unlocked()</span></code></a> themselves.
-Simple drivers might use <a class="reference internal" href="#c.drm_mode_config_helper_suspend" title="drm_mode_config_helper_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_mode_config_helper_suspend()</span></code></a>.</p>
-<p>In order to provide fixed mmap-able memory ranges, generic fbdev emulation
-uses a shadow buffer in system memory. The implementation blits the shadow
-fbdev buffer onto the real buffer in regular intervals.</p>
-<p>This function is safe to call even when there are no connectors present.
-Setup will be retried on the next hotplug event.</p>
-<p>The fbdev is destroyed by <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>.</p>
 </div>
 </section>
 <section id="format-helper-functions-reference">
@@ -5739,7 +5788,7 @@ commit check and commit tail handlers, or through the higher-level
 requires no intervention from the driver. For other drivers, the relevant
 DRM bridge chain functions shall be called manually.</p>
 <p>Bridges also participate in implementing the <a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector</span></code></a> at the end of
-the bridge chain. Display drivers may use the <a class="reference internal" href="#c.drm_bridge_connector_init" title="drm_bridge_connector_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_bridge_connector_init()</span></code></a>
+the bridge chain. Display drivers may use the drm_bridge_connector_init()
 helper to create the <a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector</span></code></a>, or implement it manually on top of the
 connector-related operations exposed by the bridge (see the overview
 documentation of bridge operations for more details).</p>
@@ -5879,24 +5928,10 @@ needed, in order to gradually transition to the new model.</p>
 </section>
 <section id="bridge-connector-helper">
 <h3>Bridge Connector Helper<a class="headerlink" href="#bridge-connector-helper" title="Link to this heading">¶</a></h3>
-<p>The DRM bridge connector helper object provides a DRM connector
-implementation that wraps a chain of <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span></code></a>. The connector
-operations are fully implemented based on the operations of the bridges in
-the chain, and don’t require any intervention from the display controller
-driver at runtime.</p>
-<p>To use the helper, display controller drivers create a bridge connector with
-a call to <a class="reference internal" href="#c.drm_bridge_connector_init" title="drm_bridge_connector_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_bridge_connector_init()</span></code></a>. This associates the newly created
-connector with the chain of bridges passed to the function and registers it
-with the DRM device. At that point the connector becomes fully usable, no
-further operation is needed.</p>
-<p>The DRM bridge connector operations are implemented based on the operations
-provided by the bridges in the chain. Each connector operation is delegated
-to the bridge closest to the connector (at the end of the chain) that
-provides the relevant functionality.</p>
-<p>To make use of this helper, all bridges in the chain shall report bridge
-operation flags (<a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>) and bridge output type
-(<a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;type</span></code></a>), as well as the DRM_BRIDGE_ATTACH_NO_CONNECTOR attach
-flag (none of the bridges shall create a DRM connector directly).</p>
+<div class="admonition error">
+<p class="admonition-title">Error</p>
+<p>kernel-doc missing</p>
+</div>
 </section>
 <section id="bridge-helper-reference">
 <h3>Bridge Helper Reference<a class="headerlink" href="#bridge-helper-reference" title="Link to this heading">¶</a></h3>
@@ -5948,6 +5983,9 @@ shall not create a drm_connector.</p>
     void (*hpd_notify)(struct drm_bridge *bridge, enum drm_connector_status status);
     void (*hpd_enable)(struct drm_bridge *bridge);
     void (*hpd_disable)(struct drm_bridge *bridge);
+    enum drm_mode_status(*hdmi_tmds_char_rate_valid)(const struct drm_bridge *bridge,const struct drm_display_mode *mode, unsigned long long tmds_rate);
+    int (*hdmi_clear_infoframe)(struct drm_bridge *bridge, enum hdmi_infoframe_type type);
+    int (*hdmi_write_infoframe)(struct drm_bridge *bridge,enum hdmi_infoframe_type type, const u8 *buffer, size_t len);
     void (*debugfs_init)(struct drm_bridge *bridge, struct dentry *root);
 };
 </pre></div>
@@ -6301,6 +6339,27 @@ that support hot-plug notification without polling. Bridges that
 implement it shall also implement the <strong>hpd_enable</strong> callback and set
 the DRM_BRIDGE_OP_HPD flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_tmds_char_rate_valid</span></code></dt><dd><p>Check whether a particular TMDS character rate is supported by the
+driver.</p>
+<p>This callback is optional and should only be implemented by the
+bridges that take part in the HDMI connector implementation. Bridges
+that implement it shall set the DRM_BRIDGE_OP_HDMI flag in their
+<a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+<p>Returns:</p>
+<p>Either <a class="reference internal" href="drm-kms.html#c.drm_mode_status" title="drm_mode_status"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_status.MODE_OK</span></code></a> or one of the failure reasons
+in <a class="reference internal" href="drm-kms.html#c.drm_mode_status" title="drm_mode_status"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_mode_status</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_clear_infoframe</span></code></dt><dd><p>This callback clears the infoframes in the hardware during commit.
+It will be called multiple times, once for every disabled infoframe
+type.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the DRM_BRIDGE_OP_HDMI flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_write_infoframe</span></code></dt><dd><p>Program the infoframe into the hardware. It will be called multiple
+times, once for every updated infoframe type.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the DRM_BRIDGE_OP_HDMI flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">debugfs_init</span></code></dt><dd><p>Allows bridges to create bridge-specific debugfs files.</p>
 </dd>
 </dl>
@@ -6347,7 +6406,7 @@ and odd-numbered pixels are received on separate links.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Constants</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">DRM_BRIDGE_OP_DETECT</span></code></dt><dd><p>The bridge can detect displays connected to
 its output. Bridges that set this flag shall implement the
 <a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;detect</span></code></a> callback.</p>
@@ -6366,6 +6425,13 @@ and disabling hot-plug detection dynamically.</p>
 by the display at its output. This does not include reading EDID
 which is separately covered by <strong>DRM_BRIDGE_OP_EDID</strong>. Bridges that set
 this flag shall implement the <a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;get_modes</span></code></a> callback.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_BRIDGE_OP_HDMI</span></code></dt><dd><p>The bridge provides HDMI connector operations,
+including infoframes support. Bridges that set this flag must
+implement the <a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;write_infoframe</span></code></a> callback.</p>
+<p>Note: currently there can be at most one bridge in a chain that sets
+this bit. This is to simplify corresponding glue code in connector
+drivers.</p>
 </dd>
 </dl>
 </div>
@@ -6395,6 +6461,10 @@ this flag shall implement the <a class="reference internal" href="#c.drm_bridge_
     struct mutex hpd_mutex;
     void (*hpd_cb)(void *data, enum drm_connector_status status);
     void *hpd_data;
+    const char *vendor;
+    const char *product;
+    unsigned int supported_formats;
+    unsigned int max_bpc;
 };
 </pre></div>
 </div>
@@ -6442,6 +6512,19 @@ before the peripheral.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hpd_data</span></code></dt><dd><p>Private data passed to the Hot plug detection callback
 <strong>hpd_cb</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vendor</span></code></dt><dd><p>Vendor of the product to be used for the SPD InfoFrame
+generation. This is required if <strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">product</span></code></dt><dd><p>Name of the product to be used for the SPD InfoFrame
+generation. This is required if <strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">supported_formats</span></code></dt><dd><p>Bitmask of <strong>hdmi_colorspace</strong> listing supported
+output formats. This is only relevant if <strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_bpc</span></code></dt><dd><p>Maximum bits per char the HDMI bridge supports. Allowed
+values are 8, 10 and 12. This is only relevant if
+<strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
 </dd>
 </dl>
 </div>
@@ -6588,30 +6671,6 @@ cleanup in <a class="reference internal" href="drm-kms.html#c.drm_encoder_cleanu
 <em>not</em> be balanced with a drm_bridge_detach() in driver code.</p>
 <p><strong>Return</strong></p>
 <p>Zero on success, error code on failure</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_bridge_chain_mode_fixup">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_chain_mode_fixup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_display_mode" title="drm_display_mode"><span class="n"><span class="pre">drm_display_mode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_display_mode" title="drm_display_mode"><span class="n"><span class="pre">drm_display_mode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adjusted_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_chain_mode_fixup" title="Link to this definition">¶</a><br /></dt>
-<dd><p>fixup proposed mode for all bridges in the encoder chain</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_display_mode</span> <span class="pre">*mode</span></code></dt><dd><p>desired mode to be set for the bridge</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_display_mode</span> <span class="pre">*adjusted_mode</span></code></dt><dd><p>updated mode that works for this bridge</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Calls <a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs.mode_fixup</span></code></a> for all the bridges in the
-encoder chain, starting from the first bridge to the last.</p>
-<p><strong>Note</strong></p>
-<p>the bridge passed should be the one closest to the encoder</p>
-<p><strong>Return</strong></p>
-<p>true on success, false on failure</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_bridge_chain_mode_valid">
@@ -6968,28 +7027,9 @@ driver.</p>
 </section>
 <section id="bridge-connector-helper-reference">
 <h3>Bridge Connector Helper Reference<a class="headerlink" href="#bridge-connector-helper-reference" title="Link to this heading">¶</a></h3>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_bridge_connector_init">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_connector_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_encoder" title="drm_encoder"><span class="n"><span class="pre">drm_encoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">encoder</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_connector_init" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Initialise a connector for a chain of bridges</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*drm</span></code></dt><dd><p>the DRM device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_encoder</span> <span class="pre">*encoder</span></code></dt><dd><p>the encoder where the bridge chain starts</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Allocate, initialise and register a <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_connector</span></code> with the <strong>drm</strong>
-device. The connector is associated with a chain of bridges that starts at
-the <strong>encoder</strong>. All bridges in the chain shall report bridge operation flags
-(<a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>) and bridge output type (<a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;type</span></code></a>), and none of
-them may create a DRM connector directly.</p>
-<p>Returns a pointer to the new connector on success, or a negative error
-pointer otherwise.</p>
+<div class="admonition error">
+<p class="admonition-title">Error</p>
+<p>kernel-doc missing</p>
 </div>
 </section>
 <section id="panel-bridge-helper-reference">
@@ -8137,6 +8177,7 @@ It is based on DP 1.4 spec [Table 2-116: VSC SDP Header Bytes] and
     int target_rr;
     int duration_incr_ms;
     int duration_decr_ms;
+    bool target_rr_divider;
     enum operation_mode mode;
 };
 </pre></div>
@@ -8156,6 +8197,8 @@ It is based on DP 1.4 spec [Table 2-116: VSC SDP Header Bytes] and
 <dt><code class="docutils literal notranslate"><span class="pre">duration_incr_ms</span></code></dt><dd><p>Successive frame duration increase</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">duration_decr_ms</span></code></dt><dd><p>Successive frame duration decrease</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">mode</span></code></dt><dd><p>Adaptive Sync Operation Mode</p>
 </dd>
 </dl>
 </div>
@@ -12095,6 +12138,7 @@ MIPI compliant.</p>
     bool swap_bytes;
     struct gpio_desc *reset;
     struct spi_device *spi;
+    unsigned int write_memory_bpw;
     struct gpio_desc *dc;
     void *tx_buf9;
     size_t tx_buf9_len;
@@ -12118,6 +12162,8 @@ MIPI compliant.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">spi</span></code></dt><dd><p>SPI device</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">write_memory_bpw</span></code></dt><dd><p>Bits per word used on a MIPI_DCS_WRITE_MEMORY_START transfer</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dc</span></code></dt><dd><p>Optional D/C gpio.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_buf9</span></code></dt><dd><p>Buffer used for Option 1 9-bit conversion</p>
@@ -12139,6 +12185,7 @@ MIPI compliant.</p>
     struct drm_simple_display_pipe pipe;
     struct drm_connector connector;
     struct drm_display_mode mode;
+    u32 pixel_format;
     u16 *tx_buf;
     unsigned int rotation;
     unsigned int left_offset;
@@ -12160,6 +12207,8 @@ MIPI compliant.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">connector</span></code></dt><dd><p>Connector</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mode</span></code></dt><dd><p>Fixed display mode</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pixel_format</span></code></dt><dd><p>Native pixel format (DRM_FORMAT_*)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_buf</span></code></dt><dd><p>Buffer used for transfer (copy clip rect area)</p>
 </dd>
@@ -12504,7 +12553,7 @@ for MIPI DBI planes.</p>
 <p>This function sets up a <a class="reference internal" href="#c.drm_simple_display_pipe" title="drm_simple_display_pipe"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_simple_display_pipe</span></code></a> with a <a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector</span></code></a> that
 has one fixed <a class="reference internal" href="drm-kms.html#c.drm_display_mode" title="drm_display_mode"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_display_mode</span></code></a> which is rotated according to <strong>rotation</strong>.
 This mode is used to set the mode config min/max width/height properties.</p>
-<p>Use <a class="reference internal" href="#c.mipi_dbi_dev_init" title="mipi_dbi_dev_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dbi_dev_init()</span></code></a> if you don’t need custom formats.</p>
+<p>Use <a class="reference internal" href="#c.mipi_dbi_dev_init" title="mipi_dbi_dev_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dbi_dev_init()</span></code></a> if you want native RGB565 and emulated XRGB8888 format.</p>
 <p><strong>Note</strong></p>
 <p>Some of the helper functions expects RGB565 to be the default format and the
 transmit buffer sized to fit that.</p>
@@ -12652,12 +12701,20 @@ usual read commands. It should be followed by a call to <a class="reference inte
 a driver-specific init.</p>
 <p>If <strong>dc</strong> is set, a Type C Option 3 interface is assumed, if not
 Type C Option 1.</p>
-<p>If the SPI master driver doesn’t support the necessary bits per word,
-the following transformation is used:</p>
-<ul class="simple">
-<li><p>9-bit: reorder buffer as 9x 8-bit words, padded with no-op command.</p></li>
-<li><p>16-bit: if big endian send as 8-bit, if little endian swap bytes</p></li>
-</ul>
+<p>If the command is <code class="docutils literal notranslate"><span class="pre">MIPI_DCS_WRITE_MEMORY_START</span></code> and the pixel format is RGB565, endianness has
+to be taken into account. The MIPI DBI serial interface is big endian and framebuffers are
+assumed stored in memory as little endian (<code class="docutils literal notranslate"><span class="pre">DRM_FORMAT_BIG_ENDIAN</span></code> is not supported).</p>
+<p>This is how endianness is handled:</p>
+<dl class="simple">
+<dt>Option 1 (D/C as a bit): The buffer is sent on the wire byte by byte so the 16-bit buffer is</dt><dd><p>byteswapped before transfer.</p>
+</dd>
+<dt>Option 3 (D/C as a gpio): If the SPI controller supports 16 bits per word the buffer can be</dt><dd><p>sent as-is. If not the caller is responsible for swapping the bytes
+before calling <a class="reference internal" href="#c.mipi_dbi_command_buf" title="mipi_dbi_command_buf"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dbi_command_buf()</span></code></a> and the buffer is sent 8 bpw.</p>
+</dd>
+</dl>
+<p>This handling is optimised for <code class="docutils literal notranslate"><span class="pre">DRM_FORMAT_RGB565</span></code> framebuffers.</p>
+<p>If the interface is Option 1 and the SPI controller doesn’t support 9 bits per word,
+the buffer is sent as 9x 8-bit words, padded with MIPI DCS no-op commands if necessary.</p>
 <p><strong>Return</strong></p>
 <p>Zero on success, negative error code on failure.</p>
 </div>
@@ -12924,6 +12981,33 @@ legacy drivers</p>
 </dd>
 </dl>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.mipi_dsi_multi_context">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></span><a class="headerlink" href="#c.mipi_dsi_multi_context" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Context to call multiple MIPI DSI funcs in a row</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct mipi_dsi_multi_context {
+    struct mipi_dsi_device *dsi;
+    int accum_err;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">dsi</span></code></dt><dd><p>Pointer to the MIPI DSI device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">accum_err</span></code></dt><dd><p>Storage for the accumulated error over the multiple calls</p>
+<p>Init to 0. If a function encounters an error then the error code
+will be stored here. If you call a function and this points to a
+non-zero value then the function will be a noop. This allows calling
+a function many times in a row and just checking the error at the
+end to see if any of them failed.</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_pixel_format_to_bpp">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_pixel_format_to_bpp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">mipi_dsi_pixel_format</span></span><span class="w"> </span><span class="n"><span class="pre">fmt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_pixel_format_to_bpp" title="Link to this definition">¶</a><br /></dt>
@@ -12973,6 +13057,32 @@ V-Blanking and H-Blanking information</p>
 <dt><code class="docutils literal notranslate"><span class="pre">seq...</span></code></dt><dd><p>buffer containing the payload</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>This macro will print errors for you and will RETURN FROM THE CALLING
+FUNCTION (yes this is non-intuitive) upon error.</p>
+<p>Because of the non-intuitive return behavior, THIS MACRO IS DEPRECATED.
+Please replace calls of it with <a class="reference internal" href="#c.mipi_dsi_generic_write_seq_multi" title="mipi_dsi_generic_write_seq_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_seq_multi()</span></code></a>.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.mipi_dsi_generic_write_seq_multi">
+<span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_generic_write_seq_multi</span></span></span><a class="headerlink" href="#c.mipi_dsi_generic_write_seq_multi" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_seq_multi</span> <span class="pre">(ctx,</span> <span class="pre">seq...)</span></code></p>
+<blockquote>
+<div><p>transmit data using a generic write packet</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">seq...</span></code></dt><dd><p>buffer containing the payload</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This macro will print errors for you and error handling is optimized for
+callers that call this multiple times in a row.</p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_seq">
@@ -12993,6 +13103,34 @@ V-Blanking and H-Blanking information</p>
 <dt><code class="docutils literal notranslate"><span class="pre">seq...</span></code></dt><dd><p>buffer containing data to be transmitted</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>This macro will print errors for you and will RETURN FROM THE CALLING
+FUNCTION (yes this is non-intuitive) upon error.</p>
+<p>Because of the non-intuitive return behavior, THIS MACRO IS DEPRECATED.
+Please replace calls of it with <a class="reference internal" href="#c.mipi_dsi_dcs_write_seq_multi" title="mipi_dsi_dcs_write_seq_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq_multi()</span></code></a>.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_seq_multi">
+<span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_write_seq_multi</span></span></span><a class="headerlink" href="#c.mipi_dsi_dcs_write_seq_multi" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq_multi</span> <span class="pre">(ctx,</span> <span class="pre">cmd,</span> <span class="pre">seq...)</span></code></p>
+<blockquote>
+<div><p>transmit a DCS command with payload</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmd</span></code></dt><dd><p>Command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">seq...</span></code></dt><dd><p>buffer containing data to be transmitted</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This macro will print errors for you and error handling is optimized for
+callers that call this multiple times in a row.</p>
 </div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.mipi_dsi_driver">
@@ -13327,6 +13465,48 @@ the payload length.</p>
 on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_generic_write_chatty">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_generic_write_chatty</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">payload</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_generic_write_chatty" title="Link to this definition">¶</a><br /></dt>
+<dd><p><a class="reference internal" href="#c.mipi_dsi_generic_write" title="mipi_dsi_generic_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write()</span></code></a> w/ an error log</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_device</span> <span class="pre">*dsi</span></code></dt><dd><p>DSI peripheral device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*payload</span></code></dt><dd><p>buffer containing the payload</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>size of payload buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_generic_write" title="mipi_dsi_generic_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write()</span></code></a> but includes a dev_err()
+call for you and returns 0 upon success, not the number of bytes sent.</p>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_generic_write_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_generic_write_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">payload</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_generic_write_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p><a class="reference internal" href="#c.mipi_dsi_generic_write_chatty" title="mipi_dsi_generic_write_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_chatty()</span></code></a> w/ accum_err</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*payload</span></code></dt><dd><p>buffer containing the payload</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>size of payload buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_generic_write_chatty" title="mipi_dsi_generic_write_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_chatty()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_generic_read">
 <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_generic_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">params</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">num_params</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_generic_read" title="Link to this definition">¶</a><br /></dt>
 <dd><p>receive data using a generic read packet</p>
@@ -13375,6 +13555,48 @@ the command payload length.</p>
 <p><strong>Return</strong></p>
 <p>The number of bytes successfully transmitted or a negative error
 code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_buffer_chatty">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_write_buffer_chatty</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_write_buffer_chatty" title="Link to this definition">¶</a><br /></dt>
+<dd><p><a class="reference internal" href="#c.mipi_dsi_dcs_write_buffer" title="mipi_dsi_dcs_write_buffer"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_buffer()</span></code></a> w/ an error log</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_device</span> <span class="pre">*dsi</span></code></dt><dd><p>DSI peripheral device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>buffer containing data to be transmitted</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">len</span></code></dt><dd><p>size of transmission buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_write_buffer" title="mipi_dsi_dcs_write_buffer"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_buffer()</span></code></a> but includes a dev_err()
+call for you and returns 0 upon success, not the number of bytes sent.</p>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_buffer_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_write_buffer_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_write_buffer_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p><a class="reference internal" href="#c.mipi_dsi_dcs_write_buffer_chatty" title="mipi_dsi_dcs_write_buffer_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_buffer_chatty()</span></code></a> w/ accum_err</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>buffer containing data to be transmitted</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">len</span></code></dt><dd><p>size of transmission buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_write_buffer_chatty" title="mipi_dsi_dcs_write_buffer_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_buffer_chatty()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_write">
@@ -13717,6 +13939,144 @@ code on failure.</p>
 </dl>
 <p><strong>Return</strong></p>
 <p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_picture_parameter_set_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_picture_parameter_set_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dsc_picture_parameter_set" title="drm_dsc_picture_parameter_set"><span class="n"><span class="pre">drm_dsc_picture_parameter_set</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pps</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_picture_parameter_set_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>transmit the DSC PPS to the peripheral</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dsc_picture_parameter_set</span> <span class="pre">*pps</span></code></dt><dd><p>VESA DSC 1.1 Picture Parameter Set</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_picture_parameter_set" title="mipi_dsi_picture_parameter_set"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_picture_parameter_set()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_compression_mode_ext_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_compression_mode_ext_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">mipi_dsi_compression_algo</span></span><span class="w"> </span><span class="n"><span class="pre">algo</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">pps_selector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_compression_mode_ext_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>enable/disable DSC on the peripheral</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">enable</span></code></dt><dd><p>Whether to enable or disable the DSC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mipi_dsi_compression_algo</span> <span class="pre">algo</span></code></dt><dd><p>Selected compression algorithm</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">pps_selector</span></code></dt><dd><p>Select PPS from the table of pre-stored or uploaded PPS entries</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_compression_mode_ext" title="mipi_dsi_compression_mode_ext"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_compression_mode_ext()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_nop_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_nop_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_nop_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS NOP packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_nop" title="mipi_dsi_dcs_nop"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_nop()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_enter_sleep_mode_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_enter_sleep_mode_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_enter_sleep_mode_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS ENTER_SLEEP_MODE packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_enter_sleep_mode" title="mipi_dsi_dcs_enter_sleep_mode"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_enter_sleep_mode()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_exit_sleep_mode_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_exit_sleep_mode_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_exit_sleep_mode_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS EXIT_SLEEP_MODE packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_exit_sleep_mode" title="mipi_dsi_dcs_exit_sleep_mode"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_exit_sleep_mode()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_display_off_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_display_off_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_display_off_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS SET_DISPLAY_OFF packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_set_display_off" title="mipi_dsi_dcs_set_display_off"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_set_display_off()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_display_on_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_display_on_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_display_on_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS SET_DISPLAY_ON packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_set_display_on" title="mipi_dsi_dcs_set_display_on"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_set_display_on()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_tear_on_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_tear_on_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_dcs_tear_mode" title="mipi_dsi_dcs_tear_mode"><span class="n"><span class="pre">mipi_dsi_dcs_tear_mode</span></span></a><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_tear_on_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>send DCS SET_TEAR_ON packet</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mipi_dsi_dcs_tear_mode</span> <span class="pre">mode</span></code></dt><dd><p>the Tearing Effect Output Line mode</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Like <a class="reference internal" href="#c.mipi_dsi_dcs_set_tear_on" title="mipi_dsi_dcs_set_tear_on"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_set_tear_on()</span></code></a> but deals with errors in a way that
+makes it convenient to make several calls in a row.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_driver_register_full">
@@ -14360,6 +14720,25 @@ that span more than 1 byte.</p>
 <p><strong>Return</strong></p>
 <p>Calculated flatness det thresh value</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dsc_dump_config">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dsc_dump_config</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_printer" title="drm_printer"><span class="n"><span class="pre">drm_printer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">indent</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dsc_config" title="drm_dsc_config"><span class="n"><span class="pre">drm_dsc_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">cfg</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dsc_dump_config" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Dump the provided DSC configuration</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_printer</span> <span class="pre">*p</span></code></dt><dd><p>The printer used for output</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">indent</span></code></dt><dd><p>Tab indentation level (max 5)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*cfg</span></code></dt><dd><p>DSC configuration to print</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Print the provided DSC configuration in <strong>cfg</strong>.</p>
+</div>
 </section>
 <section id="output-probing-helper-functions-reference">
 <h2>Output Probing Helper Functions Reference<a class="headerlink" href="#output-probing-helper-functions-reference" title="Link to this heading">¶</a></h2>
@@ -14990,35 +15369,6 @@ skipped.</p>
 <p>The number of modes added or 0 if we couldn’t find any.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_do_get_edid">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_do_get_edid</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="n"><span class="pre">read_block_fn</span></span><span class="w"> </span><span class="n"><span class="pre">read_block</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">context</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_do_get_edid" title="Link to this definition">¶</a><br /></dt>
-<dd><p>get EDID data using a custom EDID block read function</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>connector we’re probing</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">read_block_fn</span> <span class="pre">read_block</span></code></dt><dd><p>EDID block read function</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*context</span></code></dt><dd><p>private data passed to the block read function</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>When the I2C adapter connected to the DDC bus is hidden behind a device that
-exposes a different interface to read EDID blocks this function can be used
-to get EDID data using a custom block read function.</p>
-<p>As in the general case the DDC bus is accessible by the kernel at the I2C
-level, drivers must make all reasonable efforts to expose it as an I2C
-adapter and use <a class="reference internal" href="#c.drm_get_edid" title="drm_get_edid"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_get_edid()</span></code></a> instead of abusing this function.</p>
-<p>The EDID may be overridden using debugfs override_edid or firmware EDID
-(drm_edid_load_firmware() and drm.edid_firmware parameter), in this priority
-order. Having either of them bypasses actual EDID reads.</p>
-<p><strong>Return</strong></p>
-<p>Pointer to valid EDID or NULL if we couldn’t find any.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_edid_raw">
 <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_edid_raw</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_edid_raw" title="drm_edid"><span class="n"><span class="pre">drm_edid</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">drm_edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_edid_raw" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Get a pointer to the raw EDID data.</p>
@@ -15284,7 +15634,7 @@ block is concerned (in other words, we don’t process any overrides here).</p>
 during the early probe of panel. The EDID read from the function is temporary
 and should be replaced by the full EDID returned from other drm_edid_read.</p>
 <p><strong>NOTE</strong></p>
-<p>it’s expected that this function and <a class="reference internal" href="#c.drm_do_get_edid" title="drm_do_get_edid"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_do_get_edid()</span></code></a> will both
+<p>it’s expected that this function and drm_do_get_edid() will both
 be read the EDID, but there is no caching between them. Since we’re only
 reading the first block, hopefully this extra overhead won’t be too big.</p>
 <p><strong>Return</strong></p>

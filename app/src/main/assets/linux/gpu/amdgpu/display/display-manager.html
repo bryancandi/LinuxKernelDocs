@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -256,6 +256,34 @@ requests into DC requests, and DC responses into DRM responses.</p>
 </dl>
 </div>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.idle_workqueue">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">idle_workqueue</span></span></span><a class="headerlink" href="#c.idle_workqueue" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Work data for periodic action in idle</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct idle_workqueue {
+    struct work_struct work;
+    struct amdgpu_display_manager *dm;
+    bool enable;
+    bool running;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">work</span></code></dt><dd><p>Kernel work data for the work event</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dm</span></code></dt><dd><p>amdgpu display manager device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enable</span></code></dt><dd><p>true if idle worker is enabled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">running</span></code></dt><dd><p>true if idle worker is running</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.amdgpu_dm_backlight_caps">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">amdgpu_dm_backlight_caps</span></span></span><a class="headerlink" href="#c.amdgpu_dm_backlight_caps" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Information about backlight</p>
@@ -271,6 +299,8 @@ requests into DC requests, and DC responses into DRM responses.</p>
     int max_input_signal;
     bool caps_valid;
     bool aux_support;
+    u8 ac_level;
+    u8 dc_level;
 };
 </pre></div>
 </div>
@@ -291,6 +321,10 @@ in nits.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">caps_valid</span></code></dt><dd><p>true if these values are from the ACPI interface.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">aux_support</span></code></dt><dd><p>Describes if the display supports AUX backlight.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ac_level</span></code></dt><dd><p>the default brightness if booted on AC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dc_level</span></code></dt><dd><p>the default brightness if booted on DC</p>
 </dd>
 </dl>
 </div>
@@ -427,6 +461,7 @@ ready event when we’re already handling mst message ready event</p>
     struct mod_freesync *freesync_module;
     struct hdcp_workqueue *hdcp_workqueue;
     struct workqueue_struct *vblank_control_workqueue;
+    struct idle_workqueue *idle_workqueue;
     struct drm_atomic_state *cached_state;
     struct dc_state *cached_dc_state;
     struct dm_compressor_info compressor;
@@ -449,6 +484,7 @@ ready event when we’re already handling mst message ready event</p>
     u32 actual_brightness[AMDGPU_DM_MAX_NUM_EDP];
     bool aux_hpd_discon_quirk;
     struct mutex dpia_aux_lock;
+    struct dml2_soc_bb *bb_from_dmub;
 };
 </pre></div>
 </div>
@@ -545,6 +581,8 @@ triggered.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vblank_control_workqueue</span></code></dt><dd><p>Deferred work for vblank control events.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">idle_workqueue</span></code></dt><dd><p>Periodic work for idle events.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cached_state</span></code></dt><dd><p>Caches device atomic state for suspend/resume</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cached_dc_state</span></code></dt><dd><p>Cached state of content streams</p>
@@ -590,6 +628,8 @@ transfers are done</p>
 occurred on certain intel platform</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dpia_aux_lock</span></code></dt><dd><p>Guards access to DPIA AUX</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bb_from_dmub</span></code></dt><dd><p>Bounding box data read from dmub during early initialization for DCN4+</p>
 </dd>
 </dl>
 </div>
@@ -1554,7 +1594,7 @@ provides a set of subtests to verify plane alpha and blend mode properties.</p>
 (MPC), as follows:</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.mpcc_blnd_cfg">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_blnd_cfg</span></span></span><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_blnd_cfg</span></span></span><a class="headerlink" href="#c.mpcc_blnd_cfg" title="Link to this definition">¶</a><br /></dt>
 <dd><p>MPCC blending configuration</p>
 </dd></dl>
 
@@ -1603,16 +1643,16 @@ provides a set of subtests to verify plane alpha and blend mode properties.</p>
 </dl>
 </div>
 <p>Therefore, the blending configuration for a single MPCC instance on the MPC
-tree is defined by <a class="reference internal" href="dcn-blocks.html#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_blnd_cfg</span></code></a>, where
+tree is defined by <a class="reference internal" href="#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_blnd_cfg</span></code></a>, where
 <code class="xref c c-type docutils literal notranslate"><span class="pre">pre_multiplied_alpha</span></code> is the alpha pre-multiplied mode flag used to
 set <code class="xref c c-type docutils literal notranslate"><span class="pre">MPCC_ALPHA_MULTIPLIED_MODE</span></code>. It controls whether alpha is
 multiplied (true/false), being only true for DRM pre-multiplied blend mode.
-<a class="reference internal" href="dcn-blocks.html#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_alpha_blend_mode</span></code></a> defines the alpha blend mode regarding pixel
+<a class="reference internal" href="#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_alpha_blend_mode</span></code></a> defines the alpha blend mode regarding pixel
 alpha and plane alpha values. It sets one of the three modes for
 <code class="xref c c-type docutils literal notranslate"><span class="pre">MPCC_ALPHA_BLND_MODE</span></code>, as described below.</p>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.mpcc_alpha_blend_mode">
-<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_alpha_blend_mode</span></span></span><br /></dt>
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_alpha_blend_mode</span></span></span><a class="headerlink" href="#c.mpcc_alpha_blend_mode" title="Link to this definition">¶</a><br /></dt>
 <dd><p>define the alpha blend mode regarding pixel alpha and plane alpha values</p>
 </dd></dl>
 
@@ -1631,7 +1671,7 @@ pixel alpha and consider only plane alpha</p>
 </dd>
 </dl>
 </div>
-<p>DM then maps the elements of <cite><a class="reference internal" href="dcn-blocks.html#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mpcc_alpha_blend_mode</span></code></a></cite> to those in the DRM
+<p>DM then maps the elements of <cite><a class="reference internal" href="#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mpcc_alpha_blend_mode</span></code></a></cite> to those in the DRM
 blend formula, as follows:</p>
 <ul class="simple">
 <li><p><em>MPC pixel alpha</em> matches <em>DRM fg.alpha</em> as the alpha component value
@@ -1657,7 +1697,7 @@ following path:</p>
 <a class="reference internal" href="../../drm-kms.html#c.drm_plane_state" title="drm_plane_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_state</span></code></a> attributes to
 <code class="xref c c-type docutils literal notranslate"><span class="pre">dc_plane_info</span></code> struct to be handled in the
 OS-agnostic component (DC).</p></li>
-<li><p>On DC interface, <a class="reference internal" href="dcn-blocks.html#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mpcc_blnd_cfg</span></code></a> programs the
+<li><p>On DC interface, <a class="reference internal" href="#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mpcc_blnd_cfg</span></code></a> programs the
 MPCC blend configuration considering the <code class="xref c c-type docutils literal notranslate"><span class="pre">dc_plane_info</span></code> input from DPP.</p></li>
 </ol>
 </section>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -373,19 +373,23 @@ update rate in order to gain this same sort of resilience.  See
 <h3>rcu_assign_pointer()<a class="headerlink" href="#rcu-assign-pointer" title="Link to this heading">¶</a></h3>
 <blockquote>
 <div><p>void rcu_assign_pointer(p, typeof(p) v);</p>
-<p>Yes, <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_assign_pointer" title="rcu_assign_pointer"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_assign_pointer()</span></code></a> <strong>is</strong> implemented as a macro, though it
-would be cool to be able to declare a function in this manner.
-(Compiler experts will no doubt disagree.)</p>
+<p>Yes, <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_assign_pointer" title="rcu_assign_pointer"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_assign_pointer()</span></code></a> <strong>is</strong> implemented as a macro, though
+it would be cool to be able to declare a function in this manner.
+(And there has been some discussion of adding overloaded functions
+to the C language, so who knows?)</p>
 <p>The updater uses this spatial macro to assign a new value to an
 RCU-protected pointer, in order to safely communicate the change
 in value from the updater to the reader.  This is a spatial (as
 opposed to temporal) macro.  It does not evaluate to an rvalue,
-but it does execute any memory-barrier instructions required
-for a given CPU architecture.  Its ordering properties are that
-of a store-release operation.</p>
-<p>Perhaps just as important, it serves to document (1) which
-pointers are protected by RCU and (2) the point at which a
-given structure becomes accessible to other CPUs.  That said,
+but it does provide any compiler directives and memory-barrier
+instructions required for a given compile or CPU architecture.
+Its ordering properties are that of a store-release operation,
+that is, any prior loads and stores required to initialize the
+structure are ordered before the store that publishes the pointer
+to that structure.</p>
+<p>Perhaps just as important, <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_assign_pointer" title="rcu_assign_pointer"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_assign_pointer()</span></code></a> serves to document
+(1) which pointers are protected by RCU and (2) the point at which
+a given structure becomes accessible to other CPUs.  That said,
 <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_assign_pointer" title="rcu_assign_pointer"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_assign_pointer()</span></code></a> is most frequently used indirectly, via
 the _rcu list-manipulation primitives such as <a class="reference internal" href="../core-api/kernel-api.html#c.list_add_rcu" title="list_add_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_add_rcu()</span></code></a>.</p>
 </div></blockquote>
@@ -404,7 +408,11 @@ protects the pointer for later dereferencing.  It also
 executes any needed memory-barrier instructions for a given
 CPU architecture.  Currently, only Alpha needs memory barriers
 within <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> -- on other CPUs, it compiles to a
-volatile load.</p>
+volatile load.  However, no mainstream C compilers respect
+address dependencies, so <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> uses volatile casts,
+which, in combination with the coding guidelines listed in
+<a class="reference internal" href="rcu_dereference.html"><span class="doc">PROPER CARE AND FEEDING OF RETURN VALUES FROM rcu_dereference()</span></a>, prevent current compilers from breaking
+these dependencies.</p>
 <p>Common coding practice uses <a class="reference internal" href="../core-api/kernel-api.html#c.rcu_dereference" title="rcu_dereference"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_dereference()</span></code></a> to copy an
 RCU-protected pointer to a local variable, then dereferences
 this local variable, for example as follows:</p>

@@ -589,6 +589,8 @@ videodev2.h
 
     \/\* RGB formats (6 or 8 bytes per pixel) \*\/
     \#define \ :ref:`V4L2_PIX_FMT_BGR48_12 <v4l2-pix-fmt-bgr48-12>`    v4l2\_fourcc('B', '3', '1', '2') \/\* 48  BGR 12-bit per component \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_BGR48 <v4l2-pix-fmt-bgr48>`       v4l2\_fourcc('B', 'G', 'R', '6') \/\* 48  BGR 16-bit per component \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_RGB48 <v4l2-pix-fmt-rgb48>`       v4l2\_fourcc('R', 'G', 'B', '6') \/\* 48  RGB 16-bit per component \*\/
     \#define \ :ref:`V4L2_PIX_FMT_ABGR64_12 <v4l2-pix-fmt-abgr64-12>`   v4l2\_fourcc('B', '4', '1', '2') \/\* 64  BGRA 12-bit per component \*\/
 
     \/\* Grey formats \*\/
@@ -821,6 +823,18 @@ videodev2.h
     \#define \ :ref:`V4L2_PIX_FMT_IPU3_SGRBG10 <v4l2-pix-fmt-ipu3-sgrbg10>`       v4l2\_fourcc('i', 'p', '3', 'G') \/\* IPU3 packed 10-bit GRBG bayer \*\/
     \#define \ :ref:`V4L2_PIX_FMT_IPU3_SRGGB10 <v4l2-pix-fmt-ipu3-srggb10>`       v4l2\_fourcc('i', 'p', '3', 'r') \/\* IPU3 packed 10-bit RGGB bayer \*\/
 
+    \/\* Raspberry Pi PiSP compressed formats. \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP1_RGGB <v4l2-pix-fmt-pisp-comp1-rggb>`    v4l2\_fourcc('P', 'C', '1', 'R') \/\* PiSP 8-bit mode 1 compressed RGGB bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP1_GRBG <v4l2-pix-fmt-pisp-comp1-grbg>`    v4l2\_fourcc('P', 'C', '1', 'G') \/\* PiSP 8-bit mode 1 compressed GRBG bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP1_GBRG <v4l2-pix-fmt-pisp-comp1-gbrg>`    v4l2\_fourcc('P', 'C', '1', 'g') \/\* PiSP 8-bit mode 1 compressed GBRG bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP1_BGGR <v4l2-pix-fmt-pisp-comp1-bggr>`    v4l2\_fourcc('P', 'C', '1', 'B') \/\* PiSP 8-bit mode 1 compressed BGGR bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP1_MONO <v4l2-pix-fmt-pisp-comp1-mono>`    v4l2\_fourcc('P', 'C', '1', 'M') \/\* PiSP 8-bit mode 1 compressed monochrome \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP2_RGGB <v4l2-pix-fmt-pisp-comp2-rggb>`    v4l2\_fourcc('P', 'C', '2', 'R') \/\* PiSP 8-bit mode 2 compressed RGGB bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP2_GRBG <v4l2-pix-fmt-pisp-comp2-grbg>`    v4l2\_fourcc('P', 'C', '2', 'G') \/\* PiSP 8-bit mode 2 compressed GRBG bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP2_GBRG <v4l2-pix-fmt-pisp-comp2-gbrg>`    v4l2\_fourcc('P', 'C', '2', 'g') \/\* PiSP 8-bit mode 2 compressed GBRG bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP2_BGGR <v4l2-pix-fmt-pisp-comp2-bggr>`    v4l2\_fourcc('P', 'C', '2', 'B') \/\* PiSP 8-bit mode 2 compressed BGGR bayer \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_PISP_COMP2_MONO <v4l2-pix-fmt-pisp-comp2-mono>`    v4l2\_fourcc('P', 'C', '2', 'M') \/\* PiSP 8-bit mode 2 compressed monochrome \*\/
+
     \/\* SDR formats - used only for Software Defined Radio devices \*\/
     \#define \ :ref:`V4L2_SDR_FMT_CU8 <v4l2-sdr-fmt-cu8>`          v4l2\_fourcc('C', 'U', '0', '8') \/\* IQ u8 \*\/
     \#define \ :ref:`V4L2_SDR_FMT_CU16LE <v4l2-sdr-fmt-cu16le>`       v4l2\_fourcc('C', 'U', '1', '6') \/\* IQ u16le \*\/
@@ -847,6 +861,9 @@ videodev2.h
     \/\* Vendor specific - used for RK\_ISP1 camera sub-system \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_PARAMS <v4l2-meta-fmt-rk-isp1-params>`    v4l2\_fourcc('R', 'K', '1', 'P') \/\* Rockchip ISP1 3A Parameters \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_STAT_3A <v4l2-meta-fmt-rk-isp1-stat-3a>`   v4l2\_fourcc('R', 'K', '1', 'S') \/\* Rockchip ISP1 3A Statistics \*\/
+
+    \/\* Vendor specific - used for RaspberryPi PiSP \*\/
+    \#define \ :ref:`V4L2_META_FMT_RPI_BE_CFG <v4l2-meta-fmt-rpi-be-cfg>`        v4l2\_fourcc('R', 'P', 'B', 'C') \/\* PiSP BE configuration \*\/
 
     \#ifdef \_\_KERNEL\_\_
     \/\*

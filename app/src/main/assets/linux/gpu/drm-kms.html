@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -275,8 +275,8 @@ NULL if none is found.</p>
 changes.</p>
 <p>Drivers implementing fbdev emulation use <a class="reference internal" href="drm-kms-helpers.html#c.drm_kms_helper_hotplug_event" title="drm_kms_helper_hotplug_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_hotplug_event()</span></code></a>
 to call this hook to inform the fbdev helper of output changes.</p>
-<p>This hook is deprecated, drivers should instead use
-<a class="reference internal" href="drm-kms-helpers.html#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a> which takes care of any necessary
+<p>This hook is deprecated, drivers should instead implement fbdev
+support with struct drm_client, which takes care of any necessary
 hotplug event forwarding already without further involvement by
 the driver.</p>
 </dd>
@@ -6253,6 +6253,25 @@ the property if the callback succeeds.</p>
 <p>Zero on success, error code on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_plane_has_format">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_plane_has_format</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane" title="drm_plane"><span class="n"><span class="pre">drm_plane</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">plane</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">format</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">modifier</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_plane_has_format" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check whether the plane supports this format and modifier combination</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane</span> <span class="pre">*plane</span></code></dt><dd><p>drm plane</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">format</span></code></dt><dd><p>pixel format (DRM_FORMAT_*)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u64</span> <span class="pre">modifier</span></code></dt><dd><p>data layout modifier</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>Whether the plane supports the specified format and modifier combination.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_any_plane_has_format">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_any_plane_has_format</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">format</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">modifier</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_any_plane_has_format" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Check whether any plane supports this format and modifier combination</p>
@@ -6788,6 +6807,7 @@ hardware to make the scanout buffer visible.</p>
     unsigned int width;
     unsigned int height;
     unsigned int pitch[DRM_FORMAT_MAX_PLANES];
+    void (*set_pixel)(struct drm_scanout_buffer *sb, unsigned int x, unsigned int y, u32 color);
 };
 </pre></div>
 </div>
@@ -6805,6 +6825,10 @@ screen.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of the scanout buffer, in pixels.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pitch</span></code></dt><dd><p>Length in bytes between the start of two consecutive lines.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">set_pixel</span></code></dt><dd><p>Optional function, to set a pixel color on the
+framebuffer. It allows to handle special tiling format inside the
+driver.</p>
 </dd>
 </dl>
 </div>
@@ -7466,7 +7490,8 @@ the hardware moved to the <strong>connector</strong>’s modes list.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function creates a <a class="reference internal" href="#c.drm_display_mode" title="drm_display_mode"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_display_mode</span></code></a> instance suited for
-an analog TV output, for one of the usual analog TV mode.</p>
+an analog TV output, for one of the usual analog TV modes. Where
+this is DRM_MODE_TV_MODE_MONOCHROME, a 625-line mode will be created.</p>
 <p>Note that <strong>hdisplay</strong> is larger than the usual constraints for the PAL
 and NTSC timings, and we’ll choose to ignore most timings constraints
 to reach those resolutions.</p>
@@ -8293,6 +8318,10 @@ channels compared to most of the other PAL variants.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_TV_MODE_SECAM</span></code></dt><dd><p>CCIR System B together with the
 SECAM color system.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_TV_MODE_MONOCHROME</span></code></dt><dd><p>Use timings appropriate to
+the DRM mode, including equalizing pulses for a 525-line
+or 625-line mode, with no pedestal or color encoding.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_TV_MODE_MAX</span></code></dt><dd><p>Number of analog TV output modes.</p>
 <p>Internal implementation detail; this is not uABI.</p>
 </dd>
@@ -8472,6 +8501,24 @@ top side of the device’s casing.</p>
 <p><strong>Description</strong></p>
 <p>This enum is used to track the (LCD) panel orientation. There are no
 separate #defines for the uapi!</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_hdmi_broadcast_rgb">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_hdmi_broadcast_rgb</span></span></span><a class="headerlink" href="#c.drm_hdmi_broadcast_rgb" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Broadcast RGB Selection for an HDMI <strong>drm_connector</strong></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_HDMI_BROADCAST_RGB_AUTO</span></code></dt><dd><p>The RGB range is selected
+automatically based on the mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_HDMI_BROADCAST_RGB_FULL</span></code></dt><dd><p>Full range RGB is forced.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_HDMI_BROADCAST_RGB_LIMITED</span></code></dt><dd><p>Limited range RGB is forced.</p>
+</dd>
+</dl>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_monitor_range_info">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_monitor_range_info</span></span></span><a class="headerlink" href="#c.drm_monitor_range_info" title="Link to this definition">¶</a><br /></dt>
@@ -8938,6 +8985,28 @@ connectors to deal with overscan.</p>
 </dl>
 </div>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_connector_hdmi_infoframe">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_hdmi_infoframe</span></span></span><a class="headerlink" href="#c.drm_connector_hdmi_infoframe" title="Link to this definition">¶</a><br /></dt>
+<dd><p>HDMI Infoframe container</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_connector_hdmi_infoframe {
+    union hdmi_infoframe data;
+    bool set;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>HDMI Infoframe structure</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">set</span></code></dt><dd><p>Is the content of <strong>data</strong> valid?</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_connector_state">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_state</span></span></span><a class="headerlink" href="#c.drm_connector_state" title="Link to this definition">¶</a><br /></dt>
 <dd><p>mutable connector state</p>
@@ -8965,6 +9034,7 @@ connectors to deal with overscan.</p>
     u8 max_bpc;
     enum drm_privacy_screen_status privacy_screen_sw_state;
     struct drm_property_blob *hdr_output_metadata;
+    struct drm_connector_hdmi_state hdmi;
 };
 </pre></div>
 </div>
@@ -9046,6 +9116,54 @@ and the connector bpc limitations obtained from edid.</p>
 Properties</span></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdr_output_metadata</span></code></dt><dd><p>DRM blob property for HDR output metadata</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi</span></code></dt><dd><p>HDMI-related variable and properties. Filled by
+<strong>drm_atomic_helper_connector_hdmi_check()</strong>.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_connector_hdmi_funcs">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_hdmi_funcs</span></span></span><a class="headerlink" href="#c.drm_connector_hdmi_funcs" title="Link to this definition">¶</a><br /></dt>
+<dd><p>drm_hdmi_connector control functions</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_connector_hdmi_funcs {
+    enum drm_mode_status(*tmds_char_rate_valid)(const struct drm_connector *connector,const struct drm_display_mode *mode, unsigned long long tmds_rate);
+    int (*clear_infoframe)(struct drm_connector *connector, enum hdmi_infoframe_type type);
+    int (*write_infoframe)(struct drm_connector *connector,enum hdmi_infoframe_type type, const u8 *buffer, size_t len);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">tmds_char_rate_valid</span></code></dt><dd><p>This callback is invoked at atomic_check time to figure out
+whether a particular TMDS character rate is supported by the
+driver.</p>
+<p>The <strong>tmds_char_rate_valid</strong> callback is optional.</p>
+<p>Returns:</p>
+<p>Either <a class="reference internal" href="#c.drm_mode_status" title="drm_mode_status"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_status.MODE_OK</span></code></a> or one of the failure reasons
+in <a class="reference internal" href="#c.drm_mode_status" title="drm_mode_status"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_mode_status</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">clear_infoframe</span></code></dt><dd><p>This callback is invoked through
+<strong>drm_atomic_helper_connector_hdmi_update_infoframes</strong> during a
+commit to clear the infoframes into the hardware. It will be
+called multiple times, once for every disabled infoframe
+type.</p>
+<p>The <strong>clear_infoframe</strong> callback is optional.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">write_infoframe</span></code></dt><dd><p>This callback is invoked through
+<strong>drm_atomic_helper_connector_hdmi_update_infoframes</strong> during a
+commit to program the infoframes into the hardware. It will
+be called multiple times, once for every updated infoframe
+type.</p>
+<p>The <strong>write_infoframe</strong> callback is mandatory.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
 </dd>
 </dl>
 </div>
@@ -9376,11 +9494,13 @@ parser.</p>
     struct drm_property *vrr_capable_property;
     struct drm_property *colorspace_property;
     struct drm_property_blob *path_blob_ptr;
+    unsigned int max_bpc;
     struct drm_property *max_bpc_property;
     struct drm_privacy_screen *privacy_screen;
     struct notifier_block privacy_screen_notifier;
     struct drm_property *privacy_screen_sw_state_property;
     struct drm_property *privacy_screen_hw_state_property;
+    struct drm_property *broadcast_rgb_property;
 #define DRM_CONNECTOR_POLL_HPD (1 &lt;&lt; 0);
 #define DRM_CONNECTOR_POLL_CONNECT (1 &lt;&lt; 1);
 #define DRM_CONNECTOR_POLL_DISCONNECT (1 &lt;&lt; 2);
@@ -9415,6 +9535,7 @@ parser.</p>
     uint16_t tile_h_size, tile_v_size;
     struct llist_node free_node;
     struct hdr_sink_metadata hdr_sink_metadata;
+    struct drm_connector_hdmi hdmi;
 };
 </pre></div>
 </div>
@@ -9494,8 +9615,10 @@ with the physical size of the display.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>connector control functions</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">edid_blob_ptr</span></code></dt><dd><p>DRM property containing EDID if present. Protected by
-<a class="reference internal" href="#c.drm_mode_config" title="drm_mode_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config.mutex</span></code></a>. This should be updated only by calling
+<a class="reference internal" href="#c.drm_mode_config" title="drm_mode_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config.mutex</span></code></a>.</p>
+<p>This must be updated only by calling <a class="reference internal" href="drm-kms-helpers.html#c.drm_edid_connector_update" title="drm_edid_connector_update"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_connector_update()</span></code></a> or
 <a class="reference internal" href="drm-kms-helpers.html#c.drm_connector_update_edid_property" title="drm_connector_update_edid_property"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_update_edid_property()</span></code></a>.</p>
+<p>This must not be used by drivers directly.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">properties</span></code></dt><dd><p>property tracking for this connector</p>
 </dd>
@@ -9515,6 +9638,8 @@ colorspace supported by the sink.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">path_blob_ptr</span></code></dt><dd><p>DRM blob property data for the DP MST path property. This should only
 be updated by calling <a class="reference internal" href="#c.drm_connector_set_path_property" title="drm_connector_set_path_property"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_set_path_property()</span></code></a>.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_bpc</span></code></dt><dd><p>Maximum bits per color channel the connector supports.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">max_bpc_property</span></code></dt><dd><p>Default connector property for the max bpc to be
 driven out of the connector.</p>
 </dd>
@@ -9527,6 +9652,9 @@ connector to control the integrated privacy screen.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">privacy_screen_hw_state_property</span></code></dt><dd><p>Optional atomic property for the
 connector to report the actual integrated privacy screen state.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">broadcast_rgb_property</span></code></dt><dd><p>Connector property to set the
+Broadcast RGB selection to output with.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">polled</span></code></dt><dd><p>Connector polling mode, a combination of</p>
 <dl class="simple">
@@ -9646,6 +9774,8 @@ connector from any context, in conjunction with
 <a class="reference internal" href="#c.drm_mode_config" title="drm_mode_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config.connector_free_work</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdr_sink_metadata</span></code></dt><dd><p>HDR Metadata Information read from sink</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi</span></code></dt><dd><p>HDMI-related variable and properties.</p>
 </dd>
 </dl>
 </div>
@@ -9920,6 +10050,45 @@ infrastructure take care of cleanup and deallocation.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Initialises a preallocated connector. Connectors should be
+subclassed as part of driver connector objects.</p>
+<p>Cleanup is automatically handled with a call to
+<a class="reference internal" href="#c.drm_connector_cleanup" title="drm_connector_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_cleanup()</span></code></a> in a DRM-managed action.</p>
+<p>The connector structure should be allocated with <a class="reference internal" href="drm-internals.html#c.drmm_kzalloc" title="drmm_kzalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">drmm_kzalloc()</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drmm_connector_hdmi_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drmm_connector_hdmi_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vendor</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">product</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><span class="n"><span class="pre">drm_connector_funcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">funcs</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector_hdmi_funcs" title="drm_connector_hdmi_funcs"><span class="n"><span class="pre">drm_connector_hdmi_funcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hdmi_funcs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">connector_type</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ddc</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">supported_formats</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">max_bpc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drmm_connector_hdmi_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Init a preallocated HDMI connector</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector to init</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*vendor</span></code></dt><dd><p>HDMI Controller Vendor name</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*product</span></code></dt><dd><p>HDMI Controller Product name</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_connector_funcs</span> <span class="pre">*funcs</span></code></dt><dd><p>callbacks for this connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_connector_hdmi_funcs</span> <span class="pre">*hdmi_funcs</span></code></dt><dd><p>HDMI-related callbacks for this connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">connector_type</span></code></dt><dd><p>user visible type of the connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_adapter</span> <span class="pre">*ddc</span></code></dt><dd><p>optional pointer to the associated ddc adapter</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">supported_formats</span></code></dt><dd><p>Bitmask of <strong>hdmi_colorspace</strong> listing supported output formats</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">max_bpc</span></code></dt><dd><p>Maximum bits per char the HDMI connector supports</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Initialises a preallocated HDMI connector. Connectors can be
 subclassed as part of driver connector objects.</p>
 <p>Cleanup is automatically handled with a call to
 <a class="reference internal" href="#c.drm_connector_cleanup" title="drm_connector_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_cleanup()</span></code></a> in a DRM-managed action.</p>
@@ -10562,6 +10731,23 @@ re-training a link) without userspace’s intervention.</p>
 <p><strong>Description</strong></p>
 <p>This is used to allow the userspace to send HDR Metadata to the
 driver.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, negative errno on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_connector_attach_broadcast_rgb_property">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_attach_broadcast_rgb_property</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_attach_broadcast_rgb_property" title="Link to this definition">¶</a><br /></dt>
+<dd><p>attach “Broadcast RGB” property</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>connector to attach the property on.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is used to add support for forcing the RGB range on a connector</p>
 <p><strong>Return</strong></p>
 <p>Zero on success, negative errno on failure.</p>
 </div>
@@ -13024,6 +13210,31 @@ source is trying to drive.</p></li>
 <section id="hdmi-specific-connector-properties">
 <h3>HDMI Specific Connector Properties<a class="headerlink" href="#hdmi-specific-connector-properties" title="Link to this heading">¶</a></h3>
 <dl>
+<dt>Broadcast RGB (HDMI specific)</dt><dd><p>Indicates the Quantization Range (Full vs Limited) used. The color
+processing pipeline will be adjusted to match the value of the
+property, and the Infoframes will be generated and sent accordingly.</p>
+<p>This property is only relevant if the HDMI output format is RGB. If
+it’s one of the YCbCr variant, it will be ignored.</p>
+<p>The CRTC attached to the connector must be configured by user-space to
+always produce full-range pixels.</p>
+<p>The value of this property can be one of the following:</p>
+<dl class="simple">
+<dt>Automatic:</dt><dd><p>The quantization range is selected automatically based on the
+mode according to the HDMI specifications (HDMI 1.4b - Section
+6.6 - Video Quantization Ranges).</p>
+</dd>
+<dt>Full:</dt><dd><p>Full quantization range is forced.</p>
+</dd>
+<dt>Limited 16:235:</dt><dd><p>Limited quantization range is forced. Unlike the name suggests,
+this works for any number of bits-per-component.</p>
+</dd>
+</dl>
+<p>Property values other than Automatic can result in colors being off (if
+limited is selected but the display expects full), or a black screen
+(if full is selected but the display expects limited).</p>
+<p>Drivers can set up this property by calling
+<a class="reference internal" href="#c.drm_connector_attach_broadcast_rgb_property" title="drm_connector_attach_broadcast_rgb_property"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_attach_broadcast_rgb_property()</span></code></a>.</p>
+</dd>
 <dt>content type (HDMI specific):</dt><dd><p>Indicates content type setting to be used in HDMI infoframes to indicate
 content type for the external device, so that it adjusts its display
 settings accordingly.</p>
@@ -13090,6 +13301,12 @@ variants.</p>
 <blockquote>
 <div><p>TV Mode is CCIR System B (aka 625-lines) together with
 the SECAM Color Encoding.</p>
+</div></blockquote>
+<p>Mono:</p>
+<blockquote>
+<div><p>Use timings appropriate to the DRM mode, including
+equalizing pulses for a 525-line or 625-line mode,
+with no pedestal or color encoding.</p>
 </div></blockquote>
 <p>Drivers can set up this property by calling
 <a class="reference internal" href="#c.drm_mode_create_tv_properties" title="drm_mode_create_tv_properties"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_mode_create_tv_properties()</span></code></a>.</p>
@@ -13808,15 +14025,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TDB</p></td>
 </tr>
-<tr class="row-even"><td><p>i915</p></td>
-<td><p>Generic</p></td>
-<td><p>“Broadcast RGB”</p></td>
-<td><p>ENUM</p></td>
-<td><p>{ “Automatic”, “Full”, “Limited 16:235” }</p></td>
-<td><p>Connector</p></td>
-<td><p>When this property is set to Limited 16:235 and CTM is set, the hardware will be programmed with the result of the multiplication of CTM by the limited range matrix to ensure the pixels normally in the range 0..1.0 are remapped to the range 16/255..235/255.</p></td>
-</tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“audio”</p></td>
 <td><p>ENUM</p></td>
@@ -13824,7 +14033,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td><p>SDVO-TV</p></td>
 <td><p>“mode”</p></td>
 <td><p>ENUM</p></td>
@@ -13832,7 +14041,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“left_margin”</p></td>
 <td><p>RANGE</p></td>
@@ -13840,7 +14049,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“right_margin”</p></td>
 <td><p>RANGE</p></td>
@@ -13848,7 +14057,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“top_margin”</p></td>
 <td><p>RANGE</p></td>
@@ -13856,7 +14065,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“bottom_margin”</p></td>
 <td><p>RANGE</p></td>
@@ -13864,7 +14073,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“hpos”</p></td>
 <td><p>RANGE</p></td>
@@ -13872,7 +14081,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“vpos”</p></td>
 <td><p>RANGE</p></td>
@@ -13880,7 +14089,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“contrast”</p></td>
 <td><p>RANGE</p></td>
@@ -13888,7 +14097,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“saturation”</p></td>
 <td><p>RANGE</p></td>
@@ -13896,7 +14105,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“hue”</p></td>
 <td><p>RANGE</p></td>
@@ -13904,7 +14113,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“sharpness”</p></td>
 <td><p>RANGE</p></td>
@@ -13912,7 +14121,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“flicker_filter”</p></td>
 <td><p>RANGE</p></td>
@@ -13920,7 +14129,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“flicker_filter_adaptive”</p></td>
 <td><p>RANGE</p></td>
@@ -13928,7 +14137,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“flicker_filter_2d”</p></td>
 <td><p>RANGE</p></td>
@@ -13936,7 +14145,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“tv_chroma_filter”</p></td>
 <td><p>RANGE</p></td>
@@ -13944,7 +14153,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td></td>
 <td><p>“tv_luma_filter”</p></td>
 <td><p>RANGE</p></td>
@@ -13952,7 +14161,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td></td>
+<tr class="row-odd"><td></td>
 <td></td>
 <td><p>“dot_crawl”</p></td>
 <td><p>RANGE</p></td>
@@ -13960,7 +14169,7 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-odd"><td></td>
+<tr class="row-even"><td></td>
 <td><p>SDVO-TV/LVDS</p></td>
 <td><p>“brightness”</p></td>
 <td><p>RANGE</p></td>
@@ -13968,19 +14177,11 @@ properties here. Instead document them in a section above.</p>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
-<tr class="row-even"><td><p>CDV gma-500</p></td>
+<tr class="row-odd"><td><p>CDV gma-500</p></td>
 <td><p>Generic</p></td>
 <td><p>“Broadcast RGB”</p></td>
 <td><p>ENUM</p></td>
 <td><p>{ “Full”, “Limited 16:235” }</p></td>
-<td><p>Connector</p></td>
-<td><p>TBD</p></td>
-</tr>
-<tr class="row-odd"><td></td>
-<td></td>
-<td><p>“Broadcast RGB”</p></td>
-<td><p>ENUM</p></td>
-<td><p>{ “off”, “auto”, “on” }</p></td>
 <td><p>Connector</p></td>
 <td><p>TBD</p></td>
 </tr>
@@ -15338,7 +15539,8 @@ calls have finished.</p>
 <a class="reference internal" href="#c.drm_vblank_work_schedule" title="drm_vblank_work_schedule"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_schedule()</span></code></a>
 <a class="reference internal" href="#c.drm_vblank_work_init" title="drm_vblank_work_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_init()</span></code></a>
 <a class="reference internal" href="#c.drm_vblank_work_cancel_sync" title="drm_vblank_work_cancel_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_cancel_sync()</span></code></a>
-<a class="reference internal" href="#c.drm_vblank_work_flush" title="drm_vblank_work_flush"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_flush()</span></code></a></p>
+<a class="reference internal" href="#c.drm_vblank_work_flush" title="drm_vblank_work_flush"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_flush()</span></code></a>
+<a class="reference internal" href="#c.drm_vblank_work_flush_all" title="drm_vblank_work_flush_all"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vblank_work_flush_all()</span></code></a></p>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.to_drm_vblank_work">
 <span class="sig-name descname"><span class="n"><span class="pre">to_drm_vblank_work</span></span></span><a class="headerlink" href="#c.to_drm_vblank_work" title="Link to this definition">¶</a><br /></dt>
@@ -15419,6 +15621,22 @@ otherwise.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Wait until <strong>work</strong> has finished executing once.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_vblank_work_flush_all">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_vblank_work_flush_all</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_crtc" title="drm_crtc"><span class="n"><span class="pre">drm_crtc</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">crtc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_vblank_work_flush_all" title="Link to this definition">¶</a><br /></dt>
+<dd><p>flush all currently pending vblank work on crtc.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_crtc</span> <span class="pre">*crtc</span></code></dt><dd><p>crtc for which vblank work to flush</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Wait until all currently queued vblank work on <strong>crtc</strong>
+has finished executing once.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_vblank_work_init">

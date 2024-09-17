@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -345,12 +345,12 @@ have become evictable again (via munlock() for example) and have been “rescued
 from the unevictable list.  However, there may be situations where we decide,
 for the sake of expediency, to leave an unevictable folio on one of the regular
 active/inactive LRU lists for vmscan to deal with.  vmscan checks for such
-folios in all of the shrink_{active|inactive|page}_list() functions and will
+folios in all of the shrink_{active|inactive|folio}_list() functions and will
 “cull” such folios that it encounters: that is, it diverts those folios to the
 unevictable list for the memory cgroup and node being scanned.</p>
 <p>There may be situations where a folio is mapped into a VM_LOCKED VMA,
 but the folio does not have the mlocked flag set.  Such folios will make
-it all the way to shrink_active_list() or shrink_page_list() where they
+it all the way to shrink_active_list() or shrink_folio_list() where they
 will be detected when vmscan walks the reverse map in <a class="reference internal" href="../core-api/mm-api.html#c.folio_referenced" title="folio_referenced"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_referenced()</span></code></a>
 or <a class="reference internal" href="../core-api/mm-api.html#c.try_to_unmap" title="try_to_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_to_unmap()</span></code></a>.  The folio is culled to the unevictable list when it
 is released by the shrinker.</p>
@@ -408,7 +408,7 @@ MAP_LOCKED flag;</p></li>
 <li><p>mmapping a region in a task that has called mlockall() with the MCL_FUTURE
 flag;</p></li>
 <li><p>in the fault path and when a VM_LOCKED stack segment is expanded; or</p></li>
-<li><p>as mentioned above, in vmscan:shrink_page_list() when attempting to
+<li><p>as mentioned above, in vmscan:shrink_folio_list() when attempting to
 reclaim a page in a VM_LOCKED VMA by <a class="reference internal" href="../core-api/mm-api.html#c.folio_referenced" title="folio_referenced"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_referenced()</span></code></a> or <a class="reference internal" href="../core-api/mm-api.html#c.try_to_unmap" title="try_to_unmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_to_unmap()</span></code></a>.</p></li>
 </ol>
 </div></blockquote>
@@ -640,11 +640,11 @@ the segment.</p></li>
 but events left mlock_count too low, so they were munlocked too early.</p></li>
 </ol>
 </div></blockquote>
-<p>vmscan’s shrink_inactive_list() and shrink_page_list() also divert obviously
+<p>vmscan’s shrink_inactive_list() and shrink_folio_list() also divert obviously
 unevictable pages found on the inactive lists to the appropriate memory cgroup
 and node unevictable list.</p>
 <p>rmap’s folio_referenced_one(), called via vmscan’s shrink_active_list() or
-shrink_page_list(), and rmap’s try_to_unmap_one() called via shrink_page_list(),
+shrink_folio_list(), and rmap’s try_to_unmap_one() called via shrink_folio_list(),
 check for (3) pages still mapped into VM_LOCKED VMAs, and call mlock_vma_folio()
 to correct them.  Such pages are culled to the unevictable list when released
 by the shrinker.</p>

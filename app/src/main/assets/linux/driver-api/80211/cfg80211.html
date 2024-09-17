@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -321,6 +321,9 @@ not permitted using this channel</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_CAN_MONITOR</span></code></dt><dd><p>This channel can be used for monitor
 mode even in the presence of other (regulatory) restrictions,
 even if it is otherwise disabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_ALLOW_6GHZ_VLP_AP</span></code></dt><dd><p>Allow using this channel for AP operation
+with very low power (VLP), even if otherwise set to NO_IR.</p>
 </dd>
 </dl>
 </div>
@@ -790,7 +793,9 @@ combination must be greater or equal to this value.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>With this structure the driver can describe which interface
-combinations it supports concurrently.</p>
+combinations it supports concurrently. When set in a struct wiphy_radio,
+the combinations refer to combinations of interfaces currently active on
+that radio.</p>
 <ol class="arabic">
 <li><p>Allow #STA &lt;= 1, #AP &lt;= 1, matching BI, channels = 1, 2 total:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">ieee80211_iface_limit</span><span class="w"> </span><span class="n">limits1</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -937,6 +942,8 @@ combinations it supports concurrently.</p>
     u8 ema_max_profile_periodicity;
     u16 max_num_akm_suites;
     u16 hw_timestamp_max_peers;
+    int n_radio;
+    const struct wiphy_radio *radio;
     char priv[] ;
 };
 </pre></div>
@@ -1227,6 +1234,10 @@ non-zero value indicates that the driver supports HW timestamping.
 A value of <code class="docutils literal notranslate"><span class="pre">CFG80211_HW_TIMESTAMP_ALL_PEERS</span></code> indicates the driver
 supports enabling HW timestamping for all peers (i.e. no need to
 specify a mac address).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">n_radio</span></code></dt><dd><p>number of radios</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">radio</span></code></dt><dd><p>radios belonging to this wiphy</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">priv</span></code></dt><dd><p>driver private data (sized according to <a class="reference internal" href="#c.wiphy_new" title="wiphy_new"><code class="xref c c-func docutils literal notranslate"><span class="pre">wiphy_new()</span></code></a> parameter)</p>
 </dd>
@@ -3315,6 +3326,7 @@ caching.</p>
     int (*del_link_station)(struct wiphy *wiphy, struct net_device *dev, struct link_station_del_parameters *params);
     int (*set_hw_timestamp)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_set_hw_timestamp *hwts);
     int (*set_ttlm)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_ttlm_params *params);
+    u32 (*get_radio_mask)(struct wiphy *wiphy, struct net_device *dev);
 };
 </pre></div>
 </div>
@@ -3765,6 +3777,9 @@ disable background CAC/radar detection.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">set_hw_timestamp</span></code></dt><dd><p>Enable/disable HW timestamping of TM/FTM frames.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_ttlm</span></code></dt><dd><p>set the TID to link mapping.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_radio_mask</span></code></dt><dd><p>get bitmask of radios in use.
+(invoked with the wiphy mutex held)</p>
 </dd>
 </dl>
 </div>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -591,7 +591,6 @@ use this macro once, and calling it replaces <a class="reference internal" href=
     bool running;
     bool rt;
     bool auto_runtime_pm;
-    bool cur_msg_mapped;
     bool fallback;
     bool last_cs_mode_high;
     s8 last_cs[SPI_CS_CNT_MAX];
@@ -741,8 +740,6 @@ is running <a class="reference internal" href="#c.spi_finalize_current_message" 
 <dt><code class="docutils literal notranslate"><span class="pre">auto_runtime_pm</span></code></dt><dd><p>the core should ensure a runtime PM reference is held
 while the hardware is prepared, using the parent
 device for the spidev</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">cur_msg_mapped</span></code></dt><dd><p>message has been mapped for DMA</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fallback</span></code></dt><dd><p>fallback to PIO if DMA transfer return failure with
 SPI_TRANS_FAIL_NO_START.</p>
@@ -921,10 +918,12 @@ management during spi_message processing.</p>
 #define SPI_TRANS_FAIL_NO_START BIT(0);
 #define SPI_TRANS_FAIL_IO       BIT(1);
     u16 error;
-    dma_addr_t tx_dma;
-    dma_addr_t rx_dma;
+    bool tx_sg_mapped;
+    bool rx_sg_mapped;
     struct sg_table tx_sg;
     struct sg_table rx_sg;
+    dma_addr_t tx_dma;
+    dma_addr_t rx_dma;
     unsigned dummy_data:1;
     unsigned cs_off:1;
     unsigned cs_change:1;
@@ -958,13 +957,17 @@ management during spi_message processing.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">error</span></code></dt><dd><p>Error status logged by SPI controller driver.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">tx_dma</span></code></dt><dd><p>DMA address of tx_buf, currently not for client use</p>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_sg_mapped</span></code></dt><dd><p>If true, the <strong>tx_sg</strong> is mapped for DMA</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rx_dma</span></code></dt><dd><p>DMA address of rx_buf, currently not for client use</p>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_sg_mapped</span></code></dt><dd><p>If true, the <strong>rx_sg</strong> is mapped for DMA</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_sg</span></code></dt><dd><p>Scatterlist for transmit, currently not for client use</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_sg</span></code></dt><dd><p>Scatterlist for receive, currently not for client use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">tx_dma</span></code></dt><dd><p>DMA address of tx_buf, currently not for client use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_dma</span></code></dt><dd><p>DMA address of rx_buf, currently not for client use</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dummy_data</span></code></dt><dd><p>indicates transfer is dummy bytes transfer.</p>
 </dd>
@@ -2027,6 +2030,28 @@ to avoid leaking resources.</p>
 <p>Calls to this function must be balanced with calls to <a class="reference internal" href="#c.spi_optimize_message" title="spi_optimize_message"><code class="xref c c-func docutils literal notranslate"><span class="pre">spi_optimize_message()</span></code></a>.</p>
 <p><strong>Context</strong></p>
 <p>can sleep</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.devm_spi_optimize_message">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_spi_optimize_message</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_device" title="spi_device"><span class="n"><span class="pre">spi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">spi</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_message" title="spi_message"><span class="n"><span class="pre">spi_message</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">msg</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_spi_optimize_message" title="Link to this definition">¶</a><br /></dt>
+<dd><p>managed version of <a class="reference internal" href="#c.spi_optimize_message" title="spi_optimize_message"><code class="xref c c-func docutils literal notranslate"><span class="pre">spi_optimize_message()</span></code></a></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the device that manages <strong>msg</strong> (usually <strong>spi-&gt;dev</strong>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_device</span> <span class="pre">*spi</span></code></dt><dd><p>the device that will be used for the message</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_message</span> <span class="pre">*msg</span></code></dt><dd><p>the message to optimize</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>zero on success, else a negative error code</p>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.spi_unoptimize_message" title="spi_unoptimize_message"><code class="xref c c-func docutils literal notranslate"><span class="pre">spi_unoptimize_message()</span></code></a> will automatically be called when the device is
+removed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.spi_async">

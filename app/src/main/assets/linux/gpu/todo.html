@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -350,16 +350,6 @@ of the atomic suspend/resume code in older atomic modeset drivers.</p>
 <p>Contact: Maintainer of the driver you plan to convert</p>
 <p>Level: Intermediate</p>
 </section>
-<section id="convert-drivers-to-use-drm-fbdev-generic-setup">
-<h2>Convert drivers to use drm_fbdev_generic_setup()<a class="headerlink" href="#convert-drivers-to-use-drm-fbdev-generic-setup" title="Link to this heading">¶</a></h2>
-<p>Most drivers can use <a class="reference internal" href="drm-kms-helpers.html#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a>. Driver have to implement
-atomic modesetting and GEM vmap support. Historically, generic fbdev emulation
-expected the framebuffer in system memory or system-like memory. By employing
-<a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iosys_map</span></code></a>, drivers with frambuffers in I/O memory can be supported
-as well.</p>
-<p>Contact: Maintainer of the driver you plan to convert</p>
-<p>Level: Intermediate</p>
-</section>
 <section id="reimplement-functions-in-drm-fbdev-fb-ops-without-fbdev">
 <h2>Reimplement functions in drm_fbdev_fb_ops without fbdev<a class="headerlink" href="#reimplement-functions-in-drm-fbdev-fb-ops-without-fbdev" title="Link to this heading">¶</a></h2>
 <p>A number of callback functions in drm_fbdev_fb_ops could benefit from
@@ -394,7 +384,7 @@ Various hold-ups:</p>
 <ul class="simple">
 <li><p>Need to switch over to the generic dirty tracking code using
 drm_atomic_helper_dirtyfb first (e.g. qxl).</p></li>
-<li><p>Need to switch to <a class="reference internal" href="drm-kms-helpers.html#c.drm_fbdev_generic_setup" title="drm_fbdev_generic_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fbdev_generic_setup()</span></code></a>, otherwise a lot of the custom fb
+<li><p>Need to switch to drm_fbdev_generic_setup(), otherwise a lot of the custom fb
 setup code can’t be deleted.</p></li>
 <li><p>Need to switch to <a class="reference internal" href="drm-kms-helpers.html#c.drm_gem_fb_create" title="drm_gem_fb_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_fb_create()</span></code></a>, as now <a class="reference internal" href="drm-kms-helpers.html#c.drm_gem_fb_create" title="drm_gem_fb_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_fb_create()</span></code></a> checks for
 valid formats for atomic drivers.</p></li>
@@ -539,26 +529,44 @@ all drivers might be able to drop CONFIG_FB_DEVICE.</p>
 <p>Contact: Thomas Zimmermann &lt;<a class="reference external" href="mailto:tzimmermann&#37;&#52;&#48;suse&#46;de">tzimmermann<span>&#64;</span>suse<span>&#46;</span>de</a>&gt;</p>
 <p>Level: Starter</p>
 </section>
-<section id="clean-up-checks-for-already-prepared-enabled-in-panels">
-<h2>Clean up checks for already prepared/enabled in panels<a class="headerlink" href="#clean-up-checks-for-already-prepared-enabled-in-panels" title="Link to this heading">¶</a></h2>
-<p>In a whole pile of panel drivers, we have code to make the
-prepare/unprepare/enable/disable callbacks behave as no-ops if they’ve already
-been called. To get some idea of the duplicated code, try:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>git grep &#39;if.*&gt;prepared&#39; -- drivers/gpu/drm/panel
-git grep &#39;if.*&gt;enabled&#39; -- drivers/gpu/drm/panel
-</pre></div>
-</div>
-<p>In the patch (“drm/panel: Check for already prepared/enabled in drm_panel”)
-we’ve moved this check to the core. Now we can most definitely remove the
-check from the individual panels and save a pile of code.</p>
-<p>In adition to removing the check from the individual panels, it is believed
-that even the core shouldn’t need this check and that should be considered
-an error if other code ever relies on this check. The check in the core
-currently prints a warning whenever something is relying on this check with
-dev_warn(). After a little while, we likely want to promote this to a
-WARN(1) to help encourage folks not to rely on this behavior.</p>
+<section id="remove-disable-unprepare-in-remove-shutdown-in-panel-simple-and-panel-edp">
+<h2>Remove disable/unprepare in remove/shutdown in panel-simple and panel-edp<a class="headerlink" href="#remove-disable-unprepare-in-remove-shutdown-in-panel-simple-and-panel-edp" title="Link to this heading">¶</a></h2>
+<p>As of <a class="reference external" href="https://git.kernel.org/torvalds/c/d2aacaf07395">commit d2aacaf07395</a> (“drm/panel: Check for already prepared/enabled in
+drm_panel”), we have a check in the drm_panel core to make sure nobody
+double-calls prepare/enable/disable/unprepare. Eventually that should probably
+be turned into a WARN_ON() or somehow made louder, but right now we actually
+expect it to trigger and so we don’t want it to be too loud.</p>
+<p>Specifically, that warning will trigger for panel-edp and panel-simple at
+shutdown time because those panels hardcode a call to <a class="reference internal" href="drm-kms-helpers.html#c.drm_panel_disable" title="drm_panel_disable"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_disable()</span></code></a>
+and <a class="reference internal" href="drm-kms-helpers.html#c.drm_panel_unprepare" title="drm_panel_unprepare"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_unprepare()</span></code></a> at shutdown and remove time that they call regardless
+of panel state. On systems with a properly coded DRM modeset driver that
+calls <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_shutdown" title="drm_atomic_helper_shutdown"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_shutdown()</span></code></a> this is pretty much guaranteed to cause
+the warning to fire.</p>
+<p>Unfortunately we can’t safely remove the calls in panel-edp and panel-simple
+until we’re sure that all DRM modeset drivers that are used with those panels
+properly call <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_shutdown" title="drm_atomic_helper_shutdown"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_shutdown()</span></code></a>. This TODO item is to validate
+that all DRM modeset drivers used with panel-edp and panel-simple properly
+call <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_shutdown" title="drm_atomic_helper_shutdown"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_shutdown()</span></code></a> and then remove the calls to
+disable/unprepare from those panels. Alternatively, this TODO item could be
+removed by convincing stakeholders that those calls are fine and downgrading
+the error message in <a class="reference internal" href="drm-kms-helpers.html#c.drm_panel_disable" title="drm_panel_disable"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_disable()</span></code></a> / <a class="reference internal" href="drm-kms-helpers.html#c.drm_panel_unprepare" title="drm_panel_unprepare"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_unprepare()</span></code></a> to a
+debug-level message.</p>
 <p>Contact: Douglas Anderson &lt;<a class="reference external" href="mailto:dianders&#37;&#52;&#48;chromium&#46;org">dianders<span>&#64;</span>chromium<span>&#46;</span>org</a>&gt;</p>
-<p>Level: Starter/Intermediate</p>
+<p>Level: Intermediate</p>
+</section>
+<section id="transition-away-from-using-mipi-dsi-write-seq">
+<h2>Transition away from using mipi_dsi_*_write_seq()<a class="headerlink" href="#transition-away-from-using-mipi-dsi-write-seq" title="Link to this heading">¶</a></h2>
+<p>The macros <a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_generic_write_seq" title="mipi_dsi_generic_write_seq"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_seq()</span></code></a> and <a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_dcs_write_seq" title="mipi_dsi_dcs_write_seq"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq()</span></code></a> are
+non-intuitive because, if there are errors, they return out of the <em>caller’s</em>
+function. We should move all callers to use <a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_generic_write_seq_multi" title="mipi_dsi_generic_write_seq_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_seq_multi()</span></code></a>
+and <a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_dcs_write_seq_multi" title="mipi_dsi_dcs_write_seq_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq_multi()</span></code></a> macros instead.</p>
+<p>Once all callers are transitioned, the macros and the functions that they call,
+<a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_generic_write_chatty" title="mipi_dsi_generic_write_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_generic_write_chatty()</span></code></a> and <a class="reference internal" href="drm-kms-helpers.html#c.mipi_dsi_dcs_write_buffer_chatty" title="mipi_dsi_dcs_write_buffer_chatty"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_buffer_chatty()</span></code></a>, can
+probably be removed. Alternatively, if people feel like the _multi() variants
+are overkill for some use cases, we could keep the mipi_dsi_*_write_seq()
+variants but change them not to return out of the caller.</p>
+<p>Contact: Douglas Anderson &lt;<a class="reference external" href="mailto:dianders&#37;&#52;&#48;chromium&#46;org">dianders<span>&#64;</span>chromium<span>&#46;</span>org</a>&gt;</p>
+<p>Level: Starter</p>
 <section id="core-refactorings">
 <h3>Core refactorings<a class="headerlink" href="#core-refactorings" title="Link to this heading">¶</a></h3>
 </section>

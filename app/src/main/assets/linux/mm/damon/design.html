@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -166,53 +166,47 @@ specification and DAMON-based operation schemes are stored in a data structure
 called DAMON <code class="docutils literal notranslate"><span class="pre">context</span></code>.  DAMON executes each context with a kernel thread
 called <code class="docutils literal notranslate"><span class="pre">kdamond</span></code>.  Multiple kdamonds could run in parallel, for different
 types of monitoring.</p>
+<p>To know how user-space can do the configurations and start/stop DAMON, refer to
+<a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a> documentation.</p>
 </section>
 <section id="overall-architecture">
 <h2>Overall Architecture<a class="headerlink" href="#overall-architecture" title="Link to this heading">¶</a></h2>
 <p>DAMON subsystem is configured with three layers including</p>
 <ul class="simple">
-<li><p>Operations Set: Implements fundamental operations for DAMON that depends on
-the given monitoring target address-space and available set of
-software/hardware primitives,</p></li>
-<li><p>Core: Implements core logics including monitoring overhead/accurach control
-and access-aware system operations on top of the operations set layer, and</p></li>
-<li><p>Modules: Implements kernel modules for various purposes that provides
-interfaces for the user space, on top of the core layer.</p></li>
+<li><p><a class="reference internal" href="#damon-operations-set"><span class="std std-ref">Operations Set</span></a>: Implements fundamental
+operations for DAMON that depends on the given monitoring target
+address-space and available set of software/hardware primitives,</p></li>
+<li><p><a class="reference internal" href="#damon-core-logic"><span class="std std-ref">Core</span></a>: Implements core logics including monitoring
+overhead/accuracy control and access-aware system operations on top of the
+operations set layer, and</p></li>
+<li><p><a class="reference internal" href="#damon-modules"><span class="std std-ref">Modules</span></a>: Implements kernel modules for various
+purposes that provides interfaces for the user space, on top of the core
+layer.</p></li>
 </ul>
-<section id="configurable-operations-set">
-<span id="damon-design-configurable-operations-set"></span><h3>Configurable Operations Set<a class="headerlink" href="#configurable-operations-set" title="Link to this heading">¶</a></h3>
-<p>For data access monitoring and additional low level work, DAMON needs a set of
-implementations for specific operations that are dependent on and optimized for
-the given target address space.  On the other hand, the accuracy and overhead
-tradeoff mechanism, which is the core logic of DAMON, is in the pure logic
-space.  DAMON separates the two parts in different layers, namely DAMON
-Operations Set and DAMON Core Logics Layers, respectively.  It further defines
-the interface between the layers to allow various operations sets to be
-configured with the core logic.</p>
-<p>Due to this design, users can extend DAMON for any address space by configuring
-the core logic to use the appropriate operations set.  If any appropriate set
-is unavailable, users can implement one on their own.</p>
-<p>For example, physical memory, virtual memory, swap space, those for specific
-processes, NUMA nodes, files, and backing memory devices would be supportable.
-Also, if some architectures or devices supporting special optimized access
-check primitives, those will be easily configurable.</p>
-</section>
-<section id="programmable-modules">
-<h3>Programmable Modules<a class="headerlink" href="#programmable-modules" title="Link to this heading">¶</a></h3>
-<p>Core layer of DAMON is implemented as a framework, and exposes its application
-programming interface to all kernel space components such as subsystems and
-modules.  For common use cases of DAMON, DAMON subsystem provides kernel
-modules that built on top of the core layer using the API, which can be easily
-used by the user space end users.</p>
-</section>
 </section>
 <section id="operations-set-layer">
 <span id="damon-operations-set"></span><h2>Operations Set Layer<a class="headerlink" href="#operations-set-layer" title="Link to this heading">¶</a></h2>
-<p>The monitoring operations are defined in two parts:</p>
+<p id="damon-design-configurable-operations-set">For data access monitoring and additional low level work, DAMON needs a set of
+implementations for specific operations that are dependent on and optimized for
+the given target address space.  For example, below two operations for access
+monitoring are address-space dependent.</p>
 <ol class="arabic simple">
 <li><p>Identification of the monitoring target address range for the address space.</p></li>
 <li><p>Access check of specific address range in the target space.</p></li>
 </ol>
+<p>DAMON consolidates these implementations in a layer called DAMON Operations
+Set, and defines the interface between it and the upper layer.  The upper layer
+is dedicated for DAMON’s core logics including the mechanism for control of the
+monitoring accruracy and the overhead.</p>
+<p>Hence, DAMON can easily be extended for any address space and/or available
+hardware features by configuring the core logic to use the appropriate
+operations set.  If there is no available operations set for a given purpose, a
+new operations set can be implemented following the interface between the
+layers.</p>
+<p>For example, physical memory, virtual memory, swap space, those for specific
+processes, NUMA nodes, files, and backing memory devices would be supportable.
+Also, if some architectures or devices support special optimized access check
+features, those will be easily configurable.</p>
 <p>DAMON currently provides below three operation sets.  Below two subsections
 describe how those work.</p>
 <blockquote>
@@ -222,6 +216,10 @@ describe how those work.</p>
 <li><p>paddr: Monitor the physical address space of the system</p></li>
 </ul>
 </div></blockquote>
+<p>To know how user-space can do the configuration via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-context"><span class="std std-ref">operations</span></a> file part of the
+documentation.</p>
+<blockquote>
+<div></div></blockquote>
 <section id="vma-based-target-address-range-construction">
 <span id="damon-design-vaddr-target-regions-construction"></span><h3>VMA-based Target Address Range Construction<a class="headerlink" href="#vma-based-target-address-range-construction" title="Link to this heading">¶</a></h3>
 <p>A mechanism of <code class="docutils literal notranslate"><span class="pre">vaddr</span></code> DAMON operations set that automatically initializes
@@ -273,13 +271,15 @@ as Idle page tracking does.</p>
 </section>
 </section>
 <section id="core-logics">
-<h2>Core Logics<a class="headerlink" href="#core-logics" title="Link to this heading">¶</a></h2>
+<span id="damon-core-logic"></span><h2>Core Logics<a class="headerlink" href="#core-logics" title="Link to this heading">¶</a></h2>
 <section id="monitoring">
-<h3>Monitoring<a class="headerlink" href="#monitoring" title="Link to this heading">¶</a></h3>
+<span id="damon-design-monitoring"></span><h3>Monitoring<a class="headerlink" href="#monitoring" title="Link to this heading">¶</a></h3>
 <p>Below four sections describe each of the DAMON core mechanisms and the five
 monitoring attributes, <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code>, <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>,
 <code class="docutils literal notranslate"><span class="pre">update</span> <span class="pre">interval</span></code>, <code class="docutils literal notranslate"><span class="pre">minimum</span> <span class="pre">number</span> <span class="pre">of</span> <span class="pre">regions</span></code>, and <code class="docutils literal notranslate"><span class="pre">maximum</span> <span class="pre">number</span> <span class="pre">of</span>
 <span class="pre">regions</span></code>.</p>
+<p>To know how user-space can set the attributes via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-monitoring-attrs"><span class="std std-ref">monitoring_attrs</span></a>
+part of the documentation.</p>
 <section id="access-frequency-monitoring">
 <h4>Access Frequency Monitoring<a class="headerlink" href="#access-frequency-monitoring" title="Link to this heading">¶</a></h4>
 <p>The output of DAMON says what pages are how frequently accessed for a given
@@ -314,7 +314,7 @@ one page in the region is required to be checked.  Thus, for each <code class="d
 <span class="pre">interval</span></code>, DAMON randomly picks one page in each region, waits for one
 <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code>, checks whether the page is accessed meanwhile, and
 increases the access frequency counter of the region if so.  The counter is
-called <code class="docutils literal notranslate"><span class="pre">nr_regions</span></code> of the region.  Therefore, the monitoring overhead is
+called <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code> of the region.  Therefore, the monitoring overhead is
 controllable by setting the number of regions.  DAMON allows users to set the
 minimum and the maximum number of regions for the trade-off.</p>
 <p>This scheme, however, cannot preserve the quality of the output if the
@@ -327,11 +327,18 @@ fulfill the assumption (pages in same region have similar access frequencies),
 the data access pattern can be dynamically changed.  This will result in low
 monitoring quality.  To keep the assumption as much as possible, DAMON
 adaptively merges and splits each region based on their access frequency.</p>
-<p>For each <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>, it compares the access frequencies of
-adjacent regions and merges those if the frequency difference is small.  Then,
-after it reports and clears the aggregated access frequency of each region, it
-splits each region into two or three regions if the total number of regions
-will not exceed the user-specified maximum number of regions after the split.</p>
+<p>For each <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>, it compares the access frequencies
+(<code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>) of adjacent regions.  If the difference is small, and if the
+sum of the two regions’ sizes is smaller than the size of total regions divided
+by the <code class="docutils literal notranslate"><span class="pre">minimum</span> <span class="pre">number</span> <span class="pre">of</span> <span class="pre">regions</span></code>, DAMON merges the two regions.  If the
+resulting number of total regions is still higher than <code class="docutils literal notranslate"><span class="pre">maximum</span> <span class="pre">number</span> <span class="pre">of</span>
+<span class="pre">regions</span></code>, it repeats the merging with increasing access frequenceis difference
+threshold until the upper-limit of the number of regions is met, or the
+threshold becomes higher than possible maximum value (<code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>
+divided by <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code>).   Then, after it reports and clears the
+aggregated access frequency of each region, it splits each region into two or
+three regions if the total number of regions will not exceed the user-specified
+maximum number of regions after the split.</p>
 <p>In this way, DAMON provides its best-effort quality and minimal overhead while
 keeping the bounds users set for their trade-off.</p>
 </section>
@@ -357,6 +364,10 @@ monitoring operations to check dynamic changes including memory mapping changes
 and applies it to monitoring operations-related data structures such as the
 abstracted monitoring target memory area only for each of a user-specified time
 interval (<code class="docutils literal notranslate"><span class="pre">update</span> <span class="pre">interval</span></code>).</p>
+<p>User-space can get the monitoring results via DAMON sysfs interface and/or
+tracepoints.  For more details, please refer to the documentations for
+<a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-schemes-tried-regions"><span class="std std-ref">DAMOS tried regions</span></a> and <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#tracepoint"><span class="std std-ref">Tracepoints for Monitoring Results</span></a>,
+respectively.</p>
 </section>
 </section>
 <section id="operation-schemes">
@@ -392,6 +403,9 @@ level.  For such specifications, DAMON starts monitoring, finds regions having
 the access pattern of interest, and applies the user-desired operation actions
 to the regions, for every user-specified time interval called
 <code class="docutils literal notranslate"><span class="pre">apply_interval</span></code>.</p>
+<p>To know how user-space can set <code class="docutils literal notranslate"><span class="pre">apply_interval</span></code> via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs
+interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-scheme"><span class="std std-ref">apply_interval_us</span></a>
+part of the documentation.</p>
 <section id="operation-action">
 <span id="damon-design-damos-action"></span><h4>Operation Action<a class="headerlink" href="#operation-action" title="Link to this heading">¶</a></h4>
 <p>The management action that the users desire to apply to the regions of their
@@ -424,6 +438,10 @@ Supported by <code class="docutils literal notranslate"><span class="pre">vaddr<
 Supported by <code class="docutils literal notranslate"><span class="pre">paddr</span></code> operations set.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lru_deprio</span></code>: Deprioritize the region on its LRU lists.
 Supported by <code class="docutils literal notranslate"><span class="pre">paddr</span></code> operations set.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate_hot</span></code>: Migrate the regions prioritizing warmer regions.
+Supported by <code class="docutils literal notranslate"><span class="pre">paddr</span></code> operations set.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">migrate_cold</span></code>: Migrate the regions prioritizing colder regions.
+Supported by <code class="docutils literal notranslate"><span class="pre">paddr</span></code> operations set.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">stat</span></code>: Do nothing but count the statistics.
 Supported by all operations sets.</p></li>
 </ul>
@@ -431,6 +449,8 @@ Supported by all operations sets.</p></li>
 <p>Applying the actions except <code class="docutils literal notranslate"><span class="pre">stat</span></code> to a region is considered as changing the
 region’s characteristics.  Hence, DAMOS resets the age of regions when any such
 actions are applied to those.</p>
+<p>To know how user-space can set the action via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-scheme"><span class="std std-ref">action</span></a> part of the
+documentation.</p>
 </section>
 <section id="target-access-pattern">
 <span id="damon-design-damos-access-pattern"></span><h4>Target Access Pattern<a class="headerlink" href="#target-access-pattern" title="Link to this heading">¶</a></h4>
@@ -440,6 +460,8 @@ the access frequency, and the age.  Users can describe their access pattern of
 interest by setting minimum and maximum values of the three properties.  If a
 region’s three properties are in the ranges, DAMOS classifies it as one of the
 regions that the scheme is having an interest in.</p>
+<p>To know how user-space can set the access pattern via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs
+interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-access-pattern"><span class="std std-ref">access_pattern</span></a> part of the documentation.</p>
 </section>
 <section id="quotas">
 <span id="damon-design-damos-quotas"></span><h4>Quotas<a class="headerlink" href="#quotas" title="Link to this heading">¶</a></h4>
@@ -454,6 +476,8 @@ dynamic.</p>
 feature called quotas.  It lets users specify an upper limit of time that DAMOS
 can use for applying the action, and/or a maximum bytes of memory regions that
 the action can be applied within a user-specified time duration.</p>
+<p>To know how user-space can set the basic quotas via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-quotas"><span class="std std-ref">quotas</span></a> part of the
+documentation.</p>
 <section id="prioritization">
 <span id="damon-design-damos-quotas-prioritization"></span><h5>Prioritization<a class="headerlink" href="#prioritization" title="Link to this heading">¶</a></h5>
 <p>A mechanism for making a good decision under the quotas.  When the action
@@ -474,6 +498,9 @@ to specify the weight of each access pattern property and passes the
 information to the underlying mechanism.  Nevertheless, how and even whether
 the weight will be respected are up to the underlying prioritization mechanism
 implementation.</p>
+<p>To know how user-space can set the prioritization weights via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs
+interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-quotas"><span class="std std-ref">weights</span></a> part of
+the documentation.</p>
 </section>
 <section id="aim-oriented-feedback-driven-auto-tuning">
 <span id="damon-design-damos-quotas-auto-tuning"></span><h5>Aim-oriented Feedback-driven Auto-tuning<a class="headerlink" href="#aim-oriented-feedback-driven-auto-tuning" title="Link to this heading">¶</a></h5>
@@ -499,6 +526,9 @@ in microseconds that measured from last quota reset to next quota reset.
 DAMOS does the measurement on its own, so only <code class="docutils literal notranslate"><span class="pre">target_value</span></code> need to be
 set by users at the initial time.  In other words, DAMOS does self-feedback.</p></li>
 </ul>
+<p>To know how user-space can set the tuning goal metric, the target value, and/or
+the current value via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to
+<a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-schemes-quota-goals"><span class="std std-ref">quota goals</span></a> part of the documentation.</p>
 </section>
 </section>
 <section id="watermarks">
@@ -517,6 +547,8 @@ metric becomes below the mid watermark but above the low watermark, the scheme
 is activated.  If all schemes are deactivated by the watermarks, the monitoring
 is also deactivated.  In this case, the DAMON worker thread only periodically
 checks the watermarks and therefore incurs nearly zero overhead.</p>
+<p>To know how user-space can set the watermarks via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-watermarks"><span class="std std-ref">watermarks</span></a> part of the
+documentation.</p>
 </section>
 <section id="filters">
 <span id="damon-design-damos-filters"></span><h4>Filters<a class="headerlink" href="#filters" title="Link to this heading">¶</a></h4>
@@ -582,6 +614,8 @@ scheme.</p></li>
 </dl>
 </li>
 </ul>
+<p>To know how user-space can set the watermarks via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-filters"><span class="std std-ref">filters</span></a> part of the
+documentation.</p>
 </section>
 </section>
 <section id="application-programming-interface">
@@ -596,7 +630,7 @@ interface, namely <code class="docutils literal notranslate"><span class="pre">i
 </section>
 </section>
 <section id="modules">
-<h2>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h2>
+<span id="damon-modules"></span><h2>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h2>
 <p>Because the core of DAMON is a framework for kernel components, it doesn’t
 provide any direct interface for the user space.  Such interfaces should be
 implemented by each DAMON API user kernel components, instead.  DAMON subsystem

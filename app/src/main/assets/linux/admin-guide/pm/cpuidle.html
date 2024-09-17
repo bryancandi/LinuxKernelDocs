@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -157,7 +157,6 @@
 <li class="toctree-l3 current"><a class="reference internal" href="working-state.html">Working-State Power Management</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -560,15 +559,12 @@ situations in which the measured idle duration is so much shorter than the
 sleep length that the bin it falls into corresponds to an idle state
 shallower than the one whose bin is fallen into by the sleep length (these
 situations are referred to as “intercepts” below).</p>
-<p>In addition to the metrics described above, the governor counts recent
-intercepts (that is, intercepts that have occurred during the last
-<code class="docutils literal notranslate"><span class="pre">NR_RECENT</span></code> invocations of it for the given CPU) for each bin.</p>
 <p>In order to select an idle state for a CPU, the governor takes the following
 steps (modulo the possible latency constraint that must be taken into account
 too):</p>
 <ol class="arabic simple">
 <li><p>Find the deepest CPU idle state whose target residency does not exceed
-the current sleep length (the candidate idle state) and compute 3 sums as
+the current sleep length (the candidate idle state) and compute 2 sums as
 follows:</p>
 <ul class="simple">
 <li><p>The sum of the “hits” and “intercepts” metrics for the candidate state
@@ -579,20 +575,16 @@ had been equal to the current one).</p></li>
 than the candidate one (it represents the cases in which the CPU was not
 idle long enough to avoid being intercepted if the sleep length had been
 equal to the current one).</p></li>
-<li><p>The sum of the numbers of recent intercepts for all of the idle states
-shallower than the candidate one.</p></li>
 </ul>
 </li>
-<li><p>If the second sum is greater than the first one or the third sum is
-greater than <code class="docutils literal notranslate"><span class="pre">NR_RECENT</span></code> / 2, the CPU is likely to wake up early, so look
-for an alternative idle state to select.</p>
+<li><p>If the second sum is greater than the first one the CPU is likely to wake
+up early, so look for an alternative idle state to select.</p>
 <ul class="simple">
 <li><p>Traverse the idle states shallower than the candidate one in the
 descending order.</p></li>
-<li><p>For each of them compute the sum of the “intercepts” metrics and the sum
-of the numbers of recent intercepts over all of the idle states between
-it and the candidate one (including the former and excluding the
-latter).</p></li>
+<li><p>For each of them compute the sum of the “intercepts” metrics over all
+of the idle states between it and the candidate one (including the
+former and excluding the latter).</p></li>
 <li><p>If each of these sums that needs to be taken into account (because the
 check related to it has indicated that the CPU is likely to wake up
 early) is greater than a half of the corresponding sum computed in step
@@ -603,26 +595,6 @@ select the given idle state instead of the candidate one.</p></li>
 </li>
 <li><p>By default, select the candidate state.</p></li>
 </ol>
-<p>Util-awareness mechanism:</p>
-<p>The idea behind the util-awareness extension is that there are two distinct
-scenarios for the CPU which should result in two different approaches to idle
-state selection - utilized and not utilized.</p>
-<p>In this case, ‘utilized’ means that the average runqueue util of the CPU is
-above a certain threshold.</p>
-<p>When the CPU is utilized while going into idle, more likely than not it will
-be woken up to do more work soon and so a shallower idle state should be
-selected to minimise latency and maximise performance. When the CPU is not
-being utilized, the usual metrics-based approach to selecting the deepest
-available idle state should be preferred to take advantage of the power
-saving.</p>
-<p>In order to achieve this, the governor uses a utilization threshold.
-The threshold is computed per-CPU as a percentage of the CPU’s capacity
-by bit shifting the capacity value. Based on testing, the shift of 6 (~1.56%)
-seems to be getting the best results.</p>
-<p>Before selecting the next idle state, the governor compares the current CPU
-util to the precomputed util threshold. If it’s below, it defaults to the
-TEO metrics mechanism. If it’s above, the closest shallower idle state will
-be selected instead, as long as is not a polling state.</p>
 </section>
 <section id="representation-of-idle-states">
 <span id="idle-states-representation"></span><h2>Representation of Idle States<a class="headerlink" href="#representation-of-idle-states" title="Link to this heading">¶</a></h2>

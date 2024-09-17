@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -924,59 +924,6 @@ to be called when the system is still in usermode.</p>
 <p>To prevent this, the preempt_enable_notrace will use this function
 instead of preempt_schedule() to exit user context if needed before
 calling the scheduler.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.yield">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">yield</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.yield" title="Link to this definition">¶</a><br /></dt>
-<dd><p>yield the current processor to other threads.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">void</span></code></dt><dd><p>no arguments</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Do not ever use this function, there’s a 99% chance you’re doing it wrong.</p>
-<p>The scheduler is at all times free to pick the calling task as the most
-eligible task to run, if removing the <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a> call from your code breaks
-it, it’s already broken.</p>
-<p>Typical broken usage is:</p>
-<dl class="simple">
-<dt>while (!event)</dt><dd><p><a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a>;</p>
-</dd>
-</dl>
-<p>where one assumes that <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a> will let ‘the other’ process run that will
-make event true. If the current task is a SCHED_FIFO task that will never
-happen. Never use <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a> as a progress guarantee!!</p>
-<p>If you want to use <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a> to wait for something, use <a class="reference internal" href="#c.wait_event" title="wait_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">wait_event()</span></code></a>.
-If you want to use <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a> to be ‘nice’ for others, use cond_resched().
-If you still want to use <a class="reference internal" href="#c.yield" title="yield"><code class="xref c c-func docutils literal notranslate"><span class="pre">yield()</span></code></a>, do not!</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.yield_to">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">yield_to</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">preempt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.yield_to" title="Link to this definition">¶</a><br /></dt>
-<dd><p>yield the current processor to another thread in your thread group, or accelerate that thread toward the processor it’s on.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*p</span></code></dt><dd><p>target task</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">preempt</span></code></dt><dd><p>whether task preemption is allowed or not</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>It’s the caller’s job to ensure that the target task struct
-can’t go away on us before we can do any checks.</p>
-<p><strong>Return</strong></p>
-<blockquote>
-<div><p>true (&gt;0) if we indeed boosted the target task.
-false (0) if we failed to boost the target.
--ESRCH if there’s no task to yield to.</p>
-</div></blockquote>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.cpupri_find_fitness">
@@ -16537,6 +16484,35 @@ allocated when <a class="reference internal" href="#c.trace_puts" title="trace_p
 </dl>
 <p><strong>Description</strong></p>
 <p>Counterpart to <a class="reference internal" href="#c.console_srcu_read_lock" title="console_srcu_read_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">console_srcu_read_lock()</span></code></a></p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.match_devname_and_update_preferred_console">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">match_devname_and_update_preferred_console</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">devname</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">short</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.match_devname_and_update_preferred_console" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Update a preferred console when matching devname is found.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*devname</span></code></dt><dd><p>DEVNAME:0.0 style device name</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>Name of the corresponding console driver, e.g. “ttyS”</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">short</span> <span class="pre">idx</span></code></dt><dd><p>Console index, e.g. port number.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The function checks whether a device with the given <strong>devname</strong> is
+preferred via the console=DEVNAME:0.0 command line option.
+It fills the missing console driver name and console index
+so that a later register_console() call could find (match)
+and enable this device.</p>
+<p>It might be used when a driver subsystem initializes particular
+devices with already known DEVNAME:0.0 style names. And it
+could predict which console driver name and index this device
+would later get associated with.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.console_lock">

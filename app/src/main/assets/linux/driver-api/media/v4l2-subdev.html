@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -1235,6 +1235,13 @@ streaming start, while the error code is still returned by the driver.
 The caller shall track the subdev state, and shall not start or stop an
 already started or stopped subdev. Also see call_s_stream wrapper in
 v4l2-subdev.c.</p>
+<p>New drivers should instead implement <a class="reference internal" href="#c.v4l2_subdev_pad_ops" title="v4l2_subdev_pad_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_pad_ops.enable_streams</span></code></a>
+and <a class="reference internal" href="#c.v4l2_subdev_pad_ops" title="v4l2_subdev_pad_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_pad_ops.disable_streams</span></code></a> operations, and use
+v4l2_subdev_s_stream_helper for the <a class="reference internal" href="#c.v4l2_subdev_video_ops" title="v4l2_subdev_video_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_subdev_video_ops.s_stream</span></code></a>
+operation to support legacy users.</p>
+<p>Drivers should also not call the .s_stream() subdev operation directly,
+but use the <a class="reference internal" href="#c.v4l2_subdev_enable_streams" title="v4l2_subdev_enable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_enable_streams()</span></code></a> and
+<a class="reference internal" href="#c.v4l2_subdev_disable_streams" title="v4l2_subdev_disable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_disable_streams()</span></code></a> helpers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">g_pixelaspect</span></code></dt><dd><p>callback to return the pixelaspect ratio.</p>
 </dd>
@@ -1525,7 +1532,7 @@ processing when shutdown is true.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">stream</span></code></dt><dd><p>stream number</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">enabled</span></code></dt><dd><p>has the stream been enabled with v4l2_subdev_enable_stream()</p>
+<dt><code class="docutils literal notranslate"><span class="pre">enabled</span></code></dt><dd><p>has the stream been enabled with <a class="reference internal" href="#c.v4l2_subdev_enable_streams" title="v4l2_subdev_enable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_enable_streams()</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fmt</span></code></dt><dd><p><a class="reference internal" href="../../userspace-api/media/v4l/subdev-formats.html#c.v4l2_mbus_framefmt" title="v4l2_mbus_framefmt"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_mbus_framefmt</span></code></a></p>
 </dd>
@@ -1895,7 +1902,8 @@ these ops.</p>
     struct mutex *state_lock;
     struct led_classdev *privacy_led;
     struct v4l2_subdev_state *active_state;
-    u64 enabled_streams;
+    u64 enabled_pads;
+    bool s_stream_enabled;
 };
 </pre></div>
 </div>
@@ -1967,10 +1975,12 @@ a lock of its own.</p>
 state internally). Initialized by calling
 <a class="reference internal" href="#c.v4l2_subdev_init_finalize" title="v4l2_subdev_init_finalize"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_init_finalize()</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">enabled_streams</span></code></dt><dd><p>Bitmask of enabled streams used by
-<a class="reference internal" href="#c.v4l2_subdev_enable_streams" title="v4l2_subdev_enable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_enable_streams()</span></code></a> and
-<a class="reference internal" href="#c.v4l2_subdev_disable_streams" title="v4l2_subdev_disable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_disable_streams()</span></code></a> helper functions for fallback
-cases.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">enabled_pads</span></code></dt><dd><p>Bitmask of enabled pads used by <a class="reference internal" href="#c.v4l2_subdev_enable_streams" title="v4l2_subdev_enable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_enable_streams()</span></code></a>
+and <a class="reference internal" href="#c.v4l2_subdev_disable_streams" title="v4l2_subdev_disable_streams"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_disable_streams()</span></code></a> helper functions for
+fallback cases.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">s_stream_enabled</span></code></dt><dd><p>Tracks whether streaming has been enabled with s_stream.
+This is only for call_s_stream() internal use.</p>
 </dd>
 </dl>
 </div>
@@ -3002,6 +3012,25 @@ which <strong>f</strong> is a part of.</p>
 subscribed to the v42l subdev event queue as well as to the bridge driver
 using the notify callback. The notification type for the notify callback
 will be <code class="docutils literal notranslate"><span class="pre">V4L2_DEVICE_NOTIFY_EVENT</span></code>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.v4l2_subdev_is_streaming">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_subdev_is_streaming</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_subdev" title="v4l2_subdev"><span class="n"><span class="pre">v4l2_subdev</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_subdev_is_streaming" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Returns if the subdevice is streaming</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_subdev</span> <span class="pre">*sd</span></code></dt><dd><p>The subdevice</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.v4l2_subdev_is_streaming" title="v4l2_subdev_is_streaming"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_subdev_is_streaming()</span></code></a> tells if the subdevice is currently streaming.
+“Streaming” here means whether .s_stream() or .enable_streams() has been
+successfully called, and the streaming has not yet been disabled.</p>
+<p>If the subdevice implements .enable_streams() this function must be called
+while holding the active state lock.</p>
 </div>
 </section>
 

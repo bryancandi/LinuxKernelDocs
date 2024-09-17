@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -158,7 +158,6 @@
 <li class="toctree-l2"><a class="reference internal" href="parport.html">Parport</a></li>
 <li class="toctree-l2"><a class="reference internal" href="perf-security.html">Perf events and tool security</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pm/index.html">Power Management</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pmf.html">Set udev rules for PMF Smart PC Builder</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pnp.html">Linux Plug and Play Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rapidio.html">RapidIO Subsystem Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="RAS/main.html">Reliability, Availability and Serviceability (RAS)</a></li>
@@ -951,6 +950,64 @@ with 4KB physical sectors exposing 512-byte logical
 blocks to the operating system).  This parameter
 indicates how many bytes the beginning of the device is
 offset from the disk’s natural alignment.</p>
+<table class="docutils align-default" id="abi-sys-block-disk-atomic-write-boundary-bytes">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/atomic_write_boundary_bytes</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
+<p>[RO] A device may need to internally split an atomic write I/O
+which straddles a given logical block address boundary. This
+parameter specifies the size in bytes of the atomic boundary if
+one is reported by the device. This value must be a
+power-of-two and at least the size as in
+atomic_write_unit_max_bytes.
+Any attempt to merge atomic write I/Os must not result in a
+merged I/O which crosses this boundary (if any).</p>
+<table class="docutils align-default" id="abi-sys-block-disk-atomic-write-max-bytes">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/atomic_write_max_bytes</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
+<p>[RO] This parameter specifies the maximum atomic write
+size reported by the device. This parameter is relevant
+for merging of writes, where a merged atomic write
+operation must not exceed this number of bytes.
+This parameter may be greater than the value in
+atomic_write_unit_max_bytes as
+atomic_write_unit_max_bytes will be rounded down to a
+power-of-two and atomic_write_unit_max_bytes may also be
+limited by some other queue limits, such as max_segments.
+This parameter - along with atomic_write_unit_min_bytes
+and atomic_write_unit_max_bytes - will not be larger than
+max_hw_sectors_kb, but may be larger than max_sectors_kb.</p>
+<table class="docutils align-default" id="abi-sys-block-disk-atomic-write-unit-max-bytes">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/atomic_write_unit_max_bytes</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
+<p>[RO] This parameter defines the largest block which can be
+written atomically with an atomic write operation. This
+value must be a multiple of atomic_write_unit_min and must
+be a power-of-two. This value will not be larger than
+atomic_write_max_bytes.</p>
+<table class="docutils align-default" id="abi-sys-block-disk-atomic-write-unit-min-bytes">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/atomic_write_unit_min_bytes</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-block"><span class="std std-ref">sysfs-block</span></a></p>
+<p>[RO] This parameter specifies the smallest block which can
+be written atomically with an atomic write operation. All
+atomic write operations must begin at a
+atomic_write_unit_min boundary and must be multiples of
+atomic_write_unit_min. This value must be a power-of-two.</p>
 <table class="docutils align-default" id="abi-sys-block-disk-discard-alignment">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/block/&lt;disk&gt;/discard_alignment</strong></p></td>
@@ -2407,6 +2464,24 @@ mode, the flash programmer image can be downloaded to the
 device to enter the flash programmer execution environment.
 This can be useful if user wants to use QDL (Qualcomm Download,
 which is used to download firmware over EDL) to update firmware.</p>
+<table class="docutils align-default" id="abi-sys-bus-nvmem-devices-force-ro">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/bus/nvmem/devices/.../force_ro</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-bus-nvmem"><span class="std std-ref">sysfs-bus-nvmem</span></a></p>
+<p>This read/write attribute allows users to set read-write
+devices as read-only and back to read-write from userspace.
+This can be used to unlock and relock write-protection of
+devices which are generally locked, except during sporadic
+programming operation.
+Read returns ‘0’ or ‘1’ for read-write or read-only modes
+respectively.
+Write parses one of ‘YyTt1NnFf0’, or [oO][NnFf] for “on”
+and “off”, i.e. what kstrbool() supports.
+Note: This file is only present if CONFIG_NVMEM_SYSFS
+is enabled.</p>
 <table class="docutils align-default" id="abi-sys-bus-nvmem-devices-nvmem">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/bus/nvmem/devices/.../nvmem</strong></p></td>
@@ -2431,6 +2506,18 @@ is enabled</p>
 0001000
 </pre></div>
 </div>
+<table class="docutils align-default" id="abi-sys-bus-nvmem-devices-type">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/bus/nvmem/devices/.../type</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-bus-nvmem"><span class="std std-ref">sysfs-bus-nvmem</span></a></p>
+<p>This read-only attribute allows user to read the NVMEM
+device type. Supported types are “Unknown”, “EEPROM”,
+“OTP”, “Battery backed”, “FRAM”.
+Note: This file is only present if CONFIG_NVMEM_SYSFS
+is enabled.</p>
 <table class="docutils align-default" id="abi-sys-bus-pci-drivers-qla2xxx-devices">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/bus/pci/drivers/qla2xxx/.../devices/*</strong></p></td>
@@ -3137,11 +3224,12 @@ busy processing previous requests.</p>
 </tbody>
 </table>
 <p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-class-backlight"><span class="std std-ref">sysfs-class-backlight</span></a></p>
-<p>Control BACKLIGHT power, values are FB_BLANK_* from fb.h</p>
+<p>Control BACKLIGHT power, values are compatible with
+FB_BLANK_* from fb.h</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>FB_BLANK_UNBLANK (0)   : power on.</p></li>
-<li><p>FB_BLANK_POWERDOWN (4) : power off</p></li>
+<li><p>0 (FB_BLANK_UNBLANK)   : power on.</p></li>
+<li><p>4 (FB_BLANK_POWERDOWN) : power off</p></li>
 </ul>
 </div></blockquote>
 <p>Users:
@@ -5186,6 +5274,36 @@ read, it returns full name of the device node.</p>
 an of_path symlink pointing to the corresponding device
 node in /sys/firmware/devicetree/</p>
 </section>
+<table class="docutils align-default" id="abi-sys-devices-pcixxxx-xx-0000-xx-xx-x-0000-xx-xx-x-keep-cfg">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/devices/pciXXXX:XX/0000:XX:XX.X/0000:XX:XX.X/keep_cfg</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-driver-misc-cp500"><span class="std std-ref">sysfs-driver-misc-cp500</span></a></p>
+<p>Flag which signals if FPGA shall keep or reload configuration
+bitstream on reset. Normal FPGA behavior and default is to keep
+configuration bitstream and to only reset the configured logic.</p>
+<p>Reloading configuration on reset enables an update of the
+configuration bitstream with a simple reboot. Otherwise it is
+necessary to power cycle the device to reload the new
+configuration bitstream.</p>
+<p>This file is read/write. The values are as follows:
+1 = keep configuration bitstream on reset, default
+0 = reload configuration bitstream on reset</p>
+<p>Users:
+	KEBA</p>
+<table class="docutils align-default" id="abi-sys-devices-pcixxxx-xx-0000-xx-xx-x-0000-xx-xx-x-version">
+<tbody>
+<tr class="row-odd"><td><p><strong>/sys/devices/pciXXXX:XX/0000:XX:XX.X/0000:XX:XX.X/version</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p>Defined on file <a class="reference internal" href="#abi-file-stable-sysfs-driver-misc-cp500"><span class="std std-ref">sysfs-driver-misc-cp500</span></a></p>
+<p>Version of the FPGA configuration bitstream as printable string.
+This file is read only.</p>
+<p>Users:
+	KEBA</p>
 <table class="docutils align-default" id="abi-sys-devices-pcixxxx-xx-0000-xx-xx-x-dma-dma-n-chan-n-quickdata-cap">
 <tbody>
 <tr class="row-odd"><td><p><strong>/sys/devices/pciXXXX:XX/0000:XX:XX.X/dma/dma&lt;n&gt;chan&lt;n&gt;/quickdata/cap</strong></p></td>
@@ -7602,6 +7720,10 @@ that it is correct for their architecture.</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#abi-sys-block-disk-alignment-offset"><span class="std std-ref">/sys/block/&lt;disk&gt;/alignment_offset</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-discard-alignment"><span class="std std-ref">/sys/block/&lt;disk&gt;/discard_alignment</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-block-disk-atomic-write-max-bytes"><span class="std std-ref">/sys/block/&lt;disk&gt;/atomic_write_max_bytes</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-block-disk-atomic-write-unit-min-bytes"><span class="std std-ref">/sys/block/&lt;disk&gt;/atomic_write_unit_min_bytes</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-block-disk-atomic-write-unit-max-bytes"><span class="std std-ref">/sys/block/&lt;disk&gt;/atomic_write_unit_max_bytes</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-block-disk-atomic-write-boundary-bytes"><span class="std std-ref">/sys/block/&lt;disk&gt;/atomic_write_boundary_bytes</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-diskseq"><span class="std std-ref">/sys/block/&lt;disk&gt;/diskseq</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-inflight"><span class="std std-ref">/sys/block/&lt;disk&gt;/inflight</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-block-disk-integrity-device-is-integrity-capable"><span class="std std-ref">/sys/block/&lt;disk&gt;/integrity/device_is_integrity_capable</span></a></p></li>
@@ -7699,7 +7821,9 @@ that it is correct for their architecture.</p>
 <span id="abi-file-stable-sysfs-bus-nvmem"></span><h2>File stable/sysfs-bus-nvmem<a class="headerlink" href="#file-stable-sysfs-bus-nvmem" title="Link to this heading">¶</a></h2>
 <p>Has the following ABI:</p>
 <ul class="simple">
+<li><p><a class="reference internal" href="#abi-sys-bus-nvmem-devices-force-ro"><span class="std std-ref">/sys/bus/nvmem/devices/.../force_ro</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-bus-nvmem-devices-nvmem"><span class="std std-ref">/sys/bus/nvmem/devices/.../nvmem</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-bus-nvmem-devices-type"><span class="std std-ref">/sys/bus/nvmem/devices/.../type</span></a></p></li>
 </ul>
 </section>
 <section id="file-stable-sysfs-bus-usb">
@@ -8211,6 +8335,14 @@ is documented in <a class="reference internal" href="sysfs-rules.html"><span cla
 <li><p><a class="reference internal" href="#abi-sys-class-scsi-host-host-n-service-id"><span class="std std-ref">/sys/class/scsi_host/host&lt;n&gt;/service_id</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-class-scsi-host-host-n-sgid"><span class="std std-ref">/sys/class/scsi_host/host&lt;n&gt;/sgid</span></a></p></li>
 <li><p><a class="reference internal" href="#abi-sys-class-scsi-host-host-n-zero-req-lim"><span class="std std-ref">/sys/class/scsi_host/host&lt;n&gt;/zero_req_lim</span></a></p></li>
+</ul>
+</section>
+<section id="file-stable-sysfs-driver-misc-cp500">
+<span id="abi-file-stable-sysfs-driver-misc-cp500"></span><h2>File stable/sysfs-driver-misc-cp500<a class="headerlink" href="#file-stable-sysfs-driver-misc-cp500" title="Link to this heading">¶</a></h2>
+<p>Has the following ABI:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#abi-sys-devices-pcixxxx-xx-0000-xx-xx-x-0000-xx-xx-x-version"><span class="std std-ref">/sys/devices/pciXXXX:XX/0000:XX:XX.X/0000:XX:XX.X/version</span></a></p></li>
+<li><p><a class="reference internal" href="#abi-sys-devices-pcixxxx-xx-0000-xx-xx-x-0000-xx-xx-x-keep-cfg"><span class="std std-ref">/sys/devices/pciXXXX:XX/0000:XX:XX.X/0000:XX:XX.X/keep_cfg</span></a></p></li>
 </ul>
 </section>
 <section id="file-stable-sysfs-driver-mlxreg-io">

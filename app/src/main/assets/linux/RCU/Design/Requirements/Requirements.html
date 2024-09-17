@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -2450,6 +2450,7 @@ section.</p>
 <li><p><a class="reference internal" href="#sched-flavor-historical">Sched Flavor (Historical)</a></p></li>
 <li><p><a class="reference internal" href="#sleepable-rcu">Sleepable RCU</a></p></li>
 <li><p><a class="reference internal" href="#tasks-rcu">Tasks RCU</a></p></li>
+<li><p><a class="reference internal" href="#tasks-trace-rcu">Tasks Trace RCU</a></p></li>
 </ol>
 <section id="bottom-half-flavor-historical">
 <h3>Bottom-Half Flavor (Historical)<a class="headerlink" href="#bottom-half-flavor-historical" title="Link to this heading">¶</a></h3>
@@ -2683,7 +2684,16 @@ RCU</a>, is to have implicit read-side
 critical sections that are delimited by voluntary context switches, that
 is, calls to schedule(), cond_resched(), and
 <a class="reference internal" href="../../../core-api/kernel-api.html#c.synchronize_rcu_tasks" title="synchronize_rcu_tasks"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu_tasks()</span></code></a>. In addition, transitions to and from
-userspace execution also delimit tasks-RCU read-side critical sections.</p>
+userspace execution also delimit tasks-RCU read-side critical sections.
+Idle tasks are ignored by Tasks RCU, and Tasks Rude RCU may be used to
+interact with them.</p>
+<p>Note well that involuntary context switches are <em>not</em> Tasks-RCU quiescent
+states.  After all, in preemptible kernels, a task executing code in a
+trampoline might be preempted.  In this case, the Tasks-RCU grace period
+clearly cannot end until that task resumes and its execution leaves that
+trampoline.  This means, among other things, that cond_resched() does
+not provide a Tasks RCU quiescent state.  (Instead, use <a class="reference internal" href="../../../core-api/kernel-api.html#c.rcu_softirq_qs" title="rcu_softirq_qs"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_softirq_qs()</span></code></a>
+from softirq or rcu_tasks_classic_qs() otherwise.)</p>
 <p>The tasks-RCU API is quite compact, consisting only of
 <a class="reference internal" href="../../../core-api/kernel-api.html#c.call_rcu_tasks" title="call_rcu_tasks"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu_tasks()</span></code></a>, <a class="reference internal" href="../../../core-api/kernel-api.html#c.synchronize_rcu_tasks" title="synchronize_rcu_tasks"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu_tasks()</span></code></a>, and
 <a class="reference internal" href="../../../core-api/kernel-api.html#c.rcu_barrier_tasks" title="rcu_barrier_tasks"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_barrier_tasks()</span></code></a>. In <code class="docutils literal notranslate"><span class="pre">CONFIG_PREEMPTION=n</span></code> kernels, trampolines
@@ -2703,6 +2713,10 @@ forcing a workqueue to be scheduled on each online CPU, hence the “Rude”
 moniker.  And this operation is considered to be quite rude by real-time
 workloads that don’t want their <code class="docutils literal notranslate"><span class="pre">nohz_full</span></code> CPUs receiving IPIs and
 by battery-powered systems that don’t want their idle CPUs to be awakened.</p>
+<p>Once kernel entry/exit and deep-idle functions have been properly tagged
+<code class="docutils literal notranslate"><span class="pre">noinstr</span></code>, Tasks RCU can start paying attention to idle tasks (except
+those that are idle from RCU’s perspective) and then Tasks Rude RCU can
+be removed from the kernel.</p>
 <p>The tasks-rude-RCU API is also reader-marking-free and thus quite compact,
 consisting of <a class="reference internal" href="../../../core-api/kernel-api.html#c.call_rcu_tasks_rude" title="call_rcu_tasks_rude"><code class="xref c c-func docutils literal notranslate"><span class="pre">call_rcu_tasks_rude()</span></code></a>, <a class="reference internal" href="../../../core-api/kernel-api.html#c.synchronize_rcu_tasks_rude" title="synchronize_rcu_tasks_rude"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu_tasks_rude()</span></code></a>,
 and <a class="reference internal" href="../../../core-api/kernel-api.html#c.rcu_barrier_tasks_rude" title="rcu_barrier_tasks_rude"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_barrier_tasks_rude()</span></code></a>.</p>

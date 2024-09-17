@@ -13,7 +13,7 @@
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="DAMON Maintainer Entry Profile" href="maintainer-profile.html" />
+    <link rel="next" title="Free Page Reporting" href="../free_page_reporting.html" />
     <link rel="prev" title="Design" href="design.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.10.0</p>
+<p class="blurb">6.11.0</p>
 
 
 
@@ -292,6 +292,10 @@ virtual address spaces monitoring operations.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">DAMOS_LRU_PRIO</span></code></dt><dd><p>Prioritize the region on its LRU lists.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DAMOS_LRU_DEPRIO</span></code></dt><dd><p>Deprioritize the region on its LRU lists.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DAMOS_MIGRATE_HOT</span></code></dt><dd><p>Migrate the regions prioritizing warmer regions.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DAMOS_MIGRATE_COLD</span></code></dt><dd><p>Migrate the regions prioritizing colder regions.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DAMOS_STAT</span></code></dt><dd><p>Do nothing but count the stat.</p>
 </dd>
@@ -641,6 +645,9 @@ and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type
     unsigned long apply_interval_us;
     struct damos_quota quota;
     struct damos_watermarks wmarks;
+    union {
+        int target_nid;
+    };
     struct list_head filters;
     struct damos_stat stat;
     struct list_head list;
@@ -659,6 +666,10 @@ and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wmarks</span></code></dt><dd><p>Watermarks for automated (in)activation of this scheme.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">target_nid</span></code></dt><dd><p>Destination node if <strong>action</strong> is “migrate_{hot,cold}”.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">filters</span></code></dt><dd><p>Additional set of <a class="reference internal" href="#c.damos_filter" title="damos_filter"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_filter</span></code></a> for <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">stat</span></code></dt><dd><p>Statistics of this scheme.</p>
@@ -676,6 +687,9 @@ CPU time or IO resources for the <code class="xref c c-type docutils literal not
 system situations using <code class="xref c c-type docutils literal notranslate"><span class="pre">wmarks</span></code>.  If all schemes that registered to the
 monitoring context are inactive, DAMON stops monitoring either, and just
 repeatedly checks the watermarks.</p>
+<p><strong>target_nid</strong> is used to set the migration target node for migrate_hot or
+migrate_cold actions, which means it’s only meaningful when <strong>action</strong> is either
+“migrate_hot” or “migrate_cold”.</p>
 <p>Before applying the <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code> to a memory region, <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a>
 implementation could check pages of the region and skip <code class="xref c c-type docutils literal notranslate"><span class="pre">action</span></code> to respect
 <code class="xref c c-type docutils literal notranslate"><span class="pre">filters</span></code></p>
@@ -1024,6 +1038,49 @@ access check results aggregation is not ongoing (e.g., from
 <p><strong>Description</strong></p>
 <p>This function should not be called while the kdamond of the context is
 running.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.damos_commit_quota_goals">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damos_commit_quota_goals</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damos_quota" title="damos_quota"><span class="n"><span class="pre">damos_quota</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damos_quota" title="damos_quota"><span class="n"><span class="pre">damos_quota</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">src</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.damos_commit_quota_goals" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Commit DAMOS quota goals to another quota.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_quota</span> <span class="pre">*dst</span></code></dt><dd><p>The commit destination DAMOS quota.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_quota</span> <span class="pre">*src</span></code></dt><dd><p>The commit source DAMOS quota.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Copies user-specified parameters for quota goals from <strong>src</strong> to <strong>dst</strong>.  Users
+should use this function for quota goals-level parameters update of running
+DAMON contexts, instead of manual in-place updates.</p>
+<p>This function should be called from parameters-update safe context, like
+DAMON callbacks.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.damon_commit_ctx">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damon_commit_ctx</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><span class="n"><span class="pre">damon_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><span class="n"><span class="pre">damon_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">src</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.damon_commit_ctx" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Commit parameters of a DAMON context to another.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span> <span class="pre">*dst</span></code></dt><dd><p>The commit destination DAMON context.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span> <span class="pre">*src</span></code></dt><dd><p>The commit source DAMON context.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function copies user-specified parameters from <strong>src</strong> to <strong>dst</strong> and update
+the internal status and results accordingly.  Users should use this function
+for context-level parameters update of running context, instead of manual
+in-place updates.</p>
+<p>This function should be called from parameters-update safe context, like
+DAMON callbacks.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.damon_nr_running_ctxs">
