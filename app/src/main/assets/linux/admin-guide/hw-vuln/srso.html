@@ -7,9 +7,9 @@
 
     <title>Speculative Return Stack Overflow (SRSO) &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -111,7 +112,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -377,6 +378,75 @@ poisoned BTB entry and using that safe one for all function returns.</p>
 technique similar to Retbleed one: srso_untrain_ret() and
 srso_safe_ret().</p>
 </section>
+<section id="checking-the-safe-ret-mitigation-actually-works">
+<h2>Checking the safe RET mitigation actually works<a class="headerlink" href="#checking-the-safe-ret-mitigation-actually-works" title="Link to this heading">¶</a></h2>
+<p>In case one wants to validate whether the SRSO safe RET mitigation works
+on a kernel, one could use two performance counters</p>
+<ul class="simple">
+<li><p>PMC_0xc8 - Count of RET/RET lw retired</p></li>
+<li><p>PMC_0xc9 - Count of RET/RET lw retired mispredicted</p></li>
+</ul>
+<p>and compare the number of RETs retired properly vs those retired
+mispredicted, in kernel mode. Another way of specifying those events
+is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># perf list ex_ret_near_ret
+
+List of pre-defined events (to be used in -e or -M):
+
+core:
+  ex_ret_near_ret
+       [Retired Near Returns]
+  ex_ret_near_ret_mispred
+       [Retired Near Returns Mispredicted]
+</pre></div>
+</div>
+<p>Either the command using the event mnemonics:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># perf stat -e ex_ret_near_ret:k -e ex_ret_near_ret_mispred:k sleep 10s
+</pre></div>
+</div>
+<p>or using the raw PMC numbers:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># perf stat -e cpu/event=0xc8,umask=0/k -e cpu/event=0xc9,umask=0/k sleep 10s
+</pre></div>
+</div>
+<p>should give the same amount. I.e., every RET retired should be
+mispredicted:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[root@brent: ~/kernel/linux/tools/perf&gt; ./perf stat -e cpu/event=0xc8,umask=0/k -e cpu/event=0xc9,umask=0/k sleep 10s
+
+ Performance counter stats for &#39;sleep 10s&#39;:
+
+           137,167      cpu/event=0xc8,umask=0/k
+           137,173      cpu/event=0xc9,umask=0/k
+
+      10.004110303 seconds time elapsed
+
+       0.000000000 seconds user
+       0.004462000 seconds sys
+</pre></div>
+</div>
+<p>vs the case when the mitigation is disabled (spec_rstack_overflow=off)
+or not functioning properly, showing usually a lot smaller number of
+mispredicted retired RETs vs the overall count of retired RETs during
+a workload:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[root@brent: ~/kernel/linux/tools/perf&gt; ./perf stat -e cpu/event=0xc8,umask=0/k -e cpu/event=0xc9,umask=0/k sleep 10s
+
+ Performance counter stats for &#39;sleep 10s&#39;:
+
+           201,627      cpu/event=0xc8,umask=0/k
+             4,074      cpu/event=0xc9,umask=0/k
+
+      10.003267252 seconds time elapsed
+
+       0.002729000 seconds user
+       0.000000000 seconds sys
+</pre></div>
+</div>
+<p>Also, there is a selftest which performs the above, go to
+tools/testing/selftests/x86/ and do:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make srso
+./srso
+</pre></div>
+</div>
+</section>
 </section>
 
 
@@ -387,11 +457,11 @@ srso_safe_ret().</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/admin-guide/hw-vuln/srso.rst.txt"

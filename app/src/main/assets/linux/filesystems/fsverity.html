@@ -7,9 +7,9 @@
 
     <title>fs-verity: read-only file-based authenticity protection &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -213,6 +214,15 @@ file digests as an alternative to its traditional full file digests.
 “IMA appraisal” enforces that files contain a valid, matching
 signature in their “security.ima” extended attribute, as controlled
 by the IMA policy.  For more information, see the IMA documentation.</p></li>
+<li><p>Integrity Policy Enforcement (IPE).  IPE supports enforcing access
+control decisions based on immutable security properties of files,
+including those protected by fs-verity’s built-in signatures.
+“IPE policy” specifically allows for the authorization of fs-verity
+files using properties <code class="docutils literal notranslate"><span class="pre">fsverity_digest</span></code> for identifying
+files by their verity digest, and <code class="docutils literal notranslate"><span class="pre">fsverity_signature</span></code> to authorize
+files with a verified fs-verity’s built-in signature. For
+details on configuring IPE policies and understanding its operational
+modes, please refer to <a class="reference internal" href="../admin-guide/LSM/ipe.html"><span class="doc">IPE admin guide</span></a>.</p></li>
 <li><p>Trusted userspace code in combination with <a class="reference internal" href="#built-in-signature-verification">Built-in signature
 verification</a>.  This approach should be used only with great care.</p></li>
 </ul>
@@ -545,7 +555,11 @@ detached signature in DER format of the file’s fs-verity digest.
 On success, the ioctl persists the signature alongside the Merkle
 tree.  Then, any time the file is opened, the kernel verifies the
 file’s actual digest against this signature, using the certificates
-in the “.fs-verity” keyring.</p></li>
+in the “.fs-verity” keyring. This verification happens as long as the
+file’s signature exists, regardless of the state of the sysctl variable
+“fs.verity.require_signatures” described in the next item. The IPE LSM
+relies on this behavior to recognize and label fsverity files
+that contain a verified built-in fsverity signature.</p></li>
 <li><p>A new sysctl “fs.verity.require_signatures” is made available.
 When set to 1, the kernel requires that all verity files have a
 correctly signed digest as described in (2).</p></li>
@@ -568,7 +582,7 @@ be carefully considered before using them:</p>
 <ul>
 <li><p>Builtin signature verification does <em>not</em> make the kernel enforce
 that any files actually have fs-verity enabled.  Thus, it is not a
-complete authentication policy.  Currently, if it is used, the only
+complete authentication policy.  Currently, if it is used, one
 way to complete the authentication policy is for trusted userspace
 code to explicitly check whether files have fs-verity enabled with a
 signature before they are accessed.  (With
@@ -576,6 +590,14 @@ fs.verity.require_signatures=1, just checking whether fs-verity is
 enabled suffices.)  But, in this case the trusted userspace code
 could just store the signature alongside the file and verify it
 itself using a cryptographic library, instead of using this feature.</p></li>
+<li><p>Another approach is to utilize fs-verity builtin signature
+verification in conjunction with the IPE LSM, which supports defining
+a kernel-enforced, system-wide authentication policy that allows only
+files with a verified fs-verity builtin signature to perform certain
+operations, such as execution. Note that IPE doesn’t require
+fs.verity.require_signatures=1.
+Please refer to <a class="reference internal" href="../admin-guide/LSM/ipe.html"><span class="doc">IPE admin guide</span></a> for
+more details.</p></li>
 <li><p>A file’s builtin signature can only be set at the same time that
 fs-verity is being enabled on the file.  Changing or deleting the
 builtin signature later requires re-creating the file.</p></li>
@@ -976,11 +998,11 @@ states to occur after a crash may cause problems.</p></li>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/filesystems/fsverity.rst.txt"

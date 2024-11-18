@@ -7,9 +7,9 @@
 
     <title>Control Group v2 &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -96,7 +97,7 @@
 <li class="toctree-l2"><a class="reference internal" href="quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -636,10 +637,12 @@ cgroup namespace on namespace creation.</p>
 <p>Because the resource control interface files in a given directory
 control the distribution of the parent’s resources, the delegatee
 shouldn’t be allowed to write to them.  For the first method, this is
-achieved by not granting access to these files.  For the second, the
-kernel rejects writes to all files other than “cgroup.procs” and
-“cgroup.subtree_control” on a namespace root from inside the
-namespace.</p>
+achieved by not granting access to these files.  For the second, files
+outside the namespace should be hidden from the delegatee by the means
+of at least mount namespacing, and the kernel rejects writes to all
+files on a namespace root from inside the cgroup namespace, except for
+those files listed in “/sys/kernel/cgroup/delegate” (including
+“cgroup.procs”, “cgroup.threads”, “cgroup.subtree_control”, etc.).</p>
 <p>The end results are equivalent for both delegation types.  Once
 delegated, the user can build sub-hierarchy under the directory,
 organize processes inside it as it sees fit and further distribute the
@@ -1007,6 +1010,12 @@ a dying cgroup can’t revive.</p>
 <p>A dying cgroup can consume system resources not exceeding
 limits, which were active at the moment of cgroup deletion.</p>
 </dd>
+<dt>nr_subsys_&lt;cgroup_subsys&gt;</dt><dd><p>Total number of live cgroup subsystems (e.g memory
+cgroup) at and beneath the current cgroup.</p>
+</dd>
+<dt>nr_dying_subsys_&lt;cgroup_subsys&gt;</dt><dd><p>Total number of dying cgroup subsystems (e.g. memory
+cgroup) at and beneath the current cgroup.</p>
+</dd>
 </dl>
 </div></blockquote>
 </dd>
@@ -1303,10 +1312,12 @@ same semantics as vm.swappiness applied to memcg reclaim with
 all the existing limitations and potential future extensions.</p>
 </div></blockquote>
 <dl>
-<dt>memory.peak</dt><dd><p>A read-only single value file which exists on non-root
-cgroups.</p>
-<p>The max memory usage recorded for the cgroup and its
-descendants since the creation of the cgroup.</p>
+<dt>memory.peak</dt><dd><p>A read-write single value file which exists on non-root cgroups.</p>
+<p>The max memory usage recorded for the cgroup and its descendants since
+either the creation of the cgroup or the most recent reset for that FD.</p>
+<p>A write of any non-empty string to this file resets it to the
+current memory usage for subsequent reads through the same
+file descriptor.</p>
 </dd>
 <dt>memory.oom.group</dt><dd><p>A read-write single value file which exists on non-root
 cgroups.  The default value is “0”.</p>
@@ -1495,6 +1506,13 @@ active workingset before they got reclaimed.</p>
 </dd>
 <dt>pglazyfreed (npn)</dt><dd><p>Amount of reclaimed lazyfree pages</p>
 </dd>
+<dt>swpin_zero</dt><dd><p>Number of pages swapped into memory and filled with zero, where I/O
+was optimized out because the page content was detected to be zero
+during swapout.</p>
+</dd>
+<dt>swpout_zero</dt><dd><p>Number of zero-filled pages swapped out with I/O skipped due to the
+content being detected as zero.</p>
+</dd>
 <dt>zswpin</dt><dd><p>Number of pages moved in to memory from zswap.</p>
 </dd>
 <dt>zswpout</dt><dd><p>Number of pages moved out of memory to zswap.</p>
@@ -1515,6 +1533,19 @@ without splitting.</p>
 <dt>thp_swpout_fallback (npn)</dt><dd><p>Number of transparent hugepages which were split before swapout.
 Usually because failed to allocate some continuous swap space
 for the huge page.</p>
+</dd>
+<dt>numa_pages_migrated (npn)</dt><dd><p>Number of pages migrated by NUMA balancing.</p>
+</dd>
+<dt>numa_pte_updates (npn)</dt><dd><p>Number of pages whose page table entries are modified by
+NUMA balancing to produce NUMA hinting faults on access.</p>
+</dd>
+<dt>numa_hint_faults (npn)</dt><dd><p>Number of NUMA hinting faults.</p>
+</dd>
+<dt>pgdemote_kswapd</dt><dd><p>Number of pages demoted by kswapd.</p>
+</dd>
+<dt>pgdemote_direct</dt><dd><p>Number of pages demoted directly.</p>
+</dd>
+<dt>pgdemote_khugepaged</dt><dd><p>Number of pages demoted by khugepaged.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -1555,10 +1586,12 @@ prohibits swapping past a set amount, but lets the cgroup
 continue unimpeded as long as other memory can be reclaimed.</p>
 <p>Healthy workloads are not expected to reach this limit.</p>
 </dd>
-<dt>memory.swap.peak</dt><dd><p>A read-only single value file which exists on non-root
-cgroups.</p>
-<p>The max swap usage recorded for the cgroup and its
-descendants since the creation of the cgroup.</p>
+<dt>memory.swap.peak</dt><dd><p>A read-write single value file which exists on non-root cgroups.</p>
+<p>The max swap usage recorded for the cgroup and its descendants since
+the creation of the cgroup or the most recent reset for that FD.</p>
+<p>A write of any non-empty string to this file resets it to the
+current memory usage for subsequent reads through the same
+file descriptor.</p>
 </dd>
 <dt>memory.swap.max</dt><dd><p>A read-write single value file which exists on non-root
 cgroups.  The default is “max”.</p>
@@ -1611,7 +1644,9 @@ to zswap store failures. If the zswap store failures are recurring
 reclaim inefficiency after disabling writeback (because the same
 pages might be rejected again and again).</p>
 <p>Note that this is subtly different from setting memory.swap.max to
-0, as it still allows for pages to be written to the zswap pool.</p>
+0, as it still allows for pages to be written to the zswap pool.
+This setting has no effect if zswap is disabled, and swapping
+is allowed unless memory.swap.max is set to 0.</p>
 </dd>
 <dt>memory.pressure</dt><dd><p>A read-only nested-keyed file.</p>
 <p>Shows pressure stall information for memory. See
@@ -2793,8 +2828,8 @@ directly.</p>
 <li><p>All v1 mount options are not supported.</p></li>
 <li><p>The “tasks” file is removed and “cgroup.procs” is not sorted.</p></li>
 <li><p>“cgroup.clone_children” is removed.</p></li>
-<li><p>/proc/cgroups is meaningless for v2.  Use “cgroup.controllers” file
-at the root instead.</p></li>
+<li><p>/proc/cgroups is meaningless for v2.  Use “cgroup.controllers” or
+“cgroup.stat” files at the root instead.</p></li>
 </ul>
 </section>
 <section id="issues-with-v1-and-rationales-for-v2">
@@ -3018,11 +3053,11 @@ and that’s why unified hierarchy allows distributing it separately.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/admin-guide/cgroup-v2.rst.txt"

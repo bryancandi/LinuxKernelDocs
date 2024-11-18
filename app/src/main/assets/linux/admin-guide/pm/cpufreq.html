@@ -7,9 +7,9 @@
 
     <title>CPU Performance Scaling &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -96,7 +97,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -572,8 +573,8 @@ returned by the above formula over time.</p>
 <p>This governor exposes only one tunable:</p>
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">rate_limit_us</span></code></dt><dd><p>Minimum time (in microseconds) that has to pass between two consecutive
-runs of governor computations (default: 1000 times the scaling driver’s
-transition latency).</p>
+runs of governor computations (default: 1.5 times the scaling driver’s
+transition latency or the maximum 2ms).</p>
 <p>The purpose of this tunable is to reduce the scheduler context overhead
 of the governor which might be excessive without it.</p>
 </dd>
@@ -613,15 +614,15 @@ it is allowed to use (the <code class="docutils literal notranslate"><span class
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">sampling_rate</span></code></dt><dd><p>This is how often the governor’s worker routine should run, in
 microseconds.</p>
-<p>Typically, it is set to values of the order of 10000 (10 ms).  Its
-default value is equal to the value of <code class="docutils literal notranslate"><span class="pre">cpuinfo_transition_latency</span></code>
-for each policy this governor is attached to (but since the unit here
-is greater by 1000, this means that the time represented by
-<code class="docutils literal notranslate"><span class="pre">sampling_rate</span></code> is 1000 times greater than the transition latency by
-default).</p>
+<p>Typically, it is set to values of the order of 2000 (2 ms).  Its
+default value is to add a 50% breathing room
+to <code class="docutils literal notranslate"><span class="pre">cpuinfo_transition_latency</span></code> on each policy this governor is
+attached to. The minimum is typically the length of two scheduler
+ticks.</p>
 <p>If this tunable is per-policy, the following shell command sets the time
-represented by it to be 750 times as high as the transition latency:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo `$(($(cat cpuinfo_transition_latency) * 750 / 1000)) &gt; ondemand/sampling_rate
+represented by it to be 1.5 times as high as the transition latency
+(the default):</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># echo `$(($(cat cpuinfo_transition_latency) * 3 / 2)) &gt; ondemand/sampling_rate
 </pre></div>
 </div>
 </dd>
@@ -832,11 +833,11 @@ hardware feature (e.g. all Intel ones), even if the
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/admin-guide/pm/cpufreq.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>Overview of Linux kernel SPI support &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -716,6 +717,82 @@ queue, and then start some asynchronous transfer engine (unless it’s
 already running).</p>
 </section>
 </section>
+<section id="extensions-to-the-spi-protocol">
+<h2>Extensions to the SPI protocol<a class="headerlink" href="#extensions-to-the-spi-protocol" title="Link to this heading">¶</a></h2>
+<p>The fact that SPI doesn’t have a formal specification or standard permits chip
+manufacturers to implement the SPI protocol in slightly different ways. In most
+cases, SPI protocol implementations from different vendors are compatible among
+each other. For example, in SPI mode 0 (CPOL=0, CPHA=0) the bus lines may behave
+like the following:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>nCSx ___                                                                   ___
+        \_________________________________________________________________/
+        •                                                                 •
+        •                                                                 •
+SCLK         ___     ___     ___     ___     ___     ___     ___     ___
+     _______/   \___/   \___/   \___/   \___/   \___/   \___/   \___/   \_____
+        •   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ; •
+        •   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ; •
+MOSI XXX__________         _______                 _______         ________XXX
+0xA5 XXX__/ 1     \_0_____/ 1     \_0_______0_____/ 1     \_0_____/ 1    \_XXX
+        •       ;       ;       ;       ;       ;       ;       ;       ; •
+        •       ;       ;       ;       ;       ;       ;       ;       ; •
+MISO XXX__________         _______________________          _______        XXX
+0xBA XXX__/     1 \_____0_/     1       1       1 \_____0__/    1  \____0__XXX
+</pre></div>
+</div>
+<p>Legend:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>• marks the start/end of transmission;
+: marks when data is clocked into the peripheral;
+; marks when data is clocked into the controller;
+X marks when line states are not specified.
+</pre></div>
+</div>
+<p>In some few cases, chips extend the SPI protocol by specifying line behaviors
+that other SPI protocols don’t (e.g. data line state for when CS is not
+asserted). Those distinct SPI protocols, modes, and configurations are supported
+by different SPI mode flags.</p>
+<section id="mosi-idle-state-configuration">
+<h3>MOSI idle state configuration<a class="headerlink" href="#mosi-idle-state-configuration" title="Link to this heading">¶</a></h3>
+<p>Common SPI protocol implementations don’t specify any state or behavior for the
+MOSI line when the controller is not clocking out data. However, there do exist
+peripherals that require specific MOSI line state when data is not being clocked
+out. For example, if the peripheral expects the MOSI line to be high when the
+controller is not clocking out data (<code class="docutils literal notranslate"><span class="pre">SPI_MOSI_IDLE_HIGH</span></code>), then a transfer in
+SPI mode 0 would look like the following:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>nCSx ___                                                                   ___
+        \_________________________________________________________________/
+        •                                                                 •
+        •                                                                 •
+SCLK         ___     ___     ___     ___     ___     ___     ___     ___
+     _______/   \___/   \___/   \___/   \___/   \___/   \___/   \___/   \_____
+        •   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ; •
+        •   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ;   :   ; •
+MOSI _____         _______         _______         _______________         ___
+0x56      \_0_____/ 1     \_0_____/ 1     \_0_____/ 1       1     \_0_____/
+        •       ;       ;       ;       ;       ;       ;       ;       ; •
+        •       ;       ;       ;       ;       ;       ;       ;       ; •
+MISO XXX__________         _______________________          _______        XXX
+0xBA XXX__/     1 \_____0_/     1       1       1 \_____0__/    1  \____0__XXX
+</pre></div>
+</div>
+<p>Legend:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>• marks the start/end of transmission;
+: marks when data is clocked into the peripheral;
+; marks when data is clocked into the controller;
+X marks when line states are not specified.
+</pre></div>
+</div>
+<p>In this extension to the usual SPI protocol, the MOSI line state is specified to
+be kept high when CS is asserted but the controller is not clocking out data to
+the peripheral and also when CS is not asserted.</p>
+<p>Peripherals that require this extension must request it by setting the
+<code class="docutils literal notranslate"><span class="pre">SPI_MOSI_IDLE_HIGH</span></code> bit into the mode attribute of their <code class="docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">spi_device</span></code> and call <a class="reference internal" href="../driver-api/spi.html#c.spi_setup" title="spi_setup"><code class="xref c c-func docutils literal notranslate"><span class="pre">spi_setup()</span></code></a>. Controllers that support this extension
+should indicate it by setting <code class="docutils literal notranslate"><span class="pre">SPI_MOSI_IDLE_HIGH</span></code> in the mode_bits attribute
+of their <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_controller</span></code>. The configuration to idle MOSI low is
+analogous but uses the <code class="docutils literal notranslate"><span class="pre">SPI_MOSI_IDLE_LOW</span></code> mode bit.</p>
+</section>
+</section>
 <section id="thanks-to">
 <h2>THANKS TO<a class="headerlink" href="#thanks-to" title="Link to this heading">¶</a></h2>
 <p>Contributors to Linux-SPI discussions include (in alphabetical order,
@@ -743,11 +820,11 @@ by last name):</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/spi/spi-summary.rst.txt"

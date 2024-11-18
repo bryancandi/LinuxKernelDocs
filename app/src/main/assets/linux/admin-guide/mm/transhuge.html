@@ -7,9 +7,9 @@
 
     <title>Transparent Hugepage Support &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -96,7 +97,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -419,6 +420,16 @@ PMD-mappable transparent hugepage:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>cat /sys/kernel/mm/transparent_hugepage/hpage_pmd_size
 </pre></div>
 </div>
+<p>All THPs at fault and collapse time will be added to _deferred_list,
+and will therefore be split under memory presure if they are considered
+“underused”. A THP is underused if the number of zero-filled pages in
+the THP is above max_ptes_none (see below). It is possible to disable
+this behaviour by writing 0 to shrink_underused, and enable it by writing
+1 to it:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 0 &gt; /sys/kernel/mm/transparent_hugepage/shrink_underused
+echo 1 &gt; /sys/kernel/mm/transparent_hugepage/shrink_underused
+</pre></div>
+</div>
 <p>khugepaged will be automatically started when PMD-sized THP is enabled
 (either of the per-size anon control or the top-level control are set
 to “always” or “madvise”), and it’ll be automatically shutdown when
@@ -500,12 +511,33 @@ that THP is shared. Exceeding the number would block the collapse:</p>
 <p>A higher value may increase memory footprint for some workloads.</p>
 </section>
 </section>
-<section id="boot-parameter">
-<h2>Boot parameter<a class="headerlink" href="#boot-parameter" title="Link to this heading">¶</a></h2>
-<p>You can change the sysfs boot time defaults of Transparent Hugepage
-Support by passing the parameter <code class="docutils literal notranslate"><span class="pre">transparent_hugepage=always</span></code> or
-<code class="docutils literal notranslate"><span class="pre">transparent_hugepage=madvise</span></code> or <code class="docutils literal notranslate"><span class="pre">transparent_hugepage=never</span></code>
-to the kernel command line.</p>
+<section id="boot-parameters">
+<h2>Boot parameters<a class="headerlink" href="#boot-parameters" title="Link to this heading">¶</a></h2>
+<p>You can change the sysfs boot time default for the top-level “enabled”
+control by passing the parameter <code class="docutils literal notranslate"><span class="pre">transparent_hugepage=always</span></code> or
+<code class="docutils literal notranslate"><span class="pre">transparent_hugepage=madvise</span></code> or <code class="docutils literal notranslate"><span class="pre">transparent_hugepage=never</span></code> to the
+kernel command line.</p>
+<p>Alternatively, each supported anonymous THP size can be controlled by
+passing <code class="docutils literal notranslate"><span class="pre">thp_anon=&lt;size&gt;[KMG],&lt;size&gt;[KMG]:&lt;state&gt;;&lt;size&gt;[KMG]-&lt;size&gt;[KMG]:&lt;state&gt;</span></code>,
+where <code class="docutils literal notranslate"><span class="pre">&lt;size&gt;</span></code> is the THP size (must be a power of 2 of PAGE_SIZE and
+supported anonymous THP)  and <code class="docutils literal notranslate"><span class="pre">&lt;state&gt;</span></code> is one of <code class="docutils literal notranslate"><span class="pre">always</span></code>, <code class="docutils literal notranslate"><span class="pre">madvise</span></code>,
+<code class="docutils literal notranslate"><span class="pre">never</span></code> or <code class="docutils literal notranslate"><span class="pre">inherit</span></code>.</p>
+<p>For example, the following will set 16K, 32K, 64K THP to <code class="docutils literal notranslate"><span class="pre">always</span></code>,
+set 128K, 512K to <code class="docutils literal notranslate"><span class="pre">inherit</span></code>, set 256K to <code class="docutils literal notranslate"><span class="pre">madvise</span></code> and 1M, 2M
+to <code class="docutils literal notranslate"><span class="pre">never</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>thp_anon=16K-64K:always;128K,512K:inherit;256K:madvise;1M-2M:never
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">thp_anon=</span></code> may be specified multiple times to configure all THP sizes as
+required. If <code class="docutils literal notranslate"><span class="pre">thp_anon=</span></code> is specified at least once, any anon THP sizes
+not explicitly configured on the command line are implicitly set to
+<code class="docutils literal notranslate"><span class="pre">never</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">transparent_hugepage</span></code> setting only affects the global toggle. If
+<code class="docutils literal notranslate"><span class="pre">thp_anon</span></code> is not specified, PMD_ORDER THP will default to <code class="docutils literal notranslate"><span class="pre">inherit</span></code>.
+However, if a valid <code class="docutils literal notranslate"><span class="pre">thp_anon</span></code> setting is provided by the user, the
+PMD_ORDER THP policy will be overridden. If the policy for PMD_ORDER
+is not defined within a valid <code class="docutils literal notranslate"><span class="pre">thp_anon</span></code>, its policy will default to
+<code class="docutils literal notranslate"><span class="pre">never</span></code>.</p>
 </section>
 <section id="hugepages-in-tmpfs-shmem">
 <h2>Hugepages in tmpfs/shmem<a class="headerlink" href="#hugepages-in-tmpfs-shmem" title="Link to this heading">¶</a></h2>
@@ -635,6 +667,11 @@ queue. This happens when a huge page is partially unmapped and
 splitting it would free up some memory. Pages on split queue are
 going to be split under memory pressure.</p>
 </dd>
+<dt>thp_underused_split_page</dt><dd><p>is incremented when a huge page on the split queue was split
+because it was underused. A THP is underused if the number of
+zero pages in the THP is above a certain threshold
+(/sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none).</p>
+</dd>
 <dt>thp_split_pmd</dt><dd><p>is incremented every time a PMD split into table of PTEs.
 This can happen, for instance, when application calls mprotect() or
 munmap() on part of huge page. It doesn’t split huge page, only
@@ -700,6 +737,16 @@ This happens when a huge page is partially unmapped and splitting
 it would free up some memory. Pages on split queue are going to
 be split under memory pressure, if splitting is possible.</p>
 </dd>
+<dt>nr_anon</dt><dd><p>the number of anonymous THP we have in the whole system. These THPs
+might be currently entirely mapped or have partially unmapped/unused
+subpages.</p>
+</dd>
+<dt>nr_anon_partially_mapped</dt><dd><p>the number of anonymous THP which are likely partially mapped, possibly
+wasting memory, and have been queued for deferred memory reclamation.
+Note that in corner some cases (e.g., failed migration), we might detect
+an anonymous THP as “partially mapped” and count it here, even though it
+is not actually partially mapped anymore.</p>
+</dd>
 </dl>
 <p>As the system ages, allocating huge pages may be expensive as the
 system uses memory compaction to copy data around memory to free a
@@ -745,11 +792,11 @@ unaffected. libhugetlbfs will also work fine as usual.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/admin-guide/mm/transhuge.rst.txt"

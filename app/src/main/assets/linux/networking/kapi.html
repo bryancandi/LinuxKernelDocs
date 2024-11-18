@@ -7,9 +7,9 @@
 
     <title>Linux Networking and Network Devices APIs &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -482,6 +483,7 @@ the same device.</p>
 #if IS_ENABLED(CONFIG_IP_SCTP);
     __u8 csum_not_inet:1;
 #endif;
+    __u8 unreadable:1;
 #if defined(CONFIG_NET_SCHED) || defined(CONFIG_NET_XGRESS);
     __u16 tc_index;
 #endif;
@@ -683,6 +685,9 @@ ports.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">slow_gro</span></code></dt><dd><p>state present at GRO time, slower prepare step required</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">csum_not_inet</span></code></dt><dd><p>use CRC32c to resolve CHECKSUM_PARTIAL</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unreadable</span></code></dt><dd><p>indicates that at least 1 of the fragments in this skb is
+unreadable.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tc_index</span></code></dt><dd><p>Traffic control index</p>
 </dd>
@@ -1848,6 +1853,22 @@ otherwise.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.skb_frag_net_iov">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">net_iov</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">skb_frag_net_iov</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">skb_frag_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frag</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_frag_net_iov" title="Link to this definition">¶</a><br /></dt>
+<dd><p>retrieve the net_iov referred to by fragment</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">skb_frag_t</span> <span class="pre">*frag</span></code></dt><dd><p>the fragment</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_iov</span></code> associated with <strong>frag</strong>. Returns NULL if this
+frag has no associated net_iov.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.skb_frag_page">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">skb_frag_page</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">skb_frag_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frag</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_frag_page" title="Link to this definition">¶</a><br /></dt>
 <dd><p>retrieve the page referred to by a paged fragment</p>
@@ -1859,8 +1880,24 @@ otherwise.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">skb_frag_t</span> <span class="pre">*frag</span></code></dt><dd><p>the paged fragment</p>
 </dd>
 </dl>
-<p><strong>Description</strong></p>
-<p>Returns the <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span></code> associated with <strong>frag</strong>.</p>
+<p><strong>Return</strong></p>
+<p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span></code> associated with <strong>frag</strong>. Returns NULL if this frag
+has no associated page.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.skb_frag_netmem">
+<span class="n"><span class="pre">netmem_ref</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skb_frag_netmem</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">skb_frag_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frag</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_frag_netmem" title="Link to this definition">¶</a><br /></dt>
+<dd><p>retrieve the netmem referred to by a fragment</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">skb_frag_t</span> <span class="pre">*frag</span></code></dt><dd><p>the fragment</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>the <code class="xref c c-type docutils literal notranslate"><span class="pre">netmem_ref</span></code> associated with <strong>frag</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.skb_frag_address">
@@ -2702,6 +2739,7 @@ for <a class="reference internal" href="#c.sock" title="sock"><code class="xref 
 #endif;
     struct rcu_head         sk_rcu;
     netns_tracker ns_tracker;
+    struct xarray           sk_user_frags;
 };
 </pre></div>
 </div>
@@ -2908,6 +2946,8 @@ for timestamping</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ns_tracker</span></code></dt><dd><p>tracker for netns reference</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_user_frags</span></code></dt><dd><p>xarray of pages the user is holding a reference on.</p>
+</dd>
 </dl>
 </div>
 <dl class="c function">
@@ -2990,7 +3030,7 @@ for timestamping</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This version should be used for very small section, where process wont block
+<p>This version should be used for very small section, where process won’t block
 return false if fast path is taken:</p>
 <blockquote>
 <div><p>sk_lock.slock locked, owned = 0, BH disabled</p>
@@ -3103,7 +3143,7 @@ data on the socket.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.sock_poll_wait">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sock_poll_wait</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="n"><span class="pre">poll_table</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sock_poll_wait" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">sock_poll_wait</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="n"><span class="pre">poll_table</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sock_poll_wait" title="Link to this definition">¶</a><br /></dt>
 <dd><p>place memory barrier behind the poll_wait call.</p>
 </dd></dl>
 
@@ -3185,8 +3225,8 @@ locked so that the sk_buff queue operation is ok.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.sock_alloc_file">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">sock_alloc_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dname</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sock_alloc_file" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Bind a <a class="reference internal" href="#c.socket" title="socket"><code class="xref c c-type docutils literal notranslate"><span class="pre">socket</span></code></a> to a <code class="xref c c-type docutils literal notranslate"><span class="pre">file</span></code></p>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">sock_alloc_file</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dname</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sock_alloc_file" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Bind a <a class="reference internal" href="#c.socket" title="socket"><code class="xref c c-type docutils literal notranslate"><span class="pre">socket</span></code></a> to a <a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><code class="xref c c-type docutils literal notranslate"><span class="pre">file</span></code></a></p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -3197,7 +3237,7 @@ locked so that the sk_buff queue operation is ok.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>file status flags</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*dname</span></code></dt><dd><p>protocol name</p>
-<p>Returns the <code class="xref c c-type docutils literal notranslate"><span class="pre">file</span></code> bound with <strong>sock</strong>, implicitly storing it
+<p>Returns the <a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><code class="xref c c-type docutils literal notranslate"><span class="pre">file</span></code></a> bound with <strong>sock</strong>, implicitly storing it
 in sock-&gt;file. If dname is <code class="docutils literal notranslate"><span class="pre">NULL</span></code>, sets to “”.</p>
 <p>On failure <strong>sock</strong> is released, and an ERR pointer is returned.</p>
 <p>This function uses GFP_KERNEL internally.</p>
@@ -4509,6 +4549,32 @@ a stack for this purpose.</p>
 returned 0.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.skb_copy_seq_read">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skb_copy_seq_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">skb_seq_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">st</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_copy_seq_read" title="Link to this definition">¶</a><br /></dt>
+<dd><p>copy from a skb_seq_state to a buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">skb_seq_state</span> <span class="pre">*st</span></code></dt><dd><p>source skb_seq_state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">offset</span></code></dt><dd><p>offset in source</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*to</span></code></dt><dd><p>destination buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">len</span></code></dt><dd><p>number of bytes to copy</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Copy <strong>len</strong> bytes from <strong>offset</strong> bytes into the source <strong>st</strong> to the destination
+buffer <strong>to</strong>. <cite>offset</cite> should increase (or be unchanged) with each subsequent
+call to this function. If offset needs to decrease from the previous use <cite>st</cite>
+should be reset first.</p>
+<p><strong>Return</strong></p>
+<p>0 on success or -EINVAL if the copy ended early</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.skb_find_text">
 <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skb_find_text</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">from</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">to</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ts_config</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_find_text" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Find a text pattern in skb data</p>
@@ -4734,7 +4800,7 @@ differs from the provided skb.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>skb_scrub_packet can be used after encapsulating or decapsulting a packet
+<p>skb_scrub_packet can be used after encapsulating or decapsulating a packet
 into/from a tunnel. Some information have to be cleared during these
 operations.
 skb_scrub_packet can also be used to clean a skb before injecting it in
@@ -9849,7 +9915,7 @@ If head not NULL, device is queued to be unregistered later.</p>
 </dl>
 <p><strong>Note</strong></p>
 <dl class="simple">
-<dt>As most callers use a stack allocated list_head,</dt><dd><p>we force a <a class="reference internal" href="../core-api/kernel-api.html#c.list_del" title="list_del"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_del()</span></code></a> to make sure stack wont be corrupted later.</p>
+<dt>As most callers use a stack allocated list_head,</dt><dd><p>we force a <a class="reference internal" href="../core-api/kernel-api.html#c.list_del" title="list_del"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_del()</span></code></a> to make sure stack won’t be corrupted later.</p>
 </dd>
 </dl>
 </div>
@@ -10756,7 +10822,7 @@ device address, assign an appropriate packet type.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.eth_skb_pad">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">eth_skb_pad</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.eth_skb_pad" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Pad buffer to mininum number of octets for Ethernet frame</p>
+<dd><p>Pad buffer to minimum number of octets for Ethernet frame</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -10974,12 +11040,6 @@ entity (i.e. the master device for bridged veth)</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IFF_TX_SKB_NO_LINEAR</span></code></dt><dd><p>device/driver is capable of xmitting frames with
 skb_headlen(skb) == 0 (data starts from frag0)</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">IFF_CHANGE_PROTO_DOWN</span></code></dt><dd><p>device supports setting carrier via IFLA_PROTO_DOWN</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">IFF_SEE_ALL_HWTSTAMP_REQUESTS</span></code></dt><dd><p>device wants to see calls to
-ndo_hwtstamp_set() for all timestamp requests regardless of source,
-even if those aren’t HWTSTAMP_SOURCE_NETDEV.</p>
-</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
@@ -10987,7 +11047,8 @@ even if those aren’t HWTSTAMP_SOURCE_NETDEV.</p>
 by drivers and used in the kernel. These flags are invisible to
 userspace; this means that the order of these flags can change
 during any kernel release.</p>
-<p>You should have a pretty good reason to be extending these flags.</p>
+<p>You should add bitfield booleans after either net_device::priv_flags
+(hotpath) or ::threaded (slowpath) instead of extending these flags.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.net_device">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">net_device</span></span></span><a class="headerlink" href="#c.net_device" title="Link to this definition">¶</a><br /></dt>
@@ -10998,7 +11059,8 @@ during any kernel release.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct net_device {
     __cacheline_group_begin(net_device_read_tx);
-    unsigned long long      priv_flags;
+    unsigned long           priv_flags:32;
+    unsigned long           lltx:1;
     const struct net_device_ops *netdev_ops;
     const struct header_ops *header_ops;
     struct netdev_queue     *_tx;
@@ -11040,7 +11102,7 @@ during any kernel release.</p>
     unsigned int            real_num_rx_queues;
     struct netdev_rx_queue  *_rx;
     unsigned long           gro_flush_timeout;
-    int napi_defer_hard_irqs;
+    u32 napi_defer_hard_irqs;
     unsigned int            gro_max_size;
     unsigned int            gro_ipv4_max_size;
     rx_handler_func_t __rcu *rx_handler;
@@ -11240,11 +11302,16 @@ during any kernel release.</p>
 #if IS_ENABLED(CONFIG_CGROUP_NET_PRIO);
     struct netprio_map __rcu *priomap;
 #endif;
+    struct phy_link_topology        *link_topo;
     struct phy_device       *phydev;
     struct sfp_bus          *sfp_bus;
     struct lock_class_key   *qdisc_tx_busylock;
     bool proto_down;
     bool threaded;
+    unsigned long           see_all_hwtstamp_requests:1;
+    unsigned long           change_proto_down:1;
+    unsigned long           netns_local:1;
+    unsigned long           fcoe_mtu:1;
     struct list_head        net_notifier_list;
 #if IS_ENABLED(CONFIG_MACSEC);
     const struct macsec_ops *macsec_ops;
@@ -11272,8 +11339,12 @@ during any kernel release.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">priv_flags</span></code></dt><dd><p>Like ‘flags’ but invisible to userspace,
-see if.h for the definitions</p>
+<dt><code class="docutils literal notranslate"><span class="pre">priv_flags</span></code></dt><dd><p>flags invisible to userspace defined as bits, see
+<a class="reference internal" href="#c.netdev_priv_flags" title="netdev_priv_flags"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">netdev_priv_flags</span></code></a> for the definitions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lltx</span></code></dt><dd><p>device supports lockless Tx. Deprecated for real HW
+drivers. Mainly used by logical interfaces, such as
+bonding and tunnels</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">netdev_ops</span></code></dt><dd><p>Includes several pointers to callbacks,
 if one wants to override the ndo_*() functions</p>
@@ -11633,6 +11704,8 @@ sysfs groups</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">priomap</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">link_topo</span></code></dt><dd><p>Physical link topology tracking attached PHYs</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">phydev</span></code></dt><dd><p>Physical device may attach itself
 for hardware timestamping</p>
 </dd>
@@ -11645,6 +11718,17 @@ switch driver and used to set the phys state of the
 switch port.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">threaded</span></code></dt><dd><p>napi threaded mode is enabled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">see_all_hwtstamp_requests</span></code></dt><dd><p>device wants to see calls to
+ndo_hwtstamp_set() for all timestamp requests
+regardless of source, even if those aren’t
+HWTSTAMP_SOURCE_NETDEV</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">change_proto_down</span></code></dt><dd><p>device supports setting carrier via IFLA_PROTO_DOWN</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">netns_local</span></code></dt><dd><p>interface can’t change network namespaces</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fcoe_mtu</span></code></dt><dd><p>device supports maximum FCoE MTU, 2158 bytes</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">net_notifier_list</span></code></dt><dd><p>List of per-net netdev notifier block
 that follow this device when it is moved
@@ -11969,6 +12053,21 @@ individual packet), so that BQL can adjust its limits appropriately.</p>
 <p>Report the number of bytes and packets transmitted by the network device
 hardware queue over the physical medium, <strong>bytes</strong> must exactly match the
 <strong>bytes</strong> amount passed to <a class="reference internal" href="#c.netdev_sent_queue" title="netdev_sent_queue"><code class="xref c c-func docutils literal notranslate"><span class="pre">netdev_sent_queue()</span></code></a></p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.netdev_tx_reset_subqueue">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netdev_tx_reset_subqueue</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">qid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netdev_tx_reset_subqueue" title="Link to this definition">¶</a><br /></dt>
+<dd><p>reset the BQL stats and state of a netdev queue</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>network device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">qid</span></code></dt><dd><p>stack index of the queue to reset</p>
 </dd>
 </dl>
 </div>
@@ -12405,7 +12504,7 @@ will change to up, dormant, or down, as appropriate.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__dev_uc_sync">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__dev_uc_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sync</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">unsync</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__dev_uc_sync" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Synchonize device’s unicast list</p>
+<dd><p>Synchronize device’s unicast list</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -12440,7 +12539,7 @@ addresses that have been deleted.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__dev_mc_sync">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__dev_mc_sync</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sync</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">unsync</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__dev_mc_sync" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Synchonize device’s multicast list</p>
+<dd><p>Synchronize device’s multicast list</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -14837,6 +14936,7 @@ Once complete, move to UP to restart the PHY.
     struct mdio_device mdio;
     const struct phy_driver *drv;
     struct device_link *devlink;
+    u32 phyindex;
     u32 phy_id;
     struct phy_c45_device_ids c45_ids;
     unsigned is_c45:1;
@@ -14924,6 +15024,10 @@ Once complete, move to UP to restart the PHY.
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">devlink</span></code></dt><dd><p>Create a link between phy dev and mac dev, if the external phy
 used by current mac interface is managed by another mac interface.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">phyindex</span></code></dt><dd><p>Unique id across the phy’s parent tree of phys to address the PHY
+from userspace, similar to ifindex. A zero index means the PHY
+wasn’t assigned an id yet.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">phy_id</span></code></dt><dd><p>UID for this device found during discovery</p>
 </dd>
@@ -16206,6 +16310,46 @@ the desired functionality.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phy_sfp_connect_phy">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_sfp_connect_phy</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">upstream</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phy</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_sfp_connect_phy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Connect the SFP module’s PHY to the upstream PHY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*upstream</span></code></dt><dd><p>pointer to the upstream phy device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phy</span></code></dt><dd><p>pointer to the SFP module’s phy device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This helper allows keeping track of PHY devices on the link. It adds the
+SFP module’s phy to the phy namespace of the upstream phy</p>
+<p><strong>Return</strong></p>
+<p>0 on success, otherwise a negative error code.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_sfp_disconnect_phy">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_sfp_disconnect_phy</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">upstream</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phy</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_sfp_disconnect_phy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disconnect the SFP module’s PHY from the upstream PHY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*upstream</span></code></dt><dd><p>pointer to the upstream phy device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phy</span></code></dt><dd><p>pointer to the SFP module’s phy device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This helper allows keeping track of PHY devices on the link. It removes the
+SFP module’s phy to the phy namespace of the upstream phy. As the module phy
+will be destroyed, re-inserting the same module will add a new phy with a
+new index.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_sfp_attach">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_sfp_attach</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">upstream</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sfp_bus" title="sfp_bus"><span class="n"><span class="pre">sfp_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_sfp_attach" title="Link to this definition">¶</a><br /></dt>
 <dd><p>attach the SFP bus to the PHY upstream network device</p>
@@ -17114,7 +17258,7 @@ and reapply all driver-specific and board-specific fixups.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.genphy_config_advert">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_config_advert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_config_advert" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_config_advert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">advert</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_config_advert" title="Link to this definition">¶</a><br /></dt>
 <dd><p>sanitize and advertise auto-negotiation parameters</p>
 </dd></dl>
 
@@ -17122,6 +17266,8 @@ and reapply all driver-specific and board-specific fixups.</p>
 <p><strong>Parameters</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*advert</span></code></dt><dd><p>auto-negotiation parameters to advertise</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -18632,6 +18778,26 @@ disabled</p></li>
 (e.g. Clause 37, SGMII and similar) not Clause 73.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_set_fixed_link">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_set_fixed_link</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><span class="n"><span class="pre">phylink_link_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_set_fixed_link" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set the fixed link</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span> <span class="pre">*pl</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink" title="phylink"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span></code></a> returned from <a class="reference internal" href="#c.phylink_create" title="phylink_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_create()</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">phylink_link_state</span> <span class="pre">*state</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_link_state" title="phylink_link_state"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_link_state</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is used when the link parameters are known and do not change,
+making it suitable for certain types of network connections.</p>
+<p><strong>Return</strong></p>
+<p>zero on success or negative error code.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_create">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">phylink_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">iface</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_mac_ops" title="phylink_mac_ops"><span class="n"><span class="pre">phylink_mac_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mac_ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_create" title="Link to this definition">¶</a><br /></dt>
 <dd><p>create a phylink instance</p>
@@ -19357,7 +19523,7 @@ of these structure members. This can be obtained from
     void (*link_down)(void *priv);
     void (*link_up)(void *priv);
     int (*connect_phy)(void *priv, struct phy_device *);
-    void (*disconnect_phy)(void *priv);
+    void (*disconnect_phy)(void *priv, struct phy_device *);
 };
 </pre></div>
 </div>
@@ -19690,6 +19856,29 @@ fwnode_property_get_reference_args().</p></li>
 <p>Delete a previously registered upstream connection for the SFP
 module. <strong>bus</strong> should have been added by <a class="reference internal" href="#c.sfp_bus_add_upstream" title="sfp_bus_add_upstream"><code class="xref c c-func docutils literal notranslate"><span class="pre">sfp_bus_add_upstream()</span></code></a>.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.sfp_get_name">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">sfp_get_name</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sfp_bus" title="sfp_bus"><span class="n"><span class="pre">sfp_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.sfp_get_name" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the SFP device name</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sfp_bus</span> <span class="pre">*bus</span></code></dt><dd><p>a pointer to the <a class="reference internal" href="#c.sfp_bus" title="sfp_bus"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sfp_bus</span></code></a> structure for the sfp module</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Gets the SFP device’s name, if <strong>bus</strong> has a registered socket. Callers must
+hold RTNL, and the returned name is only valid until RTNL is released.</p>
+<p><strong>Return</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The name of the SFP device registered with sfp_register_socket()</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NULL</span></code> if no device was registered on <strong>bus</strong></p></li>
+</ul>
+</div></blockquote>
+</div>
 </section>
 </section>
 </section>
@@ -19702,11 +19891,11 @@ module. <strong>bus</strong> should have been added by <a class="reference inter
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/networking/kapi.rst.txt"

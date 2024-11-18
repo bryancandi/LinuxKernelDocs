@@ -7,9 +7,9 @@
 
     <title>Console &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -122,6 +123,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../pps.html">PPS - Pulse Per Second</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../ptp.html">PTP hardware clock infrastructure for Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../pwm.html">Pulse Width Modulation (PWM) interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../pwrseq.html">Power Sequencing API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../regulator.html">Voltage and current regulator API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../reset.html">Reset controller API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../rfkill.html">rfkill - RF kill switch support</a></li>
@@ -301,18 +303,26 @@ constraints.</p>
     unsigned long           dropped;
     void *data;
     struct hlist_node       node;
-    bool (*write_atomic)(struct console *con, struct nbcon_write_context *wctxt);
+    void (*write_atomic)(struct console *con, struct nbcon_write_context *wctxt);
+    void (*write_thread)(struct console *con, struct nbcon_write_context *wctxt);
+    void (*device_lock)(struct console *con, unsigned long *flags);
+    void (*device_unlock)(struct console *con, unsigned long flags);
     atomic_t __private nbcon_state;
     atomic_long_t __private nbcon_seq;
+    struct nbcon_context    __private nbcon_device_ctxt;
+    atomic_long_t __private nbcon_prev_seq;
     struct printk_buffers   *pbufs;
+    struct task_struct      *kthread;
+    struct rcuwait          rcuwait;
+    struct irq_work         irq_work;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>The name of the console driver</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">write</span></code></dt><dd><p>Write callback to output messages (Optional)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">write</span></code></dt><dd><p>Legacy write callback to output messages (Optional)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">read</span></code></dt><dd><p>Read callback for console input (Optional)</p>
 </dd>
@@ -344,13 +354,92 @@ constraints.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">node</span></code></dt><dd><p>hlist node for the console list</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">write_atomic</span></code></dt><dd><p>Write callback for atomic context</p>
+<dt><code class="docutils literal notranslate"><span class="pre">write_atomic</span></code></dt><dd><p>NBCON callback to write out text in any context. (Optional)</p>
+<p>This callback is called with the console already acquired. However,
+a higher priority context is allowed to take it over by default.</p>
+<p>The callback must call nbcon_enter_unsafe() and nbcon_exit_unsafe()
+around any code where the takeover is not safe, for example, when
+manipulating the serial port registers.</p>
+<p>nbcon_enter_unsafe() will fail if the context has lost the console
+ownership in the meantime. In this case, the callback is no longer
+allowed to go forward. It must back out immediately and carefully.
+The buffer content is also no longer trusted since it no longer
+belongs to the context.</p>
+<p>The callback should allow the takeover whenever it is safe. It
+increases the chance to see messages when the system is in trouble.
+If the driver must reacquire ownership in order to finalize or
+revert hardware changes, nbcon_reacquire_nobuf() can be used.
+However, on reacquire the buffer content is no longer available. A
+reacquire cannot be used to resume printing.</p>
+<p>The callback can be called from any context (including NMI).
+Therefore it must avoid usage of any locking and instead rely
+on the console ownership for synchronization.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">write_thread</span></code></dt><dd><p>NBCON callback to write out text in task context.</p>
+<p>This callback must be called only in task context with both
+device_lock() and the nbcon console acquired with
+NBCON_PRIO_NORMAL.</p>
+<p>The same rules for console ownership verification and unsafe
+sections handling applies as with write_atomic().</p>
+<p>The console ownership handling is necessary for synchronization
+against write_atomic() which is synchronized only via the context.</p>
+<p>The device_lock() provides the primary serialization for operations
+on the device. It might be as relaxed (mutex)[*] or as tight
+(disabled preemption and interrupts) as needed. It allows
+the kthread to operate in the least restrictive mode[**].</p>
+<dl class="simple">
+<dt>[*] Standalone nbcon_context_try_acquire() is not safe with</dt><dd><p>the preemption enabled, see nbcon_owner_matches(). But it
+can be safe when always called in the preemptive context
+under the device_lock().</p>
+</dd>
+<dt>[**] The device_lock() makes sure that nbcon_context_try_acquire()</dt><dd><p>would never need to spin which is important especially with
+PREEMPT_RT.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">device_lock</span></code></dt><dd><p>NBCON callback to begin synchronization with driver code.</p>
+<p>Console drivers typically must deal with access to the hardware
+via user input/output (such as an interactive login shell) and
+output of kernel messages via <a class="reference internal" href="../../core-api/printk-basics.html#c.printk" title="printk"><code class="xref c c-func docutils literal notranslate"><span class="pre">printk()</span></code></a> calls. This callback is
+called by the printk-subsystem whenever it needs to synchronize
+with hardware access by the driver. It should be implemented to
+use whatever synchronization mechanism the driver is using for
+itself (for example, the port lock for uart serial consoles).</p>
+<p>The callback is always called from task context. It may use any
+synchronization method required by the driver.</p>
+<dl class="simple">
+<dt>IMPORTANT: The callback MUST disable migration. The console driver</dt><dd><p>may be using a synchronization mechanism that already takes
+care of this (such as spinlocks). Otherwise this function must
+explicitly call migrate_disable().</p>
+</dd>
+</dl>
+<p>The flags argument is provided as a convenience to the driver. It
+will be passed again to device_unlock(). It can be ignored if the
+driver does not need it.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">device_unlock</span></code></dt><dd><p>NBCON callback to finish synchronization with driver code.</p>
+<p>It is the counterpart to device_lock().</p>
+<p>This callback is always called from task context. It must
+appropriately re-enable migration (depending on how device_lock()
+disabled migration).</p>
+<p>The flags argument is the value of the same variable that was
+passed to device_lock().</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nbcon_state</span></code></dt><dd><p>State for nbcon consoles</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nbcon_seq</span></code></dt><dd><p>Sequence number of the next record for nbcon to print</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nbcon_device_ctxt</span></code></dt><dd><p>Context available for non-printing operations</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nbcon_prev_seq</span></code></dt><dd><p>Seq num the previous nbcon owner was assigned to print</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pbufs</span></code></dt><dd><p>Pointer to nbcon private buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kthread</span></code></dt><dd><p>Printer kthread for this console</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rcuwait</span></code></dt><dd><p>RCU-safe wait object for <strong>kthread</strong> waking</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">irq_work</span></code></dt><dd><p>Defer <strong>kthread</strong> waking to IRQ work context</p>
 </dd>
 </dl>
 </div>
@@ -615,7 +704,7 @@ possible. (optional)</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.console_srcu_read_flags">
 <span class="kt"><span class="pre">short</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">console_srcu_read_flags</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.console" title="console"><span class="n"><span class="pre">console</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">con</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.console_srcu_read_flags" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Locklessly read the console flags</p>
+<dd><p>Locklessly read flags of a possibly registered console</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -625,14 +714,21 @@ possible. (optional)</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This function provides the necessary READ_ONCE() and data_race()
-notation for locklessly reading the console flags. The READ_ONCE()
-in this function matches the WRITE_ONCE() when <strong>flags</strong> are modified
-for registered consoles with <a class="reference internal" href="#c.console_srcu_write_flags" title="console_srcu_write_flags"><code class="xref c c-func docutils literal notranslate"><span class="pre">console_srcu_write_flags()</span></code></a>.</p>
-<p>Only use this function to read console flags when locklessly
-iterating the console list via srcu.</p>
+<p>Locklessly reading <strong>con-&gt;flags</strong> provides a consistent read value because
+there is at most one CPU modifying <strong>con-&gt;flags</strong> and that CPU is using only
+read-modify-write operations to do so.</p>
+<p>Requires console_srcu_read_lock to be held, which implies that <strong>con</strong> might
+be a registered console. The purpose of holding console_srcu_read_lock is
+to guarantee that the console state is valid (CON_SUSPENDED/CON_ENABLED)
+and that no exit/cleanup routines will run if the console is currently
+undergoing unregistration.</p>
+<p>If the caller is holding the console_list_lock or it is _certain_ that
+<strong>con</strong> is not and will not become registered, the caller may read
+<strong>con-&gt;flags</strong> directly instead.</p>
 <p><strong>Context</strong></p>
 <p>Any context.</p>
+<p><strong>Return</strong></p>
+<p>The current value of the <strong>con-&gt;flags</strong> field.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.console_srcu_write_flags">
@@ -1040,11 +1136,11 @@ the parameter and always returns <code class="docutils literal notranslate"><spa
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/driver-api/tty/console.rst.txt"

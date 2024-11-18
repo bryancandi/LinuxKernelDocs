@@ -509,6 +509,7 @@ videodev2.h
     \#define :ref:`V4L2_CAP_META_CAPTURE <device-capabilities>`           0x00800000  \/\* Is a metadata capture device \*\/
 
     \#define :ref:`V4L2_CAP_READWRITE <device-capabilities>`              0x01000000  \/\* read\/write systemcalls \*\/
+    \#define :ref:`V4L2_CAP_EDID <device-capabilities>`                   0x02000000  \/\* Is an EDID-only device \*\/
     \#define :ref:`V4L2_CAP_STREAMING <device-capabilities>`              0x04000000  \/\* streaming I\/O ioctls \*\/
     \#define :ref:`V4L2_CAP_META_OUTPUT <device-capabilities>`            0x08000000  \/\* Is a metadata output device \*\/
 
@@ -861,6 +862,7 @@ videodev2.h
     \/\* Vendor specific - used for RK\_ISP1 camera sub-system \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_PARAMS <v4l2-meta-fmt-rk-isp1-params>`    v4l2\_fourcc('R', 'K', '1', 'P') \/\* Rockchip ISP1 3A Parameters \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_STAT_3A <v4l2-meta-fmt-rk-isp1-stat-3a>`   v4l2\_fourcc('R', 'K', '1', 'S') \/\* Rockchip ISP1 3A Statistics \*\/
+    \#define \ :ref:`V4L2_META_FMT_RK_ISP1_EXT_PARAMS <v4l2-meta-fmt-rk-isp1-ext-params>`        v4l2\_fourcc('R', 'K', '1', 'E') \/\* Rockchip ISP1 3a Extensible Parameters \*\/
 
     \/\* Vendor specific - used for RaspberryPi PiSP \*\/
     \#define \ :ref:`V4L2_META_FMT_RPI_BE_CFG <v4l2-meta-fmt-rpi-be-cfg>`        v4l2\_fourcc('R', 'P', 'B', 'C') \/\* PiSP BE configuration \*\/

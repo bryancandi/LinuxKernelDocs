@@ -7,9 +7,9 @@
 
     <title>The Definitive KVM (Kernel-based Virtual Machine) API Documentation &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -6001,7 +6002,9 @@ whether or not KVM_CAP_X86_USER_SPACE_MSR’s KVM_MSR_EXIT_REASON_FILTER is
 enabled.  If KVM_MSR_EXIT_REASON_FILTER is enabled, KVM will exit to userspace
 on denied accesses, i.e. userspace effectively intercepts the MSR access.  If
 KVM_MSR_EXIT_REASON_FILTER is not enabled, KVM will inject a #GP into the guest
-on denied accesses.</p>
+on denied accesses.  Note, if an MSR access is denied during emulation of MSR
+load/stores during VMX transitions, KVM ignores KVM_MSR_EXIT_REASON_FILTER.
+See the below warning for full details.</p>
 <p>If an MSR access is allowed by userspace, KVM will emulate and/or virtualize
 the access in accordance with the vCPU model.  Note, KVM may still ultimately
 inject a #GP if an access is allowed by userspace, e.g. if KVM doesn’t support
@@ -6013,9 +6016,20 @@ filtering. In that mode, <code class="docutils literal notranslate"><span class=
 an error.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>MSR accesses as part of nested VM-Enter/VM-Exit are not filtered.
-This includes both writes to individual VMCS fields and reads/writes
-through the MSR lists pointed to by the VMCS.</p>
+<p>MSR accesses that are side effects of instruction execution (emulated or
+native) are not filtered as hardware does not honor MSR bitmaps outside of
+RDMSR and WRMSR, and KVM mimics that behavior when emulating instructions
+to avoid pointless divergence from hardware.  E.g. RDPID reads MSR_TSC_AUX,
+SYSENTER reads the SYSENTER MSRs, etc.</p>
+<p>MSRs that are loaded/stored via dedicated VMCS fields are not filtered as
+part of VM-Enter/VM-Exit emulation.</p>
+<p>MSRs that are loaded/store via VMX’s load/store lists _are_ filtered as part
+of VM-Enter/VM-Exit emulation.  If an MSR access is denied on VM-Enter, KVM
+synthesizes a consistency check VM-Exit(EXIT_REASON_MSR_LOAD_FAIL).  If an
+MSR access is denied on VM-Exit, KVM synthesizes a VM-Abort.  In short, KVM
+extends Intel’s architectural list of MSRs that cannot be loaded/saved via
+the VM-Enter/VM-Exit MSR list.  It is platform owner’s responsibility to
+to communicate any such restrictions to their end users.</p>
 <p>x2APIC MSR accesses cannot be filtered (KVM silently ignores filters that
 cover any x2APIC MSRs).</p>
 </div>
@@ -10362,6 +10376,17 @@ guest CPUID on writes to MISC_ENABLE if
 KVM_X86_QUIRK_MISC_ENABLE_NO_MWAIT is
 disabled.</p></td>
 </tr>
+<tr class="row-even"><td><p>KVM_X86_QUIRK_SLOT_ZAP_ALL</p></td>
+<td><p>By default, for KVM_X86_DEFAULT_VM VMs, KVM
+invalidates all SPTEs in all memslots and
+address spaces when a memslot is deleted or
+moved.  When this quirk is disabled (or the
+VM type isn’t KVM_X86_DEFAULT_VM), KVM only
+ensures the backing memory of the deleted
+or moved memslot isn’t reachable, i.e KVM
+_may_ invalidate only SPTEs related to the
+memslot.</p></td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -11399,11 +11424,11 @@ available.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/virt/kvm/api.rst.txt"

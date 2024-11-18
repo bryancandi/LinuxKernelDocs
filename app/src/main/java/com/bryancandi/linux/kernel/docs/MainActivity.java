@@ -3,7 +3,9 @@ package com.bryancandi.linux.kernel.docs;
 import static android.content.ContentValues.TAG;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -82,6 +84,14 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
+
+        if (id == R.id.action_kernel_archives) {
+            Intent kernelLink = new Intent(android.content.Intent.ACTION_VIEW);
+            kernelLink.setData(Uri.parse("https://www.kernel.org/"));
+            startActivity(kernelLink);
+            return true;
+        }
+
         if (id == R.id.action_about) {
 
             AlertDialog kernelDialog = new AlertDialog.Builder(MainActivity.this).create();
@@ -90,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
                     (getString(R.string.kernel_version))+"\n"+"\n"+
                     getString(R.string.app_version)+"\n"+
                     BuildConfig.VERSION_NAME+" ("+BuildConfig.VERSION_CODE+")");
-            kernelDialog.setIcon(R.drawable.ic_info);
+            kernelDialog.setIcon(R.drawable.ic_about);
             kernelDialog.setCancelable(true);
             kernelDialog.show();
             return true;

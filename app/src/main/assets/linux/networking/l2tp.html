@@ -7,9 +7,9 @@
 
     <title>L2TP &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -956,9 +957,8 @@ data structures reference it.</p>
 <p>Tunnels are identified by a unique tunnel id. The id is 16-bit for
 L2TPv2 and 32-bit for L2TPv3. Internally, the id is stored as a 32-bit
 value.</p>
-<p>Tunnels are kept in a per-net list, indexed by tunnel id. The tunnel
-id namespace is shared by L2TPv2 and L2TPv3. The tunnel context can be
-derived from the socket’s sk_user_data.</p>
+<p>Tunnels are kept in a per-net list, indexed by tunnel id. The
+tunnel id namespace is shared by L2TPv2 and L2TPv3.</p>
 <p>Handling tunnel socket close is perhaps the most tricky part of the
 L2TP implementation. If userspace closes a tunnel socket, the L2TP
 tunnel and all of its sessions must be closed and destroyed. Since the
@@ -969,9 +969,7 @@ socket’s encap_destroy handler is invoked, which L2TP uses to initiate
 its tunnel close actions. For L2TPIP sockets, the socket’s close
 handler initiates the same tunnel close actions. All sessions are
 first closed. Each session drops its tunnel ref. When the tunnel ref
-reaches zero, the tunnel puts its socket ref. When the socket is
-eventually destroyed, its sk_destruct finally frees the L2TP tunnel
-context.</p>
+reaches zero, the tunnel drops its socket ref.</p>
 </section>
 <section id="sessions">
 <h3>Sessions<a class="headerlink" href="#sessions" title="Link to this heading">¶</a></h3>
@@ -982,30 +980,25 @@ traffic. With L2TPv3, the session can carry Ethernet frames (Ethernet
 pseudowire) or other data types such as PPP, ATM, HDLC or Frame
 Relay. Linux currently implements only Ethernet and PPP session types.</p>
 <p>Some L2TP session types also have a socket (PPP pseudowires) while
-others do not (Ethernet pseudowires). We can’t therefore use the
-socket reference count as the reference count for session
-contexts. The L2TP implementation therefore has its own internal
-reference counts on the session contexts.</p>
+others do not (Ethernet pseudowires).</p>
 <p>Like tunnels, L2TP sessions are identified by a unique
 session id. Just as with tunnel ids, the session id is 16-bit for
 L2TPv2 and 32-bit for L2TPv3. Internally, the id is stored as a 32-bit
 value.</p>
 <p>Sessions hold a ref on their parent tunnel to ensure that the tunnel
 stays extant while one or more sessions references it.</p>
-<p>Sessions are kept in a per-tunnel list, indexed by session id. L2TPv3
-sessions are also kept in a per-net list indexed by session id,
-because L2TPv3 session ids are unique across all tunnels and L2TPv3
-data packets do not contain a tunnel id in the header. This list is
-therefore needed to find the session context associated with a
-received data packet when the tunnel context cannot be derived from
-the tunnel socket.</p>
+<p>Sessions are kept in a per-net list. L2TPv2 sessions and L2TPv3
+sessions are stored in separate lists. L2TPv2 sessions are keyed
+by a 32-bit key made up of the 16-bit tunnel ID and 16-bit
+session ID. L2TPv3 sessions are keyed by the 32-bit session ID, since
+L2TPv3 session ids are unique across all tunnels.</p>
 <p>Although the L2TPv3 RFC specifies that L2TPv3 session ids are not
-scoped by the tunnel, the kernel does not police this for L2TPv3 UDP
-tunnels and does not add sessions of L2TPv3 UDP tunnels into the
-per-net session list. In the UDP receive code, we must trust that the
-tunnel can be identified using the tunnel socket’s sk_user_data and
-lookup the session in the tunnel’s session list instead of the per-net
-session list.</p>
+scoped by the tunnel, the Linux implementation has historically
+allowed this. Such session id collisions are supported using a per-net
+hash table keyed by sk and session ID. When looking up L2TPv3
+sessions, the list entry may link to multiple sessions with that
+session ID, in which case the session matching the given sk (tunnel)
+is used.</p>
 </section>
 <section id="ppp">
 <h3>PPP<a class="headerlink" href="#ppp" title="Link to this heading">¶</a></h3>
@@ -1021,10 +1014,9 @@ interface of the kernel PPP subsystem.</p>
 by closing its corresponding L2TP session. This is complicated because
 it must consider racing with netlink session create/destroy requests
 and pppol2tp_connect trying to reconnect with a session that is in the
-process of being closed. Unlike tunnels, PPP sessions do not hold a
-ref on their associated socket, so code must be careful to sock_hold
-the socket where necessary. For all the details, see <a class="reference external" href="https://git.kernel.org/torvalds/c/3d609342cc04129ff7568e19316ce3d7451a27e8">commit
-3d609342cc04129ff7568e19316ce3d7451a27e8</a>.</p>
+process of being closed. PPP sessions hold a ref on their associated
+socket in order that the socket remains extants while the session
+references it.</p>
 </section>
 <section id="ethernet">
 <h3>Ethernet<a class="headerlink" href="#ethernet" title="Link to this heading">¶</a></h3>
@@ -1083,10 +1075,6 @@ following RFCs:</p>
 <p>The current implementation has a number of limitations:</p>
 <blockquote>
 <div><ol class="arabic simple">
-<li><p>Multiple UDP sockets with the same 5-tuple address cannot be
-used. The kernel’s tunnel context is identified using private
-data associated with the socket so it is important that each
-socket is uniquely identified by its address.</p></li>
 <li><p>Interfacing with openvswitch is not yet implemented. It may be
 useful to map OVS Ethernet and VLAN ports into L2TPv3 tunnels.</p></li>
 <li><p>VLAN pseudowires are implemented using an <code class="docutils literal notranslate"><span class="pre">l2tpethN</span></code> interface
@@ -1118,11 +1106,11 @@ the kernel’s built-in L2TP selftests in the future.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/networking/l2tp.rst.txt"

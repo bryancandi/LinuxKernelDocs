@@ -7,9 +7,9 @@
 
     <title>Memory Management APIs &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -423,7 +424,8 @@ non-failing by default (with some exceptions like OOM victims might fail so
 the caller still has to check for failures) while costly requests try to be
 not disruptive and back off even without invoking the OOM killer.
 The following three modifiers might be used to override some of these
-implicit rules.</p>
+implicit rules. Please note that all of them must be used along with
+<code class="docutils literal notranslate"><span class="pre">__GFP_DIRECT_RECLAIM</span></code> flag.</p>
 <p><code class="docutils literal notranslate"><span class="pre">__GFP_NORETRY</span></code>: The VM implementation will try only very lightweight
 memory direct reclaim to get some memory under memory pressure (thus
 it can sleep). It will avoid disruptive actions like OOM killer. The
@@ -451,11 +453,14 @@ as a whole.</p>
 cannot handle allocation failures. The allocation could block
 indefinitely but will never return with failure. Testing for
 failure is pointless.
+It _must_ be blockable and used together with __GFP_DIRECT_RECLAIM.
+It should _never_ be used in non-sleepable contexts.
 New users should be evaluated carefully (and the flag should be
 used only when there is no reasonable failure policy) but it is
 definitely preferable to use the flag rather than opencode endless
 loop around allocator.
-Using this flag for costly allocations is _highly_ discouraged.</p>
+Allocating pages from the buddy with __GFP_NOFAIL and order &gt; 1 is
+not supported. Please consider using kvmalloc() instead.</p>
 </section>
 <section id="useful-gfp-flag-combinations">
 <h3>Useful GFP flag combinations<a class="headerlink" href="#useful-gfp-flag-combinations" title="Link to this heading">¶</a></h3>
@@ -515,6 +520,140 @@ in page fault path, while the non-light is used by khugepaged.</p>
 </section>
 <section id="the-slab-cache">
 <h2>The Slab Cache<a class="headerlink" href="#the-slab-cache" title="Link to this heading">¶</a></h2>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.kmem_cache_args">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_args</span></span></span><a class="headerlink" href="#c.kmem_cache_args" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Less common arguments for <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kmem_cache_args {
+    unsigned int align;
+    unsigned int useroffset;
+    unsigned int usersize;
+    unsigned int freeptr_offset;
+    bool use_freeptr_offset;
+    void (*ctor)(void *);
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">align</span></code></dt><dd><p>The required alignment for the objects.</p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> means no specific alignment is requested.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">useroffset</span></code></dt><dd><p>Usercopy region offset.</p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> is a valid offset, when <strong>usersize</strong> is non-<code class="docutils literal notranslate"><span class="pre">0</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">usersize</span></code></dt><dd><p>Usercopy region size.</p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> means no usercopy region is specified.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">freeptr_offset</span></code></dt><dd><p>Custom offset for the free pointer
+in <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> caches</p>
+<p>By default <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> caches place the free pointer
+outside of the object. This might cause the object to grow in size.
+Cache creators that have a reason to avoid this can specify a custom
+free pointer offset in their struct where the free pointer will be
+placed.</p>
+<p>Note that placing the free pointer inside the object requires the
+caller to ensure that no fields are invalidated that are required to
+guard against object recycling (See <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> for
+details).</p>
+<p>Using <code class="docutils literal notranslate"><span class="pre">0</span></code> as a value for <strong>freeptr_offset</strong> is valid. If <strong>freeptr_offset</strong>
+is specified, <code class="docutils literal notranslate"><span class="pre">use_freeptr_offset</span></code> must be set <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<p>Note that <strong>ctor</strong> currently isn’t supported with custom free pointers
+as a <strong>ctor</strong> requires an external free pointer.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">use_freeptr_offset</span></code></dt><dd><p>Whether a <strong>freeptr_offset</strong> is used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ctor</span></code></dt><dd><p>A constructor for the objects.</p>
+<p>The constructor is invoked for each object in a newly allocated slab
+page. It is the cache user’s responsibility to free object in the
+same state as after calling the constructor, or deal appropriately
+with any differences between a freshly constructed and a reallocated
+object.</p>
+<p><code class="docutils literal notranslate"><span class="pre">NULL</span></code> means no constructor.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Any uninitialized fields of the structure are interpreted as unused. The
+exception is <strong>freeptr_offset</strong> where <code class="docutils literal notranslate"><span class="pre">0</span></code> is a valid value, so
+<strong>use_freeptr_offset</strong> must be also set to <code class="docutils literal notranslate"><span class="pre">true</span></code> in order to interpret the field
+as used. For <strong>useroffset</strong> <code class="docutils literal notranslate"><span class="pre">0</span></code> is also valid, but only with non-<code class="docutils literal notranslate"><span class="pre">0</span></code>
+<strong>usersize</strong>.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">NULL</span></code> args is passed to <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a>, it is equivalent to all
+fields unused.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kmem_cache_create_usercopy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_create_usercopy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">slab_flags_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">useroffset</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">usersize</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctor</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_create_usercopy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Create a kmem cache with a region suitable for copying to userspace.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>A string which is used in /proc/slabinfo to identify this cache.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">size</span></code></dt><dd><p>The size of objects to be created in this cache.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">align</span></code></dt><dd><p>The required alignment for the objects.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>SLAB flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">useroffset</span></code></dt><dd><p>Usercopy region offset</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">usersize</span></code></dt><dd><p>Usercopy region size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*ctor)(void</span> <span class="pre">*)</span></code></dt><dd><p>A constructor for the objects, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is a legacy wrapper, new code should use either KMEM_CACHE_USERCOPY()
+if whitelisting a single field is sufficient, or <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a> with
+the necessary parameters passed via the args parameter (see
+<a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a>)</p>
+<p><strong>Return</strong></p>
+<p>a pointer to the cache on success, NULL on failure.</p>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.kmem_cache_create">
+<span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_create</span></span></span><a class="headerlink" href="#c.kmem_cache_create" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">kmem_cache_create</span> <span class="pre">(__name,</span> <span class="pre">__object_size,</span> <span class="pre">__args,</span> <span class="pre">...)</span></code></p>
+<blockquote>
+<div><p>Create a kmem cache.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__name</span></code></dt><dd><p>A string which is used in /proc/slabinfo to identify this cache.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__object_size</span></code></dt><dd><p>The size of objects to be created in this cache.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__args</span></code></dt><dd><p>Optional arguments, see <a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a>. Passing <code class="docutils literal notranslate"><span class="pre">NULL</span></code>
+means defaults will be used for all the arguments.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>variable arguments</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This is currently implemented as a macro using <code class="docutils literal notranslate"><span class="pre">_Generic()</span></code> to call
+either the new variant of the function, or a legacy one.</p>
+<p>The new variant has 4 parameters:
+<code class="docutils literal notranslate"><span class="pre">kmem_cache_create(name,</span> <span class="pre">object_size,</span> <span class="pre">args,</span> <span class="pre">flags)</span></code></p>
+<p>See <a class="reference internal" href="#c.__kmem_cache_create_args" title="__kmem_cache_create_args"><code class="xref c c-func docutils literal notranslate"><span class="pre">__kmem_cache_create_args()</span></code></a> which implements this.</p>
+<p>The legacy variant has 5 parameters:
+<code class="docutils literal notranslate"><span class="pre">kmem_cache_create(name,</span> <span class="pre">object_size,</span> <span class="pre">align,</span> <span class="pre">flags,</span> <span class="pre">ctor)</span></code></p>
+<p>The align and ctor parameters map to the respective fields of
+<a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a></p>
+<p><strong>Context</strong></p>
+<p>Cannot be called within a interrupt, but can be interrupted.</p>
+<p><strong>Return</strong></p>
+<p>a pointer to the cache on success, NULL on failure.</p>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ksize">
 <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ksize</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">objp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ksize" title="Link to this definition">¶</a><br /></dt>
@@ -554,6 +693,43 @@ originally allocated size via the __alloc_size attribute.</p>
 See kmem_cache_zalloc() for a shortcut of adding __GFP_ZERO to flags.</p>
 <p><strong>Return</strong></p>
 <p>pointer to the new object or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> in case of error</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.kmem_cache_charge">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_charge</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">objp</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfpflags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_charge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>memcg charge an already allocated slab memory</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*objp</span></code></dt><dd><p>address of the slab object to memcg charge</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfpflags</span></code></dt><dd><p>describe the allocation context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>kmem_cache_charge allows charging a slab object to the current memcg,
+primarily in cases where charging at allocation time might not be possible
+because the target memcg is not known (i.e. softirq context)</p>
+<p>The objp should be pointer returned by the slab allocator functions like
+kmalloc (with __GFP_ACCOUNT in flags) or kmem_cache_alloc. The memcg charge
+behavior can be controlled through gfpflags parameter, which affects how the
+necessary internal metadata can be allocated. Including __GFP_NOFAIL denotes
+that overcharging is requested instead of failure, but is not applied for the
+internal metadata allocation.</p>
+<p>There are several cases where it will return true even if the charging was
+not done:
+More specifically:</p>
+<ol class="arabic simple">
+<li><p>For !CONFIG_MEMCG or cgroup_disable=memory systems.</p></li>
+<li><p>Already charged slab objects.</p></li>
+<li><p>For slab objects from KMALLOC_NORMAL caches - allocated by <a class="reference internal" href="#c.kmalloc" title="kmalloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmalloc()</span></code></a>
+without __GFP_ACCOUNT</p></li>
+<li><p>Allocating internal metadata has failed</p></li>
+</ol>
+<p><strong>Return</strong></p>
+<p>true if charge was successful otherwise false.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.kmalloc">
@@ -645,6 +821,14 @@ eventually.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">flags</span></code></dt><dd><p>the type of memory to allocate (see kmalloc)</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>If __GFP_ZERO logic is requested, callers must ensure that, starting with the
+initial memory allocation, every subsequent call to this API for the same
+memory allocation is flagged with __GFP_ZERO. Otherwise, it is possible that
+__GFP_ZERO is not fully honored by this API.</p>
+<p>See krealloc_noprof() for further details.</p>
+<p>In any case, the contents of the object pointed to are preserved up to the
+lesser of the new and old sizes.</p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.kcalloc">
@@ -736,9 +920,9 @@ cache.</p>
 <p>If <strong>object</strong> is NULL, no operation is performed.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.kmem_cache_create_usercopy">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_create_usercopy</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">slab_flags_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">useroffset</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">usersize</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctor</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_create_usercopy" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Create a cache with a region suitable for copying to userspace</p>
+<dt class="sig sig-object c" id="c.__kmem_cache_create_args">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__kmem_cache_create_args</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">object_size</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><span class="n"><span class="pre">kmem_cache_args</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span>, <span class="n"><span class="pre">slab_flags_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__kmem_cache_create_args" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Create a kmem cache.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -746,64 +930,19 @@ cache.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>A string which is used in /proc/slabinfo to identify this cache.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">size</span></code></dt><dd><p>The size of objects to be created in this cache.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">object_size</span></code></dt><dd><p>The size of objects to be created in this cache.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">align</span></code></dt><dd><p>The required alignment for the objects.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span> <span class="pre">*args</span></code></dt><dd><p>Additional arguments for the cache creation (see
+<a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a>).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>SLAB flags</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">useroffset</span></code></dt><dd><p>Usercopy region offset</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">usersize</span></code></dt><dd><p>Usercopy region size</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*ctor)(void</span> <span class="pre">*)</span></code></dt><dd><p>A constructor for the objects.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>See <code class="docutils literal notranslate"><span class="pre">SLAB_*</span></code> flags for an explanation of individual <strong>flags</strong>.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Cannot be called within a interrupt, but can be interrupted.
-The <strong>ctor</strong> is run when new pages are allocated by the cache.</p>
-<p>The flags are</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_POISON</span></code> - Poison the slab with a known test pattern (a5a5a5a5)
-to catch references to uninitialised memory.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_RED_ZONE</span></code> - Insert <cite>Red</cite> zones around the allocated memory to check
-for buffer overruns.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_HWCACHE_ALIGN</span></code> - Align the objects in this cache to a hardware
-cacheline.  This can be beneficial if you’re counting cycles as closely
-as davem.</p>
-<p><strong>Return</strong></p>
-<p>a pointer to the cache on success, NULL on failure.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.kmem_cache_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">kmem_cache</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">slab_flags_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctor</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmem_cache_create" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Create a cache.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>A string which is used in /proc/slabinfo to identify this cache.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">size</span></code></dt><dd><p>The size of objects to be created in this cache.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">align</span></code></dt><dd><p>The required alignment for the objects.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>SLAB flags</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*ctor)(void</span> <span class="pre">*)</span></code></dt><dd><p>A constructor for the objects.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Cannot be called within a interrupt, but can be interrupted.
-The <strong>ctor</strong> is run when new pages are allocated by the cache.</p>
-<p>The flags are</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_POISON</span></code> - Poison the slab with a known test pattern (a5a5a5a5)
-to catch references to uninitialised memory.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_RED_ZONE</span></code> - Insert <cite>Red</cite> zones around the allocated memory to check
-for buffer overruns.</p>
-<p><code class="docutils literal notranslate"><span class="pre">SLAB_HWCACHE_ALIGN</span></code> - Align the objects in this cache to a hardware
-cacheline.  This can be beneficial if you’re counting cycles as closely
-as davem.</p>
+<p>Not to be called directly, use the <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a> wrapper with the same
+parameters.</p>
+<p><strong>Context</strong></p>
+<p>Cannot be called within a interrupt, but can be interrupted.</p>
 <p><strong>Return</strong></p>
 <p>a pointer to the cache on success, NULL on failure.</p>
 </div>
@@ -1307,7 +1446,7 @@ that this function can be used to write to the very end-of-file (end = -1).</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p>struct file on which the error is being reported</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span> <span class="pre">*file</span></code></dt><dd><p><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span></code></a> on which the error is being reported</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1742,7 +1881,7 @@ triggered, a partial, possibly empty read shall be returned.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.filemap_splice_read">
-<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">filemap_splice_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">in</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ppos</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/splice.html#c.pipe_inode_info" title="pipe_inode_info"><span class="n"><span class="pre">pipe_inode_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.filemap_splice_read" title="Link to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">filemap_splice_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">in</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ppos</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/splice.html#c.pipe_inode_info" title="pipe_inode_info"><span class="n"><span class="pre">pipe_inode_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.filemap_splice_read" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Splice data from a file’s pagecache into a pipe</p>
 </dd></dl>
 
@@ -2727,7 +2866,7 @@ in the past. This function provides those sample points.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Grab the most current superblock-level errseq_t value for the given
-struct file.</p>
+<a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mapping_set_error">
@@ -2761,7 +2900,7 @@ reported when the application calls fsync(2).</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">address_space</span> <span class="pre">*mapping</span></code></dt><dd><p>The file.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">address_space</span> <span class="pre">*mapping</span></code></dt><dd><p>The address space of the file.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -2771,6 +2910,25 @@ the file.</p>
 <p><strong>Context</strong></p>
 <p>This should not be called while the inode is active as it
 is non-atomic.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mapping_align_index">
+<span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mapping_align_index</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.address_space" title="address_space"><span class="n"><span class="pre">address_space</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mapping</span></span>, <span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mapping_align_index" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Align index for this mapping.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">address_space</span> <span class="pre">*mapping</span></code></dt><dd><p>The address_space.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pgoff_t</span> <span class="pre">index</span></code></dt><dd><p>The page index.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The index of a folio must be naturally aligned.  If you are adding a
+new folio to the page cache and need to know what index to give it,
+call this function.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.folio_file_mapping">
@@ -4125,39 +4283,55 @@ but 0 when invalidating pagecache, don’t throw away private data.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.follow_pte">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">follow_pte</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">pte_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptepp</span></span>, <span class="n"><span class="pre">spinlock_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptlp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.follow_pte" title="Link to this definition">¶</a><br /></dt>
-<dd><p>look up PTE at a user virtual address</p>
+<dt class="sig sig-object c" id="c.follow_pfnmap_start">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">follow_pfnmap_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">follow_pfnmap_args</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.follow_pfnmap_start" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Look up a pfn mapping at a user virtual address</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the memory mapping</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">address</span></code></dt><dd><p>user virtual address</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pte_t</span> <span class="pre">**ptepp</span></code></dt><dd><p>location to store found PTE</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">spinlock_t</span> <span class="pre">**ptlp</span></code></dt><dd><p>location to store the lock for the PTE</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">follow_pfnmap_args</span> <span class="pre">*args</span></code></dt><dd><p>Pointer to struct <strong>follow_pfnmap_args</strong></p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>On a successful return, the pointer to the PTE is stored in <strong>ptepp</strong>;
-the corresponding lock is taken and its location is stored in <strong>ptlp</strong>.</p>
-<p>The contents of the PTE are only stable until <strong>ptlp</strong> is released using
-pte_unmap_unlock(). This function will fail if the PTE is non-present.
-Present PTEs may include PTEs that map refcounted pages, such as
-anonymous folios in COW mappings.</p>
-<p>Callers must be careful when relying on PTE content after
-pte_unmap_unlock(). Especially if the PTE maps a refcounted page,
-callers must protect against invalidation with MMU notifiers; otherwise
-access to the PFN at a later point in time can trigger use-after-free.</p>
+<p>The caller needs to setup args-&gt;vma and args-&gt;address to point to the
+virtual address as the target of such lookup.  On a successful return,
+the results will be put into other output fields.</p>
+<p>After the caller finished using the fields, the caller must invoke
+another <a class="reference internal" href="#c.follow_pfnmap_end" title="follow_pfnmap_end"><code class="xref c c-func docutils literal notranslate"><span class="pre">follow_pfnmap_end()</span></code></a> to proper releases the locks and resources
+of such look up request.</p>
+<p>During the <a class="reference internal" href="../networking/ieee802154.html#c.start" title="start"><code class="xref c c-func docutils literal notranslate"><span class="pre">start()</span></code></a> and end() calls, the results in <strong>args</strong> will be valid
+as proper locks will be held.  After the end() is called, all the fields
+in <strong>follow_pfnmap_args</strong> will be invalid to be further accessed.  Further
+use of such information after end() may require proper synchronizations
+by the caller with page table updates, otherwise it can create a
+security bug.</p>
+<p>If the PTE maps a refcounted page, callers are responsible to protect
+against invalidation with MMU notifiers; otherwise access to the PFN at
+a later point in time can trigger use-after-free.</p>
 <p>Only IO mappings and raw PFN mappings are allowed.  The mmap semaphore
-should be taken for read.</p>
+should be taken for read, and the mmap semaphore cannot be released
+before the end() is invoked.</p>
 <p>This function must not be used to modify PTE content.</p>
 <p><strong>Return</strong></p>
-<p>zero on success, -ve otherwise.</p>
+<p>zero on success, negative otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.follow_pfnmap_end">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">follow_pfnmap_end</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">follow_pfnmap_args</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.follow_pfnmap_end" title="Link to this definition">¶</a><br /></dt>
+<dd><p>End a <a class="reference internal" href="#c.follow_pfnmap_start" title="follow_pfnmap_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">follow_pfnmap_start()</span></code></a> process</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">follow_pfnmap_args</span> <span class="pre">*args</span></code></dt><dd><p>Pointer to struct <strong>follow_pfnmap_args</strong></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Must be used in pair of <a class="reference internal" href="#c.follow_pfnmap_start" title="follow_pfnmap_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">follow_pfnmap_start()</span></code></a>.  See the <a class="reference internal" href="../networking/ieee802154.html#c.start" title="start"><code class="xref c c-func docutils literal notranslate"><span class="pre">start()</span></code></a> function
+above for more information.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.generic_access_phys">
@@ -5202,19 +5376,19 @@ address_space operation.</p>
 belonging to other filesystems.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.page_has_private">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_has_private</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_has_private" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_has_private" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Determine if page has private stuff</p>
+<dt class="sig sig-object c" id="c.folio_has_private">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_has_private</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_has_private" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_has_private" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Determine if folio has private stuff</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The page to be checked</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to be checked</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Determine if a page has private stuff, indicating that release routines
+<p>Determine if a folio has private stuff, indicating that release routines
 should be invoked upon it.</p>
 </div>
 <dl class="c function">
@@ -5597,13 +5771,17 @@ it from being split.  It is not necessary for the folio to be locked.</p>
 <p>This function checks if the folio is currently mapped into more than one
 MM (“mapped shared”), or if the folio is only mapped into a single MM
 (“mapped exclusively”).</p>
+<p>For KSM folios, this function also returns “mapped shared” when a folio is
+mapped multiple times into the same MM, because the individual page mappings
+are independent.</p>
 <p>As precise information is not easily available for all folios, this function
 estimates the number of MMs (“sharers”) that are currently mapping a folio
 using the number of times the first page of the folio is currently mapped
 into page tables.</p>
-<p>For small anonymous folios (except KSM folios) and anonymous hugetlb folios,
-the return value will be exactly correct, because they can only be mapped
-at most once into an MM, and they cannot be partially mapped.</p>
+<p>For small anonymous folios and anonymous hugetlb folios, the return
+value will be exactly correct: non-KSM folios can only be mapped at most once
+into an MM, and they cannot be partially mapped. KSM folios are
+considered shared even if mapped multiple times into the same MM.</p>
 <dl class="simple">
 <dt>For other folios, the result can be fuzzy:</dt><dd><ol class="arabic simple">
 <li><p>For partially-mappable large folios (THP), the return value can wrongly
@@ -5612,9 +5790,6 @@ only partially mapped into at least one MM.</p></li>
 <li><p>For pagecache folios (including hugetlb), the return value can wrongly
 indicate “mapped shared” (false positive) when two VMAs in the same MM
 cover the same file range.</p></li>
-<li><p>For (small) KSM folios, the return value can wrongly indicate “mapped
-shared” (false positive), when the folio is mapped multiple times into
-the same MM.</p></li>
 </ol>
 </dd>
 </dl>
@@ -7431,6 +7606,19 @@ If mem_cgroup is disabled, NULL is returned.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.get_mem_cgroup_from_folio">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_mem_cgroup_from_folio</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.get_mem_cgroup_from_folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_mem_cgroup_from_folio" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Obtain a reference on a given folio’s memcg.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>folio from which memcg should be extracted.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.mem_cgroup_iter">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mem_cgroup_iter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">root</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">prev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup_reclaim_cookie</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">reclaim</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mem_cgroup_iter" title="Link to this definition">¶</a><br /></dt>
 <dd><p>iterate over memory cgroup hierarchy</p>
@@ -8071,7 +8259,7 @@ So mm freed is info-&gt;alloced - (inode-&gt;i_mapping-&gt;nrpages + info-&gt;sw
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.shmem_get_folio">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shmem_get_folio</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.shmem_get_folio" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">foliop</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">sgp_type</span></span><span class="w"> </span><span class="n"><span class="pre">sgp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_get_folio" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shmem_get_folio</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.shmem_get_folio" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">write_end</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">foliop</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">sgp_type</span></span><span class="w"> </span><span class="n"><span class="pre">sgp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_get_folio" title="Link to this definition">¶</a><br /></dt>
 <dd><p>find, and lock a shmem folio.</p>
 </dd></dl>
 
@@ -8081,6 +8269,8 @@ So mm freed is info-&gt;alloced - (inode-&gt;i_mapping-&gt;nrpages + info-&gt;sw
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>inode to search</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pgoff_t</span> <span class="pre">index</span></code></dt><dd><p>the page index.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">loff_t</span> <span class="pre">write_end</span></code></dt><dd><p>end of a write, could extend inode size</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">**foliop</span></code></dt><dd><p>pointer to the folio if found</p>
 </dd>
@@ -8109,7 +8299,7 @@ page cache and returned locked in <strong>foliop</strong>.</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.shmem_kernel_file_setup">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_kernel_file_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_kernel_file_setup" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_kernel_file_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_kernel_file_setup" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get an unlinked file living in tmpfs which must be kernel internal. There will be NO LSM permission checks against the underlying inode. So users of this interface must do LSM checks at a higher layer. The users are the big_key and shm implementations. LSM checks are provided at the key or shm level rather than the inode.</p>
 </dd></dl>
 
@@ -8126,7 +8316,7 @@ page cache and returned locked in <strong>foliop</strong>.</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.shmem_file_setup">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_file_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_file_setup" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_file_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_file_setup" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get an unlinked file living in tmpfs</p>
 </dd></dl>
 
@@ -8143,7 +8333,7 @@ page cache and returned locked in <strong>foliop</strong>.</p></li>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.shmem_file_setup_with_mnt">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_file_setup_with_mnt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mnt</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_file_setup_with_mnt" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">shmem_file_setup_with_mnt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mnt</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_file_setup_with_mnt" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get an unlinked file living in tmpfs</p>
 </dd></dl>
 
@@ -9078,26 +9268,6 @@ populated pages.  An important thing to consider is when pages are freed and
 how they contribute to the global counts.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.pcpu_alloc_size">
-<span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pcpu_alloc_size</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__percpu</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pcpu_alloc_size" title="Link to this definition">¶</a><br /></dt>
-<dd><p>the size of the dynamic percpu area</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">__percpu</span> <span class="pre">*ptr</span></code></dt><dd><p>pointer to the dynamic percpu area</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Returns the size of the <strong>ptr</strong> allocation.  This is undefined for statically
-defined percpu variables as there is no corresponding chunk-&gt;bound_map.</p>
-<p><strong>Return</strong></p>
-<p>The size of the dynamic percpu area.</p>
-<p><strong>Context</strong></p>
-<p>Can be called from atomic context.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.free_percpu">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">free_percpu</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__percpu</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.free_percpu" title="Link to this definition">¶</a><br /></dt>
 <dd><p>free percpu area</p>
@@ -9934,11 +10104,11 @@ of isolated pages.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/core-api/mm-api.rst.txt"

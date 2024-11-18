@@ -7,9 +7,9 @@
 
     <title>DRM Internals &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -700,8 +701,9 @@ timer.</p>
 <p>This can be set to true it the hardware has a working vblank counter
 with high-precision timestamping (otherwise there are races) and the
 driver uses <a class="reference internal" href="drm-kms.html#c.drm_crtc_vblank_on" title="drm_crtc_vblank_on"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_vblank_on()</span></code></a> and <a class="reference internal" href="drm-kms.html#c.drm_crtc_vblank_off" title="drm_crtc_vblank_off"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_vblank_off()</span></code></a>
-appropriately. See also <strong>max_vblank_count</strong> and
-<a class="reference internal" href="drm-kms.html#c.drm_crtc_funcs" title="drm_crtc_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_funcs.get_vblank_counter</span></code></a>.</p>
+appropriately. Also, see <strong>max_vblank_count</strong>,
+<a class="reference internal" href="drm-kms.html#c.drm_crtc_funcs" title="drm_crtc_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_funcs.get_vblank_counter</span></code></a> and
+<a class="reference internal" href="drm-kms.html#c.drm_vblank_crtc_config" title="drm_vblank_crtc_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_vblank_crtc_config.disable_immediate</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vblank</span></code></dt><dd><p>Array of vblank tracking structures, one per <a class="reference internal" href="drm-kms.html#c.drm_crtc" title="drm_crtc"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_crtc</span></code></a>. For
 historical reasons (vblank support predates kernel modesetting) this
@@ -834,7 +836,6 @@ for legacy drivers. Do not use.</p>
     int (*load) (struct drm_device *, unsigned long flags);
     int (*open) (struct drm_device *, struct drm_file *);
     void (*postclose) (struct drm_device *, struct drm_file *);
-    void (*lastclose) (struct drm_device *);
     void (*unload) (struct drm_device *);
     void (*release) (struct drm_device *);
     void (*master_set)(struct drm_device *dev, struct drm_file *file_priv, bool from_open);
@@ -892,24 +893,6 @@ Useful for tearing down driver-private data structures allocated in
 one <a class="reference internal" href="#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_file</span></code></a> (see <a class="reference internal" href="#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_file.is_master</span></code></a> and <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device.master</span></code></a>)
 there should never be a need to tear down any modeset related
 resources in this callback. Doing so would be a driver design bug.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">lastclose</span></code></dt><dd><p>Called when the last <a class="reference internal" href="#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_file</span></code></a> has been closed and there’s
-currently no userspace client for the <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span></code></a>.</p>
-<p>Modern drivers should only use this to force-restore the fbdev
-framebuffer using <a class="reference internal" href="drm-kms-helpers.html#c.drm_fb_helper_restore_fbdev_mode_unlocked" title="drm_fb_helper_restore_fbdev_mode_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_fb_helper_restore_fbdev_mode_unlocked()</span></code></a>.
-Anything else would indicate there’s something seriously wrong.
-Modern drivers can also use this to execute delayed power switching
-state changes, e.g. in conjunction with the <a class="reference internal" href="vga-switcheroo.html#vga-switcheroo"><span class="std std-ref">VGA Switcheroo</span></a>
-infrastructure.</p>
-<p>This is called after <strong>postclose</strong> hook has been called.</p>
-<p>NOTE:</p>
-<p>All legacy drivers use this callback to de-initialize the hardware.
-This is purely because of the shadow-attach model, where the DRM
-kernel driver does not really own the hardware. Instead ownershipe is
-handled with the help of userspace through an inheritedly racy dance
-to set/unset the VT into raw mode.</p>
-<p>Legacy drivers initialize the hardware in the <strong>firstopen</strong> callback,
-which isn’t even called for modern drivers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unload</span></code></dt><dd><p>Reverse the effects of the driver load callback.  Ideally,
 the clean up performed by the driver should happen in the
@@ -1623,7 +1606,6 @@ following is an example <code class="xref c c-type docutils literal notranslate"
         .compat_ioctl = drm_compat_ioctl, // NULL if CONFIG_COMPAT=n
         .poll = drm_poll,
         .read = drm_read,
-        .llseek = no_llseek,
         .mmap = drm_gem_mmap,
 };
 </pre></div>
@@ -1950,7 +1932,7 @@ value of 4KB.</p>
 <p>Used by <a class="reference internal" href="#c.drm_print_memory_stats" title="drm_print_memory_stats"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_print_memory_stats()</span></code></a></p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_open">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_open</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_open" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_open" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_open</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_open" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_open" title="Link to this definition">¶</a><br /></dt>
 <dd><p>open method for DRM file</p>
 </dd></dl>
 
@@ -1966,12 +1948,12 @@ value of 4KB.</p>
 <p>This function must be used by drivers as their <code class="xref c c-type docutils literal notranslate"><span class="pre">file_operations.open</span></code> method.
 It looks up the correct DRM device and instantiates all the per-file
 resources for it. It also calls the <a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.open</span></code></a> driver callback.</p>
-<p>0 on success or negative errno value on failure.</p>
 <p><strong>Return</strong></p>
+<p>0 on success or negative errno value on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_release">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_release</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_release" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_release" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_release</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_release" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_release" title="Link to this definition">¶</a><br /></dt>
 <dd><p>release method for DRM file</p>
 </dd></dl>
 
@@ -1985,15 +1967,15 @@ resources for it. It also calls the <a class="reference internal" href="#c.drm_d
 </dl>
 <p><strong>Description</strong></p>
 <p>This function must be used by drivers as their <code class="xref c c-type docutils literal notranslate"><span class="pre">file_operations.release</span></code>
-method. It frees any resources associated with the open file, and calls the
-<a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.postclose</span></code></a> driver callback. If this is the last open file for the
-DRM device also proceeds to call the <a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.lastclose</span></code></a> driver callback.</p>
-<p>Always succeeds and returns 0.</p>
+method. It frees any resources associated with the open file. If this
+is the last open file for the DRM device, it also restores the active
+in-kernel DRM client.</p>
 <p><strong>Return</strong></p>
+<p>Always succeeds and returns 0.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_release_noglobal">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_release_noglobal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_release_noglobal" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_release_noglobal" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_release_noglobal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_release_noglobal" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_release_noglobal" title="Link to this definition">¶</a><br /></dt>
 <dd><p>release method for DRM file</p>
 </dd></dl>
 
@@ -2008,15 +1990,14 @@ DRM device also proceeds to call the <a class="reference internal" href="#c.drm_
 <p><strong>Description</strong></p>
 <p>This function may be used by drivers as their <code class="xref c c-type docutils literal notranslate"><span class="pre">file_operations.release</span></code>
 method. It frees any resources associated with the open file prior to taking
-the drm_global_mutex, which then calls the <a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.postclose</span></code></a> driver
-callback. If this is the last open file for the DRM device also proceeds to
-call the <a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.lastclose</span></code></a> driver callback.</p>
-<p>Always succeeds and returns 0.</p>
+the drm_global_mutex. If this is the last open file for the DRM device, it
+then restores the active in-kernel DRM client.</p>
 <p><strong>Return</strong></p>
+<p>Always succeeds and returns 0.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_read">
-<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_read" title="Link to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_read" title="Link to this definition">¶</a><br /></dt>
 <dd><p>read method for DRM file</p>
 </dd></dl>
 
@@ -2043,13 +2024,13 @@ provided by <a class="reference internal" href="#c.drm_poll" title="drm_poll"><c
 supply a big enough buffer to fit any event to ensure forward progress. Since
 the maximum event space is currently 4K it’s recommended to just use that for
 safety.</p>
+<p><strong>Return</strong></p>
 <p>Number of bytes read (always aligned to full events, and can be 0) or a
 negative error code on failure.</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_poll">
-<span class="n"><span class="pre">__poll_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_poll</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">poll_table_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wait</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_poll" title="Link to this definition">¶</a><br /></dt>
+<span class="n"><span class="pre">__poll_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_poll</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">filp</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">poll_table_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wait</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_poll" title="Link to this definition">¶</a><br /></dt>
 <dd><p>poll method for DRM file</p>
 </dd></dl>
 
@@ -2067,8 +2048,8 @@ if they use DRM events for asynchronous signalling to userspace.  Since
 events are used by the KMS API for vblank and page flip completion this means
 all modern display drivers must use it.</p>
 <p>See also <a class="reference internal" href="#c.drm_read" title="drm_read"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_read()</span></code></a>.</p>
-<p>Mask of POLL flags indicating the current status of the file.</p>
 <p><strong>Return</strong></p>
+<p>Mask of POLL flags indicating the current status of the file.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_event_reserve_init_locked">
@@ -2099,8 +2080,8 @@ asynchronous event to userspace.</p>
 kmalloc and <strong>p</strong> must be the first member element.</p>
 <p>This is the locked version of <a class="reference internal" href="#c.drm_event_reserve_init" title="drm_event_reserve_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_event_reserve_init()</span></code></a> for callers which
 already hold <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device.event_lock</span></code></a>.</p>
-<p>0 on success or a negative error code on failure.</p>
 <p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_event_reserve_init">
@@ -2131,8 +2112,8 @@ asynchronous event to userspace.</p>
 kmalloc and <strong>p</strong> must be the first member element.</p>
 <p>Callers which already hold <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device.event_lock</span></code></a> should use
 <a class="reference internal" href="#c.drm_event_reserve_init_locked" title="drm_event_reserve_init_locked"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_event_reserve_init_locked()</span></code></a> instead.</p>
-<p>0 on success or a negative error code on failure.</p>
 <p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_event_cancel_free">
@@ -2265,7 +2246,7 @@ file.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_show_fdinfo">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_show_fdinfo</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">seq_file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_show_fdinfo" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_show_fdinfo</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">seq_file</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">m</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><span class="n"><span class="pre">file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_show_fdinfo" title="Link to this definition">¶</a><br /></dt>
 <dd><p>helper for drm file fops</p>
 </dd></dl>
 
@@ -2440,7 +2421,8 @@ drm_printer_info(), etc to initialize.  And <a class="reference internal" href="
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Pointer to the devcoredump output buffer</p>
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Pointer to the devcoredump output buffer, can be NULL if using
+drm_printer_coredump to determine size of devcoredump</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>The offset within the buffer to start writing</p>
 </dd>
@@ -2488,6 +2470,54 @@ void makecoredump(...)
 }
 </pre></div>
 </div>
+<p>The above example has a time complexity of O(N^2), where N is the size of the
+devcoredump. This is acceptable for small devcoredumps but scales poorly for
+larger ones.</p>
+<p>Another use case for drm_coredump_printer is to capture the devcoredump into
+a saved buffer before the dev_coredump() callback. This involves two passes:
+one to determine the size of the devcoredump and another to print it to a
+buffer. Then, in dev_coredump(), copy from the saved buffer into the
+devcoredump read buffer.</p>
+<p>For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>char *devcoredump_saved_buffer;
+
+ssize_t __coredump_print(char *buffer, ssize_t count, ...)
+{
+        struct drm_print_iterator iter;
+        struct drm_printer p;
+
+        iter.data = buffer;
+        iter.start = 0;
+        iter.remain = count;
+
+        p = drm_coredump_printer(&amp;iter);
+
+        drm_printf(p, &quot;foo=%d\n&quot;, foo);
+        ...
+        return count - iter.remain;
+}
+
+void coredump_print(...)
+{
+        ssize_t count;
+
+        count = __coredump_print(NULL, INT_MAX, ...);
+        devcoredump_saved_buffer = kvmalloc(count, GFP_KERNEL);
+        __coredump_print(devcoredump_saved_buffer, count, ...);
+}
+
+void coredump_read(char *buffer, loff_t offset, size_t count,
+                   void *data, size_t datalen)
+{
+        ...
+        memcpy(buffer, devcoredump_saved_buffer + offset, count);
+        ...
+}
+</pre></div>
+</div>
+<p>The above example has a time complexity of O(N*2), where N is the size of the
+devcoredump. This scales better than the previous example for larger
+devcoredumps.</p>
 <p><strong>Return</strong></p>
 <p>The <a class="reference internal" href="#c.drm_printer" title="drm_printer"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_printer</span></code></a> object</p>
 </div>
@@ -2863,11 +2893,11 @@ functions are deprecated and should not be used.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/gpu/drm-internals.rst.txt"

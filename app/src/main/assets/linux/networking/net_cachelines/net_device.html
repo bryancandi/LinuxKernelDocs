@@ -7,9 +7,9 @@
 
     <title>net_device struct fast path usage breakdown &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -149,6 +150,8 @@
 <h1>net_device struct fast path usage breakdown<a class="headerlink" href="#net-device-struct-fast-path-usage-breakdown" title="Link to this heading">¶</a></h1>
 <p>Type                                Name                    fastpath_tx_access  fastpath_rx_access  Comments
 ..struct                            ..net_device
+unsigned_long:32                    priv_flags              read_mostly         -                   __dev_queue_xmit(tx)
+unsigned_long:1                     lltx                    read_mostly         -                   HARD_TX_LOCK,HARD_TX_TRYLOCK,HARD_TX_UNLOCK(tx)
 char                                name[16]                -                   -
 struct_netdev_name_node*            name_node
 struct_dev_ifalias*                 ifalias
@@ -165,7 +168,6 @@ struct_list_head                    ptype_specific                              
 struct                              adj_list
 unsigned_int                        flags                   read_mostly         read_mostly         __dev_queue_xmit,__dev_xmit_skb,ip6_output,__ip6_finish_output(tx);ip6_rcv_core(rx)
 xdp_features_t                      xdp_features
-unsigned_long_long                  priv_flags              read_mostly         -                   __dev_queue_xmit(tx)
 struct_net_device_ops*              netdev_ops              read_mostly         -                   netdev_core_pick_tx,netdev_start_xmit(tx)
 struct_xdp_metadata_ops*            xdp_metadata_ops
 int                                 ifindex                 -                   read_mostly         ip6_rcv_core
@@ -240,7 +242,7 @@ unsigned_int                        num_rx_queues
 unsigned_int                        real_num_rx_queues      -                   read_mostly         get_rps_cpu
 struct_bpf_prog*                    xdp_prog                -                   read_mostly         netif_elide_gro()
 unsigned_long                       gro_flush_timeout       -                   read_mostly         napi_complete_done
-int                                 napi_defer_hard_irqs    -                   read_mostly         napi_complete_done
+u32                                 napi_defer_hard_irqs    -                   read_mostly         napi_complete_done
 unsigned_int                        gro_max_size            -                   read_mostly         skb_gro_receive
 unsigned_int                        gro_ipv4_max_size       -                   read_mostly         skb_gro_receive
 rx_handler_func_t*                  rx_handler              read_mostly         -                   __netif_receive_skb_core
@@ -305,6 +307,10 @@ struct_lock_class_key*              qdisc_tx_busylock
 bool                                proto_down
 unsigned:1                          wol_enabled
 unsigned:1                          threaded                -                   -                   napi_poll(napi_enable,dev_set_threaded)
+unsigned_long:1                     see_all_hwtstamp_requests
+unsigned_long:1                     change_proto_down
+unsigned_long:1                     netns_local
+unsigned_long:1                     fcoe_mtu
 struct_list_head                    net_notifier_list
 struct_macsec_ops*                  macsec_ops
 struct_udp_tunnel_nic_info*         udp_tunnel_nic_info
@@ -317,7 +323,9 @@ netdevice_tracker                   watchdog_dev_tracker
 netdevice_tracker                   dev_registered_tracker
 struct_rtnl_hw_stats64*             offload_xstats_l3
 struct_devlink_port*                devlink_port
-struct_dpll_pin*                    dpll_pin</p>
+struct_dpll_pin*                    dpll_pin
+struct hlist_head                   page_pools
+<a class="reference internal" href="../net_dim.html#c.dim_irq_moder" title="dim_irq_moder"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dim_irq_moder</span></code></a>*               irq_moder</p>
 </section>
 
 
@@ -328,11 +336,11 @@ struct_dpll_pin*                    dpll_pin</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/networking/net_cachelines/net_device.rst.txt"

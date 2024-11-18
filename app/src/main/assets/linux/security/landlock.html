@@ -7,9 +7,9 @@
 
     <title>Landlock LSM: kernel documentation &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -173,16 +174,16 @@
 </dl>
 <p>Landlock’s goal is to create scoped access-control (i.e. sandboxing).  To
 harden a whole system, this feature should be available to any process,
-including unprivileged ones.  Because such process may be compromised or
+including unprivileged ones.  Because such a process may be compromised or
 backdoored (i.e. untrusted), Landlock’s features must be safe to use from the
 kernel and other processes point of view.  Landlock’s interface must therefore
 expose a minimal attack surface.</p>
 <p>Landlock is designed to be usable by unprivileged processes while following the
 system security policy enforced by other access control mechanisms (e.g. DAC,
-LSM).  Indeed, a Landlock rule shall not interfere with other access-controls
-enforced on the system, only add more restrictions.</p>
+LSM).  A Landlock rule shall not interfere with other access-controls enforced
+on the system, only add more restrictions.</p>
 <p>Any user can enforce Landlock rulesets on their processes.  They are merged and
-evaluated according to the inherited ones in a way that ensures that only more
+evaluated against inherited rulesets in a way that ensures that only more
 constraints can be added.</p>
 <p>User space documentation can be found here:
 <a class="reference internal" href="../userspace-api/landlock.html"><span class="doc">Landlock: unprivileged access control</span></a>.</p>
@@ -201,7 +202,7 @@ processes.</p></li>
 only impact the processes requesting them.</p></li>
 <li><p>Resources (e.g. file descriptors) directly obtained from the kernel by a
 sandboxed process shall retain their scoped accesses (at the time of resource
-acquisition) whatever process use them.
+acquisition) whatever process uses them.
 Cf. <a class="reference internal" href="#file-descriptor-access-rights">File descriptor access rights</a>.</p></li>
 </ul>
 </section>
@@ -226,7 +227,7 @@ the same results, when they are executed under the same Landlock domain.</p>
 <p>Taking the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_ACCESS_FS_TRUNCATE</span></code> right as an example, it may be
 allowed to open a file for writing without being allowed to
 <em class="manpage">ftruncate</em> the resulting file descriptor if the related file
-hierarchy doesn’t grant such access right.  The following sequences of
+hierarchy doesn’t grant that access right.  The following sequences of
 operations have the same semantic and should then have the same result:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">truncate(path);</span></code></p></li>
@@ -236,7 +237,7 @@ operations have the same semantic and should then have the same result:</p>
 attached to file descriptors are retained even if they are passed between
 processes (e.g. through a Unix domain socket).  Such access rights will then be
 enforced even if the receiving process is not sandboxed by Landlock.  Indeed,
-this is required to keep a consistent access control over the whole system, and
+this is required to keep access controls consistent over the whole system, and
 this avoids unattended bypasses through file descriptor passing (i.e. confused
 deputy attack).</p>
 </section>
@@ -366,6 +367,7 @@ underlying object).</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_file_security {
     access_mask_t allowed_access;
+    struct landlock_ruleset *fown_domain;
 };
 </pre></div>
 </div>
@@ -375,6 +377,11 @@ underlying object).</p>
 opening the file. This is not necessarily the full set of access
 rights available at that time, but it’s the necessary subset as
 needed to authorize later operations on the open file.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fown_domain</span></code></dt><dd><p>Domain of the task that set the PID that may receive a
+signal e.g., SIGURG when writing MSG_OOB to the related socket.
+This pointer is protected by the related file-&gt;f_owner-&gt;lock, as for
+fown_struct’s members: pid, uid, and euid.</p>
 </dd>
 </dl>
 </div>
@@ -644,6 +651,39 @@ lifetime of the ruleset.</p>
 <p><strong>Description</strong></p>
 <p>This data structure must contain unique entries, be updatable, and quick to
 match an object.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.landlock_union_access_masks">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_masks</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_union_access_masks</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><span class="n"><span class="pre">landlock_ruleset</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">domain</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.landlock_union_access_masks" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return all access rights handled in the domain</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">landlock_ruleset</span> <span class="pre">*const</span> <span class="pre">domain</span></code></dt><dd><p>Landlock ruleset (used as a domain)</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>an access_masks result of the OR of all the domain’s access masks.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.landlock_get_applicable_domain">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><span class="n"><span class="pre">landlock_ruleset</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">landlock_get_applicable_domain</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><span class="n"><span class="pre">landlock_ruleset</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">domain</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_masks</span></span><span class="w"> </span><span class="n"><span class="pre">masks</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.landlock_get_applicable_domain" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return <strong>domain</strong> if it applies to (handles) at least one of the access rights specified in <strong>masks</strong></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">landlock_ruleset</span> <span class="pre">*const</span> <span class="pre">domain</span></code></dt><dd><p>Landlock ruleset (used as a domain)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">access_masks</span> <span class="pre">masks</span></code></dt><dd><p>access masks</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p><strong>domain</strong> if any access rights specified in <strong>masks</strong> is handled, or
+NULL otherwise.</p>
+</div>
 </section>
 </section>
 </section>
@@ -656,11 +696,11 @@ match an object.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/security/landlock.rst.txt"

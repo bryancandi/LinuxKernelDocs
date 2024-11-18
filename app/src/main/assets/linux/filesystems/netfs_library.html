@@ -7,9 +7,9 @@
 
     <title>Network Filesystem Helper Library &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -233,7 +234,7 @@ needs.</p></li>
 <li><p>Allow the netfs to partially fulfil a read, which will then be resubmitted.</p></li>
 <li><p>Handle local caching, allowing cached data and server-read data to be
 interleaved for a single request.</p></li>
-<li><p>Handle clearing of bufferage that aren’t on the server.</p></li>
+<li><p>Handle clearing of bufferage that isn’t on the server.</p></li>
 <li><p>Handle retrying of reads that failed, switching reads from the cache to the
 server as necessary.</p></li>
 <li><p>In the future, this is a place that other services can be performed, such as
@@ -435,7 +436,7 @@ flight.</p>
 <p>[Required] The helpers use this to dispatch a subrequest to the server for
 reading.  In the subrequest, -&gt;start, -&gt;len and -&gt;transferred indicate what
 data should be read from the server.</p>
-<p>There is no return value; the <a class="reference internal" href="#c.netfs_subreq_terminated" title="netfs_subreq_terminated"><code class="xref c c-func docutils literal notranslate"><span class="pre">netfs_subreq_terminated()</span></code></a> function should be
+<p>There is no return value; the netfs_subreq_terminated() function should be
 called to indicate whether or not the operation succeeded and how much data
 it transferred.  The filesystem also should not deal with setting folios
 uptodate, unlocking them or dropping their refs - the helpers need to deal
@@ -834,12 +835,9 @@ inode before calling this.</p>
 <p><strong>Description</strong></p>
 <p>Pre-read data for a write-begin request by drawing data from the cache if
 possible, or the netfs if not.  Space beyond the EOF is zero-filled.
-Multiple I/O requests from different sources will get munged together.  If
-necessary, the readahead window can be expanded in either direction to a
-more convenient alighment for RPC efficiency or to make storage in the cache
-feasible.</p>
+Multiple I/O requests from different sources will get munged together.</p>
 <p>The calling netfs must provide a table of operations, only one of which,
-issue_op, is mandatory.</p>
+issue_read, is mandatory.</p>
 <p>The check_write_begin() operation can be provided to check for and flush
 conflicting writes once the folio is grabbed and locked.  It is passed a
 pointer to the fsdata cookie that gets returned to the VM to be passed to
@@ -913,33 +911,6 @@ possibly empty read shall be returned.</p>
 <li><p>negative error code (or 0 if IOCB_NOIO) if nothing was read</p></li>
 </ul>
 </div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.netfs_subreq_terminated">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netfs_subreq_terminated</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netfs_io_subrequest</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">subreq</span></span>, <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="n"><span class="pre">transferred_or_error</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">was_async</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netfs_subreq_terminated" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Note the termination of an I/O operation.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netfs_io_subrequest</span> <span class="pre">*subreq</span></code></dt><dd><p>The I/O request that has terminated.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ssize_t</span> <span class="pre">transferred_or_error</span></code></dt><dd><p>The amount of data transferred or an error code.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">was_async</span></code></dt><dd><p>The termination was asynchronous</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This tells the read helper that a contributory I/O operation has terminated,
-one way or another, and that it should integrate the results.</p>
-<p>The caller indicates in <strong>transferred_or_error</strong> the outcome of the operation,
-supplying a positive value to indicate the number of bytes transferred, 0 to
-indicate a failure to transfer anything that should be retried or a negative
-error code.  The helper will look after reissuing I/O operations as
-appropriate and writing downloaded data to the cache.</p>
-<p>If <strong>was_async</strong> is true, the caller might be running in softirq or interrupt
-context and we can’t sleep.</p>
-</div>
 </section>
 </section>
 
@@ -951,11 +922,11 @@ context and we can’t sleep.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/filesystems/netfs_library.rst.txt"

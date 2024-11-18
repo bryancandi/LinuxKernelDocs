@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Gestor de tareas CFS &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=3918102e" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Gestor de tareas EEVDF" href="sched-eevdf.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="index.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.12.0</p>
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../zh_CN/index.html">中文翻译</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Traducción al español</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#advertencia">Advertencia</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#la-documentacion-del-kernel-linux">La documentación del kernel Linux</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#traducciones-al-espanol">Traducciones al español</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/sp_SP/scheduler/sched-design-CFS.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Spanish
+
+<ul>
+
+<li><a href="../../../scheduler/sched-design-CFS.html">English</a></li>
+
+<li><a href="../../zh_CN/scheduler/sched-design-CFS.html">Chinese (Simplified)</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Si tiene alguna duda sobre la exactitud del contenido de esta
+traducción, la única referencia válida es la documentación oficial en
+inglés.
+Además, por defecto, los enlaces a documentos redirigen a la
+documentación en inglés, incluso si existe una versión traducida.
+Consulte el índice para más información.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../scheduler/sched-design-CFS.html#sched-design-cfs"><span class="std std-ref">Documentation/scheduler/sched-design-CFS.rst</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sergio González Collado &lt;<a class="reference external" href="mailto:sergio&#46;collado&#37;&#52;&#48;gmail&#46;com">sergio<span>&#46;</span>collado<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</p>
+</dd>
+</dl>
+<section id="gestor-de-tareas-cfs">
+<span id="sp-sched-desing-cfs"></span><h1>Gestor de tareas CFS<a class="headerlink" href="#gestor-de-tareas-cfs" title="Link to this heading">¶</a></h1>
+<section id="vision-general">
+<h2>1.  VISIÓN GENERAL<a class="headerlink" href="#vision-general" title="Link to this heading">¶</a></h2>
+<p>CFS viene de las siglas en inglés de “Gestor de tareas totalmente justo”
+(“Completely Fair Scheduler”), y es el nuevo gestor de tareas de escritorio
+implementado por Ingo Molnar e integrado en Linux 2.6.23. Es el sustituto
+del previo gestor de tareas SCHED_OTHER. Hoy en día se está abriendo camino
+para el gestor de tareas EEVDF, cuya documentación se puede ver en
+<a class="reference internal" href="../../../scheduler/sched-eevdf.html"><span class="doc">EEVDF Scheduler</span></a></p>
+<p>El 80% del diseño de CFS puede ser resumido en una única frase: CFS
+básicamente modela una “CPU ideal, precisa y multi-tarea” sobre hardware
+real.</p>
+<p>“una CPU multitarea ideal” es una CPU (inexistente :-)) que tiene un 100%
+de potencia y que puede ejecutar cualquier tarea exactamente a la misma
+velocidad, en paralelo, y cada una a 1/n velocidad. Por ejemplo, si hay dos
+tareas ejecutándose, entonces cada una usa un 50% de la potencia --- es decir,
+como si se ejecutaran en paralelo.</p>
+<p>En hardware real, se puede ejecutar una única tarea a la vez, así que
+se ha usado el concepto de “tiempo de ejecución virtual”. El tiempo
+de ejecución virtual de una tarea específica cuando la siguiente porción
+de ejecución podría empezar en la CPU ideal multi-tarea descrita anteriormente.
+En la práctica, el tiempo de ejecución virtual de una tarea es el
+tiempo de ejecución real normalizado con respecto al número total de
+tareas ejecutándose.</p>
+</section>
+<section id="unos-cuantos-detalles-de-implementacion">
+<h2>2.  UNOS CUANTOS DETALLES DE IMPLEMENTACIÓN<a class="headerlink" href="#unos-cuantos-detalles-de-implementacion" title="Link to this heading">¶</a></h2>
+<p>En CFS, el tiempo de ejecución virtual se expresa y se monitoriza por
+cada tarea, en su valor de p-&gt;se.vruntime (en unidades de nanosegundos).
+De este modo, es posible temporizar con precisión y medir el “tiempo
+de CPU esperado” que una tarea debería tener.</p>
+<p>Un pequeño detalle: en hardware “ideal”, en cualquier momento todas las
+tareas pueden tener el mismo valor de p-&gt;se.vruntime --- i.e., tareas
+se podrían ejecutar simultáneamente y ninguna tarea podría escaparse del
+“balance” de la partición “ideal” del tiempo compartido de la CPU.</p>
+<p>La lógica de elección del tareas de CFS se basa en el valor de p-&gt;se.vruntime
+y por tanto es muy sencilla: siempre intenta ejecutar la tarea con el valor
+p-&gt;se.vruntime más pequeño (i.e., la tarea que se ha ejecutado menos hasta el
+momento). CFS siempre intenta dividir el espacio de tiempo entre tareas
+en ejecución tan próximo a la “ejecución multitarea ideal del hardware” como
+sea posible.</p>
+<p>El resto del diseño de CFS simplemente se escapa de este simple concepto,
+con unos cuantos añadidos como los niveles “nice” (“nice” significa “amable”
+en inglés), multi-tarea y varias variantes del algoritmo para identificar
+tareas “durmiendo”.</p>
+</section>
+<section id="el-arbol-rojo-negro">
+<h2>3.  EL ÁRBOL ROJO-NEGRO<a class="headerlink" href="#el-arbol-rojo-negro" title="Link to this heading">¶</a></h2>
+<p>El diseño de CFS es bastante radical: no utiliza las antiguas estructuras
+de datos para las colas de ejecución (en inglés “runqueues”), pero usa una
+estructura de árbol rojo-negro (en inglés “red-black tree”) ordenado cronológicamente
+para construir un línea de ejecución en el futuro, y por eso no tiene ningún
+artificio de “cambio de tareas” (algo que previamente era usado por el gestor
+anterior y RSDL/SD).</p>
+<p>CFS también mantiene el valor de rq-&gt;cfs.min_vruntime, el cual crece
+monotónicamente siguiendo el valor más pequeño de vruntime de entre todas
+las tareas en la cola de ejecución. La cantidad total de trabajo realizado
+por el sistema es monitorizado usado min_vruntime; este valor es usado
+para situar las nuevas tareas en la parte izquierda del árbol tanto
+como sea posible.</p>
+<p>El valor total de tareas ejecutándose en la cola de ejecución es
+contabilizado mediante el valor rq-&gt;cfs.load, el cual es la suma de los
+de esas tareas que están en la cola de ejecución.</p>
+<p>CFS mantiene un árbol rojo-negro cronológicamente ordenado, donde todas las
+tareas que pueden ser ejecutadas están ordenadas por su valor de
+p-&gt;se.vruntime. CFS selecciona la tarea más hacia la izquierda de este
+árbol y la mantiene. Según el sistema continúa, las tareas ejecutadas
+se ponen en este árbol más y más hacia la derecha --- lentamente pero
+de forma continuada dando una oportunidad a cada tarea de ser la que
+está “la más hacia la izquierda” y por tanto obtener la CPU una cantidad
+determinista de tiempo.</p>
+<p>Resumiendo, CFS funciona así: ejecuta una tarea un tiempo, y cuando la
+tarea se gestiona (o sucede un tic del gestor de tareas) se considera
+que el tiempo de uso de la CPU se ha completado, y se añade a
+p-&gt;se.vruntime. Una vez p-&gt;se.vruntime ha aumentado lo suficiente como
+para que otra tarea sea “la tarea más hacia la izquierda” del árbol
+rojo-negro ordenado cronológicamente esta mantienen (más una cierta pequeña
+cantidad de distancia relativa a la tarea más hacia la izquierda para
+que no se sobre-reserven tareas y perjudique a la cache), entonces la
+nueva tarea “que está a la izquierda del todo”, es la que se elige
+para que se ejecute, y la tarea en ejecución es interrumpida.</p>
+</section>
+<section id="algunas-caracteristicas-de-cfs">
+<h2>4.  ALGUNAS CARACTERÍSTICAS DE CFS<a class="headerlink" href="#algunas-caracteristicas-de-cfs" title="Link to this heading">¶</a></h2>
+<p>CFS usa una granularidad de nanosegundos y no depende de ningún
+jiffy o detalles como HZ. De este modo, el gestor de tareas CFS no tiene
+noción de “ventanas de tiempo” de la forma en que tenía el gestor de
+tareas previo, y tampoco tiene heurísticos. Únicamente hay un parámetro
+central ajustable (se ha de cambiar en CONFIG_SCHED_DEBUG):</p>
+<blockquote>
+<div><p>/sys/kernel/debug/sched/base_slice_ns</p>
+</div></blockquote>
+<p>El cual puede ser usado para afinar desde el gestor de tareas del “escritorio”
+(i.e., bajas latencias) hacia cargas de “servidor” (i.e., bueno con
+procesamientos). Su valor por defecto es adecuado para tareas de escritorio.
+SCHED_BATCH también es gestionado por el gestor de tareas CFS.</p>
+<p>Debido a su diseño, el gestor de tareas CFS no es proclive a ninguno de los
+ataques que existen a día de hoy contra los heurísticos del gestor de tareas:
+fiftyp.c, thud.c, chew.c, ring-test.c, massive_intr.c todos trabajan
+correctamente y no tienen impacto en la interacción y se comportan de la forma
+esperada.</p>
+<p>El gestor de tareas CFS tiene una gestión mucho más firme de los niveles
+“nice” y SCHED_BATCH que los previos gestores de tareas: ambos tipos de
+tareas están aisladas de forma más eficiente.</p>
+<p>El balanceo de tareas SMP ha sido rehecho/mejorado: el avance por las
+colas de ejecución de tareas ha desaparecido del código de balanceo de
+carga, y ahora se usan iteradores en la gestión de módulos. El balanceo
+del código ha sido simplificado como resultado esto.</p>
+</section>
+<section id="politicas-de-gestion-de-tareas">
+<h2>5.  Políticas de gestión de tareas<a class="headerlink" href="#politicas-de-gestion-de-tareas" title="Link to this heading">¶</a></h2>
+<p>CFS implementa tres políticas de gestión de tareas:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>SCHED_NORMAL (tradicionalmente llamada SCHED_OTHER): Gestión de
+tareas que se usan para tareas normales.</p></li>
+<li><p>SCHED_BATCH: No interrumpe tareas tan a menudo como las tareas
+normales harían, por eso permite a las tareas ejecutarse durante
+ventanas de tiempo mayores y hace un uso más efectivo de las
+caches pero al coste de la interactividad. Esto es adecuado
+para trabajos de procesado de datos.</p></li>
+<li><p>SCHED_IDLE: Esta política es más débil incluso que nice 19, pero
+no es un gestor “idle” para evitar caer en el problema de la
+inversión de prioridades que causaría un bloqueo de la máquina
+(deadlock).</p></li>
+</ul>
+</div></blockquote>
+<p>SCHED_FIFO/_RR se implementan en sched/rt.c y son específicos de
+POSIX.</p>
+<p>El comando chrt de util-linux-ng 2.13.1.1. puede asignar cualquiera de
+estas políticas excepto SCHED_IDLE.</p>
+</section>
+<section id="clases-de-gestion">
+<h2>6.  CLASES DE GESTIÓN<a class="headerlink" href="#clases-de-gestion" title="Link to this heading">¶</a></h2>
+<p>El nuevo gestor de tareas CFS ha sido diseñado de tal modo para incluir
+“clases de gestión”, una jerarquía ampliable de módulos que pueden tener
+distintas políticas de gestión de tareas. Estos módulos encapsulan los
+detalles de las politicas de gestión y son manejadas por el núcleo del
+gestor de tareas sin que este tenga que presuponer mucho sobre estas clases.</p>
+<p>sched/fair.c implementa el gestor de tareas CFS descrito antes.</p>
+<p>sched/rt.c implementa la semántica de SCHED_FIFO y SCHED_RR, de una forma
+más sencilla que el gestor de tareas anterior. Usa 100 colas de ejecución
+(por todos los 100 niveles de prioridad RT, en vez de las 140 que necesitaba
+el gestor de tareas anterior) y no necesita las listas de expiración.</p>
+<p>Las clases de gestión de tareas son implementadas por medio de la estructura
+sched_class, la cual tiene llamadas a las funciones que deben de llamarse
+cuando quiera que ocurra un evento interesante.</p>
+<p>Esta es la lista parcial de llamadas:</p>
+<blockquote>
+<div><ul>
+<li><p>enqueue_task(...)</p>
+<p>Llamada cuando una tarea entra en el estado de lista para ejecución.
+Pone la entidad a ser gestionada (la tarea) en el árbol rojo-negro
+e incrementa la variable nr_running.</p>
+</li>
+<li><p>dequeue_task(...)</p>
+<p>Cuando una tarea deja de ser ejecutable, esta función se llama para
+mantener a la entidad gestionada fuera del árbol rojo-negor. Esto
+decrementa la variable nr_running.</p>
+</li>
+<li><p>yield_task(...)</p>
+<p>Esta función es básicamente desencolar, seguido por encolar, a menos que
+sysctl compat_yield esté activado; en ese caso, sitúa la entidad a gestionar
+en la parte más hacia la derecha del árbol rojo-negro.</p>
+</li>
+<li><p>check_preempt_curr(...)</p>
+<p>Esta función comprueba si una tarea que ha entrado en el estado de
+poder ser ejecutada, podría reemplazar a la tarea que actualmente
+se esté ejecutando.</p>
+</li>
+<li><p>pick_next_task(...)</p>
+<p>Esta función elige la tarea más apropiada para ser ejecutada a continuación.</p>
+</li>
+<li><p>set_curr_task(...)</p>
+<p>Esta función se llama cuando una tarea cambia su clase de gestión o
+cambia su grupo de tareas.</p>
+</li>
+<li><p>task_tick(...)</p>
+<p>Esta función es llamada la mayoría de las veces desde la función de tiempo
+tick; esto puede llevar a un cambio de procesos. Esto dirige el reemplazo
+de las tareas.</p>
+</li>
+</ul>
+</div></blockquote>
+</section>
+<section id="extensiones-de-grupos-para-cfs">
+<h2>7.  EXTENSIONES DE GRUPOS PARA CFS<a class="headerlink" href="#extensiones-de-grupos-para-cfs" title="Link to this heading">¶</a></h2>
+<p>Normalmente, el gestor de tareas gestiona tareas individuales e intenta
+proporcionar una cantidad justa de CPU a cada tarea. Algunas veces, puede
+ser deseable agrupar las tareas y proporcionarles una cantidad justa
+de tiempo de CPU a cada una de las tareas de ese grupo. Por ejemplo,
+podría ser deseable que primero se proporcione una cantidad justa de
+tiempo de CPU a cada usuario del sistema y después a cada tarea
+que pertenezca a un usuario.</p>
+<p>CONFIG_CGROUP_SCHED destaca en conseguir exactamente eso. Permite a las
+tareas ser agrupadas y divide el tiempo de CPU de forma just entre esos
+grupos.</p>
+<p>CONFIG_RT_GROUP_SCHED permite agrupar tareas de tiempo real (i.e.,
+SCHED_FIFO y SCHED_RR).</p>
+<p>CONFIG_FAIR_GROUP_SCHED permite agrupar tareas de CFS (i.e., SCHED_NORMAL y
+SCHED_BATCH).</p>
+<p>Estas opciones necesitan CONFIG_CGROUPS para ser definidas, y permitir
+al administrador crear grupos arbitrarios de tareas, usando el pseudo
+sistema de archivos “cgroup”. Vease la documentación para más información
+sobre este sistema de archivos: <a class="reference internal" href="../../../admin-guide/cgroup-v1/cgroups.html"><span class="doc">Control Groups</span></a></p>
+<p>Cuando CONFIG_FAIR_GROUP_SCHED es definido, un archivo
+“cpu.shares” es creado por cada grupo creado usado en el pseudo
+sistema de archivos. Véanse por ejemplo los pasos a continuación
+para crear grupos de tareas y modificar cuanto comparten de la CPU
+usando el pseudo sistema de archivos “cgroup”</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># mount -t tmpfs cgroup_root /sys/fs/cgroup
+# mkdir /sys/fs/cgroup/cpu
+# mount -t cgroup -ocpu none /sys/fs/cgroup/cpu
+# cd /sys/fs/cgroup/cpu
+
+# mkdir multimedia      # crear un grupo de tareas &quot;multimedia&quot;
+# mkdir browser         # crear un grupo de tareas &quot;browser&quot;
+
+# #Configurar el grupo multimedia para tener el doble de tiempo de CPU
+# #que el grupo browser
+
+# echo 2048 &gt; multimedia/cpu.shares
+# echo 1024 &gt; browser/cpu.shares
+
+# firefox &amp;     # Lanzar firefox y moverlo al grupo &quot;browser&quot;
+# echo &lt;firefox_pid&gt; &gt; browser/tasks
+
+# #Lanzar gmplayer (o su programa favorito de reproducción de películas)
+# echo &lt;movie_player_pid&gt; &gt; multimedia/tasks
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;The kernel development community.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../../../_sources/translations/sp_SP/scheduler/sched-design-CFS.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

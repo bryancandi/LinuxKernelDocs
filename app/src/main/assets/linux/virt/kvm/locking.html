@@ -7,33 +7,34 @@
 
     <title>KVM Lock Overview &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="KVM VCPU Requests" href="vcpu-requests.html" />
-    <link rel="prev" title="Timekeeping Virtualization for X86-Based Architectures" href="x86/timekeeping.html" />
+    <link rel="prev" title="The LoongArch paravirtual interface" href="loongarch/hypercalls.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -168,6 +169,7 @@
 <p>The acquisition orders for mutexes are as follows:</p>
 <ul class="simple">
 <li><p>cpus_read_lock() is taken outside kvm_lock</p></li>
+<li><p>kvm_usage_lock is taken outside cpus_read_lock()</p></li>
 <li><p>kvm-&gt;lock is taken outside vcpu-&gt;mutex</p></li>
 <li><p>kvm-&gt;lock is taken outside kvm-&gt;slots_lock and kvm-&gt;irq_lock</p></li>
 <li><p>kvm-&gt;slots_lock is taken outside kvm-&gt;irq_lock, though acquiring
@@ -177,6 +179,13 @@ invalidate_range_start() and invalidate_range_end() callbacks
 use the same memslots array.  kvm-&gt;slots_lock and kvm-&gt;slots_arch_lock
 are taken on the waiting side when modifying memslots, so MMU notifiers
 must not take either kvm-&gt;slots_lock or kvm-&gt;slots_arch_lock.</p></li>
+</ul>
+<p>cpus_read_lock() vs kvm_lock:</p>
+<ul class="simple">
+<li><p>Taking cpus_read_lock() outside of kvm_lock is problematic, despite that
+being the official ordering, as it is quite easy to unknowingly trigger
+cpus_read_lock() while holding kvm_lock.  Use caution when walking vm_list,
+e.g. avoid complex operations when possible.</p></li>
 </ul>
 <p>For SRCU:</p>
 <ul>
@@ -284,7 +293,7 @@ gfn2 by the guest:</p>
 <p>For direct sp, we can easily avoid it since the spte of direct sp is fixed
 to gfn.  For indirect sp, we disabled fast page fault for simplicity.</p>
 <p>A solution for indirect sp could be to pin the gfn, for example via
-kvm_vcpu_gfn_to_pfn_atomic, before the cmpxchg.  After the pinning:</p>
+gfn_to_pfn_memslot_atomic, before the cmpxchg.  After the pinning:</p>
 <ul class="simple">
 <li><p>We have held the refcount of pfn; that means the pfn can not be freed and
 be reused for another gfn.</p></li>
@@ -395,13 +404,28 @@ time it will be set using the Dirty tracking mechanism described above.</p>
 <dt class="field-odd">Protects<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p>vm_list</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="kvm-usage-lock">
+<h3><code class="docutils literal notranslate"><span class="pre">kvm_usage_lock</span></code><a class="headerlink" href="#kvm-usage-lock" title="Link to this heading">¶</a></h3>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mutex</p>
+</dd>
+<dt class="field-even">Arch<span class="colon">:</span></dt>
+<dd class="field-even"><p>any</p>
+</dd>
+<dt class="field-odd">Protects<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p>kvm_usage_count</p></li>
 <li><p>hardware virtualization enable/disable</p></li>
 </ul>
 </dd>
 <dt class="field-even">Comment<span class="colon">:</span></dt>
-<dd class="field-even"><p>KVM also disables CPU hotplug via cpus_read_lock() during
-enable/disable.</p>
+<dd class="field-even"><p>Exists to allow taking cpus_read_lock() while kvm_usage_count is
+protected, which simplifies the virtualization enabling logic.</p>
 </dd>
 </dl>
 </section>
@@ -535,10 +559,11 @@ wakeup.</p>
 <dd class="field-odd"><p>loading a vendor module (kvm_amd or kvm_intel)</p>
 </dd>
 <dt class="field-even">Comment<span class="colon">:</span></dt>
-<dd class="field-even"><p>Exists because using kvm_lock leads to deadlock.  cpu_hotplug_lock is
-taken outside of kvm_lock, e.g. in KVM’s CPU online/offline callbacks, and
-many operations need to take cpu_hotplug_lock when loading a vendor module,
-e.g. updating static calls.</p>
+<dd class="field-even"><p>Exists because using kvm_lock leads to deadlock.  kvm_lock is taken
+in notifiers, e.g. __kvmclock_cpufreq_notifier(), that may be invoked while
+cpu_hotplug_lock is held, e.g. from cpufreq_boost_trigger_state(), and many
+operations need to take cpu_hotplug_lock when loading a vendor module, e.g.
+updating static calls.</p>
 </dd>
 </dl>
 </section>
@@ -553,11 +578,11 @@ e.g. updating static calls.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/virt/kvm/locking.rst.txt"

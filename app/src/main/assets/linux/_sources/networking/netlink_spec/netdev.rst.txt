@@ -87,11 +87,11 @@ Get / dump information about Page Pools.
         :attributes: [``id``]
 
     **reply**
-        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``]
+        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``]
 
 :dump:
     **reply**
-        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``]
+        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``]
 
 
 
@@ -161,14 +161,14 @@ Get queue information from the kernel. Only configured queues will be reported (
         :attributes: [``ifindex``, ``type``, ``id``]
 
     **reply**
-        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``]
+        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``]
 
 :dump:
     **request**
         :attributes: [``ifindex``]
 
     **reply**
-        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``]
+        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``]
 
 
 
@@ -211,6 +211,23 @@ software counters per-queue.
 
     **reply**
         :attributes: [``ifindex``, ``queue-type``, ``queue-id``, ``rx-packets``, ``rx-bytes``, ``tx-packets``, ``tx-bytes``]
+
+
+
+.. _netdev-operation-bind-rx:
+
+bind-rx
+=======
+Bind dmabuf to netdev
+
+:attribute-set: :ref:`netdev-attribute-set-dmabuf`
+:flags: [``admin-perm``]
+:do:
+    **request**
+        :attributes: [``ifindex``, ``fd``, ``queues``]
+
+    **reply**
+        :attributes: [``id``]
 
 
 
@@ -369,6 +386,11 @@ detach-time (``uint``)
 :doc: Seconds in CLOCK_BOOTTIME of when Page Pool was detached by the driver. Once detached Page Pool can no longer be used to allocate memory. Page Pools wait for all the memory allocated from them to be freed before truly disappearing. "Detached" Page Pools cannot be "re-attached", they are just waiting to disappear. Attribute is absent if Page Pool has not been detached, and can still be used to allocate new memory.
 
 
+dmabuf (``u32``)
+~~~~~~~~~~~~~~~~
+:doc: ID of the dmabuf this page-pool is attached to.
+
+
 .. _netdev-attribute-set-page-pool-info:
 
 page-pool-info
@@ -483,6 +505,11 @@ type (``u32``)
 napi-id (``u32``)
 ~~~~~~~~~~~~~~~~~
 :doc: ID of the NAPI instance which services this queue.
+
+
+dmabuf (``u32``)
+~~~~~~~~~~~~~~~~
+:doc: ID of the dmabuf attached to this queue, if any.
 
 
 .. _netdev-attribute-set-qstats:
@@ -645,4 +672,42 @@ tx-stop (``uint``)
 tx-wake (``uint``)
 ~~~~~~~~~~~~~~~~~~
 :doc: Number of times driver re-started accepting send requests to this queue from the stack.
+
+
+.. _netdev-attribute-set-queue-id:
+
+queue-id
+========
+id
+~~
+
+
+type
+~~~~
+
+
+.. _netdev-attribute-set-dmabuf:
+
+dmabuf
+======
+ifindex (``u32``)
+~~~~~~~~~~~~~~~~~
+:doc: netdev ifindex to bind the dmabuf to.
+
+
+queues (``nest``)
+~~~~~~~~~~~~~~~~~
+:doc: receive queues to bind the dmabuf to.
+:nested-attributes: :ref:`netdev-attribute-set-queue-id`
+:multi-attr: True
+
+
+fd (``u32``)
+~~~~~~~~~~~~
+:doc: dmabuf file descriptor to bind.
+
+
+id (``u32``)
+~~~~~~~~~~~~
+:doc: id of the dmabuf binding
 

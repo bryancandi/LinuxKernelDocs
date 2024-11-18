@@ -7,9 +7,9 @@
 
     <title>The kernel’s command-line parameters &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -99,7 +100,7 @@
 <li class="toctree-l2"><a class="reference internal" href="quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -764,12 +765,17 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                                           allowed anymore to lift isolation
                                           requirements as needed. This option
                                           does not override iommu=pt
-                        force_enable - Force enable the IOMMU on platforms known
-                                       to be buggy with IOMMU enabled. Use this
-                                       option with care.
-                        pgtbl_v1     - Use v1 page table for DMA-API (Default).
-                        pgtbl_v2     - Use v2 page table for DMA-API.
-                        irtcachedis  - Disable Interrupt Remapping Table (IRT) caching.
+                        force_enable    - Force enable the IOMMU on platforms known
+                                          to be buggy with IOMMU enabled. Use this
+                                          option with care.
+                        pgtbl_v1        - Use v1 page table for DMA-API (Default).
+                        pgtbl_v2        - Use v2 page table for DMA-API.
+                        irtcachedis     - Disable Interrupt Remapping Table (IRT) caching.
+                        nohugepages     - Limit page-sizes used for v1 page-tables
+                                          to 4 KiB.
+                        v2_pgsizes_only - Limit page-sizes used for v1 page-tables
+                                          to 4KiB/2Mib/1GiB.
+
 
         amd_iommu_dump= [HW,X86-64]
                         Enable AMD IOMMU driver option to dump the ACPI table
@@ -947,6 +953,18 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         BayCom Serial Port AX.25 Modem (Half Duplex Mode)
                         Format: &lt;io&gt;,&lt;irq&gt;,&lt;mode&gt;
                         See header of drivers/net/hamradio/baycom_ser_hdx.c.
+
+        bdev_allow_write_mounted=
+                        Format: &lt;bool&gt;
+                        Control the ability to open a mounted block device
+                        for writing, i.e., allow / disallow writes that bypass
+                        the FS. This was implemented as a means to prevent
+                        fuzzers from crashing the kernel by overwriting the
+                        metadata underneath a mounted FS without its awareness.
+                        This also prevents destructive formatting of mounted
+                        filesystems by naive storage tooling that don't use
+                        O_EXCL. Default is Y and can be changed through the
+                        Kconfig option CONFIG_BLK_DEV_WRITE_MOUNTED.
 
         bert_disable    [ACPI]
                         Disable BERT OS support on buggy BIOSes.
@@ -2781,6 +2799,18 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
         ipcmni_extend   [KNL,EARLY] Extend the maximum number of unique System V
                         IPC identifiers from 32,768 to 16,777,216.
 
+        ipe.enforce=    [IPE]
+                        Format: &lt;bool&gt;
+                        Determine whether IPE starts in permissive (0) or
+                        enforce (1) mode. The default is enforce.
+
+        ipe.success_audit=
+                        [IPE]
+                        Format: &lt;bool&gt;
+                        Start IPE with success auditing enabled, emitting
+                        an audit event when a binary is allowed. The default
+                        is 0.
+
         irqaffinity=    [SMP] Set the default irq affinity mask
                         The argument is a cpu list, as described above.
 
@@ -3078,6 +3108,23 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         Eager page splitting is only supported when kvm.tdp_mmu=Y.
 
                         Default is Y (on).
+
+        kvm.enable_virt_at_load=[KVM,ARM64,LOONGARCH,MIPS,RISCV,X86]
+                        If enabled, KVM will enable virtualization in hardware
+                        when KVM is loaded, and disable virtualization when KVM
+                        is unloaded (if KVM is built as a module).
+
+                        If disabled, KVM will dynamically enable and disable
+                        virtualization on-demand when creating and destroying
+                        VMs, i.e. on the 0=&gt;1 and 1=&gt;0 transitions of the
+                        number of VMs.
+
+                        Enabling virtualization at module lode avoids potential
+                        latency for creation of the 0=&gt;1 VM, as KVM serializes
+                        virtualization enabling across all online CPUs.  The
+                        &quot;cost&quot; of enabling virtualization when KVM is loaded,
+                        is that doing so may interfere with using out-of-tree
+                        hypervisors that want to &quot;own&quot; virtualization hardware.
 
         kvm.enable_vmware_backdoor=[KVM] Support VMware backdoor PV interface.
                                    Default is false (don't support).
@@ -4554,6 +4601,21 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         Disable NUMA, Only set up a single NUMA node
                         spanning all memory.
 
+        numa=fake=&lt;size&gt;[MG]
+                        [KNL, ARM64, RISCV, X86, EARLY]
+                        If given as a memory unit, fills all system RAM with
+                        nodes of size interleaved over physical nodes.
+
+        numa=fake=&lt;N&gt;
+                        [KNL, ARM64, RISCV, X86, EARLY]
+                        If given as an integer, fills all system RAM with N
+                        fake nodes interleaved over physical nodes.
+
+        numa=fake=&lt;N&gt;U
+                        [KNL, ARM64, RISCV, X86, EARLY]
+                        If given as an integer followed by 'U', it will
+                        divide each physical node into N emulated nodes.
+
         numa_balancing= [KNL,ARM64,PPC,RISCV,S390,X86] Enable or disable automatic
                         NUMA balancing.
                         Allowed values are enable and disable
@@ -5219,6 +5281,16 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
         printk.time=    Show timing data prefixed to each printk message line
                         Format: &lt;bool&gt;  (1/Y/y=enable, 0/N/n=disable)
 
+        proc_mem.force_override= [KNL]
+                        Format: {always | ptrace | never}
+                        Traditionally /proc/pid/mem allows memory permissions to be
+                        overridden without restrictions. This option may be set to
+                        restrict that. Can be one of:
+                        - 'always': traditional behavior always allows mem overrides.
+                        - 'ptrace': only allow mem overrides for active ptracers.
+                        - 'never':  never allow mem overrides.
+                        If not specified, default is the CONFIG_PROC_MEM_* choice.
+
         processor.max_cstate=   [HW,ACPI]
                         Limit processor to maximum C-state
                         max_cstate=9 overrides any DMI blacklist limit.
@@ -5365,6 +5437,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
         rcutree.blimit= [KNL]
                         Set maximum number of finished RCU callbacks to
                         process in one batch.
+
+        rcutree.csd_lock_suppress_rcu_stall=    [KNL]
+                        Do only a one-line RCU CPU stall warning when
+                        there is an ongoing too-long CSD-lock wait.
 
         rcutree.do_rcu_barrier= [KNL]
                         Request a call to rcu_barrier().  This is
@@ -5813,7 +5889,13 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         Time to wait (s) after boot before inducing stall.
 
         rcutorture.stall_cpu_irqsoff= [KNL]
-                        Disable interrupts while stalling if set.
+                        Disable interrupts while stalling if set, but only
+                        on the first stall in the set.
+
+        rcutorture.stall_cpu_repeat= [KNL]
+                        Number of times to repeat the stall sequence,
+                        so that rcutorture.stall_cpu_repeat=3 will result
+                        in four stall sequences.
 
         rcutorture.stall_gp_kthread= [KNL]
                         Duration (s) of forced sleep within RCU
@@ -6000,14 +6082,6 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         A negative value will take the default.  A value
                         of zero will disable batching.  Batching is
                         always disabled for synchronize_rcu_tasks().
-
-        rcupdate.rcu_tasks_rude_lazy_ms= [KNL]
-                        Set timeout in milliseconds RCU Tasks
-                        Rude asynchronous callback batching for
-                        call_rcu_tasks_rude().  A negative value
-                        will take the default.  A value of zero will
-                        disable batching.  Batching is always disabled
-                        for synchronize_rcu_tasks_rude().
 
         rcupdate.rcu_tasks_trace_lazy_ms= [KNL]
                         Set timeout in milliseconds RCU Tasks
@@ -7045,6 +7119,15 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         &lt;deci-seconds&gt;: poll all this frequency
                         0: no polling (default)
 
+        thp_anon=       [KNL]
+                        Format: &lt;size&gt;[KMG],&lt;size&gt;[KMG]:&lt;state&gt;;&lt;size&gt;[KMG]-&lt;size&gt;[KMG]:&lt;state&gt;
+                        state is one of &quot;always&quot;, &quot;madvise&quot;, &quot;never&quot; or &quot;inherit&quot;.
+                        Control the default behavior of the system with respect
+                        to anonymous transparent hugepages.
+                        Can be used multiple times for multiple anon THP sizes.
+                        See Documentation/admin-guide/mm/transhuge.rst for more
+                        details.
+
         threadirqs      [KNL,EARLY]
                         Force threading of all interrupt handlers except those
                         marked explicitly IRQF_NO_THREAD.
@@ -7075,6 +7158,15 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
 
         torture.verbose_sleep_duration= [KNL]
                         Duration of each verbose-printk() sleep in jiffies.
+
+        tpm.disable_pcr_integrity= [HW,TPM]
+                        Do not protect PCR registers from unintended physical
+                        access, or interposers in the bus by the means of
+                        having an integrity protected session wrapped around
+                        TPM2_PCR_Extend command. Consider this in a situation
+                        where TPM is heavily utilized by IMA, thus protection
+                        causing a major performance hit, and the space where
+                        machines are deployed is by other means guarded.
 
         tpm_suspend_pcr=[HW,TPM]
                         Format: integer pcr id
@@ -7173,6 +7265,51 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         will enable the &quot;sched_switch&quot; event (note, the &quot;sched:&quot; is optional, and
                         the same thing would happen if it was left off). The irq_handler_entry
                         event, and all events under the &quot;initcall&quot; system.
+
+                        Flags can be added to the instance to modify its behavior when it is
+                        created. The flags are separated by '^'.
+
+                        The available flags are:
+
+                            traceoff    - Have the tracing instance tracing disabled after it is created.
+                            traceprintk - Have trace_printk() write into this trace instance
+                                          (note, &quot;printk&quot; and &quot;trace_printk&quot; can also be used)
+
+                                trace_instance=foo^traceoff^traceprintk,sched,irq
+
+                        The flags must come before the defined events.
+
+                        If memory has been reserved (see memmap for x86), the instance
+                        can use that memory:
+
+                                memmap=12M$0x284500000 trace_instance=boot_map&#64;0x284500000:12M
+
+                        The above will create a &quot;boot_map&quot; instance that uses the physical
+                        memory at 0x284500000 that is 12Megs. The per CPU buffers of that
+                        instance will be split up accordingly.
+
+                        Alternatively, the memory can be reserved by the reserve_mem option:
+
+                                reserve_mem=12M:4096:trace trace_instance=boot_map&#64;trace
+
+                        This will reserve 12 megabytes at boot up with a 4096 byte alignment
+                        and place the ring buffer in this memory. Note that due to KASLR, the
+                        memory may not be the same location each time, which will not preserve
+                        the buffer content.
+
+                        Also note that the layout of the ring buffer data may change between
+                        kernel versions where the validator will fail and reset the ring buffer
+                        if the layout is not the same as the previous kernel.
+
+                        If the ring buffer is used for persistent bootups and has events enabled,
+                        it is recommend to disable tracing so that events from a previous boot do not
+                        mix with events of the current boot (unless you are debugging a random crash
+                        at boot up).
+
+                                reserve_mem=12M:4096:trace trace_instance=boot_map^traceoff^traceprintk&#64;trace,sched,irq
+
+                        See also Documentation/trace/debugging.rst
+
 
         trace_options=[option-list]
                         [FTRACE] Enable or disable tracer options at boot.
@@ -7783,6 +7920,13 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
                         it can be updated at runtime by writing to the
                         corresponding sysfs file.
 
+        workqueue.panic_on_stall=&lt;uint&gt;
+                        Panic when workqueue stall is detected by
+                        CONFIG_WQ_WATCHDOG. It sets the number times of the
+                        stall to trigger panic.
+
+                        The default is 0, which disables the panic on stall.
+
         workqueue.cpu_intensive_thresh_us=
                         Per-cpu work items which run for longer than this
                         threshold are automatically considered CPU intensive
@@ -7986,11 +8130,11 @@ bytes respectively. Such letter suffixes can also be entirely omitted:</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/admin-guide/kernel-parameters.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>Firewire (IEEE 1394) driver Interface Guide &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -2116,6 +2117,51 @@ field of isochronous cycle time register.</p>
 <section id="firewire-isochronous-i-o-interfaces">
 <h2>Firewire Isochronous I/O interfaces<a class="headerlink" href="#firewire-isochronous-i-o-interfaces" title="Link to this heading">¶</a></h2>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.fw_iso_context_schedule_flush_completions">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fw_iso_context_schedule_flush_completions</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fw_iso_context</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.fw_iso_context_schedule_flush_completions" title="Link to this definition">¶</a><br /></dt>
+<dd><p>schedule work item to process isochronous context.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fw_iso_context</span> <span class="pre">*ctx</span></code></dt><dd><p>the isochronous context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Schedule a work item on workqueue to process the isochronous context. The registered callback
+function is called by the worker when a queued packet buffer with the interrupt flag is
+completed, either after transmission in the IT context or after being filled in the IR context.
+The callback function is also called when the header buffer in the context becomes full, If it
+is required to process the context in the current context, <a class="reference internal" href="#c.fw_iso_context_flush_completions" title="fw_iso_context_flush_completions"><code class="xref c c-func docutils literal notranslate"><span class="pre">fw_iso_context_flush_completions()</span></code></a> is
+available instead.</p>
+<p><strong>Context</strong></p>
+<p>Any context.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.fw_iso_context_flush_completions">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fw_iso_context_flush_completions</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fw_iso_context</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.fw_iso_context_flush_completions" title="Link to this definition">¶</a><br /></dt>
+<dd><p>process isochronous context in current process context.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fw_iso_context</span> <span class="pre">*ctx</span></code></dt><dd><p>the isochronous context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Process the isochronous context in the current process context. The registered callback function
+is called when a queued packet buffer with the interrupt flag is completed, either after
+transmission in the IT context or after being filled in the IR context. Additionally, the
+callback function is also called for the packet buffer completed at last. Furthermore, the
+callback function is called as well when the header buffer in the context becomes full. If it is
+required to process the context asynchronously, <a class="reference internal" href="#c.fw_iso_context_schedule_flush_completions" title="fw_iso_context_schedule_flush_completions"><code class="xref c c-func docutils literal notranslate"><span class="pre">fw_iso_context_schedule_flush_completions()</span></code></a> is
+available instead.</p>
+<p><strong>Context</strong></p>
+<p>Process context. May sleep due to <a class="reference internal" href="../core-api/workqueue.html#c.disable_work_sync" title="disable_work_sync"><code class="xref c c-func docutils literal notranslate"><span class="pre">disable_work_sync()</span></code></a>.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.fw_iso_resource_manage">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fw_iso_resource_manage</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fw_card</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">card</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">generation</span></span>, <span class="n"><span class="pre">u64</span></span><span class="w"> </span><span class="n"><span class="pre">channels_mask</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">channel</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bandwidth</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">allocate</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.fw_iso_resource_manage" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate or deallocate a channel and/or bandwidth</p>
@@ -2166,11 +2212,11 @@ of each other’s success.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/driver-api/firewire.rst.txt"

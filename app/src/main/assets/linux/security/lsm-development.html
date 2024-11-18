@@ -7,9 +7,9 @@
 
     <title>Linux Security Module Development &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -612,10 +613,34 @@ lower layer to the union/overlay layer.   The caller is responsible for
 reading and writing the xattrs, this hook is merely a filter.</p>
 <p><strong>Return</strong></p>
 <dl class="simple">
-<dt>Returns 0 to accept the xattr, 1 to discard the xattr, -EOPNOTSUPP</dt><dd><p>if the security module does not know about attribute, or a negative
-error code to abort the copy up.</p>
+<dt>Returns 0 to accept the xattr, -ECANCELED to discard the xattr,</dt><dd><p>-EOPNOTSUPP if the security module does not know about attribute,
+or a negative error code to abort the copy up.</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.security_inode_setintegrity">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_inode_setintegrity</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.security_inode_setintegrity" title="inode"><span class="n"><span class="pre">inode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">inode</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">lsm_integrity_type</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">value</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_inode_setintegrity" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set the inode’s integrity data</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">inode</span> <span class="pre">*inode</span></code></dt><dd><p>inode</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">lsm_integrity_type</span> <span class="pre">type</span></code></dt><dd><p>type of integrity, e.g. hash digest, signature, etc</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*value</span></code></dt><dd><p>the integrity value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>size of the integrity value</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Register a verified integrity measurement of a inode with LSMs.
+LSMs should free the previously saved data if <strong>value</strong> is NULL.</p>
+<p><strong>Return</strong></p>
+<p>Returns 0 on success, negative values on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.security_file_ioctl">
@@ -1655,6 +1680,79 @@ execution in kernel space should be permitted.</p>
 <p><strong>Return</strong></p>
 <p>Returns 0 if permission is granted.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.security_bdev_alloc">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_bdev_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">block_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bdev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_bdev_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allocate a block device LSM blob</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">block_device</span> <span class="pre">*bdev</span></code></dt><dd><p>block device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allocate and attach a security structure to <strong>bdev-&gt;bd_security</strong>.  The
+security field is initialized to NULL when the bdev structure is
+allocated.</p>
+<p><strong>Return</strong></p>
+<p>Return 0 if operation was successful.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.security_bdev_free">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_bdev_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">block_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bdev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_bdev_free" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Free a block device’s LSM blob</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">block_device</span> <span class="pre">*bdev</span></code></dt><dd><p>block device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Deallocate the bdev security structure and set <strong>bdev-&gt;bd_security</strong> to NULL.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.security_bdev_setintegrity">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">security_bdev_setintegrity</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">block_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bdev</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">lsm_integrity_type</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">value</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.security_bdev_setintegrity" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set the device’s integrity data</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">block_device</span> <span class="pre">*bdev</span></code></dt><dd><p>block device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">lsm_integrity_type</span> <span class="pre">type</span></code></dt><dd><p>type of integrity, e.g. hash digest, signature, etc</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*value</span></code></dt><dd><p>the integrity value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>size of the integrity value</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Register a verified integrity measurement of a bdev with LSMs.
+LSMs should free the previously saved data if <strong>value</strong> is NULL.
+Please note that the new hook should be invoked every time the security
+information is updated to keep these data current. For example, in dm-verity,
+if the mapping table is reloaded and configured to use a different dm-verity
+target with a new roothash and signing information, the previously stored
+data in the LSM blob will become obsolete. It is crucial to re-invoke the
+hook to refresh these data and ensure they are up to date. This necessity
+arises from the design of device-mapper, where a device-mapper device is
+first created, and then targets are subsequently loaded into it. These
+targets can be modified multiple times during the device’s lifetime.
+Therefore, while the LSM blob is allocated during the creation of the block
+device, its actual contents are not initialized at this stage and can change
+substantially over time. This includes alterations from data that the LSMs
+‘trusts’ to those they do not, making it essential to handle these changes
+correctly. Failure to address this dynamic aspect could potentially allow
+for bypassing LSM checks.</p>
+<p><strong>Return</strong></p>
+<p>Returns 0 on success, negative values on failure.</p>
+</div>
 </section>
 
 
@@ -1665,11 +1763,11 @@ execution in kernel space should be permitted.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../_sources/security/lsm-development.rst.txt"

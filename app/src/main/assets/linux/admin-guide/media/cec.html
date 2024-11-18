@@ -7,9 +7,9 @@
 
     <title>4. HDMI CEC &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,22 +18,23 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
+
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+  
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.11.0</p>
+<p class="blurb">6.12.0</p>
 
 
 
@@ -41,7 +42,7 @@
 
 
 
-<div id="searchbox" style="display: none" role="search">
+<search id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -49,7 +50,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</div>
+</search>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -96,7 +97,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../quickly-build-trimmed-linux.html">How to quickly build a trimmed Linux kernel</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../verify-bugs-and-bisect-regressions.html">How to verify bugs and bisect regressions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../bug-hunting.html">Bug hunting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a bug</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bug-bisect.html">Bisecting a regression</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tainted-kernels.html">Tainted kernels</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ramoops.html">Ramoops oops/panic logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../dynamic-debug-howto.html">Dynamic debug</a></li>
@@ -269,6 +270,8 @@ it the next time the device is connected to the USB port.</p></li>
 <li><p>RainShadow Tech. Note: this driver does not support the persistent_config
 module option of the Pulse-Eight driver. The hardware supports it, but I
 have no plans to add this feature. But I accept patches :-)</p></li>
+<li><p>Extron DA HD 4K PLUS HDMI Distribution Amplifier. See
+<a class="reference internal" href="#extron-da-hd-4k-plus"><span class="std std-ref">Extron DA HD 4K PLUS CEC Adapter driver</span></a> for more information.</p></li>
 </ul>
 <p>Miscellaneous:</p>
 <ul class="simple">
@@ -543,6 +546,71 @@ it later using <code class="docutils literal notranslate"><span class="pre">--an
 <p>You can also use this as a full-fledged CEC device by configuring it
 using <code class="docutils literal notranslate"><span class="pre">cec-ctl</span> <span class="pre">--tv</span> <span class="pre">-p0.0.0.0</span></code> or <code class="docutils literal notranslate"><span class="pre">cec-ctl</span> <span class="pre">--playback</span> <span class="pre">-p1.0.0.0</span></code>.</p>
 </section>
+<section id="extron-da-hd-4k-plus-cec-adapter-driver">
+<span id="extron-da-hd-4k-plus"></span><h2><span class="section-number">4.8. </span>Extron DA HD 4K PLUS CEC Adapter driver<a class="headerlink" href="#extron-da-hd-4k-plus-cec-adapter-driver" title="Link to this heading">¶</a></h2>
+<p>This driver is for the Extron DA HD 4K PLUS series of HDMI Distribution
+Amplifiers: <a class="reference external" href="https://www.extron.com/product/dahd4kplusseries">https://www.extron.com/product/dahd4kplusseries</a></p>
+<p>The 2, 4 and 6 port models are supported.</p>
+<p>Firmware version 1.02.0001 or higher is required.</p>
+<p>Note that older Extron hardware revisions have a problem with the CEC voltage,
+which may mean that CEC will not work. This is fixed in hardware revisions
+E34814 and up.</p>
+<p>The CEC support has two modes: the first is a manual mode where userspace has
+to manually control CEC for the HDMI Input and all HDMI Outputs. While this gives
+full control, it is also complicated.</p>
+<p>The second mode is an automatic mode, which is selected if the module option
+<code class="docutils literal notranslate"><span class="pre">vendor_id</span></code> is set. In that case the driver controls CEC and CEC messages
+received in the input will be distributed to the outputs. It is still possible
+to use the /dev/cecX devices to talk to the connected devices directly, but it is
+the driver that configures everything and deals with things like Hotplug Detect
+changes.</p>
+<p>The driver also takes care of the EDIDs: /dev/videoX devices are created to
+read the EDIDs and (for the HDMI Input port) to set the EDID.</p>
+<p>By default userspace is responsible to set the EDID for the HDMI Input
+according to the EDIDs of the connected displays. But if the <code class="docutils literal notranslate"><span class="pre">manufacturer_name</span></code>
+module option is set, then the driver will take care of setting the EDID
+of the HDMI Input based on the supported resolutions of the connected displays.
+Currently the driver only supports resolutions 1080p60 and 4kp60: if all connected
+displays support 4kp60, then it will advertise 4kp60 on the HDMI input, otherwise
+it will fall back to an EDID that just reports 1080p60.</p>
+<p>The status of the Extron is reported in <code class="docutils literal notranslate"><span class="pre">/sys/kernel/debug/cec/cecX/status</span></code>.</p>
+<p>The extron-da-hd-4k-plus driver implements the following module options:</p>
+<section id="debug">
+<h3><span class="section-number">4.8.1. </span><code class="docutils literal notranslate"><span class="pre">debug</span></code><a class="headerlink" href="#debug" title="Link to this heading">¶</a></h3>
+<p>If set to 1, then all serial port traffic is shown.</p>
+</section>
+<section id="vendor-id">
+<h3><span class="section-number">4.8.2. </span><code class="docutils literal notranslate"><span class="pre">vendor_id</span></code><a class="headerlink" href="#vendor-id" title="Link to this heading">¶</a></h3>
+<p>The CEC Vendor ID to report to connected displays.</p>
+<p>If set, then the driver will take care of distributing CEC messages received
+on the input to the HDMI outputs. This is done for the following CEC messages:</p>
+<ul class="simple">
+<li><p>&lt;Standby&gt;</p></li>
+<li><p>&lt;Image View On&gt; and &lt;Text View On&gt;</p></li>
+<li><p>&lt;Give Device Power Status&gt;</p></li>
+<li><p>&lt;Set System Audio Mode&gt;</p></li>
+<li><p>&lt;Request Current Latency&gt;</p></li>
+</ul>
+<p>If not set, then userspace is responsible for this, and it will have to
+configure the CEC devices for HDMI Input and the HDMI Outputs manually.</p>
+</section>
+<section id="manufacturer-name">
+<h3><span class="section-number">4.8.3. </span><code class="docutils literal notranslate"><span class="pre">manufacturer_name</span></code><a class="headerlink" href="#manufacturer-name" title="Link to this heading">¶</a></h3>
+<p>A three character manufacturer name that is used in the EDID for the HDMI
+Input. If not set, then userspace is reponsible for configuring an EDID.
+If set, then the driver will update the EDID automatically based on the
+resolutions supported by the connected displays, and it will not be possible
+anymore to manually set the EDID for the HDMI Input.</p>
+</section>
+<section id="hpd-never-low">
+<h3><span class="section-number">4.8.4. </span><code class="docutils literal notranslate"><span class="pre">hpd_never_low</span></code><a class="headerlink" href="#hpd-never-low" title="Link to this heading">¶</a></h3>
+<p>If set, then the Hotplug Detect pin of the HDMI Input will always be high,
+even if nothing is connected to the HDMI Outputs. If not set (the default)
+then the Hotplug Detect pin of the HDMI input will go low if all the detected
+Hotplug Detect pins of the HDMI Outputs are also low.</p>
+<p>This option may be changed dynamically.</p>
+</section>
+</section>
 </section>
 
 
@@ -553,11 +621,11 @@ using <code class="docutils literal notranslate"><span class="pre">cec-ctl</span
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &copy;The kernel development community.
+      &#169;The kernel development community.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
       
       |
       <a href="../../_sources/admin-guide/media/cec.rst.txt"
