@@ -7,9 +7,9 @@
 
     <title>Memory Management APIs &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -520,6 +519,107 @@ in page fault path, while the non-light is used by khugepaged.</p>
 </section>
 <section id="the-slab-cache">
 <h2>The Slab Cache<a class="headerlink" href="#the-slab-cache" title="Link to this heading">¶</a></h2>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.SLAB_HWCACHE_ALIGN">
+<span class="sig-name descname"><span class="n"><span class="pre">SLAB_HWCACHE_ALIGN</span></span></span><a class="headerlink" href="#c.SLAB_HWCACHE_ALIGN" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">SLAB_HWCACHE_ALIGN</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p>Align objects on cache line boundaries.</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>Sufficiently large objects are aligned on cache line boundary. For object
+size smaller than a half of cache line size, the alignment is on the half of
+cache line size. In general, if object size is smaller than 1/2^n of cache
+line size, the alignment is adjusted to 1/2^n.</p>
+<p>If explicit alignment is also requested by the respective
+<a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a> field, the greater of both is alignments is applied.</p>
+</div></blockquote>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.SLAB_TYPESAFE_BY_RCU">
+<span class="sig-name descname"><span class="n"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></span></span><a class="headerlink" href="#c.SLAB_TYPESAFE_BY_RCU" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p><strong>WARNING</strong> READ THIS!</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>This delays freeing the SLAB page by a grace period, it does _NOT_
+delay object freeing. This means that if you do <a class="reference internal" href="#c.kmem_cache_free" title="kmem_cache_free"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_free()</span></code></a>
+that memory location is free to be reused at any time. Thus it may
+be possible to see another object there in the same RCU grace period.</p>
+<p>This feature only ensures the memory location backing the object
+stays valid, the trick to using this is relying on an independent
+object validation pass. Something like:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>begin:
+ rcu_read_lock();
+ obj = lockless_lookup(key);
+ if (obj) {
+   if (!try_get_ref(obj)) // might fail for free objects
+     rcu_read_unlock();
+     goto begin;
+
+   if (obj-&gt;key != key) { // not the object we expected
+     put_ref(obj);
+     rcu_read_unlock();
+     goto begin;
+   }
+ }
+rcu_read_unlock();
+</pre></div>
+</div>
+<p>This is useful if we need to approach a kernel structure obliquely,
+from its address obtained without the usual locking. We can lock
+the structure to stabilize it and check it’s still at the given address,
+only if we can be sure that the memory has not been meanwhile reused
+for some other kind of object (which our subsystem’s lock might corrupt).</p>
+<p>rcu_read_lock before reading the address, then rcu_read_unlock after
+taking the spinlock within the structure expected at that address.</p>
+<p>Note that it is not possible to acquire a lock within a structure
+allocated with SLAB_TYPESAFE_BY_RCU without first acquiring a reference
+as described above.  The reason is that SLAB_TYPESAFE_BY_RCU pages
+are not zeroed before being given to the slab, which means that any
+locks must be initialized after each and every kmem_struct_alloc().
+Alternatively, make the ctor passed to <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a> initialize
+the locks at page-allocation time, as is done in __i915_request_ctor(),
+sighand_ctor(), and anon_vma_ctor().  Such a ctor permits readers
+to safely acquire those ctor-initialized locks under <a class="reference internal" href="kernel-api.html#c.rcu_read_lock" title="rcu_read_lock"><code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_lock()</span></code></a>
+protection.</p>
+<p>Note that SLAB_TYPESAFE_BY_RCU was originally named SLAB_DESTROY_BY_RCU.</p>
+</div></blockquote>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.SLAB_ACCOUNT">
+<span class="sig-name descname"><span class="n"><span class="pre">SLAB_ACCOUNT</span></span></span><a class="headerlink" href="#c.SLAB_ACCOUNT" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">SLAB_ACCOUNT</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p>Account allocations to memcg.</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>All object allocations from this cache will be memcg accounted, regardless of
+__GFP_ACCOUNT being or not being passed to individual allocations.</p>
+</div></blockquote>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.SLAB_RECLAIM_ACCOUNT">
+<span class="sig-name descname"><span class="n"><span class="pre">SLAB_RECLAIM_ACCOUNT</span></span></span><a class="headerlink" href="#c.SLAB_RECLAIM_ACCOUNT" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">SLAB_RECLAIM_ACCOUNT</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p>Objects are reclaimable.</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>Use this flag for caches that have an associated shrinker. As a result, slab
+pages are allocated with __GFP_RECLAIMABLE, which affects grouping pages by
+mobility, and are accounted in SReclaimable counter in /proc/meminfo</p>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.kmem_cache_args">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmem_cache_args</span></span></span><a class="headerlink" href="#c.kmem_cache_args" title="Link to this definition">¶</a><br /></dt>
@@ -550,15 +650,15 @@ in page fault path, while the non-light is used by khugepaged.</p>
 <p><code class="docutils literal notranslate"><span class="pre">0</span></code> means no usercopy region is specified.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">freeptr_offset</span></code></dt><dd><p>Custom offset for the free pointer
-in <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> caches</p>
-<p>By default <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> caches place the free pointer
+in <a class="reference internal" href="#c.SLAB_TYPESAFE_BY_RCU" title="SLAB_TYPESAFE_BY_RCU"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code></a> caches</p>
+<p>By default <a class="reference internal" href="#c.SLAB_TYPESAFE_BY_RCU" title="SLAB_TYPESAFE_BY_RCU"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code></a> caches place the free pointer
 outside of the object. This might cause the object to grow in size.
 Cache creators that have a reason to avoid this can specify a custom
 free pointer offset in their struct where the free pointer will be
 placed.</p>
 <p>Note that placing the free pointer inside the object requires the
 caller to ensure that no fields are invalidated that are required to
-guard against object recycling (See <code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code> for
+guard against object recycling (See <a class="reference internal" href="#c.SLAB_TYPESAFE_BY_RCU" title="SLAB_TYPESAFE_BY_RCU"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code></a> for
 details).</p>
 <p>Using <code class="docutils literal notranslate"><span class="pre">0</span></code> as a value for <strong>freeptr_offset</strong> is valid. If <strong>freeptr_offset</strong>
 is specified, <code class="docutils literal notranslate"><span class="pre">use_freeptr_offset</span></code> must be set <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
@@ -935,12 +1035,19 @@ cache.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span> <span class="pre">*args</span></code></dt><dd><p>Additional arguments for the cache creation (see
 <a class="reference internal" href="#c.kmem_cache_args" title="kmem_cache_args"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kmem_cache_args</span></code></a>).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>See <code class="docutils literal notranslate"><span class="pre">SLAB_*</span></code> flags for an explanation of individual <strong>flags</strong>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">slab_flags_t</span> <span class="pre">flags</span></code></dt><dd><p>See the desriptions of individual flags. The common ones are listed
+in the description below.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>Not to be called directly, use the <a class="reference internal" href="#c.kmem_cache_create" title="kmem_cache_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_create()</span></code></a> wrapper with the same
 parameters.</p>
+<p>Commonly used <strong>flags</strong>:</p>
+<p><a class="reference internal" href="#c.SLAB_ACCOUNT" title="SLAB_ACCOUNT"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_ACCOUNT</span></code></a> - Account allocations to memcg.</p>
+<p><a class="reference internal" href="#c.SLAB_HWCACHE_ALIGN" title="SLAB_HWCACHE_ALIGN"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_HWCACHE_ALIGN</span></code></a> - Align objects on cache line boundaries.</p>
+<p><a class="reference internal" href="#c.SLAB_RECLAIM_ACCOUNT" title="SLAB_RECLAIM_ACCOUNT"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_RECLAIM_ACCOUNT</span></code></a> - Objects are reclaimable.</p>
+<p><a class="reference internal" href="#c.SLAB_TYPESAFE_BY_RCU" title="SLAB_TYPESAFE_BY_RCU"><code class="xref c c-type docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code></a> - Slab page (not individual objects) freeing delayed
+by a grace period - see the full description before using.</p>
 <p><strong>Context</strong></p>
 <p>Cannot be called within a interrupt, but can be interrupted.</p>
 <p><strong>Return</strong></p>
@@ -3327,6 +3434,31 @@ and changing its index in the middle of the operation.</p>
 <p>true or false.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.page_pgoff">
+<span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_pgoff</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pgoff" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_pgoff" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_pgoff" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Calculate the logical page offset of this page.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio containing this page.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The page which we need the offset of.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>For file pages, this is the offset from the beginning of the file
+in units of PAGE_SIZE.  For anonymous pages, this is the offset from
+the beginning of the anon_vma in units of PAGE_SIZE.  This will
+return nonsense for KSM pages.</p>
+<p><strong>Context</strong></p>
+<p>Caller must have a reference on the folio or otherwise
+prevent it from being split or freed.</p>
+<p><strong>Return</strong></p>
+<p>The offset in units of PAGE_SIZE.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.folio_pos">
 <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_pos</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_pos" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_pos" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Returns the byte position of this folio in its file.</p>
@@ -4727,7 +4859,7 @@ __free_page() on each allocated page.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.vma_alloc_folio">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">vma_alloc_folio</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">hugepage</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vma_alloc_folio" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">vma_alloc_folio</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.vma_alloc_folio" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate a folio for a VMA.</p>
 </dd></dl>
 
@@ -4741,8 +4873,6 @@ __free_page() on each allocated page.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>Pointer to VMA.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">addr</span></code></dt><dd><p>Virtual address of the allocation.  Must be inside <strong>vma</strong>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">hugepage</span></code></dt><dd><p>Unused (was: For hugepages try only preferred node if possible).</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -5004,6 +5134,9 @@ to its size.</p>
         pgoff_t pt_index;
         struct mm_struct *pt_mm;
         atomic_t pt_frag_refcount;
+#ifdef CONFIG_HUGETLB_PMD_PAGE_TABLE_SHARING;
+        atomic_t pt_share_count;
+#endif;
     };
     union {
         unsigned long _pt_pad_2;
@@ -5046,6 +5179,8 @@ to its size.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">pt_mm</span></code></dt><dd><p>Used for x86 pgds.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pt_frag_refcount</span></code></dt><dd><p>For fragmented page table tracking. Powerpc only.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pt_share_count</span></code></dt><dd><p>Used for HugeTLB PMD page table share count.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -5587,14 +5722,14 @@ context.  May be called while holding a spinlock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.folio_pfn">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_pfn</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_pfn" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_pfn" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_pfn</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_pfn" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_pfn" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Return the Page Frame Number of a folio.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -5879,6 +6014,24 @@ the definition in vm_normal_page().</p>
 <p><strong>Return</strong></p>
 <p>true if transhuge page-table entries should be considered special,
 false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.is_readonly_sealed">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_readonly_sealed</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">seals</span></span>, <span class="n"><span class="pre">vm_flags_t</span></span><span class="w"> </span><span class="n"><span class="pre">vm_flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.is_readonly_sealed" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Checks whether write-sealed but mapped read-only, in which case writes should be disallowing moving forwards.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">seals</span></code></dt><dd><p>the seals to check</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_flags_t</span> <span class="pre">vm_flags</span></code></dt><dd><p>the VMA flags to check</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns whether readonly sealed, in which case writess should be disallowed
+going forward.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.seal_check_write">
@@ -6172,6 +6325,35 @@ to do any locking for the common case of already having
 an anon_vma.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.page_address_in_vma">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">page_address_in_vma</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_address_in_vma" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.page_address_in_vma" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.page_address_in_vma" title="Link to this definition">¶</a><br /></dt>
+<dd><p>The virtual address of a page in this VMA.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio containing the page.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The page within the folio.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>The VMA we need to know the address in.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Calculates the user virtual address of this page in the specified VMA.
+It is the caller’s responsibililty to check the page is actually
+within the VMA.  There may not currently be a PTE pointing at this
+page, but if a page fault occurs at this address, this is the page
+which will be accessed.</p>
+<p><strong>Context</strong></p>
+<p>Caller should hold a reference to the folio.  Caller should
+hold a lock (eg the i_mmap_lock or the mmap_lock) which keeps the
+VMA from being altered.</p>
+<p><strong>Return</strong></p>
+<p>The virtual address corresponding to this page in the VMA.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.folio_referenced">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_referenced</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_referenced" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">is_locked</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vm_flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_referenced" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Test if the folio was referenced.</p>
@@ -6256,16 +6438,16 @@ process, so the rmap code will not search the parent or sibling processes.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__page_check_anon_rmap">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__page_check_anon_rmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__page_check_anon_rmap" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__page_check_anon_rmap" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__page_check_anon_rmap" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__page_check_anon_rmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__page_check_anon_rmap" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__page_check_anon_rmap" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vm_area_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">vma</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__page_check_anon_rmap" title="Link to this definition">¶</a><br /></dt>
 <dd><p>sanity check anonymous rmap addition</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio containing <strong>page</strong>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio containing <strong>page</strong>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>the page to check the mapping of</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>the page to check the mapping of</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vm_area_struct</span> <span class="pre">*vma</span></code></dt><dd><p>the vm area in which the mapping is added</p>
 </dd>
@@ -6557,7 +6739,7 @@ which point CPU access to the page will revoke the exclusive access.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Common logic to directly migrate a single LRU folio suitable for
-folios that do not use PagePrivate/PagePrivate2.</p>
+folios that do not have private data.</p>
 <p>Folios are locked upon entry and exit.</p>
 </div>
 <dl class="c function">
@@ -6856,6 +7038,23 @@ allocation place is not always useful.</p>
 be reported as leak and always be scanned.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.kmemleak_transient_leak">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__ref</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmemleak_transient_leak</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmemleak_transient_leak" title="Link to this definition">¶</a><br /></dt>
+<dd><p>mark an allocated object as transient false positive</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">*ptr</span></code></dt><dd><p>pointer to beginning of the object</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Calling this function on an object will cause the memory block to not be
+reported as a leak temporarily. This may happen, for example, if the object
+is part of a singly linked list and the -&gt;next reference to it is changed.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.kmemleak_ignore">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__ref</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmemleak_ignore</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmemleak_ignore" title="Link to this definition">¶</a><br /></dt>
 <dd><p>ignore an allocated object</p>
@@ -7025,21 +7224,6 @@ is non-NULL but does not cover <strong>pfn</strong> the reference to it will be 
 number of bytes returned by this function.</p>
 <p><strong>Return</strong></p>
 <p>The default size of the folios allocated when backing a VMA.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.put_pages_list">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">put_pages_list</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">list_head</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pages</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.put_pages_list" title="Link to this definition">¶</a><br /></dt>
-<dd><p>release a list of pages</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">list_head</span> <span class="pre">*pages</span></code></dt><dd><p>list of pages threaded on page-&gt;lru</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Release a list of pages which are strung together on page.lru.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.folio_mark_accessed">
@@ -7698,7 +7882,6 @@ over all tasks and return 0.</p>
 <p>These functions are safe to use under any of the following conditions:
 - folio locked
 - folio_test_lru false
-- folio_memcg_lock()
 - folio frozen (refcount of 0)</p>
 <p><strong>Return</strong></p>
 <p>The lruvec this folio is on with its lock held.</p>
@@ -7719,7 +7902,6 @@ over all tasks and return 0.</p>
 <p>These functions are safe to use under any of the following conditions:
 - folio locked
 - folio_test_lru false
-- folio_memcg_lock()
 - folio frozen (refcount of 0)</p>
 <p><strong>Return</strong></p>
 <p>The lruvec this folio is on with its lock held and interrupts
@@ -7743,7 +7925,6 @@ disabled.</p>
 <p>These functions are safe to use under any of the following conditions:
 - folio locked
 - folio_test_lru false
-- folio_memcg_lock()
 - folio frozen (refcount of 0)</p>
 <p><strong>Return</strong></p>
 <p>The lruvec this folio is on with its lock held and interrupts
@@ -10104,11 +10285,11 @@ of isolated pages.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/core-api/mm-api.rst.txt"

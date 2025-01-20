@@ -7,9 +7,9 @@
 
     <title>Kernel clients &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -164,6 +163,8 @@
     void (*unregister)(struct drm_client_dev *client);
     int (*restore)(struct drm_client_dev *client);
     int (*hotplug)(struct drm_client_dev *client);
+    int (*suspend)(struct drm_client_dev *client, bool holds_console_lock);
+    int (*resume)(struct drm_client_dev *client, bool holds_console_lock);
 };
 </pre></div>
 </div>
@@ -188,6 +189,24 @@ drm_master_internal_release().</p>
 This callback is not called after <strong>unregister</strong> has been called.</p>
 <p>This callback is optional.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">suspend</span></code></dt><dd><p>Called when suspending the device.</p>
+<p>This callback is optional.</p>
+<dl class="simple">
+<dt>FIXME: Some callers hold the console lock when invoking this</dt><dd><p>function. This interferes with fbdev emulation, which
+also tries to acquire the lock. Push the console lock
+into the callback and remove ‘holds_console_lock’.</p>
+</dd>
+</dl>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">resume</span></code></dt><dd><p>Called when resuming the device from suspend.</p>
+<p>This callback is optional.</p>
+<dl class="simple">
+<dt>FIXME: Some callers hold the console lock when invoking this</dt><dd><p>function. This interferes with fbdev emulation, which
+also tries to acquire the lock. Push the console lock
+into the callback and remove ‘holds_console_lock’.</p>
+</dd>
+</dl>
+</dd>
 </dl>
 </div>
 <dl class="c struct">
@@ -206,6 +225,7 @@ This callback is not called after <strong>unregister</strong> has been called.</
     struct drm_file *file;
     struct mutex modeset_mutex;
     struct drm_mode_set *modesets;
+    bool suspended;
     bool hotplug_failed;
 };
 </pre></div>
@@ -226,6 +246,8 @@ This callback is not called after <strong>unregister</strong> has been called.</
 <dt><code class="docutils literal notranslate"><span class="pre">modeset_mutex</span></code></dt><dd><p>Protects <strong>modesets</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">modesets</span></code></dt><dd><p>CRTC configurations</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">suspended</span></code></dt><dd><p>The client has been suspended.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hotplug_failed</span></code></dt><dd><p>Set by client hotplug helpers if the hotplugging failed
 before. It is usually not tried again.</p>
@@ -377,43 +399,6 @@ is fbdev which cannot free the buffer if userspace has open file descriptors.</p
 <p><strong>Note</strong></p>
 <p>Clients cannot initiate a release by themselves. This is done to keep the code simple.
 The driver has to be unloaded before the client can be unloaded.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_client_dev_unregister">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_unregister" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Unregister clients</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function releases all clients by calling each client’s
-<a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.unregister</span></code></a> callback. The callback function
-is responsibe for releaseing all resources including the client
-itself.</p>
-<p>The helper <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a> calls this function. Drivers
-that use it don’t need to call this function themselves.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_client_dev_hotplug">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_hotplug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_hotplug" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Send hotplug event to clients</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function calls the <a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.hotplug</span></code></a> callback on the attached clients.</p>
-<p><a class="reference internal" href="drm-kms-helpers.html#c.drm_kms_helper_hotplug_event" title="drm_kms_helper_hotplug_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_hotplug_event()</span></code></a> calls this function, so drivers that use it
-don’t need to call this function themselves.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_client_buffer_vmap_local">
@@ -681,6 +666,43 @@ master reference acquired with drm_master_internal_acquire().</p>
 <p><strong>Return</strong></p>
 <p>Zero on success or negative error code on failure.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_client_dev_unregister">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_unregister</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_unregister" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Unregister clients</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function releases all clients by calling each client’s
+<a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.unregister</span></code></a> callback. The callback function
+is responsibe for releaseing all resources including the client
+itself.</p>
+<p>The helper <a class="reference internal" href="drm-internals.html#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a> calls this function. Drivers
+that use it don’t need to call this function themselves.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_client_dev_hotplug">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_client_dev_hotplug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_client_dev_hotplug" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Send hotplug event to clients</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function calls the <a class="reference internal" href="#c.drm_client_funcs" title="drm_client_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_client_funcs.hotplug</span></code></a> callback on the attached clients.</p>
+<p><a class="reference internal" href="drm-kms-helpers.html#c.drm_kms_helper_hotplug_event" title="drm_kms_helper_hotplug_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_hotplug_event()</span></code></a> calls this function, so drivers that use it
+don’t need to call this function themselves.</p>
+</div>
 </section>
 
 
@@ -691,11 +713,11 @@ master reference acquired with drm_master_internal_acquire().</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/gpu/drm-client.rst.txt"

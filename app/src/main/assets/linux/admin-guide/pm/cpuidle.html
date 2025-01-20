@@ -7,9 +7,9 @@
 
     <title>CPU Idle Time Management &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -455,24 +454,7 @@ It is quite complex, but the basic principle of its design is straightforward.
 Namely, when invoked to select an idle state for a CPU (i.e. an idle state that
 the CPU will ask the processor hardware to enter), it attempts to predict the
 idle duration and uses the predicted value for idle state selection.</p>
-<p>It first obtains the time until the closest timer event with the assumption
-that the scheduler tick will be stopped.  That time, referred to as the <em>sleep
-length</em> in what follows, is the upper bound on the time before the next CPU
-wakeup.  It is used to determine the sleep length range, which in turn is needed
-to get the sleep length correction factor.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">menu</span></code> governor maintains two arrays of sleep length correction factors.
-One of them is used when tasks previously running on the given CPU are waiting
-for some I/O operations to complete and the other one is used when that is not
-the case.  Each array contains several correction factor values that correspond
-to different sleep length ranges organized so that each range represented in the
-array is approximately 10 times wider than the previous one.</p>
-<p>The correction factor for the given sleep length range (determined before
-selecting the idle state for the CPU) is updated after the CPU has been woken
-up and the closer the sleep length is to the observed idle duration, the closer
-to 1 the correction factor becomes (it must fall between 0 and 1 inclusive).
-The sleep length is multiplied by the correction factor for the range that it
-falls into to obtain the first approximation of the predicted idle duration.</p>
-<p>Next, the governor uses a simple pattern recognition algorithm to refine its
+<p>It first uses a simple pattern recognition algorithm to obtain a preliminary
 idle duration prediction.  Namely, it saves the last 8 observed idle duration
 values and, when predicting the idle duration next time, it computes the average
 and variance of them.  If the variance is small (smaller than 400 square
@@ -484,27 +466,34 @@ Again, if the variance of them is small (in the above sense), the average is
 taken as the “typical interval” value and so on, until either the “typical
 interval” is determined or too many data points are disregarded, in which case
 the “typical interval” is assumed to equal “infinity” (the maximum unsigned
-integer value).  The “typical interval” computed this way is compared with the
-sleep length multiplied by the correction factor and the minimum of the two is
-taken as the predicted idle duration.</p>
-<p>Then, the governor computes an extra latency limit to help “interactive”
-workloads.  It uses the observation that if the exit latency of the selected
-idle state is comparable with the predicted idle duration, the total time spent
-in that state probably will be very short and the amount of energy to save by
-entering it will be relatively small, so likely it is better to avoid the
-overhead related to entering that state and exiting it.  Thus selecting a
-shallower state is likely to be a better option then.   The first approximation
-of the extra latency limit is the predicted idle duration itself which
-additionally is divided by a value depending on the number of tasks that
-previously ran on the given CPU and now they are waiting for I/O operations to
-complete.  The result of that division is compared with the latency limit coming
-from the power management quality of service, or <a class="reference internal" href="#cpu-pm-qos">PM QoS</a>,
-framework and the minimum of the two is taken as the limit for the idle states’
-exit latency.</p>
+integer value).</p>
+<p>If the “typical interval” computed this way is long enough, the governor obtains
+the time until the closest timer event with the assumption that the scheduler
+tick will be stopped.  That time, referred to as the <em>sleep length</em> in what follows,
+is the upper bound on the time before the next CPU wakeup.  It is used to determine
+the sleep length range, which in turn is needed to get the sleep length correction
+factor.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">menu</span></code> governor maintains an array containing several correction factor
+values that correspond to different sleep length ranges organized so that each
+range represented in the array is approximately 10 times wider than the previous
+one.</p>
+<p>The correction factor for the given sleep length range (determined before
+selecting the idle state for the CPU) is updated after the CPU has been woken
+up and the closer the sleep length is to the observed idle duration, the closer
+to 1 the correction factor becomes (it must fall between 0 and 1 inclusive).
+The sleep length is multiplied by the correction factor for the range that it
+falls into to obtain an approximation of the predicted idle duration that is
+compared to the “typical interval” determined previously and the minimum of
+the two is taken as the idle duration prediction.</p>
+<p>If the “typical interval” value is small, which means that the CPU is likely
+to be woken up soon enough, the sleep length computation is skipped as it may
+be costly and the idle duration is simply predicted to equal the “typical
+interval” value.</p>
 <p>Now, the governor is ready to walk the list of idle states and choose one of
 them.  For this purpose, it compares the target residency of each state with
-the predicted idle duration and the exit latency of it with the computed latency
-limit.  It selects the state with the target residency closest to the predicted
+the predicted idle duration and the exit latency of it with the with the latency
+limit coming from the power management quality of service, or <a class="reference internal" href="#cpu-pm-qos">PM QoS</a>,
+framework.  It selects the state with the target residency closest to the predicted
 idle duration, but still below it, and exit latency that does not exceed the
 limit.</p>
 <p>In the final step the governor may still need to refine the idle state selection
@@ -522,23 +511,25 @@ target residency.</p>
 for tickless systems.  It follows the same basic strategy as the <code class="docutils literal notranslate"><span class="pre">menu</span></code> <a class="reference internal" href="#menu-gov">one</a>: it always tries to find the deepest idle state suitable for the
 given conditions.  However, it applies a different approach to that problem.</p>
 <p>The idea of this governor is based on the observation that on many systems
-timer events are two or more orders of magnitude more frequent than any
-other interrupts, so they are likely to be the most significant cause of CPU
-wakeups from idle states.  Moreover, information about what happened in the
-(relatively recent) past can be used to estimate whether or not the deepest
-idle state with target residency within the (known) time till the closest
-timer event, referred to as the sleep length, is likely to be suitable for
-the upcoming CPU idle period and, if not, then which of the shallower idle
-states to choose instead of it.</p>
-<p>Of course, non-timer wakeup sources are more important in some use cases
-which can be covered by taking a few most recent idle time intervals of the
-CPU into account.  However, even in that context it is not necessary to
-consider idle duration values greater than the sleep length, because the
-closest timer will ultimately wake up the CPU anyway unless it is woken up
-earlier.</p>
-<p>Thus this governor estimates whether or not the prospective idle duration of
-a CPU is likely to be significantly shorter than the sleep length and selects
-an idle state for it accordingly.</p>
+timer interrupts are two or more orders of magnitude more frequent than any
+other interrupt types, so they are likely to dominate CPU wakeup patterns.
+Moreover, in principle, the time when the next timer event is going to occur
+can be determined at the idle state selection time, although doing that may
+be costly, so it can be regarded as the most reliable source of information
+for idle state selection.</p>
+<p>Of course, non-timer wakeup sources are more important in some use cases,
+but even then it is generally unnecessary to consider idle duration values
+greater than the time time till the next timer event, referred as the sleep
+length in what follows, because the closest timer will ultimately wake up the
+CPU anyway unless it is woken up earlier.</p>
+<p>However, since obtaining the sleep length may be costly, the governor first
+checks if it can select a shallow idle state using wakeup pattern information
+from recent times, in which case it can do without knowing the sleep length
+at all.  For this purpose, it counts CPU wakeup events and looks for an idle
+state whose target residency has not exceeded the idle duration (measured
+after wakeup) in the majority of relevant recent cases.  If the target
+residency of that state is small enough, it may be used right away and the
+sleep length need not be determined.</p>
 <p>The computations carried out by this governor are based on using bins whose
 boundaries are aligned with the target residency parameter values of the CPU
 idle states provided by the <code class="docutils literal notranslate"><span class="pre">CPUIdle</span></code> driver in the ascending order.  That is,
@@ -548,7 +539,11 @@ residency of idle state 1 up to, but not including, the target residency of
 idle state 2, the third bin spans from the target residency of idle state 2
 up to, but not including, the target residency of idle state 3 and so on.
 The last bin spans from the target residency of the deepest idle state
-supplied by the driver to infinity.</p>
+supplied by the driver to the scheduler tick period length or to infinity if
+the tick period length is less than the target residency of that state.  In
+the latter case, the governor also counts events with the measured idle
+duration between the tick period length and the target residency of the
+deepest idle state.</p>
 <p>Two metrics called “hits” and “intercepts” are associated with each bin.
 They are updated every time before selecting an idle state for the given CPU
 in accordance with what happened last time.</p>
@@ -556,45 +551,43 @@ in accordance with what happened last time.</p>
 sleep length and the idle duration measured after CPU wakeup fall into the
 same bin (that is, the CPU appears to wake up “on time” relative to the sleep
 length).  In turn, the “intercepts” metric reflects the relative frequency of
-situations in which the measured idle duration is so much shorter than the
-sleep length that the bin it falls into corresponds to an idle state
-shallower than the one whose bin is fallen into by the sleep length (these
-situations are referred to as “intercepts” below).</p>
+non-timer wakeup events for which the measured idle duration falls into a bin
+that corresponds to an idle state shallower than the one whose bin is fallen
+into by the sleep length (these events are also referred to as “intercepts”
+below).</p>
 <p>In order to select an idle state for a CPU, the governor takes the following
 steps (modulo the possible latency constraint that must be taken into account
 too):</p>
 <ol class="arabic simple">
-<li><p>Find the deepest CPU idle state whose target residency does not exceed
-the current sleep length (the candidate idle state) and compute 2 sums as
-follows:</p>
+<li><p>Find the deepest enabled CPU idle state (the candidate idle state) and
+compute 2 sums as follows:</p>
 <ul class="simple">
-<li><p>The sum of the “hits” and “intercepts” metrics for the candidate state
-and all of the deeper idle states (it represents the cases in which the
-CPU was idle long enough to avoid being intercepted if the sleep length
-had been equal to the current one).</p></li>
-<li><p>The sum of the “intercepts” metrics for all of the idle states shallower
-than the candidate one (it represents the cases in which the CPU was not
-idle long enough to avoid being intercepted if the sleep length had been
-equal to the current one).</p></li>
+<li><p>The sum of the “hits” metric for all of the idle states shallower than
+the candidate one (it represents the cases in which the CPU was likely
+woken up by a timer).</p></li>
+<li><p>The sum of the “intercepts” metric for all of the idle states shallower
+than the candidate one (it represents the cases in which the CPU was
+likely woken up by a non-timer wakeup source).</p></li>
 </ul>
 </li>
-<li><p>If the second sum is greater than the first one the CPU is likely to wake
-up early, so look for an alternative idle state to select.</p>
+<li><p>If the second sum computed in step 1 is greater than a half of the sum of
+both metrics for the candidate state bin and all subsequent bins(if any),
+a shallower idle state is likely to be more suitable, so look for it.</p>
 <ul class="simple">
-<li><p>Traverse the idle states shallower than the candidate one in the
+<li><p>Traverse the enabled idle states shallower than the candidate one in the
 descending order.</p></li>
 <li><p>For each of them compute the sum of the “intercepts” metrics over all
 of the idle states between it and the candidate one (including the
 former and excluding the latter).</p></li>
-<li><p>If each of these sums that needs to be taken into account (because the
-check related to it has indicated that the CPU is likely to wake up
-early) is greater than a half of the corresponding sum computed in step
-1 (which means that the target residency of the state in question had
-not exceeded the idle duration in over a half of the relevant cases),
-select the given idle state instead of the candidate one.</p></li>
+<li><p>If this sum is greater than a half of the second sum computed in step 1,
+use the given idle state as the new candidate one.</p></li>
 </ul>
 </li>
-<li><p>By default, select the candidate state.</p></li>
+<li><p>If the current candidate state is state 0 or its target residency is short
+enough, return it and prevent the scheduler tick from being stopped.</p></li>
+<li><p>Obtain the sleep length value and check if it is below the target
+residency of the current candidate state, in which case a new shallower
+candidate state needs to be found, so look for it.</p></li>
 </ol>
 </section>
 <section id="representation-of-idle-states">
@@ -877,11 +870,11 @@ parameter when it is loaded.]</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/admin-guide/pm/cpuidle.rst.txt"

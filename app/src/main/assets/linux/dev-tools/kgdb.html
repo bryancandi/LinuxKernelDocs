@@ -7,9 +7,9 @@
 
     <title>Using kgdb, kdb and the kernel debugger internals &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -107,6 +106,8 @@
 <li class="toctree-l2"><a class="reference internal" href="ktap.html">The Kernel Test Anything Protocol (KTAP), version 1</a></li>
 <li class="toctree-l2"><a class="reference internal" href="checkuapi.html">UAPI Checker</a></li>
 <li class="toctree-l2"><a class="reference internal" href="gpio-sloppy-logic-analyzer.html">Linux Kernel GPIO based sloppy logic analyzer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autofdo.html">Using AutoFDO with the Linux kernel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="propeller.html">Using Propeller with the Linux kernel</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="testing-overview.html">Testing guide</a></li>
@@ -233,11 +234,11 @@ certain regions of the kernel’s memory space as read-only. If kgdb
 supports it for the architecture you are using, you can use hardware
 breakpoints if you desire to run with the <code class="docutils literal notranslate"><span class="pre">CONFIG_STRICT_KERNEL_RWX</span></code>
 option turned on, else you need to turn off this option.</p>
-<p>Next you should choose one of more I/O drivers to interconnect debugging
+<p>Next you should choose one or more I/O drivers to interconnect the debugging
 host and debugged target. Early boot debugging requires a KGDB I/O
 driver that supports early debugging and the driver must be built into
 the kernel directly. Kgdb I/O driver configuration takes place via
-kernel or module parameters which you can learn more about in the in the
+kernel or module parameters which you can learn more about in the
 section that describes the parameter kgdboc.</p>
 <p>Here is an example set of <code class="docutils literal notranslate"><span class="pre">.config</span></code> symbols to enable or disable for kgdb:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># CONFIG_STRICT_KERNEL_RWX is not set
@@ -347,8 +348,8 @@ example is for the ARM Versatile AB using the second serial port.</p>
 </section>
 <section id="configure-kgdboc-at-runtime-with-sysfs">
 <h5>Configure kgdboc at runtime with sysfs<a class="headerlink" href="#configure-kgdboc-at-runtime-with-sysfs" title="Link to this heading">¶</a></h5>
-<p>At run time you can enable or disable kgdboc by echoing a parameters
-into the sysfs. Here are two examples:</p>
+<p>At run time you can enable or disable kgdboc by writing parameters
+into sysfs. Here are two examples:</p>
 <ol class="arabic">
 <li><p>Enable kgdboc on ttyS0:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo ttyS0 &gt; /sys/module/kgdboc/parameters/kgdboc
@@ -480,7 +481,7 @@ ways to activate this feature.</p>
 </div>
 </li>
 <li><p>Use sysfs before configuring an I/O driver:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 1 &gt; /sys/module/kgdb/parameters/kgdb_use_con
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 1 &gt; /sys/module/debug_core/parameters/kgdb_use_con
 </pre></div>
 </div>
 </li>
@@ -526,10 +527,10 @@ default behavior is always set to 0.</p>
 </section>
 <section id="kernel-parameter-nokaslr">
 <h3>Kernel parameter: <code class="docutils literal notranslate"><span class="pre">nokaslr</span></code><a class="headerlink" href="#kernel-parameter-nokaslr" title="Link to this heading">¶</a></h3>
-<p>If the architecture that you are using enable KASLR by default,
+<p>If the architecture that you are using enables KASLR by default,
 you should consider turning it off.  KASLR randomizes the
-virtual address where the kernel image is mapped and confuse
-gdb which resolve kernel symbol address from symbol table
+virtual address where the kernel image is mapped and confuses
+gdb which resolves addresses of kernel symbols from the symbol table
 of vmlinux.</p>
 </section>
 </section>
@@ -783,7 +784,6 @@ automatically changes into kgdb mode.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>kgdb
 </pre></div>
 </div>
-<p>Now disconnect your terminal program and connect gdb in its place</p>
 </li>
 <li><p>At the kdb prompt, disconnect the terminal program and connect gdb in
 its place.</p></li>
@@ -889,7 +889,7 @@ The kdb core is located in kernel/debug/kdb. There are a number of
 helper functions in some of the other kernel components to make it
 possible for kdb to examine and report information about the kernel
 without taking locks that could cause a kernel deadlock. The kdb core
-contains implements the following functionality.</p>
+implements the following functionality.</p>
 <ul class="simple">
 <li><p>A simple shell</p></li>
 <li><p>The kdb core command set</p></li>
@@ -1420,11 +1420,11 @@ helpers in <code class="docutils literal notranslate"><span class="pre">drivers/
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/dev-tools/kgdb.rst.txt"

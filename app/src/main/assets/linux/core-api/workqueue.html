@@ -7,9 +7,9 @@
 
     <title>Workqueue &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -372,8 +371,8 @@ CPU which can be assigned to the work items of a wq. For example, with
 <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> of 16, at most 16 work items of the wq can be executing
 at the same time per CPU. This is always a per-CPU attribute, even for
 unbound workqueues.</p>
-<p>The maximum limit for <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> is 512 and the default value used
-when 0 is specified is 256. These values are chosen sufficiently high
+<p>The maximum limit for <code class="docutils literal notranslate"><span class="pre">&#64;max_active</span></code> is 2048 and the default value used
+when 0 is specified is 1024. These values are chosen sufficiently high
 such that they are not the limiting factor while providing protection in
 runaway cases.</p>
 <p>The number of active work items of a wq is usually regulated by the
@@ -459,7 +458,7 @@ of possible sequences of events with the original wq.</p>
 </section>
 <section id="guidelines">
 <h2>Guidelines<a class="headerlink" href="#guidelines" title="Link to this heading">¶</a></h2>
-<ul class="simple">
+<ul>
 <li><p>Do not forget to use <code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code> if a wq may process work
 items which are used during memory reclaim.  Each wq with
 <code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code> set has an execution context reserved for it.  If
@@ -476,7 +475,12 @@ which are not involved in memory reclaim and don’t need to be
 flushed as a part of a group of work items, and don’t require any
 special attribute, can use one of the system wq.  There is no
 difference in execution characteristics between using a dedicated wq
-and a system wq.</p></li>
+and a system wq.</p>
+<p>Note: If something may generate more than &#64;max_active outstanding
+work items (do stress test your producers), it may saturate a system
+wq and potentially lead to deadlock. It should utilize its own
+dedicated workqueue rather than the system wq.</p>
+</li>
 <li><p>Unless work items are expected to consume a huge amount of CPU
 cycles, using a bound wq is usually beneficial due to the increased
 level of locality in wq operations and work item execution.</p></li>
@@ -2025,6 +2029,12 @@ are running on the node. In that case we just use the current CPU.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">delay</span></code></dt><dd><p>number of jiffies to wait before queueing</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>We queue the delayed_work to a specific CPU, for non-zero delays the
+caller must ensure it is online and can’t go away. Callers that fail
+to ensure this, may get <strong>dwork-&gt;timer</strong> queued to an offlined CPU and
+this will prevent queueing of <strong>dwork-&gt;work</strong> unless the offlined CPU
+becomes online again.</p>
 <p><strong>Return</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">false</span></code> if <strong>work</strong> was already on a queue, <code class="docutils literal notranslate"><span class="pre">true</span></code> otherwise.  If
 <strong>delay</strong> is zero and <strong>dwork</strong> is idle, it will be scheduled for immediate
@@ -2338,7 +2348,7 @@ those works so that forward progress can be guaranteed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.check_flush_dependency">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">check_flush_dependency</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target_wq</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target_work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.check_flush_dependency" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">check_flush_dependency</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target_wq</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">target_work</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">from_cancel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.check_flush_dependency" title="Link to this definition">¶</a><br /></dt>
 <dd><p>check for flush dependency sanity</p>
 </dd></dl>
 
@@ -2349,13 +2359,16 @@ those works so that forward progress can be guaranteed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">work_struct</span> <span class="pre">*target_work</span></code></dt><dd><p>work item being flushed (NULL for workqueue flushes)</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">from_cancel</span></code></dt><dd><p>are we called from the work cancel path</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
 <p><code class="docutils literal notranslate"><span class="pre">current</span></code> is trying to flush the whole <strong>target_wq</strong> or <strong>target_work</strong> on it.
-If <strong>target_wq</strong> doesn’t have <code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code>, verify that <code class="docutils literal notranslate"><span class="pre">current</span></code> is not
-reclaiming memory or running on a workqueue which doesn’t have
-<code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code> as that can break forward-progress guarantee leading to
-a deadlock.</p>
+If this is not the cancel path (which implies work being flushed is either
+already running, or will not be at all), check if <strong>target_wq</strong> doesn’t have
+<code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code> and verify that <code class="docutils literal notranslate"><span class="pre">current</span></code> is not reclaiming memory or running
+on a workqueue which doesn’t have <code class="docutils literal notranslate"><span class="pre">WQ_MEM_RECLAIM</span></code> as that can break forward-
+progress guarantee leading to a deadlock.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.insert_wq_barrier">
@@ -3432,11 +3445,11 @@ initializes the unbound CPU pods accordingly.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/core-api/workqueue.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>Introduzione a I2C e SMBus &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../../index.html">
-              <img class="logo" src="../../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -164,19 +163,16 @@ Italian
 <section id="introduzione-a-i2c-e-smbus">
 <h1>Introduzione a I2C e SMBus<a class="headerlink" href="#introduzione-a-i2c-e-smbus" title="Link to this heading">¶</a></h1>
 <p>I²C (letteralmente “I al quadrato C” e scritto I2C nella documentazione del
-kernel) è un protocollo sviluppato da Philips. É un protocollo lento a 2 fili
-(a velocità variabile, al massimo 400KHz), con un’estensione per le velocità
-elevate (3.4 MHz). Questo protocollo offre un bus a basso costo per collegare
-dispositivi di vario genere a cui si accede sporadicamente e utilizzando
-poca banda. Alcuni sistemi usano varianti che non rispettano i requisiti
-originali, per cui non sono indicati come I2C, ma hanno nomi diversi, per
-esempio TWI (Interfaccia a due fili), IIC.</p>
-<p>L’ultima specifica ufficiale I2C è la <a class="reference external" href="https://www.nxp.com/webapp/Download?colCode=UM10204">“Specifica I2C-bus e manuale utente”
-(UM10204)</a>
-pubblicata da NXP Semiconductors. Tuttavia, è necessario effettuare il login
-al sito per accedere al PDF. Una versione precedente della specifica
-(revisione 6) è archiviata
-<a class="reference external" href="https://web.archive.org/web/20210813122132/https://www.nxp.com/docs/en/user-guide/UM10204.pdf">qui</a>.</p>
+kernel) è un protocollo sviluppato da Philips. É un protocollo a 2 fili (a
+velocità variabile, solitamente fino a 400KHz, e in modalità alta velocità fino
+a 5 MHz). Questo protocollo offre un bus a basso costo per collegare dispositivi
+di vario genere a cui si accede sporadicamente e utilizzando poca banda. I2C è
+ampiamente usato nei sistemi integrati. Alcuni sistemi usano varianti che non
+rispettano i requisiti originali, per cui non sono indicati come I2C, ma hanno
+nomi diversi, per esempio TWI (Interfaccia a due fili), IIC.</p>
+<p>L’ultima specifica ufficiale I2C è la <a class="reference external" href="https://www.nxp.com/docs/en/user-guide/UM10204.pdf">“Specifica I2C-bus e manuale utente”
+(UM10204)</a> pubblicata da
+NXP Semiconductors, al momento della scrittura si tratta della versione 7</p>
 <p>SMBus (Bus per la gestione del sistema) si basa sul protocollo I2C ed è
 principalmente un sottoinsieme di protocolli e segnali I2C. Molti dispositivi
 I2C funzioneranno su SMBus, ma alcuni protocolli SMBus aggiungono semantica
@@ -184,35 +180,55 @@ oltre quanto richiesto da I2C. Le moderne schede madri dei PC si affidano a
 SMBus. I più comuni dispositivi collegati tramite SMBus sono moduli RAM
 configurati utilizzando EEPROM I2C, e circuiti integrati di monitoraggio
 hardware.</p>
-<p>Poiché SMBus è principalmente un sottoinsieme del bus I2C,
-possiamo farne uso su molti sistemi I2C. Ci sono però sistemi che non
-soddisfano i vincoli elettrici sia di SMBus che di I2C; e altri che non possono
-implementare tutta la semantica o messaggi comuni del protocollo SMBus.</p>
+<p>Poiché SMBus è principalmente un sottoinsieme del bus I2C, possiamo farne uso su
+molti sistemi I2C. Ci sono però sistemi che non soddisfano i vincoli elettrici
+sia di SMBus che di I2C; e altri che non possono implementare tutta la semantica
+o messaggi comuni del protocollo SMBus.</p>
 <section id="terminologia">
 <h2>Terminologia<a class="headerlink" href="#terminologia" title="Link to this heading">¶</a></h2>
-<p>Utilizzando la terminologia della documentazione ufficiale, il bus I2C connette
-uno o più circuiti integrati <em>master</em> e uno o più circuiti integrati <em>slave</em>.</p>
+<p>Il bus I2C connette uno o più circuiti integrati controllori a dei dispositivi.</p>
 <figure class="align-default" id="id1">
-<img alt="Un semplice bus I2C con un master e 3 slave" src="../../../_images/i2c_bus.svg" />
-<figcaption>
+<img alt="Un semplice bus I2C con un controllore e 3 dispositivi" src="../../../_images/i2c_bus.svg" /><figcaption>
 <p><span class="caption-text">Un semplice Bus I2C</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
 </figcaption>
 </figure>
-<p>Un circuito integrato  <strong>master</strong> è un nodo che inizia le comunicazioni con gli
-slave. Nell’implementazione del kernel Linux è chiamato <strong>adattatore</strong> o bus. I
-driver degli adattatori si trovano nella sottocartella <code class="docutils literal notranslate"><span class="pre">drivers/i2c/busses/</span></code>.</p>
+<p>Un circuito integrato <strong>controllore</strong> (<em>controller</em>) è un nodo che inizia le
+comunicazioni con i dispositivi (<em>targets</em>). Nell’implementazione del kernel
+Linux è chiamato <strong>adattatore</strong> o bus. I driver degli adattatori si trovano
+nella sottocartella <code class="docutils literal notranslate"><span class="pre">drivers/i2c/busses/</span></code>.</p>
 <p>Un <strong>algoritmo</strong> contiene codice generico che può essere utilizzato per
 implementare una intera classe di adattatori I2C. Ciascun driver dell’
 adattatore specifico dipende da un driver dell’algoritmo nella sottocartella
 <code class="docutils literal notranslate"><span class="pre">drivers/i2c/algos/</span></code> o include la propria implementazione.</p>
-<p>Un circuito integrato <strong>slave</strong> è un nodo che risponde alle comunicazioni
-quando indirizzato dal master. In Linux è chiamato <strong>client</strong> (dispositivo). I
-driver dei dispositivi sono contenuti in una cartella specifica per la
+<p>Un circuito integrato <strong>dispositivo</strong> è un nodo che risponde alle comunicazioni
+quando indirizzato dal controllore. In Linux è chiamato <strong>client</strong>. Nonostante i
+dispositivi siano circuiti integrati esterni al sistema, Linux può agire come
+dispositivo (se l’hardware lo permette) e rispondere alla richieste di altri
+controllori sul bus. Questo verrà chiamato <strong>dispositivo locale</strong> (<em>local
+target</em>). Negli altri casi si parla di <strong>dispositivo remoto</strong> (<em>remote target</em>).</p>
+<p>I driver dei dispositivi sono contenuti in una cartella specifica per la
 funzionalità che forniscono, ad esempio <code class="docutils literal notranslate"><span class="pre">drivers/media/gpio/</span></code> per espansori
 GPIO e <code class="docutils literal notranslate"><span class="pre">drivers/media/i2c/</span></code> per circuiti integrati relativi ai video.</p>
 <p>Per la configurazione di esempio in figura, avrai bisogno di un driver per il
 tuo adattatore I2C e driver per i tuoi dispositivi I2C (solitamente un driver
 per ciascuno dispositivo).</p>
+<section id="sinonimi">
+<h3>Sinonimi<a class="headerlink" href="#sinonimi" title="Link to this heading">¶</a></h3>
+<p>Come menzionato precedentemente, per ragioni storiche l’implementazione I2C del
+kernel Linux usa “adatattore” (<em>adapter</em>) per i controllori e “client” per i
+dispositivi. Un certo numero di strutture dati usano questi sinonimi nei loro
+nomi. Dunque, durante le discussioni riguardanti l’implementazione dovrete
+essere a coscienza anche di questi termini. Tuttavia si preferiscono i termini
+ufficiali.</p>
+</section>
+<section id="terminologia-obsoleta">
+<h3>Terminologia obsoleta<a class="headerlink" href="#terminologia-obsoleta" title="Link to this heading">¶</a></h3>
+<p>Nelle prime specifiche di I2C, il controllore veniva chiamato “master” ed i
+dispositivi “slave”. Questi termini sono stati resi obsoleti con la versione 7
+della specifica. Inoltre, il loro uso viene scoraggiato dal codice di condotta
+del kernel Linux. Tuttavia, potreste ancora trovare questi termini in pagine non
+aggiornate. In generale si cerca di usare i termini controllore e dispositivo.</p>
+</section>
 </section>
 </section>
 
@@ -224,11 +240,11 @@ per ciascuno dispositivo).</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../../_sources/translations/it_IT/i2c/summary.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>The Definitive KVM (Kernel-based Virtual Machine) API Documentation &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -166,8 +165,18 @@
 <h1>The Definitive KVM (Kernel-based Virtual Machine) API Documentation<a class="headerlink" href="#the-definitive-kvm-kernel-based-virtual-machine-api-documentation" title="Link to this heading">¶</a></h1>
 <section id="general-description">
 <h2>1. General description<a class="headerlink" href="#general-description" title="Link to this heading">¶</a></h2>
-<p>The kvm API is a set of ioctls that are issued to control various aspects
-of a virtual machine.  The ioctls belong to the following classes:</p>
+<p>The kvm API is centered around different kinds of file descriptors
+and ioctls that can be issued to these file descriptors.  An initial
+open(“/dev/kvm”) obtains a handle to the kvm subsystem; this handle
+can be used to issue system ioctls.  A KVM_CREATE_VM ioctl on this
+handle will create a VM file descriptor which can be used to issue VM
+ioctls.  A KVM_CREATE_VCPU or KVM_CREATE_DEVICE ioctl on a VM fd will
+create a virtual cpu or device and return a file descriptor pointing to
+the new resource.</p>
+<p>In other words, the kvm API is a set of ioctls that are issued to
+different kinds of file descriptor in order to control various aspects of
+a virtual machine.  Depending on the file descriptor that accepts them,
+ioctls belong to the following classes:</p>
 <blockquote>
 <div><ul>
 <li><p>System ioctls: These query and set global attributes which affect the
@@ -193,18 +202,17 @@ was used to create the VM.</p>
 </li>
 </ul>
 </div></blockquote>
+<p>While most ioctls are specific to one kind of file descriptor, in some
+cases the same ioctl can belong to more than one class.</p>
+<p>The KVM API grew over time.  For this reason, KVM defines many constants
+of the form <code class="docutils literal notranslate"><span class="pre">KVM_CAP_*</span></code>, each corresponding to a set of functionality
+provided by one or more ioctls.  Availability of these “capabilities” can
+be checked with <a class="reference internal" href="#kvm-check-extension"><span class="std std-ref">KVM_CHECK_EXTENSION</span></a>.  Some
+capabilities also need to be enabled for VMs or VCPUs where their
+functionality is desired (see <a class="reference internal" href="#cap-enable"><span class="std std-ref">6. Capabilities that can be enabled on vCPUs</span></a> and <a class="reference internal" href="#cap-enable-vm"><span class="std std-ref">7. Capabilities that can be enabled on VMs</span></a>).</p>
 </section>
-<section id="file-descriptors">
-<h2>2. File descriptors<a class="headerlink" href="#file-descriptors" title="Link to this heading">¶</a></h2>
-<p>The kvm API is centered around file descriptors.  An initial
-open(“/dev/kvm”) obtains a handle to the kvm subsystem; this handle
-can be used to issue system ioctls.  A KVM_CREATE_VM ioctl on this
-handle will create a VM file descriptor which can be used to issue VM
-ioctls.  A KVM_CREATE_VCPU or KVM_CREATE_DEVICE ioctl on a VM fd will
-create a virtual cpu or device and return a file descriptor pointing to
-the new resource.  Finally, ioctls on a vcpu or device fd can be used
-to control the vcpu or device.  For vcpus, this includes the important
-task of actually running guest code.</p>
+<section id="restrictions">
+<h2>2. Restrictions<a class="headerlink" href="#restrictions" title="Link to this heading">¶</a></h2>
 <p>In general file descriptors can be migrated among processes by means
 of fork() and the SCM_RIGHTS facility of unix domain socket.  These
 kinds of tricks are explicitly not supported by kvm.  While they will
@@ -246,12 +254,9 @@ description:</p>
 <div><dl class="simple">
 <dt>Capability:</dt><dd><p>which KVM extension provides this ioctl.  Can be ‘basic’,
 which means that is will be provided by any kernel that supports
-API version 12 (see section 4.1), a KVM_CAP_xyz constant, which
-means availability needs to be checked with KVM_CHECK_EXTENSION
-(see section 4.4), or ‘none’ which means that while not all kernels
-support this ioctl, there’s no capability bit to check its
-availability: for kernels that don’t support the ioctl,
-the ioctl returns -ENOTTY.</p>
+API version 12 (see <a class="reference internal" href="#kvm-get-api-version"><span class="std std-ref">KVM_GET_API_VERSION</span></a>),
+or a KVM_CAP_xyz constant that can be checked with
+<a class="reference internal" href="#kvm-check-extension"><span class="std std-ref">KVM_CHECK_EXTENSION</span></a>.</p>
 </dd>
 <dt>Architectures:</dt><dd><p>which instruction set architectures provide this ioctl.
 x86 includes both i386 and x86_64.</p>
@@ -266,7 +271,7 @@ are not detailed, but errors with specific meanings are.</p>
 </dl>
 </div></blockquote>
 <section id="kvm-get-api-version">
-<h3>4.1 KVM_GET_API_VERSION<a class="headerlink" href="#kvm-get-api-version" title="Link to this heading">¶</a></h3>
+<span id="id1"></span><h3>4.1 KVM_GET_API_VERSION<a class="headerlink" href="#kvm-get-api-version" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic</p>
@@ -422,7 +427,7 @@ This list also varies by kvm version and host processor, but does not change
 otherwise.</p>
 </section>
 <section id="kvm-check-extension">
-<h3>4.4 KVM_CHECK_EXTENSION<a class="headerlink" href="#kvm-check-extension" title="Link to this heading">¶</a></h3>
+<span id="id2"></span><h3>4.4 KVM_CHECK_EXTENSION<a class="headerlink" href="#kvm-check-extension" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic, KVM_CAP_CHECK_EXTENSION_VM for vm ioctl</p>
@@ -480,7 +485,7 @@ this page is included in the result of KVM_GET_VCPU_MMAP_SIZE.
 KVM_CAP_COALESCED_MMIO is not documented yet.</p></li>
 <li><p>if KVM_CAP_DIRTY_LOG_RING is available, a number of pages at
 KVM_DIRTY_LOG_PAGE_OFFSET * PAGE_SIZE.  For more information on
-KVM_CAP_DIRTY_LOG_RING, see section 8.3.</p></li>
+KVM_CAP_DIRTY_LOG_RING, see <a class="reference internal" href="#kvm-cap-dirty-log-ring"><span class="std std-ref">8.29 KVM_CAP_DIRTY_LOG_RING/KVM_CAP_DIRTY_LOG_RING_ACQ_REL</span></a>.</p></li>
 </ul>
 </section>
 <section id="kvm-create-vcpu">
@@ -533,8 +538,8 @@ machines, the resulting vcpu fd can be memory mapped at page offset
 KVM_S390_SIE_PAGE_OFFSET in order to obtain a memory map of the virtual
 cpu’s hardware control block.</p>
 </section>
-<section id="kvm-get-dirty-log-vm-ioctl">
-<h3>4.8 KVM_GET_DIRTY_LOG (vm ioctl)<a class="headerlink" href="#kvm-get-dirty-log-vm-ioctl" title="Link to this heading">¶</a></h3>
+<section id="kvm-get-dirty-log">
+<h3>4.8 KVM_GET_DIRTY_LOG<a class="headerlink" href="#kvm-get-dirty-log" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic</p>
@@ -814,8 +819,8 @@ struct kvm_interrupt {
 };
 </pre></div>
 </div>
-<section id="id1">
-<h4>X86:<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h4>
+<section id="id3">
+<h4>X86:<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
 <dl class="field-list">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><table class="docutils align-default">
@@ -866,8 +871,8 @@ is triggered.</p>
 and incurs unexpected behavior.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
 </section>
-<section id="id2">
-<h4>MIPS:<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
+<section id="id4">
+<h4>MIPS:<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
 <p>Queues an external interrupt to be injected into the virtual CPU. A negative
 interrupt number dequeues the interrupt.</p>
 <p>This is an asynchronous vcpu ioctl and can be invoked from any thread.</p>
@@ -1490,8 +1495,8 @@ kvmclock value that will be provided to guests.</p>
 <dd class="field-even"><p>0 on success, -1 on error</p>
 </dd>
 </dl>
-<section id="id3">
-<h4>X86:<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
+<section id="id5">
+<h4>X86:<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
 <p>Gets currently pending exceptions, interrupts, and NMIs as well as related
 states of the vcpu.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct kvm_vcpu_events {
@@ -1543,8 +1548,8 @@ triple_fault_pending field contains a valid state. This bit will
 be set whenever KVM_CAP_X86_TRIPLE_FAULT_EVENT is enabled.</p></li>
 </ul>
 </section>
-<section id="id4">
-<h4>ARM64:<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
+<section id="id6">
+<h4>ARM64:<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h4>
 <p>If the guest accesses a device that is being emulated by the host kernel in
 such a way that a real device would generate a physical SError, KVM may make
 a virtual SError pending for that VCPU. This system error interrupt remains
@@ -1613,8 +1618,8 @@ directly to the virtual CPU).</p>
 <dd class="field-even"><p>0 on success, -1 on error</p>
 </dd>
 </dl>
-<section id="id5">
-<h4>X86:<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
+<section id="id7">
+<h4>X86:<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
 <p>Set pending exceptions, interrupts, and NMIs as well as related states of the
 vcpu.</p>
 <p>See KVM_GET_VCPU_EVENTS for the data structure.</p>
@@ -1647,8 +1652,8 @@ contain a valid state and shall be written into the VCPU.</p>
 can be set in flags field to signal that the triple_fault field contains
 a valid state and shall be written into the VCPU.</p>
 </section>
-<section id="id6">
-<h4>ARM64:<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h4>
+<section id="id8">
+<h4>ARM64:<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h4>
 <p>User space may need to inject several types of events to the guest.</p>
 <p>Set the pending SError exception state for this VCPU. It is not possible to
 ‘cancel’ an Serror that has been made pending.</p>
@@ -1676,7 +1681,7 @@ exceptions by manipulating individual registers using the KVM_SET_ONE_REG API.</
 <dd class="field-even"><p>x86</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>vm ioctl</p>
+<dd class="field-odd"><p>vcpu ioctl</p>
 </dd>
 <dt class="field-even">Parameters<span class="colon">:</span></dt>
 <dd class="field-even"><p>struct kvm_debugregs (out)</p>
@@ -1706,7 +1711,7 @@ exceptions by manipulating individual registers using the KVM_SET_ONE_REG API.</
 <dd class="field-even"><p>x86</p>
 </dd>
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>vm ioctl</p>
+<dd class="field-odd"><p>vcpu ioctl</p>
 </dd>
 <dt class="field-even">Parameters<span class="colon">:</span></dt>
 <dd class="field-even"><p>struct kvm_debugregs (in)</p>
@@ -1792,8 +1797,8 @@ page-table walker, making it impossible to emulate the access.
 Instead, an abort (data abort if the cause of the page-table update
 was a load or a store, instruction abort if it was an instruction
 fetch) is injected in the guest.</p>
-<section id="id7">
-<h4>S390:<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
+<section id="id9">
+<h4>S390:<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h4>
 <p>Returns -EINVAL if the VM has the KVM_VM_S390_UCONTROL flag set.
 Returns -EINVAL if called on a protected VM.</p>
 </section>
@@ -1827,7 +1832,7 @@ because of a quirk in the virtualization implementation (see the internals
 documentation when it pops into existence).</p>
 </section>
 <section id="kvm-enable-cap">
-<h3>4.37 KVM_ENABLE_CAP<a class="headerlink" href="#kvm-enable-cap" title="Link to this heading">¶</a></h3>
+<span id="id10"></span><h3>4.37 KVM_ENABLE_CAP<a class="headerlink" href="#kvm-enable-cap" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>KVM_CAP_ENABLE_CAP</p>
@@ -2406,6 +2411,8 @@ additional piece of information will be set in the flags bitmap.</p>
 #define KVM_IRQ_ROUTING_XEN_EVTCHN 5
 </pre></div>
 </div>
+<p>On s390, adding a KVM_IRQ_ROUTING_S390_ADAPTER is rejected on ucontrol VMs with
+error -EINVAL.</p>
 <p>flags:</p>
 <ul class="simple">
 <li><p>KVM_MSI_VALID_DEVID: used along with KVM_IRQ_ROUTING_MSI routing entry
@@ -2661,8 +2668,8 @@ work anyway.</p>
 TLB, prior to calling KVM_RUN on the associated vcpu.</p>
 <p>The “bitmap” field is the userspace address of an array.  This array
 consists of a number of bits, equal to the total number of TLB entries as
-determined by the last successful call to KVM_CONFIG_TLB, rounded up to the
-nearest multiple of 64.</p>
+determined by the last successful call to <code class="docutils literal notranslate"><span class="pre">KVM_ENABLE_CAP(KVM_CAP_SW_TLB)</span></code>,
+rounded up to the nearest multiple of 64.</p>
 <p>Each bit corresponds to one TLB entry, ordered the same as in the shared TLB
 array.</p>
 <p>The array is little-endian: the bit 0 is the least significant bit of the
@@ -2715,48 +2722,6 @@ to map the created TCE table into userspace.  This lets userspace read
 the entries written by kernel-handled H_PUT_TCE calls, and also lets
 userspace update the TCE table directly which is useful in some
 circumstances.</p>
-</section>
-<section id="kvm-allocate-rma">
-<h3>4.63 KVM_ALLOCATE_RMA<a class="headerlink" href="#kvm-allocate-rma" title="Link to this heading">¶</a></h3>
-<dl class="field-list simple">
-<dt class="field-odd">Capability<span class="colon">:</span></dt>
-<dd class="field-odd"><p>KVM_CAP_PPC_RMA</p>
-</dd>
-<dt class="field-even">Architectures<span class="colon">:</span></dt>
-<dd class="field-even"><p>powerpc</p>
-</dd>
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>vm ioctl</p>
-</dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><p>struct kvm_allocate_rma (out)</p>
-</dd>
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>file descriptor for mapping the allocated RMA</p>
-</dd>
-</dl>
-<p>This allocates a Real Mode Area (RMA) from the pool allocated at boot
-time by the kernel.  An RMA is a physically-contiguous, aligned region
-of memory used on older POWER processors to provide the memory which
-will be accessed by real-mode (MMU off) accesses in a KVM guest.
-POWER processors support a set of sizes for the RMA that usually
-includes 64MB, 128MB, 256MB and some larger powers of two.</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* for KVM_ALLOCATE_RMA */
-struct kvm_allocate_rma {
-      __u64 rma_size;
-};
-</pre></div>
-</div>
-<p>The return value is a file descriptor which can be passed to mmap(2)
-to map the allocated RMA into userspace.  The mapped area can then be
-passed to the KVM_SET_USER_MEMORY_REGION ioctl to establish it as the
-RMA for a virtual machine.  The size of the RMA in bytes (which is
-fixed at host kernel boot time) is returned in the rma_size field of
-the argument structure.</p>
-<p>The KVM_CAP_PPC_RMA capability is 1 or 2 if the KVM_ALLOCATE_RMA ioctl
-is supported; 2 if the processor requires all virtual machines to have
-an RMA, or 1 if the processor can use an RMA but doesn’t require it,
-because it supports the Virtual RMA (VRMA) facility.</p>
 </section>
 <section id="kvm-nmi">
 <h3>4.64 KVM_NMI<a class="headerlink" href="#kvm-nmi" title="Link to this heading">¶</a></h3>
@@ -3845,12 +3810,12 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 <tr class="row-even"><td><p>0x6040 0000 0010 0054</p></td>
 <td><p>V0</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[0]    <a class="footnote-reference brackets" href="#id11" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[0]    <a class="footnote-reference brackets" href="#id14" id="id11" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p>0x6040 0000 0010 0058</p></td>
 <td><p>V1</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[1]    <a class="footnote-reference brackets" href="#id11" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[1]    <a class="footnote-reference brackets" href="#id14" id="id12" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>...</p></td>
 <td></td>
@@ -3860,7 +3825,7 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 <tr class="row-odd"><td><p>0x6040 0000 0010 00d0</p></td>
 <td><p>V31</p></td>
 <td><p>128</p></td>
-<td><p>fp_regs.vregs[31]   <a class="footnote-reference brackets" href="#id11" id="id10" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p>fp_regs.vregs[31]   <a class="footnote-reference brackets" href="#id14" id="id13" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>0x6020 0000 0010 00d4</p></td>
 <td><p>FPSR</p></td>
@@ -3875,11 +3840,11 @@ value in the kvm_regs structure seen as a 32bit array:</p>
 </tbody>
 </table>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id11" role="doc-footnote">
+<aside class="footnote brackets" id="id14" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
-<span class="backrefs">(<a role="doc-backlink" href="#id8">1</a>,<a role="doc-backlink" href="#id9">2</a>,<a role="doc-backlink" href="#id10">3</a>)</span>
+<span class="backrefs">(<a role="doc-backlink" href="#id11">1</a>,<a role="doc-backlink" href="#id12">2</a>,<a role="doc-backlink" href="#id13">3</a>)</span>
 <p>These encodings are not accepted for SVE-enabled vcpus.  See
-KVM_ARM_VCPU_INIT.</p>
+<a class="reference internal" href="#kvm-arm-vcpu-init"><span class="std std-ref">4.82 KVM_ARM_VCPU_INIT</span></a>.</p>
 <p>The equivalent register content can be accessed via bits [127:0] of
 the corresponding SVE Zn registers instead for vcpus that have SVE
 enabled (see below).</p>
@@ -3916,7 +3881,7 @@ API, it must remain this way.</p>
 </div>
 <p>Access to register IDs where 2048 * slice &gt;= 128 * max_vq will fail with
 ENOENT.  max_vq is the vcpu’s maximum supported vector length in 128-bit
-quadwords: see <a class="footnote-reference brackets" href="#id13" id="id12" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> below.</p>
+quadwords: see <a class="footnote-reference brackets" href="#id16" id="id15" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a> below.</p>
 <p>These registers are only accessible on vcpus for which SVE is enabled.
 See KVM_ARM_VCPU_INIT for details.</p>
 <p>In addition, except for KVM_REG_ARM64_SVE_VLS, these registers are not
@@ -3940,8 +3905,8 @@ else
 </pre></div>
 </div>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id13" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id12">2</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id16" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id15">2</a><span class="fn-bracket">]</span></span>
 <p>The maximum value vq for which the above condition is true is
 max_vq.  This is the maximum vector length available to the guest on
 this vcpu, and determines which register slices are visible through
@@ -5056,7 +5021,7 @@ indicate that the attribute can be read or written in the device’s
 current state.  “addr” is ignored.</p>
 </section>
 <section id="kvm-arm-vcpu-init">
-<span id="id14"></span><h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Link to this heading">¶</a></h3>
+<span id="id17"></span><h3>4.82 KVM_ARM_VCPU_INIT<a class="headerlink" href="#kvm-arm-vcpu-init" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>basic</p>
@@ -5264,6 +5229,19 @@ the user (the number required will be written into n).</p></td>
 </div>
 <p>This ioctl returns the guest registers that are supported for the
 KVM_GET_ONE_REG/KVM_SET_ONE_REG calls.</p>
+<p>Note that s390 does not support KVM_GET_REG_LIST for historical reasons
+(read: nobody cared).  The set of registers in kernels 4.x and newer is:</p>
+<ul class="simple">
+<li><p>KVM_REG_S390_TODPR</p></li>
+<li><p>KVM_REG_S390_EPOCHDIFF</p></li>
+<li><p>KVM_REG_S390_CPU_TIMER</p></li>
+<li><p>KVM_REG_S390_CLOCK_COMP</p></li>
+<li><p>KVM_REG_S390_PFTOKEN</p></li>
+<li><p>KVM_REG_S390_PFCOMPARE</p></li>
+<li><p>KVM_REG_S390_PFSELECT</p></li>
+<li><p>KVM_REG_S390_PP</p></li>
+<li><p>KVM_REG_S390_GBEA</p></li>
+</ul>
 </section>
 <section id="kvm-arm-set-device-addr-deprecated">
 <h3>4.85 KVM_ARM_SET_DEVICE_ADDR (deprecated)<a class="headerlink" href="#kvm-arm-set-device-addr-deprecated" title="Link to this heading">¶</a></h3>
@@ -6887,8 +6865,8 @@ it. That will avoid exiting to userspace on repeated writes.</p>
 between coalesced mmio and pio except that coalesced pio records accesses
 to I/O ports.</p>
 </section>
-<section id="kvm-clear-dirty-log-vm-ioctl">
-<h3>4.117 KVM_CLEAR_DIRTY_LOG (vm ioctl)<a class="headerlink" href="#kvm-clear-dirty-log-vm-ioctl" title="Link to this heading">¶</a></h3>
+<section id="kvm-clear-dirty-log">
+<h3>4.117 KVM_CLEAR_DIRTY_LOG<a class="headerlink" href="#kvm-clear-dirty-log" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2</p>
@@ -7056,8 +7034,8 @@ on the corresponding vCPU (KVM_CAP_HYPERV_ENLIGHTENED_VMCS).</p></li>
 </div></blockquote>
 <p>Finalizes the configuration of the specified vcpu feature.</p>
 <p>The vcpu must already have been initialised, enabling the affected feature, by
-means of a successful KVM_ARM_VCPU_INIT call with the appropriate flag set in
-features[].</p>
+means of a successful <a class="reference internal" href="#kvm-arm-vcpu-init"><span class="std std-ref">KVM_ARM_VCPU_INIT</span></a> call with the
+appropriate flag set in features[].</p>
 <p>For affected vcpu features, this is a mandatory step that must be performed
 before the vcpu is fully usable.</p>
 <p>Between KVM_ARM_VCPU_INIT and KVM_ARM_VCPU_FINALIZE, the feature may be
@@ -7266,7 +7244,7 @@ the cpu reset definition in the POP (Principles Of Operation).</p>
 <h3>4.123 KVM_S390_INITIAL_RESET<a class="headerlink" href="#kvm-s390-initial-reset" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
-<dd class="field-odd"><p>none</p>
+<dd class="field-odd"><p>basic</p>
 </dd>
 <dt class="field-even">Architectures<span class="colon">:</span></dt>
 <dd class="field-even"><p>s390</p>
@@ -8314,7 +8292,7 @@ interface. No error will be returned, but the resulting offset will not be
 applied.</p>
 </section>
 <section id="kvm-arm-get-reg-writable-masks">
-<span id="id15"></span><h3>4.139 KVM_ARM_GET_REG_WRITABLE_MASKS<a class="headerlink" href="#kvm-arm-get-reg-writable-masks" title="Link to this heading">¶</a></h3>
+<span id="id18"></span><h3>4.139 KVM_ARM_GET_REG_WRITABLE_MASKS<a class="headerlink" href="#kvm-arm-get-reg-writable-masks" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Capability<span class="colon">:</span></dt>
 <dd class="field-odd"><p>KVM_CAP_ARM_SUPPORTED_REG_MASK_RANGES</p>
@@ -8415,8 +8393,8 @@ userspace_addr vs. guest_memfd, based on the gfn’s KVM_MEMORY_ATTRIBUTE_PRIVAT
 state.  At VM creation time, all memory is shared, i.e. the PRIVATE attribute
 is ‘0’ for all gfns.  Userspace can control whether memory is shared/private by
 toggling KVM_MEMORY_ATTRIBUTE_PRIVATE via KVM_SET_MEMORY_ATTRIBUTES as needed.</p>
-<section id="id16">
-<h4>S390:<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h4>
+<section id="id19">
+<h4>S390:<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h4>
 <p>Returns -EINVAL if the VM has the KVM_VM_S390_UCONTROL flag set.
 Returns -EINVAL if called on a protected VM.</p>
 </section>
@@ -8592,7 +8570,7 @@ the capability to be present.</p>
 </section>
 </section>
 <section id="the-kvm-run-structure">
-<h2>5. The kvm_run structure<a class="headerlink" href="#the-kvm-run-structure" title="Link to this heading">¶</a></h2>
+<span id="id20"></span><h2>5. The kvm_run structure<a class="headerlink" href="#the-kvm-run-structure" title="Link to this heading">¶</a></h2>
 <p>Application code obtains a pointer to the kvm_run structure by
 mmap()ing a vcpu fd.  From that point, application code can control
 execution by changing fields in kvm_run prior to calling the KVM_RUN
@@ -8760,8 +8738,8 @@ requires a guest to interact with host userspace.</p>
 <p class="admonition-title">Note</p>
 <p>KVM_EXIT_IO is significantly faster than KVM_EXIT_MMIO.</p>
 </div>
-<section id="id17">
-<h3>For arm64:<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h3>
+<section id="id21">
+<h3>For arm64:<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
 <p>SMCCC exits can be enabled depending on the configuration of the SMCCC
 filter. See the <a class="reference internal" href="devices/vm.html"><span class="doc">Generic vm interface</span></a>
 <code class="docutils literal notranslate"><span class="pre">KVM_ARM_SMCCC_FILTER</span></code> for more details.</p>
@@ -8947,6 +8925,9 @@ the first <cite>ndata</cite> items (possibly zero) of the data array are valid.<
 <li><p>for arm64, data[0] is set to KVM_SYSTEM_EVENT_RESET_FLAG_PSCI_RESET2 if
 the guest issued a SYSTEM_RESET2 call according to v1.1 of the PSCI
 specification.</p></li>
+<li><p>for arm64, data[0] is set to KVM_SYSTEM_EVENT_SHUTDOWN_FLAG_PSCI_OFF2
+if the guest issued a SYSTEM_OFF2 call according to v1.3 of the PSCI
+specification.</p></li>
 <li><p>for RISC-V, data[0] is set to the value of the second argument of the
 <code class="docutils literal notranslate"><span class="pre">sbi_system_reset</span></code> call.</p></li>
 </ul>
@@ -8979,6 +8960,11 @@ for details on the function parameters.</p></li>
 “Caller responsibilities” for possible return values.</p></li>
 </ul>
 </div></blockquote>
+<p>Hibernation using the PSCI SYSTEM_OFF2 call is enabled when PSCI v1.3
+is enabled. If a guest invokes the PSCI SYSTEM_OFF2 function, KVM will
+exit to userspace with the KVM_SYSTEM_EVENT_SHUTDOWN event type and with
+data[0] set to KVM_SYSTEM_EVENT_SHUTDOWN_FLAG_PSCI_OFF2. The only
+supported hibernate type for the SYSTEM_OFF2 function is HIBERNATE_OFF.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* KVM_EXIT_IOAPIC_EOI */
 struct {
         __u8 vector;
@@ -9242,10 +9228,11 @@ values in kvm_run even if the corresponding bit in kvm_dirty_regs is not set.</p
 </section>
 </section>
 <section id="capabilities-that-can-be-enabled-on-vcpus">
-<h2>6. Capabilities that can be enabled on vCPUs<a class="headerlink" href="#capabilities-that-can-be-enabled-on-vcpus" title="Link to this heading">¶</a></h2>
+<span id="cap-enable"></span><h2>6. Capabilities that can be enabled on vCPUs<a class="headerlink" href="#capabilities-that-can-be-enabled-on-vcpus" title="Link to this heading">¶</a></h2>
 <p>There are certain capabilities that change the behavior of the virtual CPU or
-the virtual machine when enabled. To enable them, please see section 4.37.
-Below you can find a list of capabilities and what their effect on the vCPU or
+the virtual machine when enabled. To enable them, please see
+<a class="reference internal" href="#kvm-enable-cap"><span class="std std-ref">4.37 KVM_ENABLE_CAP</span></a>.</p>
+<p>Below you can find a list of capabilities and what their effect on the vCPU or
 the virtual machine is when enabling them.</p>
 <p>The following information is provided along with the description:</p>
 <blockquote>
@@ -9513,7 +9500,7 @@ sets are supported
 (bitfields defined in arch/x86/include/uapi/asm/kvm.h).</p>
 </dd>
 </dl>
-<p>As described above in the kvm_sync_regs struct info in section 5 (kvm_run):
+<p>As described above in the kvm_sync_regs struct info in section <a class="reference internal" href="#id20"><span class="std std-ref">5. The kvm_run structure</span></a>,
 KVM_CAP_SYNC_REGS “allow[s] userspace to access certain guest registers
 without having to call SET/GET_*REGS”. This reduces overhead by eliminating
 repeated ioctl calls for setting and/or getting register values. This is
@@ -9562,11 +9549,11 @@ args[1] is the XIVE CPU number (server ID) for this vcpu</p>
 </section>
 </section>
 <section id="capabilities-that-can-be-enabled-on-vms">
-<h2>7. Capabilities that can be enabled on VMs<a class="headerlink" href="#capabilities-that-can-be-enabled-on-vms" title="Link to this heading">¶</a></h2>
+<span id="cap-enable-vm"></span><h2>7. Capabilities that can be enabled on VMs<a class="headerlink" href="#capabilities-that-can-be-enabled-on-vms" title="Link to this heading">¶</a></h2>
 <p>There are certain capabilities that change the behavior of the virtual
-machine when enabled. To enable them, please see section 4.37. Below
-you can find a list of capabilities and what their effect on the VM
-is when enabling them.</p>
+machine when enabled. To enable them, please see section
+<a class="reference internal" href="#kvm-enable-cap"><span class="std std-ref">4.37 KVM_ENABLE_CAP</span></a>. Below you can find a list of capabilities and
+what their effect on the VM is when enabling them.</p>
 <p>The following information is provided along with the description:</p>
 <blockquote>
 <div><dl class="simple">
@@ -9938,13 +9925,13 @@ faulting address (or the new DR6 bits*) will be reported in the
 exception_payload field. Similarly, when userspace injects a #PF (or
 #DB) into L2 using KVM_SET_VCPU_EVENTS, it is expected to set
 exception.has_payload and to put the faulting address - or the new DR6
-bits<a class="footnote-reference brackets" href="#id19" id="id18" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
+bits<a class="footnote-reference brackets" href="#id23" id="id22" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> - in the exception_payload field.</p>
 <p>This capability also enables exception.pending in struct
 kvm_vcpu_events, which allows userspace to distinguish between pending
 and injected exceptions.</p>
 <aside class="footnote-list brackets">
-<aside class="footnote brackets" id="id19" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id18">3</a><span class="fn-bracket">]</span></span>
+<aside class="footnote brackets" id="id23" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id22">3</a><span class="fn-bracket">]</span></span>
 <p>For the new DR6 bits, note that bit 16 is set iff the #DB exception
 will clear DR6.RTM.</p>
 </aside>
@@ -10386,6 +10373,29 @@ ensures the backing memory of the deleted
 or moved memslot isn’t reachable, i.e KVM
 _may_ invalidate only SPTEs related to the
 memslot.</p></td>
+</tr>
+<tr class="row-odd"><td><p>KVM_X86_QUIRK_STUFF_FEATURE_MSRS</p></td>
+<td><p>By default, at vCPU creation, KVM sets the
+vCPU’s MSR_IA32_PERF_CAPABILITIES (0x345),
+MSR_IA32_ARCH_CAPABILITIES (0x10a),
+MSR_PLATFORM_INFO (0xce), and all VMX MSRs
+(0x480..0x492) to the maximal capabilities
+supported by KVM.  KVM also sets
+MSR_IA32_UCODE_REV (0x8b) to an arbitrary
+value (which is different for Intel vs.
+AMD).  Lastly, when guest CPUID is set (by
+userspace), KVM modifies select VMX MSR
+fields to force consistency between guest
+CPUID and L2’s effective ISA.  When this
+quirk is disabled, KVM zeroes the vCPU’s MSR
+values (with two exceptions, see below),
+i.e. treats the feature MSRs like CPUID
+leaves and gives userspace full control of
+the vCPU model definition.  This quirk does
+not affect VMX MSRs CR0/CR4_FIXED1 (0x487
+and 0x489), as KVM does now allow them to
+be set by userspace (KVM sets them based on
+guest CPUID, for safety purposes).</p></td>
 </tr>
 </tbody>
 </table>
@@ -10904,8 +10914,8 @@ distribution...)</p>
 <p>If this capability is available, then the CPNC and CPVC can be synchronized
 between KVM and userspace via the sync regs mechanism (KVM_SYNC_DIAG318).</p>
 </section>
-<section id="id20">
-<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
+<section id="id24">
+<h3>8.26 KVM_CAP_X86_USER_SPACE_MSR<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>x86</p>
@@ -10941,7 +10951,7 @@ guest according to the bits in the KVM_CPUID_FEATURES CPUID leaf
 regardless of what has actually been exposed through the CPUID leaf.</p>
 </section>
 <section id="kvm-cap-dirty-log-ring-kvm-cap-dirty-log-ring-acq-rel">
-<h3>8.29 KVM_CAP_DIRTY_LOG_RING/KVM_CAP_DIRTY_LOG_RING_ACQ_REL<a class="headerlink" href="#kvm-cap-dirty-log-ring-kvm-cap-dirty-log-ring-acq-rel" title="Link to this heading">¶</a></h3>
+<span id="kvm-cap-dirty-log-ring"></span><h3>8.29 KVM_CAP_DIRTY_LOG_RING/KVM_CAP_DIRTY_LOG_RING_ACQ_REL<a class="headerlink" href="#kvm-cap-dirty-log-ring-kvm-cap-dirty-log-ring-acq-rel" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">Architectures<span class="colon">:</span></dt>
 <dd class="field-odd"><p>x86, arm64</p>
@@ -11371,8 +11381,8 @@ that userspace need to be aware of.  This section details some of
 these issues.</p>
 <p>Most of them are architecture specific, so the section is split by
 architecture.</p>
-<section id="id21">
-<h3>9.1. x86<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
+<section id="id25">
+<h3>9.1. x86<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h3>
 <section id="kvm-get-supported-cpuid-issues">
 <h4><code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> issues<a class="headerlink" href="#kvm-get-supported-cpuid-issues" title="Link to this heading">¶</a></h4>
 <p>In general, <code class="docutils literal notranslate"><span class="pre">KVM_GET_SUPPORTED_CPUID</span></code> is designed so that it is possible
@@ -11424,11 +11434,11 @@ available.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/virt/kvm/api.rst.txt"

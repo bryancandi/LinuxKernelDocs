@@ -7,9 +7,9 @@
 
     <title>DRM Memory Management &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -241,7 +240,7 @@ ttm_global_mutex.</p>
     struct drm_vma_offset_manager *vma_manager;
     struct ttm_pool pool;
     spinlock_t lru_lock;
-    struct list_head pinned;
+    struct list_head unevictable;
     struct address_space *dev_mapping;
     struct workqueue_struct *wq;
 };
@@ -266,7 +265,8 @@ Access via ttm_manager_type.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">lru_lock</span></code></dt><dd><p>Protection for the per manager LRU and ddestroy lists.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pinned</span></code></dt><dd><p>Buffer objects which are pinned and so not on any LRU list.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unevictable</span></code></dt><dd><p>Buffer objects which are pinned or swapped and as such
+not on an LRU list.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev_mapping</span></code></dt><dd><p>A pointer to the <a class="reference internal" href="../filesystems/api-summary.html#c.address_space" title="address_space"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">address_space</span></code></a> for invalidating
 CPU mappings on buffer move. Protected by load/unload sync.</p>
@@ -1893,17 +1893,16 @@ mostly around handling mmap and userspace handles.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_FOPS</span></span></span><a class="headerlink" href="#c.DRM_GEM_FOPS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_FOPS</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_FOPS</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Default drm GEM file operations</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This macro provides a shorthand for setting the GEM file ops in the
 <code class="xref c c-type docutils literal notranslate"><span class="pre">file_operations</span></code> structure.  If all you need are the default ops, use
 DEFINE_DRM_GEM_FOPS instead.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DEFINE_DRM_GEM_FOPS">
 <span class="sig-name descname"><span class="n"><span class="pre">DEFINE_DRM_GEM_FOPS</span></span></span><a class="headerlink" href="#c.DEFINE_DRM_GEM_FOPS" title="Link to this definition">¶</a><br /></dt>
@@ -2059,6 +2058,29 @@ dma-resv lock, but with a custom lock.</p>
 <p>This iterator walks over all <a class="reference internal" href="#c.drm_gpuvm_bo" title="drm_gpuvm_bo"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpuvm_bo</span></code></a> structures associated with the
 <a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object</span></code></a>. It is implemented with <a class="reference internal" href="../core-api/kernel-api.html#c.list_for_each_entry_safe" title="list_for_each_entry_safe"><code class="xref c c-func docutils literal notranslate"><span class="pre">list_for_each_entry_safe()</span></code></a>, hence
 it is save against removal of elements.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_gem_object_init_with_mnt">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_object_init_with_mnt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gemfs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_object_init_with_mnt" title="Link to this definition">¶</a><br /></dt>
+<dd><p>initialize an allocated shmem-backed GEM object in a given shmfs mountpoint</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>drm_device the object should be initialized for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gem_object</span> <span class="pre">*obj</span></code></dt><dd><p>drm_gem_object to initialize</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>object size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vfsmount</span> <span class="pre">*gemfs</span></code></dt><dd><p>tmpfs mount where the GEM object will be created. If NULL, use
+the usual tmpfs mountpoint (<cite>shm_mnt</cite>).</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Initialize an already allocated GEM object of the specified size with
+shmfs backing store.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_object_init">
@@ -2761,12 +2783,11 @@ on imported buffers should use
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_DMA_DRIVER_OPS</span></span></span><a class="headerlink" href="#c.DRM_GEM_DMA_DRIVER_OPS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_DMA_DRIVER_OPS</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_DMA_DRIVER_OPS</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>DMA GEM driver operations</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This macro provides a shortcut for setting the default GEM operations in the
 <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver</span></code></a> structure.</p>
@@ -2775,7 +2796,7 @@ on imported buffers should use
 <a class="reference internal" href="#c.DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE" title="DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE"><code class="xref c c-func docutils literal notranslate"><span class="pre">DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE()</span></code></a> instead. Use
 DRM_GEM_DMA_DRIVER_OPS if possible. Drivers that require a virtual address
 on imported buffers should use DRM_GEM_DMA_DRIVER_OPS_VMAP instead.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE</span></span></span><a class="headerlink" href="#c.DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE" title="Link to this definition">¶</a><br /></dt>
@@ -2806,12 +2827,11 @@ virtual address on imported buffers should use
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_DMA_DRIVER_OPS_VMAP</span></span></span><a class="headerlink" href="#c.DRM_GEM_DMA_DRIVER_OPS_VMAP" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_DMA_DRIVER_OPS_VMAP</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_DMA_DRIVER_OPS_VMAP</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>DMA GEM driver operations ensuring a virtual address on the buffer</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This macro provides a shortcut for setting the default GEM operations in the
 <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver</span></code></a> structure for drivers that need the virtual address also on
@@ -2822,7 +2842,7 @@ imported buffers.</p>
 DRM_GEM_DMA_DRIVER_OPS_VMAP if possible. Drivers that do not require a
 virtual address on imported buffers should use DRM_GEM_DMA_DRIVER_OPS
 instead.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DEFINE_DRM_GEM_DMA_FOPS">
 <span class="sig-name descname"><span class="n"><span class="pre">DEFINE_DRM_GEM_DMA_FOPS</span></span></span><a class="headerlink" href="#c.DEFINE_DRM_GEM_DMA_FOPS" title="Link to this definition">¶</a><br /></dt>
@@ -3278,16 +3298,15 @@ use it as their <a class="reference internal" href="#c.drm_gem_object_funcs" tit
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_SHMEM_DRIVER_OPS</span></span></span><a class="headerlink" href="#c.DRM_GEM_SHMEM_DRIVER_OPS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_SHMEM_DRIVER_OPS</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_SHMEM_DRIVER_OPS</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Default shmem GEM operations</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This macro provides a shortcut for setting the shmem GEM operations in
 the <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver</span></code></a> structure.</p>
-</div>
+</div></blockquote>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_gem_shmem_create">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_shmem_object" title="drm_gem_shmem_object"><span class="n"><span class="pre">drm_gem_shmem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_shmem_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_shmem_create" title="Link to this definition">¶</a><br /></dt>
@@ -3304,6 +3323,28 @@ the <a class="reference internal" href="drm-internals.html#c.drm_driver" title="
 </dl>
 <p><strong>Description</strong></p>
 <p>This function creates a shmem GEM object.</p>
+<p><strong>Return</strong></p>
+<p>A <a class="reference internal" href="#c.drm_gem_shmem_object" title="drm_gem_shmem_object"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gem_shmem_object</span></code></a> * on success or an <a class="reference internal" href="../core-api/kernel-api.html#c.ERR_PTR" title="ERR_PTR"><code class="xref c c-func docutils literal notranslate"><span class="pre">ERR_PTR()</span></code></a>-encoded negative
+error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_gem_shmem_create_with_mnt">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_shmem_object" title="drm_gem_shmem_object"><span class="n"><span class="pre">drm_gem_shmem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_shmem_create_with_mnt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfsmount</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gemfs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_shmem_create_with_mnt" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allocate an object with the given size in a given mountpoint</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>Size of the object to allocate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">vfsmount</span> <span class="pre">*gemfs</span></code></dt><dd><p>tmpfs mount where the GEM object will be created</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function creates a shmem GEM object in a given tmpfs mountpoint.</p>
 <p><strong>Return</strong></p>
 <p>A <a class="reference internal" href="#c.drm_gem_shmem_object" title="drm_gem_shmem_object"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gem_shmem_object</span></code></a> * on success or an <a class="reference internal" href="../core-api/kernel-api.html#c.ERR_PTR" title="ERR_PTR"><code class="xref c c-func docutils literal notranslate"><span class="pre">ERR_PTR()</span></code></a>-encoded negative
 error code on failure.</p>
@@ -3638,32 +3679,30 @@ drm_gem_vram_kmap() and drm_gem_vram_kunmap(), as well as pairs of
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_VRAM_PLANE_HELPER_FUNCS</span></span></span><a class="headerlink" href="#c.DRM_GEM_VRAM_PLANE_HELPER_FUNCS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_VRAM_PLANE_HELPER_FUNCS</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_VRAM_PLANE_HELPER_FUNCS</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Initializes <a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_helper_funcs</span></code></a> for VRAM handling</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>Drivers may use GEM BOs as VRAM helpers for the framebuffer memory. This
 macro initializes <a class="reference internal" href="drm-kms-helpers.html#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_helper_funcs</span></code></a> to use the respective helper
 functions.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_GEM_VRAM_DRIVER">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_GEM_VRAM_DRIVER</span></span></span><a class="headerlink" href="#c.DRM_GEM_VRAM_DRIVER" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_VRAM_DRIVER</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_GEM_VRAM_DRIVER</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>default callback functions for <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a></p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>Drivers that use VRAM MM and GEM VRAM can use this macro to initialize
 <a class="reference internal" href="drm-internals.html#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_driver</span></code></a> with default functions.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_vram_mm">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_vram_mm</span></span></span><a class="headerlink" href="#c.drm_vram_mm" title="Link to this definition">¶</a><br /></dt>
@@ -3954,49 +3993,6 @@ a negative errno code otherwise.</p>
 <p>During plane updates, this function unpins the GEM VRAM
 objects of the plane’s old framebuffer from VRAM. Complements
 <a class="reference internal" href="#c.drm_gem_vram_plane_helper_prepare_fb" title="drm_gem_vram_plane_helper_prepare_fb"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_vram_plane_helper_prepare_fb()</span></code></a>.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gem_vram_simple_display_pipe_prepare_fb">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_simple_display_pipe_prepare_fb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms-helpers.html#c.drm_simple_display_pipe" title="drm_simple_display_pipe"><span class="n"><span class="pre">drm_simple_display_pipe</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_simple_display_pipe_prepare_fb" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Implements <a class="reference internal" href="drm-kms-helpers.html#c.drm_simple_display_pipe_funcs" title="drm_simple_display_pipe_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_simple_display_pipe_funcs</span></code></a>.prepare_fb</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_simple_display_pipe</span> <span class="pre">*pipe</span></code></dt><dd><p>a simple display pipe</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_state</span> <span class="pre">*new_state</span></code></dt><dd><p>the plane’s new state</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>During plane updates, this function pins the GEM VRAM
-objects of the plane’s new framebuffer to VRAM. Call
-<a class="reference internal" href="#c.drm_gem_vram_simple_display_pipe_cleanup_fb" title="drm_gem_vram_simple_display_pipe_cleanup_fb"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_vram_simple_display_pipe_cleanup_fb()</span></code></a> to unpin them.</p>
-<p><strong>Return</strong></p>
-<blockquote>
-<div><p>0 on success, or
-a negative errno code otherwise.</p>
-</div></blockquote>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gem_vram_simple_display_pipe_cleanup_fb">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_vram_simple_display_pipe_cleanup_fb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms-helpers.html#c.drm_simple_display_pipe" title="drm_simple_display_pipe"><span class="n"><span class="pre">drm_simple_display_pipe</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_vram_simple_display_pipe_cleanup_fb" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Implements <a class="reference internal" href="drm-kms-helpers.html#c.drm_simple_display_pipe_funcs" title="drm_simple_display_pipe_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_simple_display_pipe_funcs</span></code></a>.cleanup_fb</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_simple_display_pipe</span> <span class="pre">*pipe</span></code></dt><dd><p>a simple display pipe</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_state</span> <span class="pre">*old_state</span></code></dt><dd><p>the plane’s old state</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>During plane updates, this function unpins the GEM VRAM
-objects of the plane’s old framebuffer from VRAM. Complements
-<a class="reference internal" href="#c.drm_gem_vram_simple_display_pipe_prepare_fb" title="drm_gem_vram_simple_display_pipe_prepare_fb"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_vram_simple_display_pipe_prepare_fb()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_vram_mm_debugfs_init">
@@ -9550,7 +9546,7 @@ returning the dependencies of a job etc.</p>
 <li><p>Entities themselves maintain a queue of jobs that will be scheduled on
 the hardware.</p></li>
 </ol>
-<p>The jobs in a entity are always scheduled in the order that they were pushed.</p>
+<p>The jobs in an entity are always scheduled in the order in which they were pushed.</p>
 <p>Note that once a job was taken from the entities queue and pushed to the
 hardware, i.e. the pending queue, the entity must not be referenced anymore
 through the jobs entity pointer.</p>
@@ -9581,33 +9577,31 @@ limit.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_SCHED_FENCE_DONT_PIPELINE</span></span></span><a class="headerlink" href="#c.DRM_SCHED_FENCE_DONT_PIPELINE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_SCHED_FENCE_DONT_PIPELINE</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_SCHED_FENCE_DONT_PIPELINE</span></code></p>
 <blockquote>
-<div><p>Prefent dependency pipelining</p>
+<div><blockquote>
+<div><p>Prevent dependency pipelining</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>Setting this flag on a scheduler fence prevents pipelining of jobs depending
 on this fence. In other words we always insert a full CPU round trip before
-dependen jobs are pushed to the hw queue.</p>
-</div>
+dependent jobs are pushed to the hw queue.</p>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_SCHED_FENCE_FLAG_HAS_DEADLINE_BIT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_SCHED_FENCE_FLAG_HAS_DEADLINE_BIT</span></span></span><a class="headerlink" href="#c.DRM_SCHED_FENCE_FLAG_HAS_DEADLINE_BIT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_SCHED_FENCE_FLAG_HAS_DEADLINE_BIT</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_SCHED_FENCE_FLAG_HAS_DEADLINE_BIT</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>A fence deadline hint has been set</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>Because we could have a deadline hint can be set before the backing hw
 fence is created, we need to keep track of whether a deadline has already
 been set.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_sched_entity">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_entity</span></span></span><a class="headerlink" href="#c.drm_sched_entity" title="Link to this definition">¶</a><br /></dt>
@@ -9618,11 +9612,11 @@ been set.</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_sched_entity {
     struct list_head                list;
+    spinlock_t lock;
     struct drm_sched_rq             *rq;
     struct drm_gpu_scheduler        **sched_list;
     unsigned int                    num_sched_list;
     enum drm_sched_priority         priority;
-    spinlock_t rq_lock;
     struct spsc_queue               job_queue;
     atomic_t fence_seq;
     uint64_t fence_context;
@@ -9644,10 +9638,13 @@ been set.</p>
 <strong>rq</strong> under <a class="reference internal" href="#c.drm_sched_rq" title="drm_sched_rq"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched_rq.entities</span></code></a>.</p>
 <p>Protected by <a class="reference internal" href="#c.drm_sched_rq" title="drm_sched_rq"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched_rq.lock</span></code></a> of <strong>rq</strong>.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>Lock protecting the run-queue (<strong>rq</strong>) to which this entity belongs,
+<strong>priority</strong> and the list of schedulers (<strong>sched_list</strong>, <strong>num_sched_list</strong>).</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rq</span></code></dt><dd><p>Runqueue on which this entity is currently scheduled.</p>
 <p>FIXME: Locking is very unclear for this. Writers are protected by
-<strong>rq_lock</strong>, but readers are generally lockless and seem to just race
-with not even a READ_ONCE.</p>
+<strong>lock</strong>, but readers are generally lockless and seem to just race with
+not even a READ_ONCE.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sched_list</span></code></dt><dd><p>A list of schedulers (<a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpu_scheduler</span></code></a>).  Jobs from this entity can
 be scheduled on any scheduler on this list.</p>
@@ -9662,9 +9659,7 @@ set already.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">num_sched_list</span></code></dt><dd><p>Number of drm_gpu_schedulers in the <strong>sched_list</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">priority</span></code></dt><dd><p>Priority of the entity. This can be modified by calling
-<a class="reference internal" href="#c.drm_sched_entity_set_priority" title="drm_sched_entity_set_priority"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_set_priority()</span></code></a>. Protected by <code class="xref c c-type docutils literal notranslate"><span class="pre">rq_lock</span></code>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rq_lock</span></code></dt><dd><p>Lock to modify the runqueue to which this entity belongs.</p>
+<a class="reference internal" href="#c.drm_sched_entity_set_priority" title="drm_sched_entity_set_priority"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_set_priority()</span></code></a>. Protected by <strong>lock</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">job_queue</span></code></dt><dd><p>the list of jobs of this entity.</p>
 </dd>
@@ -9685,7 +9680,7 @@ this doesn’t need to be atomic.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">last_scheduled</span></code></dt><dd><p>Points to the finished fence of the last scheduled job. Only written
 by the scheduler thread, can be accessed locklessly from
-<a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> iff the queue is empty.</p>
+<a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> if the queue is empty.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">last_user</span></code></dt><dd><p>last group leader pushing a job into the entity.</p>
 </dd>
@@ -9715,25 +9710,25 @@ scheduling policy.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_sched_rq {
-    spinlock_t lock;
     struct drm_gpu_scheduler        *sched;
-    struct list_head                entities;
+    spinlock_t lock;
     struct drm_sched_entity         *current_entity;
+    struct list_head                entities;
     struct rb_root_cached           rb_tree_root;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>to modify the entities list.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sched</span></code></dt><dd><p>the scheduler to which this rq belongs to.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">entities</span></code></dt><dd><p>list of the entities to be scheduled.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>protects <strong>entities</strong>, <strong>rb_tree_root</strong> and <strong>current_entity</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">current_entity</span></code></dt><dd><p>the entity which is to be scheduled.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rb_tree_root</span></code></dt><dd><p>root of time based priory queue of entities for FIFO scheduling</p>
+<dt><code class="docutils literal notranslate"><span class="pre">entities</span></code></dt><dd><p>list of the entities to be scheduled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rb_tree_root</span></code></dt><dd><p>root of time based priority queue of entities for FIFO scheduling</p>
 </dd>
 </dl>
 </div>
@@ -9824,7 +9819,9 @@ belongs to.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>a job participates in a “pending” and “done” lists.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sched</span></code></dt><dd><p>the scheduler instance on which this job is scheduled.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">sched</span></code></dt><dd><p>The scheduler this job is or will be scheduled on. Gets set by
+<a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a>. Valid until drm_sched_backend_ops.free_job()
+has finished.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">s_fence</span></code></dt><dd><p>contains the fences for the scheduling of job.</p>
 </dd>
@@ -9834,7 +9831,7 @@ belongs to.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">finish_cb</span></code></dt><dd><p>the callback for the finished fence.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">work</span></code></dt><dd><p>Helper to reschdeule job kill to different context.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">work</span></code></dt><dd><p>Helper to reschedule job kill to different context.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>a unique id assigned to each job scheduled on the scheduler.</p>
 </dd>
@@ -10122,7 +10119,10 @@ MAX_SCHEDULE_TIMEOUT in this case.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Stop the scheduler and also removes and frees all completed jobs.</p>
+<p>Stop the scheduler and also removes and frees all completed jobs.
+This function is typically used for reset recovery (see the docu of
+drm_sched_backend_ops.timedout_job() for details). Do not call it for
+scheduler teardown, i.e., before calling <a class="reference internal" href="#c.drm_sched_fini" title="drm_sched_fini"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_fini()</span></code></a>.</p>
 <p><strong>Note</strong></p>
 <p>bad job will not be freed as it might be used later and so it’s
 callers responsibility to release it manually if it’s not part of the
@@ -10130,7 +10130,7 @@ pending list any more.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_start">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_start" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_start</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">errno</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_start" title="Link to this definition">¶</a><br /></dt>
 <dd><p>recover jobs after a reset</p>
 </dd></dl>
 
@@ -10139,7 +10139,14 @@ pending list any more.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpu_scheduler</span> <span class="pre">*sched</span></code></dt><dd><p>scheduler instance</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">errno</span></code></dt><dd><p>error to set on the pending fences</p>
+</dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>This function is typically used for reset recovery (see the docu of
+drm_sched_backend_ops.timedout_job() for details). Do not call it for
+scheduler startup. The scheduler itself is fully operational after
+<a class="reference internal" href="#c.drm_sched_init" title="drm_sched_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_init()</span></code></a> succeeded.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_resubmit_jobs">
@@ -10188,6 +10195,9 @@ credit limit</p>
 for locking considerations.</p>
 <p>Drivers must make sure <a class="reference internal" href="#c.drm_sched_job_cleanup" title="drm_sched_job_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_cleanup()</span></code></a> if this function returns
 successfully, even when <strong>job</strong> is aborted before <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> is called.</p>
+<p>Note that this function does not assign a valid value to each struct member
+of <a class="reference internal" href="#c.drm_sched_job" title="drm_sched_job"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_job</span></code></a>. Take a look at that struct’s documentation to see
+who sets which struct member with what lifetime.</p>
 <p>WARNING: amdgpu abuses <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched.ready</span></code> to signal when the hardware
 has died, which can mean that there’s no valid runqueue for a <strong>entity</strong>.
 This function returns -ENOENT in this case (which probably should be -EIO as
@@ -10391,6 +10401,21 @@ used</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Tears down and cleans up the scheduler.</p>
+<p>This stops submission of new jobs to the hardware through
+drm_sched_backend_ops.run_job(). Consequently, drm_sched_backend_ops.free_job()
+will not be called for all jobs still in drm_gpu_scheduler.pending_list.
+There is no solution for this currently. Thus, it is up to the driver to make
+sure that:</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p><a class="reference internal" href="#c.drm_sched_fini" title="drm_sched_fini"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_fini()</span></code></a> is only called after for all submitted jobs
+drm_sched_backend_ops.free_job() has been called or that</p></li>
+<li><p>the jobs for which drm_sched_backend_ops.free_job() has not been called
+after <a class="reference internal" href="#c.drm_sched_fini" title="drm_sched_fini"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_fini()</span></code></a> ran are freed manually.</p></li>
+</ol>
+</div></blockquote>
+<p>FIXME: Take care of the above problem and prevent this function from leaking
+the jobs in drm_gpu_scheduler.pending_list under any circumstances.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_increase_karma">
@@ -10436,6 +10461,9 @@ jobs from it will not be scheduled further</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpu_scheduler</span> <span class="pre">*sched</span></code></dt><dd><p>scheduler instance</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>Stops the scheduler from pulling new jobs from entities. It also stops
+freeing jobs automatically through drm_sched_backend_ops.free_job().</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_wqueue_start">
@@ -10449,6 +10477,10 @@ jobs from it will not be scheduled further</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpu_scheduler</span> <span class="pre">*sched</span></code></dt><dd><p>scheduler instance</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>Restarts the scheduler after <a class="reference internal" href="#c.drm_sched_wqueue_stop" title="drm_sched_wqueue_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_wqueue_stop()</span></code></a> has stopped it.</p>
+<p>This function is not necessary for ‘conventional’ startup. The scheduler is
+fully operational after <a class="reference internal" href="#c.drm_sched_init" title="drm_sched_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_init()</span></code></a> succeeded.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_entity_init">
@@ -10477,7 +10509,7 @@ is found to be guilty causing a timeout</p>
 <p>For changing <strong>priority</strong> later on at runtime see
 <a class="reference internal" href="#c.drm_sched_entity_set_priority" title="drm_sched_entity_set_priority"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_set_priority()</span></code></a>. For changing the set of schedulers
 <strong>sched_list</strong> at runtime see <a class="reference internal" href="#c.drm_sched_entity_modify_sched" title="drm_sched_entity_modify_sched"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_modify_sched()</span></code></a>.</p>
-<p>An entity is cleaned up by callind <a class="reference internal" href="#c.drm_sched_entity_fini" title="drm_sched_entity_fini"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_fini()</span></code></a>. See also
+<p>An entity is cleaned up by calling <a class="reference internal" href="#c.drm_sched_entity_fini" title="drm_sched_entity_fini"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_fini()</span></code></a>. See also
 <a class="reference internal" href="#c.drm_sched_entity_destroy" title="drm_sched_entity_destroy"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_destroy()</span></code></a>.</p>
 <p>Returns 0 on success or a negative error code on failure.</p>
 </div>
@@ -10589,7 +10621,7 @@ convenience wrapper.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Update the priority of runqueus used for the entity.</p>
+<p>Update the priority of runqueues used for the entity.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_entity_push_job">
@@ -10608,8 +10640,6 @@ convenience wrapper.</p>
 fence sequence number this function should be called with <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a>
 under common lock for the <a class="reference internal" href="#c.drm_sched_entity" title="drm_sched_entity"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_entity</span></code></a> that was set up for
 <strong>sched_job</strong> in <a class="reference internal" href="#c.drm_sched_job_init" title="drm_sched_job_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_init()</span></code></a>.</p>
-<p><strong>Description</strong></p>
-<p>Returns 0 for success, negative error code otherwise.</p>
 </div>
 </section>
 </section>
@@ -10623,11 +10653,11 @@ under common lock for the <a class="reference internal" href="#c.drm_sched_entit
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/gpu/drm-mm.rst.txt"

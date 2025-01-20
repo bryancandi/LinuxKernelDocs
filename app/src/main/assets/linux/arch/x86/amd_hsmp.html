@@ -7,9 +7,9 @@
 
     <title>19. AMD HSMP interface &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -189,19 +188,28 @@
 
 <section id="amd-hsmp-interface">
 <h1><span class="section-number">19. </span>AMD HSMP interface<a class="headerlink" href="#amd-hsmp-interface" title="Link to this heading">¶</a></h1>
-<p>Newer Fam19h EPYC server line of processors from AMD support system
-management functionality via HSMP (Host System Management Port).</p>
+<p>Newer Fam19h(model 0x00-0x1f, 0x30-0x3f, 0x90-0x9f, 0xa0-0xaf),
+Fam1Ah(model 0x00-0x1f) EPYC server line of processors from AMD support
+system management functionality via HSMP (Host System Management Port).</p>
 <p>The Host System Management Port (HSMP) is an interface to provide
 OS-level software with access to system management functions via a
 set of mailbox registers.</p>
 <p>More details on the interface can be found in chapter
 “7 Host System Management Port (HSMP)” of the family/model PPR
 Eg: <a class="reference external" href="https://www.amd.com/content/dam/amd/en/documents/epyc-technical-docs/programmer-references/55898_B1_pub_0_50.zip">https://www.amd.com/content/dam/amd/en/documents/epyc-technical-docs/programmer-references/55898_B1_pub_0_50.zip</a></p>
-<p>HSMP interface is supported on EPYC server CPU models only.</p>
+<p>HSMP interface is supported on EPYC line of server CPUs and MI300A (APU).</p>
 <section id="hsmp-device">
 <h2><span class="section-number">19.1. </span>HSMP device<a class="headerlink" href="#hsmp-device" title="Link to this heading">¶</a></h2>
-<p>amd_hsmp driver under the drivers/platforms/x86/ creates miscdevice
-/dev/hsmp to let user space programs run hsmp mailbox commands.</p>
+<p>amd_hsmp driver under drivers/platforms/x86/amd/hsmp/ has separate driver files
+for ACPI object based probing, platform device based probing and for the common
+code for these two drivers.</p>
+<p>Kconfig option CONFIG_AMD_HSMP_PLAT compiles plat.c and creates amd_hsmp.ko.
+Kconfig option CONFIG_AMD_HSMP_ACPI compiles acpi.c and creates hsmp_acpi.ko.
+Selecting any of these two configs automatically selects CONFIG_AMD_HSMP. This
+compiles common code hsmp.c and creates hsmp_common.ko module.</p>
+<p>Both the ACPI and plat drivers create the miscdevice /dev/hsmp to let
+user space programs run hsmp mailbox commands.</p>
+<p>The ACPI object format supported by the driver is defined below.</p>
 <p>$ ls -al /dev/hsmp
 crw-r--r-- 1 root root 10, 123 Jan 21 21:41 /dev/hsmp</p>
 <dl class="simple">
@@ -237,8 +245,54 @@ under per socket sysfs directory created at
 <p>Metrics table definitions will be documented as part of Public PPR.
 The same is defined in the amd_hsmp.h header.</p>
 </section>
+<section id="acpi-device-object-format">
+<h2><span class="section-number">19.3. </span>ACPI device object format<a class="headerlink" href="#acpi-device-object-format" title="Link to this heading">¶</a></h2>
+<p>The ACPI object format expected from the amd_hsmp driver
+for socket with ID00 is given below:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Device(HSMP)
+              {
+                      Name(_HID, &quot;AMDI0097&quot;)
+                      Name(_UID, &quot;ID00&quot;)
+                      Name(HSE0, 0x00000001)
+                      Name(RBF0, ResourceTemplate()
+                      {
+                              Memory32Fixed(ReadWrite, 0xxxxxxx, 0x00100000)
+                      })
+                      Method(_CRS, 0, NotSerialized)
+                      {
+                              Return(RBF0)
+                      }
+                      Method(_STA, 0, NotSerialized)
+                      {
+                              If(LEqual(HSE0, One))
+                              {
+                                      Return(0x0F)
+                              }
+                              Else
+                              {
+                                      Return(Zero)
+                              }
+                      }
+                      Name(_DSD, Package(2)
+                      {
+                              Buffer(0x10)
+                              {
+                                      0x9D, 0x61, 0x4D, 0xB7, 0x07, 0x57, 0xBD, 0x48,
+                                      0xA6, 0x9F, 0x4E, 0xA2, 0x87, 0x1F, 0xC2, 0xF6
+                              },
+                              Package(3)
+                              {
+                                      Package(2) {&quot;MsgIdOffset&quot;, 0x00010934},
+                                      Package(2) {&quot;MsgRspOffset&quot;, 0x00010980},
+                                      Package(2) {&quot;MsgArgOffset&quot;, 0x000109E0}
+                              }
+                      })
+              }
+</pre></div>
+</div>
+</section>
 <section id="an-example">
-<h2><span class="section-number">19.3. </span>An example<a class="headerlink" href="#an-example" title="Link to this heading">¶</a></h2>
+<h2><span class="section-number">19.4. </span>An example<a class="headerlink" href="#an-example" title="Link to this heading">¶</a></h2>
 <p>To access hsmp device from a C program.
 First, you need to include the headers:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#include &lt;linux/amd_hsmp.h&gt;
@@ -288,11 +342,11 @@ See: <a class="reference external" href="https://github.com/amd/esmi_ib_library"
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/arch/x86/amd_hsmp.rst.txt"

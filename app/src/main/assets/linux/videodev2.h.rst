@@ -805,6 +805,7 @@ videodev2.h
     \#define \ :ref:`V4L2_PIX_FMT_S5C_UYVY_JPG <v4l2-pix-fmt-s5c-uyvy-jpg>` v4l2\_fourcc('S', '5', 'C', 'I') \/\* S5C73M3 interleaved UYVY\/JPEG \*\/
     \#define \ :ref:`V4L2_PIX_FMT_Y8I <v4l2-pix-fmt-y8i>`      v4l2\_fourcc('Y', '8', 'I', ' ') \/\* Greyscale 8-bit L\/R interleaved \*\/
     \#define \ :ref:`V4L2_PIX_FMT_Y12I <v4l2-pix-fmt-y12i>`     v4l2\_fourcc('Y', '1', '2', 'I') \/\* Greyscale 12-bit L\/R interleaved \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_Y16I <v4l2-pix-fmt-y16i>`     v4l2\_fourcc('Y', '1', '6', 'I') \/\* Greyscale 16-bit L\/R interleaved \*\/
     \#define \ :ref:`V4L2_PIX_FMT_Z16 <v4l2-pix-fmt-z16>`      v4l2\_fourcc('Z', '1', '6', ' ') \/\* Depth data 16-bit \*\/
     \#define \ :ref:`V4L2_PIX_FMT_MT21C <v4l2-pix-fmt-mt21c>`    v4l2\_fourcc('M', 'T', '2', '1') \/\* Mediatek compressed block mode  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_MM21 <v4l2-pix-fmt-mm21>`     v4l2\_fourcc('M', 'M', '2', '1') \/\* Mediatek 8-bit block mode, two non-contiguous planes \*\/
@@ -866,6 +867,8 @@ videodev2.h
 
     \/\* Vendor specific - used for RaspberryPi PiSP \*\/
     \#define \ :ref:`V4L2_META_FMT_RPI_BE_CFG <v4l2-meta-fmt-rpi-be-cfg>`        v4l2\_fourcc('R', 'P', 'B', 'C') \/\* PiSP BE configuration \*\/
+    \#define \ :ref:`V4L2_META_FMT_RPI_FE_CFG <v4l2-meta-fmt-rpi-fe-cfg>`        v4l2\_fourcc('R', 'P', 'F', 'C') \/\* PiSP FE configuration \*\/
+    \#define \ :ref:`V4L2_META_FMT_RPI_FE_STATS <v4l2-meta-fmt-rpi-fe-stats>`      v4l2\_fourcc('R', 'P', 'F', 'S') \/\* PiSP FE stats \*\/
 
     \#ifdef \_\_KERNEL\_\_
     \/\*
@@ -912,6 +915,9 @@ videodev2.h
     \#define :ref:`V4L2_FMT_FLAG_CSC_HSV_ENC <fmtdesc-flags>`               :ref:`V4L2_FMT_FLAG_CSC_YCBCR_ENC <fmtdesc-flags>`
     \#define :ref:`V4L2_FMT_FLAG_CSC_QUANTIZATION <fmtdesc-flags>`          0x0100
     \#define :ref:`V4L2_FMT_FLAG_META_LINE_BASED <fmtdesc-flags>`           0x0200
+
+    \/\*  Format description flag, to be ORed with the index \*\/
+    \#define :ref:`V4L2_FMTDESC_FLAG_ENUM_ALL <fmtdesc-flags>`              0x80000000
 
             \/\* Frame Size and frame rate enumeration \*\/
     \/\*

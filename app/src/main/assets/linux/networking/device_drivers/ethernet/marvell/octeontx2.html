@@ -7,9 +7,9 @@
 
     <title>Marvell OcteonTx2 RVU Kernel Drivers &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../../_static/doctools.js?v=888ff710"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../../../index.html">
-              <img class="logo" src="../../../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -157,6 +156,7 @@
 <li><p><a class="reference internal" href="#basic-packet-flow">Basic packet flow</a></p></li>
 <li><p><a class="reference internal" href="#devlink-health-reporters">Devlink health reporters</a></p></li>
 <li><p><a class="reference internal" href="#quality-of-service">Quality of service</a></p></li>
+<li><p><a class="reference internal" href="#rvu-representors">RVU representors</a></p></li>
 </ul>
 </section>
 <section id="overview">
@@ -519,6 +519,112 @@ using strict priority.</p></li>
 </ol>
 </section>
 </section>
+<section id="rvu-representors">
+<h2>RVU Representors<a class="headerlink" href="#rvu-representors" title="Link to this heading">¶</a></h2>
+<p>RVU representor driver adds support for creation of representor devices for
+RVU PFs’ VFs in the system. Representor devices are created when user enables
+the switchdev mode.
+Switchdev mode can be enabled either before or after setting up SRIOV numVFs.
+All representor devices share a single NIXLF but each has a dedicated Rx/Tx
+queues. RVU PF representor driver registers a separate netdev for each
+Rx/Tx queue pair.</p>
+<p>Current HW does not support built-in switch which can do L2 learning and
+forwarding packets between representee and representor. Hence, packet path
+between representee and it’s representor is achieved by setting up appropriate
+NPC MCAM filters.
+Transmit packets matching these filters will be loopbacked through hardware
+loopback channel/interface (i.e, instead of sending them out of MAC interface).
+Which will again match the installed filters and will be forwarded.
+This way representee =&gt; representor and representor =&gt; representee packet
+path is achieved. These rules get installed when representors are created
+and gets active/deactivate based on the representor/representee interface state.</p>
+<p>Usage example:</p>
+<blockquote>
+<div><ul>
+<li><p>Change device to switchdev mode:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># devlink dev eswitch set pci/0002:1c:00.0 mode switchdev
+</pre></div>
+</div>
+</li>
+<li><p>List of representor devices on the system:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># ip link show
+Rpf1vf0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 link/ether f6:43:83:ee:26:21 brd ff:ff:ff:ff:ff:ff
+Rpf1vf1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 link/ether 12:b2:54:0e:24:54 brd ff:ff:ff:ff:ff:ff
+Rpf1vf2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 link/ether 4a:12:c4:4c:32:62 brd ff:ff:ff:ff:ff:ff
+Rpf1vf3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 link/ether ca:cb:68:0e:e2:6e brd ff:ff:ff:ff:ff:ff
+Rpf2vf0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000 link/ether 06:cc:ad:b4:f0:93 brd ff:ff:ff:ff:ff:ff
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+<p>To delete the representors devices from the system. Change the device to legacy mode.</p>
+<blockquote>
+<div><ul>
+<li><p>Change device to legacy mode:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># devlink dev eswitch set pci/0002:1c:00.0 mode legacy
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+<p>RVU representors can be managed using devlink ports
+(see <a class="reference internal" href="../../../devlink/devlink-port.html#devlink-port"><span class="std std-ref">Documentation/networking/devlink/devlink-port.rst</span></a>) interface.</p>
+<blockquote>
+<div><ul>
+<li><p>Show devlink ports of representors:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># devlink port
+pci/0002:1c:00.0/0: type eth netdev Rpf1vf0 flavour physical port 0 splittable false
+pci/0002:1c:00.0/1: type eth netdev Rpf1vf1 flavour pcivf controller 0 pfnum 1 vfnum 1 external false splittable false
+pci/0002:1c:00.0/2: type eth netdev Rpf1vf2 flavour pcivf controller 0 pfnum 1 vfnum 2 external false splittable false
+pci/0002:1c:00.0/3: type eth netdev Rpf1vf3 flavour pcivf controller 0 pfnum 1 vfnum 3 external false splittable false
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+</section>
+<section id="function-attributes">
+<h2>Function attributes<a class="headerlink" href="#function-attributes" title="Link to this heading">¶</a></h2>
+<p>The RVU representor support function attributes for representors.
+Port function configuration of the representors are supported through devlink eswitch port.</p>
+<section id="mac-address-setup">
+<h3>MAC address setup<a class="headerlink" href="#mac-address-setup" title="Link to this heading">¶</a></h3>
+<p>RVU representor driver support devlink port function attr mechanism to setup MAC
+address. (refer to <a class="reference internal" href="../../../devlink/devlink-port.html"><span class="doc">Devlink Port</span></a>)</p>
+<blockquote>
+<div><ul>
+<li><p>To setup MAC address for port 2:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># devlink port function set pci/0002:1c:00.0/2 hw_addr 5c:a1:1b:5e:43:11
+# devlink port show pci/0002:1c:00.0/2
+pci/0002:1c:00.0/2: type eth netdev Rpf1vf2 flavour pcivf controller 0 pfnum 1 vfnum 2 external false splittable false
+function:
+        hw_addr 5c:a1:1b:5e:43:11
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="tc-offload">
+<h2>TC offload<a class="headerlink" href="#tc-offload" title="Link to this heading">¶</a></h2>
+<p>The rvu representor driver implements support for offloading tc rules using port representors.</p>
+<blockquote>
+<div><ul>
+<li><p>Drop packets with vlan id 3:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># tc filter add dev Rpf1vf0 protocol 802.1Q parent ffff: flower vlan_id 3 vlan_ethtype ipv4 skip_sw action drop
+</pre></div>
+</div>
+</li>
+<li><p>Redirect packets with vlan id 5 and IPv4 packets to eth1, after stripping vlan header.:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># tc filter add dev Rpf1vf0 ingress protocol 802.1Q flower vlan_id 5 vlan_ethtype ipv4 skip_sw action vlan pop action mirred ingress redirect dev eth1
+</pre></div>
+</div>
+</li>
+</ul>
+</div></blockquote>
+</section>
 </section>
 
 
@@ -529,11 +635,11 @@ using strict priority.</p></li>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../../../_sources/networking/device_drivers/ethernet/marvell/octeontx2.rst.txt"

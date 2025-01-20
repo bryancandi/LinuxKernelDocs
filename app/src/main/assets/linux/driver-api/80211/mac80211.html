@@ -7,9 +7,9 @@
 
     <title>mac80211 subsystem (basics) &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -315,6 +314,11 @@ stack support for dynamic PS.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_WANT_MONITOR_VIF</span></code></dt><dd><p>The driver would like to be informed of
 a virtual monitor interface when monitor interfaces are the only
 active interfaces.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_NO_VIRTUAL_MONITOR</span></code></dt><dd><p>The driver would like to be informed
+of any monitor interface, as well as their configured channel.
+This is useful for supporting multiple monitor interfaces on different
+channels.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_NO_AUTO_VIF</span></code></dt><dd><p>The driver would like for no wlanX to
 be created.  It is expected user-space will create vifs as
@@ -768,7 +772,7 @@ information for an 802.11 PHY.</p>
     int (*sta_set_txpwr)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_sta *sta);
     int (*sta_state)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,struct ieee80211_sta *sta,enum ieee80211_sta_state old_state, enum ieee80211_sta_state new_state);
     void (*sta_pre_rcu_remove)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_sta *sta);
-    void (*sta_rc_update)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_sta *sta, u32 changed);
+    void (*link_sta_rc_update)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_link_sta *link_sta, u32 changed);
     void (*sta_rate_tbl_update)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct ieee80211_sta *sta);
     void (*sta_statistics)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct ieee80211_sta *sta, struct station_info *sinfo);
     int (*conf_tx)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,unsigned int link_id, u16 ac, const struct ieee80211_tx_queue_params *params);
@@ -854,6 +858,7 @@ information for an 802.11 PHY.</p>
     int (*set_hw_timestamp)(struct ieee80211_hw *hw,struct ieee80211_vif *vif, struct cfg80211_set_hw_timestamp *hwts);
     int (*net_setup_tc)(struct ieee80211_hw *hw,struct ieee80211_vif *vif,struct net_device *dev,enum tc_setup_type type, void *type_data);
     enum ieee80211_neg_ttlm_res(*can_neg_ttlm)(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_neg_ttlm *ttlm);
+    void (*prep_add_interface)(struct ieee80211_hw *hw, enum nl80211_iftype type);
 };
 </pre></div>
 </div>
@@ -1128,8 +1133,8 @@ the pointers instead of waiting for an RCU grace period to elapse
 in <strong>sta_state</strong>.
 The callback can sleep.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sta_rc_update</span></code></dt><dd><p>Notifies the driver of changes to the bitrates that can be
-used to transmit to the station. The changes are advertised with bits
+<dt><code class="docutils literal notranslate"><span class="pre">link_sta_rc_update</span></code></dt><dd><p>Notifies the driver of changes to the bitrates that can
+be used to transmit to the station. The changes are advertised with bits
 from <a class="reference internal" href="mac80211-advanced.html#c.ieee80211_rate_control_changed" title="ieee80211_rate_control_changed"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ieee80211_rate_control_changed</span></code></a> and the values are reflected
 in the station data. This callback should only be used when the driver
 uses hardware rate control (<code class="docutils literal notranslate"><span class="pre">IEEE80211_HW_HAS_RATE_CONTROL</span></code>) since
@@ -1560,6 +1565,13 @@ if the requested TID-To-Link mapping can be accepted or not.
 If it’s not accepted the driver may suggest a preferred mapping and
 modify <strong>ttlm</strong> parameter with the suggested TID-to-Link mapping.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">prep_add_interface</span></code></dt><dd><p>prepare for interface addition. This can be used by
+drivers to prepare for the addition of a new interface, e.g., allocate
+the needed resources etc. This callback doesn’t guarantee that an
+interface with the specified type would be added, and thus drivers that
+implement this callback need to handle such cases. The type is the full
+<code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">nl80211_iftype</span></code>.</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
@@ -1774,6 +1786,7 @@ first!</p>
     u16 valid_links, active_links, dormant_links, suspended_links;
     struct ieee80211_neg_ttlm neg_ttlm;
     u8 addr[ETH_ALEN] ;
+    bool addr_valid;
     bool p2p;
     u8 cab_queue;
     u8 hw_queue[IEEE80211_NUM_ACS];
@@ -1822,6 +1835,9 @@ future by tearing down the TTLM negotiation.
 see <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ieee80211_neg_ttlm</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>address of this interface</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr_valid</span></code></dt><dd><p>indicates if the address is actively used. Set to false for
+passive monitor interfaces, true in all other cases.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p2p</span></code></dt><dd><p>indicates whether this AP or STA interface is a p2p
 interface, i.e. a GO or p2p-sta respectively</p>
@@ -2433,9 +2449,6 @@ subframes of a single A-MPDU</p>
 <dt><code class="docutils literal notranslate"><span class="pre">RX_FLAG_AMPDU_DELIM_CRC_ERROR</span></code></dt><dd><p>A delimiter CRC error has been detected
 on this subframe</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">RX_FLAG_AMPDU_DELIM_CRC_KNOWN</span></code></dt><dd><p>The delimiter CRC field is known (the CRC
-is stored in the <strong>ampdu_delimiter_crc</strong> field)</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">RX_FLAG_MACTIME</span></code></dt><dd><p>The timestamp passed in the RX status (<strong>mactime</strong>
 field) is valid if this field is non-zero, and the position
 where the timestamp was sampled depends on the value.</p>
@@ -2586,7 +2599,6 @@ to <strong>hw.radiotap_mcs_details</strong> to advertise that fact.</p>
     s8 signal;
     u8 chains;
     s8 chain_signal[IEEE80211_MAX_CHAINS];
-    u8 ampdu_delimiter_crc;
     u8 zero_length_psdu_type;
     u8 link_valid:1, link_id:4;
 };
@@ -2662,8 +2674,6 @@ values were filled.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">chain_signal</span></code></dt><dd><p>per-chain signal strength, in dBm (unlike <strong>signal</strong>, doesn’t
 support dB or unspecified units)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ampdu_delimiter_crc</span></code></dt><dd><p>A-MPDU delimiter CRC</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">zero_length_psdu_type</span></code></dt><dd><p>radiotap type of the 0-length PSDU</p>
 </dd>
@@ -3164,11 +3174,11 @@ workqueue.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/driver-api/80211/mac80211.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>Userspace block device driver (ublk driver) &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -325,21 +324,32 @@ returns, ublk device is unquiesced and new I/O requests are passed to the
 new process.</p>
 </li>
 <li><p>user recovery feature description</p>
-<p>Two new features are added for user recovery: <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> and
-<code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code>.</p>
-<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> set, after one ubq_daemon(ublk server’s io
+<p>Three new features are added for user recovery: <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code>,
+<code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code>, and <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_FAIL_IO</span></code>. To
+enable recovery of ublk devices after the ublk server exits, the ublk server
+should specify the <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> flag when creating the device. The
+ublk server may additionally specify at most one of
+<code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> and <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_FAIL_IO</span></code> to
+modify how I/O is handled while the ublk server is dying/dead (this is called
+the <code class="docutils literal notranslate"><span class="pre">nosrv</span></code> case in the driver code).</p>
+<p>With just <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> set, after one ubq_daemon(ublk server’s io
 handler) is dying, ublk does not delete <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code> during the whole
 recovery stage and ublk device ID is kept. It is ublk server’s
 responsibility to recover the device context by its own knowledge.
 Requests which have not been issued to userspace are requeued. Requests
 which have been issued to userspace are aborted.</p>
-<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> set, after one ubq_daemon(ublk
-server’s io handler) is dying, contrary to <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code>,
+<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> additionally set, after one ubq_daemon
+(ublk server’s io handler) is dying, contrary to <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code>,
 requests which have been issued to userspace are requeued and will be
 re-issued to the new process after handling <code class="docutils literal notranslate"><span class="pre">UBLK_CMD_END_USER_RECOVERY</span></code>.
 <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> is designed for backends who tolerate
 double-write since the driver may issue the same I/O request twice. It
 might be useful to a read-only FS or a VM backend.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_FAIL_IO</span></code> additionally set, after the ublk server
+exits, requests which have issued to userspace are failed, as are any
+subsequently issued requests. Applications continuously issuing I/O against
+devices with this flag set will see a stream of I/O errors until a new ublk
+server recovers the device.</p>
 </li>
 </ul>
 <p>Unprivileged ublk device is supported by passing <code class="docutils literal notranslate"><span class="pre">UBLK_F_UNPRIVILEGED_DEV</span></code>.
@@ -465,11 +475,11 @@ big requests (IO size &gt;= 256 KB) may benefit a lot from zero copy.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/block/ublk.rst.txt"

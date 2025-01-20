@@ -7,9 +7,9 @@
 
     <title>cfg80211 subsystem &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -1483,6 +1482,7 @@ request that is being handled.</p>
         unsigned int cac_time_ms;
     } links[IEEE80211_MLD_MAX_NUM_LINKS];
     u16 valid_links;
+    u32 radio_mask;
 };
 </pre></div>
 </div>
@@ -1601,6 +1601,8 @@ entered.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">links.cac_time_ms</span></code></dt><dd><p>CAC time in ms</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">valid_links</span></code></dt><dd><p>bitmap describing what elements of <strong>links</strong> are valid</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">radio_mask</span></code></dt><dd><p>Bitmask of radios that this interface is allowed to operate on.</p>
 </dd>
 </dl>
 </div>
@@ -2016,7 +2018,6 @@ attribute is present in beacon data or not.</p>
     struct cfg80211_crypto_settings crypto;
     bool privacy;
     enum nl80211_auth_type auth_type;
-    enum nl80211_smps_mode smps_mode;
     int inactivity_timeout;
     u8 p2p_ctwindow;
     bool p2p_opp_ps;
@@ -2061,8 +2062,6 @@ user space)</p>
 <dt><code class="docutils literal notranslate"><span class="pre">privacy</span></code></dt><dd><p>the BSS uses privacy</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">auth_type</span></code></dt><dd><p>Authentication type (algorithm)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">smps_mode</span></code></dt><dd><p>SMPS mode</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">inactivity_timeout</span></code></dt><dd><p>time in seconds to determine station’s inactivity.</p>
 </dd>
@@ -2511,6 +2510,8 @@ the accepted and rejected affiliated links of the connected station.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_COOK_FRAMES</span></code></dt><dd><p>report frames after processing</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_ACTIVE</span></code></dt><dd><p>active monitor, ACKs frames on its MAC address</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_SKIP_TX</span></code></dt><dd><p>do not pass locally transmitted frames</p>
 </dd>
 </dl>
 </div>
@@ -3242,7 +3243,7 @@ caching.</p>
     void (*inform_bss)(struct wiphy *wiphy, struct cfg80211_bss *bss, const struct cfg80211_bss_ies *ies, void *data);
     int (*set_txq_params)(struct wiphy *wiphy, struct net_device *dev, struct ieee80211_txq_params *params);
     int (*libertas_set_mesh_channel)(struct wiphy *wiphy,struct net_device *dev, struct ieee80211_channel *chan);
-    int (*set_monitor_channel)(struct wiphy *wiphy, struct cfg80211_chan_def *chandef);
+    int (*set_monitor_channel)(struct wiphy *wiphy,struct net_device *dev, struct cfg80211_chan_def *chandef);
     int (*scan)(struct wiphy *wiphy, struct cfg80211_scan_request *request);
     void (*abort_scan)(struct wiphy *wiphy, struct wireless_dev *wdev);
     int (*auth)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_auth_request *req);
@@ -5312,11 +5313,11 @@ consumes it.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/driver-api/80211/cfg80211.rst.txt"

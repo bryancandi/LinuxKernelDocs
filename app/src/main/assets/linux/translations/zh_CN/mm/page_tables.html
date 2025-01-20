@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>页表 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="物理内存" href="physical_memory.html" />
+    <link rel="prev" title="页表检查" href="page_table_check.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.13.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#api">内部API文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_CN/mm/page_tables.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../mm/page_tables.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../mm/page_tables.html"><span class="doc">Page Tables</span></a></p>
+</dd>
+<dt class="field-even">翻译<span class="colon">:</span></dt>
+<dd class="field-even"><p>张鹏宇 Pengyu Zhang &lt;<a class="reference external" href="mailto:zpenya1314&#37;&#52;&#48;gmail&#46;com">zpenya1314<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</p>
+</dd>
+<dt class="field-odd">校译<span class="colon">:</span></dt>
+<dd class="field-odd"><p></p></dd>
+</dl>
+<section id="id1">
+<h1>页表<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>分页虚拟内存是随虚拟内存的概念一起于 1962 年在 Ferranti Atlas 计算机上被提出的，
+这是第一台有分页虚拟内存的计算机。随着时间推移，这个特性被迁移到更新的计算机上，
+并且成为所有类 Unix 系统实际的特性。在 1985 年，这个特性被包含在了英特尔 80386
+中，也就是运行 Linux 1.0 的CPU。</p>
+<p>页表将 CPU 看到的虚拟地址映射到外部内存总线上看到的物理地址。</p>
+<p>Linux 将页表定义为一个分级结构，目前有五级。对于支持的每种架构，其代码会根据硬件
+限制对这个层级结构进行映射。</p>
+<p>虚拟地址对应的物理地址通常由底层物理页帧引用。 <strong>页帧号(page frame number,pfn)</strong>
+是页的物理地址（在外部内存总线看到的地址）除以 <cite>PAGE_SIZE</cite> 得到的值。</p>
+<p>物理内存地址 0 对应 <em>pfn 0</em>，而最大的 pfn 对应处理器外部地址总线所能寻址物理地址
+的最后一页。</p>
+<p>在页粒度为 4KB 且地址范围为32位的情况下，pfn 0 对应地址0x00000000，pfn 1 对应
+地址0x00001000，pfn 2 对应地址 0x00002000，以此类推，直到 pfn 0xfffff 对应
+0xfffff000。如果页粒度为 16KB，则 pfn 分别对应地址 0x00004000、0x00008000
+... 0xffffc000，pfn 的范围从 0 到 0x3ffff。</p>
+<p>如你所见，对于 4KB 页面粒度，页基址使用地址的 12-31 位，这就是为什么在这种情况下
+<cite>PAGE_SHIFT</cite> 被定义为 12，并且 <cite>PAGE_SIZE</cite> 通常由页偏移定义，为 <cite>(1 &lt;&lt; PAGE_SHIFT)</cite>。</p>
+<p>随着内存容量的增加，久而久之层级结构逐渐加深。Linux 最初使用 4KB 页面和一个名为
+<cite>swapper_pg_dir</cite> 的页表，该页表拥有 1024 个表项(entries)，覆盖 4MB 的内存，
+事实上Torvald 的第一台计算机正好就有 4MB 物理内存。表项在这张表中被称为 <em>PTE</em>:s
+- 页表项(page table entries)。</p>
+<p>软件页表层级结构反映了页表硬件已经变得分层化的事实，而这种分层化的目的是为了节省
+页表内存并加快地址映射速度。</p>
+<p>当然，人们可以想象一张拥有大量表项的单一线性的页表将整个内存分为一个个页。而且，
+这样的页表会非常稀疏，因为虚拟内存中大部分位置通常是未使用的。通过页表分层，虚拟
+内存中的大量空洞不会浪费宝贵的页表内存，因为只需要在上层页表中将大块的区域标记为
+未映射即可。</p>
+<p>另外，在现代处理器中，上层页表项可以直接指向一个物理地址范围，这使得单个上层
+页表项可以连续映射几兆字节甚至几千兆字节的内存范围，从而快捷地实现虚拟地址到
+物理地址的映射：当你找到一个像这样的大型映射范围时，无需在层级结构中进一步遍历。</p>
+<p>页表的层级结构目前发展为如下所示:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+-----+
+| PGD |
++-----+
+   |
+   |   +-----+
+   +--&gt;| P4D |
+       +-----+
+          |
+          |   +-----+
+          +--&gt;| PUD |
+              +-----+
+                 |
+                 |   +-----+
+                 +--&gt;| PMD |
+                     +-----+
+                        |
+                        |   +-----+
+                        +--&gt;| PTE |
+                            +-----+
+</pre></div>
+</div>
+<p>不同页表层级的符号含义从最底层开始如下：</p>
+<ul>
+<li><p><strong>pte</strong>, <cite>pte_t</cite>, <cite>pteval_t</cite> = <strong>页表项</strong> - 前面提到过。<em>pte</em> 是一个由
+<cite>PTRS_PER_PTE</cite> 个 <cite>pteval_t</cite> 类型元素组成的数组，每个元素将一个虚拟内存页
+映射到一个物理内存页。体系结构定义了 <cite>pteval_t</cite> 的大小和内容。</p>
+<p>一个典型的例子是 <cite>pteval_t</cite> 是一个 32 或者 64 位的值，其中高位是 <strong>pfn</strong>，
+而低位则一些特定体系架构相关的位，如内存保护。</p>
+<p>这个 <strong>表项(entry)</strong> 有点令人困惑，因为在 Linux 1.0 中它确实指的是单层顶级
+页表中的单个页表项，但在首次引入二级页表时，它被重新定义为映射元素的数组。
+因此，<em>pte</em> 现在指的是最底层的页 <em>表</em>，而不是一个页表 <em>项</em>。</p>
+</li>
+<li><p><strong>pmd</strong>, <cite>pmd_t</cite>, <cite>pmdval_t</cite> = <strong>页中间目录(Page Middle Directory)</strong>,
+位于 <em>pte</em> 之上的层级结构，包含 <cite>PTRS_PER_PMD</cite> 个指向 <em>pte</em> 的引用。</p></li>
+<li><p><strong>pud</strong>, <cite>pud_t</cite>, <cite>pudval_t</cite> = <strong>页上级目录(Page Upper Directory)</strong>
+是在其他层级之后引入的，用于处理四级页表。它可能未被使用，或者像我们稍后
+讨论的那样被“折叠”。</p></li>
+<li><p><strong>p4d</strong>, <cite>p4d_t</cite>, <cite>p4dval_t</cite> = <strong>页四级目录(Page Level 4 Directory)</strong>
+是在 <em>pud</em> 之后用于处理五级页表引入的。至此，显然需要用数字来替代 <em>pgd</em>、
+<em>pmd</em>、<em>pud</em> 等目录层级的名称，不能再继续使用临时的命名方式。这个目录层级
+只在实际拥有五级页表的系统上使用，否则它会被折叠。</p></li>
+<li><p><strong>pgd</strong>, <cite>pgd_t</cite>, <cite>pgdval_t</cite> = <strong>页全局目录(Page Global Directory)</strong> -
+Linux 内核用于处理内核内存的 <em>PGD</em> 主页表仍然位于 <cite>swapper_pg_dir</cite>。
+但系统中的每个用户空间进程也有自己的内存上下文，因此也有自己的 <em>pgd</em>，
+它位于 <cite>struct mm_struct</cite> 中，而 <cite>struct mm_struct</cite> 又在每个 <cite>struct task_struct</cite>
+中有引用。所以，任务（进程）存在一个形式为 <cite>struct mm_struct</cite> 的内存上下文，
+而这个结构体中有一个指向指向相应的页全局目录 <cite>struct pgt_t *pgd</cite> 指针。</p></li>
+</ul>
+<p>重申一下：页表层级结构中的每一层都是一个 <em>指针数组</em>，所以 <em>pgd</em> 包含 <cite>PTRS_PER_PGD</cite>
+个指向下一层的指针，<em>p4d</em> 包含 <cite>PTRS_PER_P4D</cite> 个指向 <em>pud</em> 项的指针，依此类推。
+每一层的指针数量由体系结构定义。:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>      PMD
+--&gt; +-----+           PTE
+    | ptr |-------&gt; +-----+
+    | ptr |-        | ptr |-------&gt; PAGE
+    | ptr | \       | ptr |
+    | ptr |  \        ...
+    | ... |   \
+    | ptr |    \         PTE
+    +-----+     +----&gt; +-----+
+                       | ptr |-------&gt; PAGE
+                       | ptr |
+                         ...
+</pre></div>
+</div>
+<section id="id2">
+<h2>页表折叠<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>如果架构不使用所有的页表层级，那么这些层级可以被 <em>折叠</em>，也就是说被跳过。在
+访问下一层时，所有在页表上执行的操作都会在编译时增强，以跳过这一层。</p>
+<p>与架构无关的页表处理代码（例如虚拟内存管理器）需要编写得能够遍历当前的所有五个
+层级。对于特定架构的代码，也应优先采用这种风格，以便对未来的变化具有更好的适应性。</p>
+</section>
+<section id="mmu-tlb">
+<h2>MMU，TLB 和缺页异常<a class="headerlink" href="#mmu-tlb" title="Link to this heading">¶</a></h2>
+<p><cite>内存管理单元(MMU)</cite> 是处理虚拟地址到物理地址转换的硬件组件。它可能会使用相对较小
+的硬件缓存，如 <cite>转换后备缓冲区(TLB)</cite> 和 <cite>页遍历缓存</cite>，以加快这些地址翻译过程。</p>
+<p>当 CPU 访存时，它会向 MMU 提供一个虚拟地址。MMU 会首先检查 TLB 或者页遍历缓存
+（在支持的架构上）是否存在对应的转换结果。如果没有，MMU 会通过遍历来确定物理地址
+并且建立映射。</p>
+<p>当页面被写入时，该页的脏位会被设置（即打开）。每个内存页面都有相关的权限位和脏位。
+后者表明这个页自从被加载到内存以来是否被修改。</p>
+<p>如果没有任何阻碍，物理内存到头来可以被任意访问并且对物理帧进行请求的操作。</p>
+<p>MMU 无法找到某些转换有多种原因。有可能是 CPU 试图去访问当前进程没有权限访问的
+内存，或者因为访问的数据还不在物理内存中。</p>
+<p>当这些情况发生时，MMU 会触发缺页异常，这是一种异常类型，用于通知 CPU 暂停当前
+执行并运行一个特殊的函数去处理这些异常。</p>
+<p>缺页异常有一些常见且预期的原因。这些因素是由称为“懒加载”和“写时复制”的进程管理
+优化技术来触发的。缺页异常也可能发生在当页帧被交换到持久存储（交换分区或者文件）
+并从其物理地址移出时。</p>
+<p>这些技术提高了内存效率，减少了延迟，并且最小化了空间占用。本文档不会深入讨论
+“懒加载”和“写时复制”的细节，因为这些的主题属于进程地址管理范畴，超出了本文范围。</p>
+<p>交换技术和前面提到的其他技术不同，因为它是在压力过大下情况下减少内存消耗的一种
+迫不得已的手段，因此是不受欢迎的。</p>
+<p>交换不适用于由内核逻辑地址映射的内存。这些地址是内核虚拟地址空间的子集，直接映射
+一段连续的物理内存。对于提供的任意逻辑地址，它的物理地址可以通过对偏移量进行简单
+的算数运算来确定。对逻辑地址的访问很快，因为这避免了复杂的页表查找，但代价是这些
+内存不能被驱逐或置换。</p>
+<p>如果内核无法为必须存在于物理帧中的数据腾出空间，那么它会调用内存不足(out-of-memory,
+OOM)杀手，通过杀掉低优先级的进程来腾出空间，直到内存压力下降到安全阈值之下。</p>
+<p>另外，代码漏洞或指示 CPU 访问的精心制作的恶意地址也可能导致缺页异常。一个进程的
+线程可以利用指令来访问不属于其地址空间的（非共享）内存，或者试图执行写入只读位置
+的指令。</p>
+<p>如果上述情况发生在用户态，内核会向当前线程发送 <cite>段错误</cite> (SIGSEGV)信号。该信号
+通常导致线程及其所属的进程终止。</p>
+<p>本文将简化并概述 Linux 内核如何处理这些缺页中断、创建表和表项、检查内存是否存在，
+以及当内存不存在时，如何请求从持久存储或其他设备加载数据，并更新 MMU 及其缓存。</p>
+<p>最初的步骤依赖于架构。大多是架构跳转到 <cite>do_page_fault()</cite>，而 x86 中断处理程序是由
+<cite>DEFINE_IDTENTRY_RAW_ERRORCODE()</cite> 宏定义的，该宏调用 <cite>handle_page_fault()</cite>。</p>
+<p>无论调用路径如何，所有架构最终都会调用 <cite>handle_mm_fault()</cite>，该函数通常会调用
+<cite>__handle_mm_fault()</cite> 来执行实际分配页表的任务。</p>
+<p>如果不幸无法调用 <cite>__handle_mm_fault()</cite> 则意味着虚拟地址指向了无权访问的物理
+内存区域（至少对于当前上下文如此）。这种情况会导致内核向该进程发送上述的 SIGSEGV
+信号，并引发前面提到的后果。</p>
+<p>这些用于查找偏移量的函数名称通常以 <cite>*_offset()</cite> 结尾，其中“*”可以是 pgd，p4d，
+pud，pmd 或者 pte；而分配相应层级页表的函数名称是 <cite>*_alloc</cite>，它们按照上述命名
+约定以对应页表层级的类型命名。</p>
+<p>页表遍历可能在中间或者上层结束(PMD，PUD)。</p>
+<p>Linux 支持比通常 4KB 更大的页面（即所谓的 <cite>巨页</cite>）。当使用这种较大的页面时，没有
+必要使用更低层的页表项(PTE)。巨页通常包含 2MB 到 1GB 的大块连续物理区域，分别由
+PMD 和 PUD 页表项映射。</p>
+<p>巨页带来许多好处，如减少 TLB 压力，减少页表开销，提高内存分配效率，以及改善
+特定工作负载的性能。然而，这些好处也伴随着权衡，如内存浪费和分配难度增加。</p>
+<p>在遍历和分配的最后，如果没有返回错误，<cite>__handle_mm_fault()</cite> 最终调用 <cite>handle_pte_fault()</cite>
+通过 <cite>do_fault()</cite> 执行 <cite>do_read_fault()</cite>、 <cite>do_cow_fault()</cite> 和 <cite>do_shared_fault()</cite>。
+“read”，“cow”和“shared”分别暗示了它处理错误的类型和原因。</p>
+<p>实际的工作流程实现是非常复杂的。其设计允许 Linux 根据每种架构的特定特性处理缺页
+异常，同时仍然共享一个通用的整体结构。</p>
+<p>为了总结 Linux 如何处理缺页中断的概述，需要补充的是，缺页异常处理程序可以通过
+<cite>pagefault_disable()</cite> 和 <cite>pagefault_enable()</cite> 分别禁用和启用。</p>
+<p>许多代码路径使用了这两个函数，因为它们需要禁止陷入缺页异常处理程序，主要是为了
+防止死锁。</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_CN/mm/page_tables.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

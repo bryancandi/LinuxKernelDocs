@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>使用 Clang/LLVM 构建 Linux &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Open Firmware 和 Devicetree" href="../devicetree/index.html" />
+    <link rel="prev" title="可重现的构建" href="reproducible-builds.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.13.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#api">内部API文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_CN/kbuild/llvm.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../kbuild/llvm.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../kbuild/llvm.html"><span class="doc">Building Linux with Clang/LLVM</span></a></p>
+</dd>
+<dt class="field-even">Translator<span class="colon">:</span></dt>
+<dd class="field-even"><p>慕冬亮 Dongliang Mu &lt;<a class="reference external" href="mailto:dzm91&#37;&#52;&#48;hust&#46;edu&#46;cn">dzm91<span>&#64;</span>hust<span>&#46;</span>edu<span>&#46;</span>cn</a>&gt;</p>
+</dd>
+</dl>
+<section id="clang-llvm-linux">
+<h1>使用 Clang/LLVM 构建 Linux<a class="headerlink" href="#clang-llvm-linux" title="Link to this heading">¶</a></h1>
+<p>本文档介绍如何使用 Clang 和 LLVM 工具构建 Linux 内核。</p>
+<section id="id1">
+<h2>关于<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>Linux 内核传统上一直使用 GNU 工具链（如 GCC 和 binutils）进行编译。持续的工作使得
+<a class="reference external" href="https://clang.llvm.org/">Clang</a> 和 <a class="reference external" href="https://llvm.org/">LLVM</a> 工具可
+作为可行的替代品。一些发行版，如 <a class="reference external" href="https://www.android.com/">Android</a>、
+<a class="reference external" href="https://www.chromium.org/chromium-os">ChromeOS</a>、<a class="reference external" href="https://www.openmandriva.org/">OpenMandriva</a> 和 <a class="reference external" href="https://chimera-linux.org/">Chimera Linux</a> 使用 Clang 编译的内核。谷歌和 Meta 的数据中心
+集群也运行由 Clang 编译的内核。</p>
+<p><a class="reference external" href="https://www.aosabook.org/en/llvm.html">LLVM 是由 C++ 对象实现的工具链组件集合</a>。
+Clang 是 LLVM 的前端，支持 C 语言和内核所需的 GNU C 扩展，其发音为 “klang”，而非
+“see-lang”。</p>
+</section>
+<section id="id2">
+<h2>使用 LLVM 构建<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>通过以下命令调用 <code class="docutils literal notranslate"><span class="pre">make</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1
+</pre></div>
+</div>
+<p>为主机目标进行编译。对于交叉编译:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm64
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h2>LLVM= 参数<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>LLVM 有 GNU binutils 工具的替代品。这些工具可以单独启用。以下是支持的 make 变量
+完整列表:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm STRIP=llvm-strip \
+  OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump READELF=llvm-readelf \
+  HOSTCC=clang HOSTCXX=clang++ HOSTAR=llvm-ar HOSTLD=ld.lld
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> 扩展为上述命令。</p>
+<p>如果你的 LLVM 工具不在 PATH 中，你可以使用以斜杠结尾的 LLVM 变量提供它们的位置:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=/path/to/llvm/
+</pre></div>
+</div>
+<p>这将使用 <code class="docutils literal notranslate"><span class="pre">/path/to/llvm/clang</span></code>、<code class="docutils literal notranslate"><span class="pre">/path/to/llvm/ld.lld</span></code> 等工具。也可以
+使用以下命令:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>PATH=/path/to/llvm:$PATH make LLVM=1
+</pre></div>
+</div>
+<p>如果你的 LLVM 工具带有版本后缀，并且你希望测试该特定版本而非无后缀的可执行文件，
+类似于 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>，你可以使用 <code class="docutils literal notranslate"><span class="pre">LLVM</span></code> 变量传递该后缀:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=-14
+</pre></div>
+</div>
+<p>这将使用 <code class="docutils literal notranslate"><span class="pre">clang-14</span></code>、<code class="docutils literal notranslate"><span class="pre">ld.lld-14</span></code> 等工具。为了支持带有版本后缀的树外路径组合，
+我们建议:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>PATH=/path/to/llvm/:$PATH make LLVM=-14
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">LLVM=0</span></code> 与省略 <code class="docutils literal notranslate"><span class="pre">LLVM</span></code> 完全不同，它将表现得像 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code>。如果你只希望使用
+某些 LLVM 工具，请使用它们各自的 make 变量。</p>
+<p>在通过不同命令配置和构建时，应为每次调用 <code class="docutils literal notranslate"><span class="pre">make</span></code> 设置相同的 <code class="docutils literal notranslate"><span class="pre">LLVM=</span></code> 值。如果
+运行的脚本最终会调用 <code class="docutils literal notranslate"><span class="pre">make</span></code>，则还应将 <code class="docutils literal notranslate"><span class="pre">LLVM=</span></code> 设置为环境变量。</p>
+</section>
+<section id="id4">
+<h2>交叉编译<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>单个 Clang 编译器二进制文件（及其对应的 LLVM 工具）通常会包含所有支持的后端，这可以
+简化交叉编译，尤其是使用 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> 时。如果仅使用 LLVM 工具，<code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code>
+或目标三元组前缀就变得不必要。示例:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm64
+</pre></div>
+</div>
+<p>作为混合 LLVM 和 GNU 工具的示例，对于像 <code class="docutils literal notranslate"><span class="pre">ARCH=s390</span></code> 这样目前尚不支持
+<code class="docutils literal notranslate"><span class="pre">ld.lld</span></code> 或 <code class="docutils literal notranslate"><span class="pre">llvm-objcopy</span></code> 的目标，你可以通过以下方式调用 <code class="docutils literal notranslate"><span class="pre">make</span></code>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=s390 LD=s390x-linux-gnu-ld.bfd \
+  OBJCOPY=s390x-linux-gnu-objcopy
+</pre></div>
+</div>
+<p>此示例将调用 <code class="docutils literal notranslate"><span class="pre">s390x-linux-gnu-ld.bfd</span></code> 作为链接器和
+<code class="docutils literal notranslate"><span class="pre">s390x-linux-gnu-objcopy</span></code>，因此请确保它们在你的 <code class="docutils literal notranslate"><span class="pre">$PATH</span></code> 中。</p>
+<p>当 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> 未设置时，<code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> 不会用于给 Clang 编译器二进制文件
+（或相应的 LLVM 工具）添加前缀，而 GNU 工具则需要这样做。</p>
+</section>
+<section id="llvm-ias">
+<h2>LLVM_IAS= 参数<a class="headerlink" href="#llvm-ias" title="Link to this heading">¶</a></h2>
+<p>Clang 可以编译汇编代码。你可以传递 <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code> 禁用此行为，使 Clang 调用
+相应的非集成汇编器。示例:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 LLVM_IAS=0
+</pre></div>
+</div>
+<p>在交叉编译时，你需要使用 <code class="docutils literal notranslate"><span class="pre">CROSS_COMPILE</span></code> 与 <code class="docutils literal notranslate"><span class="pre">LLVM_IAS=0</span></code>，从而设置
+<code class="docutils literal notranslate"><span class="pre">--prefix=</span></code> 使得编译器可以对应的非集成汇编器（通常，在面向另一种架构时，
+你不想使用系统汇编器）。例如:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 ARCH=arm LLVM_IAS=0 CROSS_COMPILE=arm-linux-gnueabi-
+</pre></div>
+</div>
+</section>
+<section id="ccache">
+<h2>Ccache<a class="headerlink" href="#ccache" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ccache</span></code> 可以与 <code class="docutils literal notranslate"><span class="pre">clang</span></code> 一起使用，以改善后续构建（尽管在不同构建之间
+<a class="reference external" href="kbuild.html#kbuild-build-timestamp">KBUILD_BUILD_TIMESTAMP</a> 应设置为同一确定值，以避免 100% 的缓存未命中，
+详见 <a class="reference external" href="reproducible-builds.html#timestamps">Reproducible_builds</a> 获取更多信息）:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>KBUILD_BUILD_TIMESTAMP=&#39;&#39; make LLVM=1 CC=&quot;ccache clang&quot;
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h2>支持的架构<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p>LLVM 并不支持 Linux 内核所有可支持的架构，同样，即使 LLVM 支持某一架构，也并不意味着在
+该架构下内核可以正常构建或工作。以下是当前 <code class="docutils literal notranslate"><span class="pre">CC=clang</span></code> 或 <code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> 支持的架构总结。
+支持级别对应于 MAINTAINERS 文件中的 “S” 值。如果某个架构未列出，则表示 LLVM 不支持它
+或存在已知问题。使用最新的稳定版 LLVM 或甚至开发版本通常会得到最佳结果。一个架构的
+<code class="docutils literal notranslate"><span class="pre">defconfig</span></code> 通常预期能够良好工作，但某些配置可能存在尚未发现的问题。欢迎在以下
+问题跟踪器中提交错误报告！</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>架构</p></th>
+<th class="head"><p>支持级别</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">make</span></code> 命令</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>arm</p></td>
+<td><p>支持</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>arm64</p></td>
+<td><p>支持</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>hexagon</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>loongarch</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>mips</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>powerpc</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>riscv</p></td>
+<td><p>支持</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>s390</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code> （LLVM &gt;= 18.1.0），<code class="docutils literal notranslate"><span class="pre">CC=clang</span></code> （LLVM &lt; 18.1.0）</p></td>
+</tr>
+<tr class="row-even"><td><p>um (用户模式)</p></td>
+<td><p>维护</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>x86</p></td>
+<td><p>支持</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">LLVM=1</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id6">
+<h2>获取帮助<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://clangbuiltlinux.github.io/">网站</a></p></li>
+<li><p><a class="reference external" href="https://lore.kernel.org/llvm/">邮件列表</a>: &lt;<a class="reference external" href="mailto:llvm&#37;&#52;&#48;lists&#46;linux&#46;dev">llvm<span>&#64;</span>lists<span>&#46;</span>linux<span>&#46;</span>dev</a>&gt;</p></li>
+<li><p><a class="reference external" href="https://groups.google.com/g/clang-built-linux">旧邮件列表档案</a></p></li>
+<li><p><a class="reference external" href="https://github.com/ClangBuiltLinux/linux/issues">问题跟踪器</a></p></li>
+<li><p>IRC: #clangbuiltlinux 在 irc.libera.chat</p></li>
+<li><p><a class="reference external" href="https://t.me/ClangBuiltLinux">Telegram</a>: &#64;ClangBuiltLinux</p></li>
+<li><p><a class="reference external" href="https://github.com/ClangBuiltLinux/linux/wiki">维基</a></p></li>
+<li><p><a class="reference external" href="https://github.com/ClangBuiltLinux/linux/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22">初学者问题</a></p></li>
+</ul>
+</section>
+<section id="zh-cn-getting-llvm">
+<span id="id13"></span><h2>获取 LLVM<a class="headerlink" href="#zh-cn-getting-llvm" title="Link to this heading">¶</a></h2>
+<p>我们在 <a class="reference external" href="https://kernel.org/pub/tools/llvm/">kernel.org</a> 提供预编译的稳定版 LLVM。
+这些版本已经针对 Linux 内核构建，使用配置文件数据进行优化。相较于其他发行版中的 LLVM，它们应该
+能提高内核构建效率。</p>
+<p>以下是一些有助于从源代码构建 LLVM 或通过发行版的包管理器获取 LLVM 的链接。</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://releases.llvm.org/download.html">https://releases.llvm.org/download.html</a></p></li>
+<li><p><a class="reference external" href="https://github.com/llvm/llvm-project">https://github.com/llvm/llvm-project</a></p></li>
+<li><p><a class="reference external" href="https://llvm.org/docs/GettingStarted.html">https://llvm.org/docs/GettingStarted.html</a></p></li>
+<li><p><a class="reference external" href="https://llvm.org/docs/CMake.html">https://llvm.org/docs/CMake.html</a></p></li>
+<li><p><a class="reference external" href="https://apt.llvm.org/">https://apt.llvm.org/</a></p></li>
+<li><p><a class="reference external" href="https://www.archlinux.org/packages/extra/x86_64/llvm/">https://www.archlinux.org/packages/extra/x86_64/llvm/</a></p></li>
+<li><p><a class="reference external" href="https://github.com/ClangBuiltLinux/tc-build">https://github.com/ClangBuiltLinux/tc-build</a></p></li>
+<li><p><a class="reference external" href="https://github.com/ClangBuiltLinux/linux/wiki/Building-Clang-from-source">https://github.com/ClangBuiltLinux/linux/wiki/Building-Clang-from-source</a></p></li>
+<li><p><a class="reference external" href="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/">https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/</a></p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_CN/kbuild/llvm.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -7,9 +7,9 @@
 
     <title>BPF Type Format (BTF) &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -1054,7 +1053,7 @@ section named by <code class="docutils literal notranslate"><span class="pre">bt
 for more information on CO-RE relocations.</p>
 </section>
 <section id="btf-ids-section">
-<h3>4.2 .BTF_ids section<a class="headerlink" href="#btf-ids-section" title="Link to this heading">¶</a></h3>
+<h3>4.3 .BTF_ids section<a class="headerlink" href="#btf-ids-section" title="Link to this heading">¶</a></h3>
 <p>The .BTF_ids section encodes BTF ID values that are used within the kernel.</p>
 <p>This section is created during the kernel compilation with the help of
 macros defined in <code class="docutils literal notranslate"><span class="pre">include/linux/btf_ids.h</span></code> header file. Kernel code can
@@ -1107,6 +1106,75 @@ __BTF_ID__type2__name2__4:
 <p>and is used as a filter when resolving the BTF ID value.</p>
 <p>All the BTF ID lists and sets are compiled in the .BTF_ids section and
 resolved during the linking phase of kernel build by <code class="docutils literal notranslate"><span class="pre">resolve_btfids</span></code> tool.</p>
+</section>
+<section id="btf-base-section">
+<h3>4.4 .BTF.base section<a class="headerlink" href="#btf-base-section" title="Link to this heading">¶</a></h3>
+<p>Split BTF - where the .BTF section only contains types not in the associated
+base .BTF section - is an extremely efficient way to encode type information
+for kernel modules, since they generally consist of a few module-specific
+types along with a large set of shared kernel types. The former are encoded
+in split BTF, while the latter are encoded in base BTF, resulting in more
+compact representations. A type in split BTF that refers to a type in
+base BTF refers to it using its base BTF ID, and split BTF IDs start
+at last_base_BTF_ID + 1.</p>
+<p>The downside of this approach however is that this makes the split BTF
+somewhat brittle - when the base BTF changes, base BTF ID references are
+no longer valid and the split BTF itself becomes useless. The role of the
+.BTF.base section is to make split BTF more resilient for cases where
+the base BTF may change, as is the case for kernel modules not built every
+time the kernel is for example. .BTF.base contains named base types; INTs,
+FLOATs, STRUCTs, UNIONs, ENUM[64]s and FWDs. INTs and FLOATs are fully
+described in .BTF.base sections, while composite types like structs
+and unions are not fully defined - the .BTF.base type simply serves as
+a description of the type the split BTF referred to, so structs/unions
+have 0 members in the .BTF.base section. ENUM[64]s are similarly recorded
+with 0 members. Any other types are added to the split BTF. This
+distillation process then leaves us with a .BTF.base section with
+such minimal descriptions of base types and .BTF split section which refers
+to those base types. Later, we can relocate the split BTF using both the
+information stored in the .BTF.base section and the new .BTF base; the type
+information in the .BTF.base section allows us to update the split BTF
+references to point at the corresponding new base BTF IDs.</p>
+<p>BTF relocation happens on kernel module load when a kernel module has a
+.BTF.base section, and libbpf also provides a btf__relocate() API to
+accomplish this.</p>
+<p>As an example consider the following base BTF:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[1] INT &#39;int&#39; size=4 bits_offset=0 nr_bits=32 encoding=SIGNED
+[2] STRUCT &#39;foo&#39; size=8 vlen=2
+        &#39;f1&#39; type_id=1 bits_offset=0
+        &#39;f2&#39; type_id=1 bits_offset=32
+</pre></div>
+</div>
+<p>...and associated split BTF:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[3] PTR &#39;(anon)&#39; type_id=2
+</pre></div>
+</div>
+<p>i.e. split BTF describes a pointer to struct foo { int f1; int f2 };</p>
+<p>.BTF.base will consist of:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[1] INT &#39;int&#39; size=4 bits_offset=0 nr_bits=32 encoding=SIGNED
+[2] STRUCT &#39;foo&#39; size=8 vlen=0
+</pre></div>
+</div>
+<p>If we relocate the split BTF later using the following new base BTF:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[1] INT &#39;long unsigned int&#39; size=8 bits_offset=0 nr_bits=64 encoding=(none)
+[2] INT &#39;int&#39; size=4 bits_offset=0 nr_bits=32 encoding=SIGNED
+[3] STRUCT &#39;foo&#39; size=8 vlen=2
+        &#39;f1&#39; type_id=2 bits_offset=0
+        &#39;f2&#39; type_id=2 bits_offset=32
+</pre></div>
+</div>
+<p>...we can use our .BTF.base description to know that the split BTF reference
+is to struct foo, and relocation results in new split BTF:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>[4] PTR &#39;(anon)&#39; type_id=3
+</pre></div>
+</div>
+<p>Note that we had to update BTF ID and start BTF ID for the split BTF.</p>
+<p>So we see how .BTF.base plays the role of facilitating later relocation,
+leading to more resilient split BTF.</p>
+<p>.BTF.base sections will be generated automatically for out-of-tree kernel module
+builds - i.e. where KBUILD_EXTMOD is set (as it would be for “make M=path/2/mod”
+cases). .BTF.base generation requires pahole support for the “distilled_base”
+BTF feature; this is available in pahole v1.28 and later.</p>
 </section>
 </section>
 <section id="using-btf">
@@ -1334,11 +1402,11 @@ provides an extensive set of BTF-related tests.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/bpf/btf.rst.txt"

@@ -7,9 +7,9 @@
 
     <title>Transparent Hugepage Support &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -538,6 +537,25 @@ However, if a valid <code class="docutils literal notranslate"><span class="pre"
 PMD_ORDER THP policy will be overridden. If the policy for PMD_ORDER
 is not defined within a valid <code class="docutils literal notranslate"><span class="pre">thp_anon</span></code>, its policy will default to
 <code class="docutils literal notranslate"><span class="pre">never</span></code>.</p>
+<p>Similarly to <code class="docutils literal notranslate"><span class="pre">transparent_hugepage</span></code>, you can control the hugepage
+allocation policy for the internal shmem mount by using the kernel parameter
+<code class="docutils literal notranslate"><span class="pre">transparent_hugepage_shmem=&lt;policy&gt;</span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;policy&gt;</span></code> is one of the
+seven valid policies for shmem (<code class="docutils literal notranslate"><span class="pre">always</span></code>, <code class="docutils literal notranslate"><span class="pre">within_size</span></code>, <code class="docutils literal notranslate"><span class="pre">advise</span></code>,
+<code class="docutils literal notranslate"><span class="pre">never</span></code>, <code class="docutils literal notranslate"><span class="pre">deny</span></code>, and <code class="docutils literal notranslate"><span class="pre">force</span></code>).</p>
+<p>In the same manner as <code class="docutils literal notranslate"><span class="pre">thp_anon</span></code> controls each supported anonymous THP
+size, <code class="docutils literal notranslate"><span class="pre">thp_shmem</span></code> controls each supported shmem THP size. <code class="docutils literal notranslate"><span class="pre">thp_shmem</span></code>
+has the same format as <code class="docutils literal notranslate"><span class="pre">thp_anon</span></code>, but also supports the policy
+<code class="docutils literal notranslate"><span class="pre">within_size</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">thp_shmem=</span></code> may be specified multiple times to configure all THP sizes
+as required. If <code class="docutils literal notranslate"><span class="pre">thp_shmem=</span></code> is specified at least once, any shmem THP
+sizes not explicitly configured on the command line are implicitly set to
+<code class="docutils literal notranslate"><span class="pre">never</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">transparent_hugepage_shmem</span></code> setting only affects the global toggle. If
+<code class="docutils literal notranslate"><span class="pre">thp_shmem</span></code> is not specified, PMD_ORDER hugepage will default to
+<code class="docutils literal notranslate"><span class="pre">inherit</span></code>. However, if a valid <code class="docutils literal notranslate"><span class="pre">thp_shmem</span></code> setting is provided by the
+user, the PMD_ORDER hugepage policy will be overridden. If the policy for
+PMD_ORDER is not defined within a valid <code class="docutils literal notranslate"><span class="pre">thp_shmem</span></code>, its policy will
+default to <code class="docutils literal notranslate"><span class="pre">never</span></code>.</p>
 </section>
 <section id="hugepages-in-tmpfs-shmem">
 <h2>Hugepages in tmpfs/shmem<a class="headerlink" href="#hugepages-in-tmpfs-shmem" title="Link to this heading">¶</a></h2>
@@ -613,7 +631,7 @@ AnonHugePmdMapped).</p>
 <p>The number of file transparent huge pages mapped to userspace is available
 by reading ShmemPmdMapped and ShmemHugePages fields in <code class="docutils literal notranslate"><span class="pre">/proc/meminfo</span></code>.
 To identify what applications are mapping file transparent huge pages, it
-is necessary to read <code class="docutils literal notranslate"><span class="pre">/proc/PID/smaps</span></code> and count the FileHugeMapped fields
+is necessary to read <code class="docutils literal notranslate"><span class="pre">/proc/PID/smaps</span></code> and count the FilePmdMapped fields
 for each mapping.</p>
 <p>Note that reading the smaps file is expensive and reading it
 frequently will incur overhead.</p>
@@ -708,8 +726,14 @@ lower orders or small pages.</p>
 instead falls back to using huge pages with lower orders or
 small pages even though the allocation was successful.</p>
 </dd>
-<dt>swpout</dt><dd><p>is incremented every time a huge page is swapped out in one
+<dt>zswpout</dt><dd><p>is incremented every time a huge page is swapped out to zswap in one
 piece without splitting.</p>
+</dd>
+<dt>swpin</dt><dd><p>is incremented every time a huge page is swapped in from a non-zswap
+swap device in one piece.</p>
+</dd>
+<dt>swpout</dt><dd><p>is incremented every time a huge page is swapped out to a non-zswap
+swap device in one piece without splitting.</p>
 </dd>
 <dt>swpout_fallback</dt><dd><p>is incremented if a huge page has to be split before swapout.
 Usually because failed to allocate some continuous swap space
@@ -792,11 +816,11 @@ unaffected. libhugetlbfs will also work fine as usual.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/admin-guide/mm/transhuge.rst.txt"

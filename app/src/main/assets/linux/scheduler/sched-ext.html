@@ -7,9 +7,9 @@
 
     <title>Extensible Scheduler Class &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -254,7 +253,7 @@ optional. The following modified excerpt is from
 <span class="cm"> * Decide which CPU a task should be migrated to before being</span>
 <span class="cm"> * enqueued (either at wakeup, fork time, or exec time). If an</span>
 <span class="cm"> * idle core is found by the default ops.select_cpu() implementation,</span>
-<span class="cm"> * then dispatch the task directly to SCX_DSQ_LOCAL and skip the</span>
+<span class="cm"> * then insert the task directly into SCX_DSQ_LOCAL and skip the</span>
 <span class="cm"> * ops.enqueue() callback.</span>
 <span class="cm"> *</span>
 <span class="cm"> * Note that this implementation has exactly the same behavior as the</span>
@@ -272,15 +271,15 @@ optional. The following modified excerpt is from
 <span class="w">        </span><span class="n">cpu</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">scx_bpf_select_cpu_dfl</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">prev_cpu</span><span class="p">,</span><span class="w"> </span><span class="n">wake_flags</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">direct</span><span class="p">);</span>
 
 <span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">direct</span><span class="p">)</span>
-<span class="w">                </span><span class="n">scx_bpf_dispatch</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_DSQ_LOCAL</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_SLICE_DFL</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">                </span><span class="n">scx_bpf_dsq_insert</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_DSQ_LOCAL</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_SLICE_DFL</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
 
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">cpu</span><span class="p">;</span>
 <span class="p">}</span>
 
 <span class="cm">/*</span>
-<span class="cm"> * Do a direct dispatch of a task to the global DSQ. This ops.enqueue()</span>
-<span class="cm"> * callback will only be invoked if we failed to find a core to dispatch</span>
-<span class="cm"> * to in ops.select_cpu() above.</span>
+<span class="cm"> * Do a direct insertion of a task to the global DSQ. This ops.enqueue()</span>
+<span class="cm"> * callback will only be invoked if we failed to find a core to insert</span>
+<span class="cm"> * into in ops.select_cpu() above.</span>
 <span class="cm"> *</span>
 <span class="cm"> * Note that this implementation has exactly the same behavior as the</span>
 <span class="cm"> * default ops.enqueue implementation, which just dispatches the task</span>
@@ -290,7 +289,7 @@ optional. The following modified excerpt is from
 <span class="cm"> */</span>
 <span class="kt">void</span><span class="w"> </span><span class="nf">BPF_STRUCT_OPS</span><span class="p">(</span><span class="n">simple_enqueue</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">task_struct</span><span class="w"> </span><span class="o">*</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="n">enq_flags</span><span class="p">)</span>
 <span class="p">{</span>
-<span class="w">        </span><span class="n">scx_bpf_dispatch</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_DSQ_GLOBAL</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_SLICE_DFL</span><span class="p">,</span><span class="w"> </span><span class="n">enq_flags</span><span class="p">);</span>
+<span class="w">        </span><span class="n">scx_bpf_dsq_insert</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_DSQ_GLOBAL</span><span class="p">,</span><span class="w"> </span><span class="n">SCX_SLICE_DFL</span><span class="p">,</span><span class="w"> </span><span class="n">enq_flags</span><span class="p">);</span>
 <span class="p">}</span>
 
 <span class="n">s32</span><span class="w"> </span><span class="nf">BPF_STRUCT_OPS_SLEEPABLE</span><span class="p">(</span><span class="n">simple_init</span><span class="p">)</span>
@@ -325,13 +324,12 @@ priority queue. By default, there is one global FIFO (<code class="docutils lite
 and one local dsq per CPU (<code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code>). The BPF scheduler can manage
 an arbitrary number of dsq’s using <code class="docutils literal notranslate"><span class="pre">scx_bpf_create_dsq()</span></code> and
 <code class="docutils literal notranslate"><span class="pre">scx_bpf_destroy_dsq()</span></code>.</p>
-<p>A CPU always executes a task from its local DSQ. A task is “dispatched” to a
-DSQ. A non-local DSQ is “consumed” to transfer a task to the consuming CPU’s
-local DSQ.</p>
+<p>A CPU always executes a task from its local DSQ. A task is “inserted” into a
+DSQ. A task in a non-local DSQ is “move”d into the target CPU’s local DSQ.</p>
 <p>When a CPU is looking for the next task to run, if the local DSQ is not
-empty, the first task is picked. Otherwise, the CPU tries to consume the
-global DSQ. If that doesn’t yield a runnable task either, <code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code>
-is invoked.</p>
+empty, the first task is picked. Otherwise, the CPU tries to move a task
+from the global DSQ. If that doesn’t yield a runnable task either,
+<code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code> is invoked.</p>
 </section>
 <section id="scheduling-cycle">
 <h3>Scheduling Cycle<a class="headerlink" href="#scheduling-cycle" title="Link to this heading">¶</a></h3>
@@ -347,24 +345,24 @@ However, there is a small performance gain if the CPU
 <p>A side-effect of selecting a CPU is waking it up from idle. While a BPF
 scheduler can wake up any cpu using the <code class="docutils literal notranslate"><span class="pre">scx_bpf_kick_cpu()</span></code> helper,
 using <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code> judiciously can be simpler and more efficient.</p>
-<p>A task can be immediately dispatched to a DSQ from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code> by
-calling <code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code>. If the task is dispatched to
-<code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code> from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>, it will be dispatched to the
+<p>A task can be immediately inserted into a DSQ from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>
+by calling <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code>. If the task is inserted into
+<code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code> from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>, it will be inserted into the
 local DSQ of whichever CPU is returned from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>.
-Additionally, dispatching directly from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code> will cause the
+Additionally, inserting directly from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code> will cause the
 <code class="docutils literal notranslate"><span class="pre">ops.enqueue()</span></code> callback to be skipped.</p>
 <p>Note that the scheduler core will ignore an invalid CPU selection, for
 example, if it’s outside the allowed cpumask of the task.</p>
 </li>
 <li><p>Once the target CPU is selected, <code class="docutils literal notranslate"><span class="pre">ops.enqueue()</span></code> is invoked (unless the
-task was dispatched directly from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>). <code class="docutils literal notranslate"><span class="pre">ops.enqueue()</span></code>
+task was inserted directly from <code class="docutils literal notranslate"><span class="pre">ops.select_cpu()</span></code>). <code class="docutils literal notranslate"><span class="pre">ops.enqueue()</span></code>
 can make one of the following decisions:</p>
 <ul class="simple">
-<li><p>Immediately dispatch the task to either the global or local DSQ by
-calling <code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code> with <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_GLOBAL</span></code> or
+<li><p>Immediately insert the task into either the global or local DSQ by
+calling <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code> with <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_GLOBAL</span></code> or
 <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code>, respectively.</p></li>
-<li><p>Immediately dispatch the task to a custom DSQ by calling
-<code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code> with a DSQ ID which is smaller than 2^63.</p></li>
+<li><p>Immediately insert the task into a custom DSQ by calling
+<code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code> with a DSQ ID which is smaller than 2^63.</p></li>
 <li><p>Queue the task on the BPF side.</p></li>
 </ul>
 </li>
@@ -373,23 +371,23 @@ empty, it then looks at the global DSQ. If there still isn’t a task to
 run, <code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code> is invoked which can use the following two
 functions to populate the local DSQ.</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code> dispatches a task to a DSQ. Any target DSQ can
-be used - <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code>, <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL_ON</span> <span class="pre">|</span> <span class="pre">cpu</span></code>,
-<code class="docutils literal notranslate"><span class="pre">SCX_DSQ_GLOBAL</span></code> or a custom DSQ. While <code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code>
+<li><p><code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code> inserts a task to a DSQ. Any target DSQ can be
+used - <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code>, <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL_ON</span> <span class="pre">|</span> <span class="pre">cpu</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SCX_DSQ_GLOBAL</span></code> or a custom DSQ. While <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code>
 currently can’t be called with BPF locks held, this is being worked on
-and will be supported. <code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code> schedules dispatching
+and will be supported. <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code> schedules insertion
 rather than performing them immediately. There can be up to
 <code class="docutils literal notranslate"><span class="pre">ops.dispatch_max_batch</span></code> pending tasks.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scx_bpf_consume()</span></code> tranfers a task from the specified non-local DSQ
-to the dispatching DSQ. This function cannot be called with any BPF
-locks held. <code class="docutils literal notranslate"><span class="pre">scx_bpf_consume()</span></code> flushes the pending dispatched tasks
-before trying to consume the specified DSQ.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scx_bpf_move_to_local()</span></code> moves a task from the specified non-local
+DSQ to the dispatching DSQ. This function cannot be called with any BPF
+locks held. <code class="docutils literal notranslate"><span class="pre">scx_bpf_move_to_local()</span></code> flushes the pending insertions
+tasks before trying to move from the specified DSQ.</p></li>
 </ul>
 </li>
 <li><p>After <code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code> returns, if there are tasks in the local DSQ,
 the CPU runs the first one. If empty, the following steps are taken:</p>
 <ul class="simple">
-<li><p>Try to consume the global DSQ. If successful, run the task.</p></li>
+<li><p>Try to move from the global DSQ. If successful, run the task.</p></li>
 <li><p>If <code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code> has dispatched any tasks, retry #3.</p></li>
 <li><p>If the previous task is an SCX task and still runnable, keep executing
 it (see <code class="docutils literal notranslate"><span class="pre">SCX_OPS_ENQ_LAST</span></code>).</p></li>
@@ -401,13 +399,13 @@ it (see <code class="docutils literal notranslate"><span class="pre">SCX_OPS_ENQ
 in <code class="docutils literal notranslate"><span class="pre">ops.enqueue()</span></code> as illustrated in the above simple example. If only the
 built-in DSQs are used, there is no need to implement <code class="docutils literal notranslate"><span class="pre">ops.dispatch()</span></code> as
 a task is never queued on the BPF scheduler and both the local and global
-DSQs are consumed automatically.</p>
-<p><code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code> queues the task on the FIFO of the target DSQ. Use
-<code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch_vtime()</span></code> for the priority queue. Internal DSQs such as
+DSQs are executed automatically.</p>
+<p><code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code> inserts the task on the FIFO of the target DSQ. Use
+<code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert_vtime()</span></code> for the priority queue. Internal DSQs such as
 <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_LOCAL</span></code> and <code class="docutils literal notranslate"><span class="pre">SCX_DSQ_GLOBAL</span></code> do not support priority-queue
-dispatching, and must be dispatched to with <code class="docutils literal notranslate"><span class="pre">scx_bpf_dispatch()</span></code>.  See the
-function documentation and usage in <code class="docutils literal notranslate"><span class="pre">tools/sched_ext/scx_simple.bpf.c</span></code> for
-more information.</p>
+dispatching, and must be dispatched to with <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code>. See
+the function documentation and usage in <code class="docutils literal notranslate"><span class="pre">tools/sched_ext/scx_simple.bpf.c</span></code>
+for more information.</p>
 </section>
 </section>
 <section id="where-to-look">
@@ -448,11 +446,11 @@ versions.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/scheduler/sched-ext.rst.txt"

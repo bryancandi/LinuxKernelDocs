@@ -7,9 +7,9 @@
 
     <title>WMI driver development guide &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -212,6 +211,7 @@ static struct wmi_driver foo_driver = {
       .id_table = foo_id_table,
       .probe = foo_probe,
       .remove = foo_remove,         /* optional, devres is preferred */
+      .shutdown = foo_shutdown,     /* optional, called during shutdown */
       .notify = foo_notify,         /* optional, for event handling */
       .no_notify_data = true,       /* optional, enables events containing no additional data */
       .no_singleton = true,         /* required for new WMI drivers */
@@ -226,6 +226,9 @@ normally be done in this function.</p>
 to unregister interfaces to other kernel subsystems and release resources, devres should be used.
 This simplifies error handling during probe and often allows to omit this callback entirely, see
 <a class="reference internal" href="../driver-api/driver-model/devres.html"><span class="doc">Devres - Managed Device Resource</span></a> for details.</p>
+<p>The shutdown() callback is called during shutdown, reboot or kexec. Its sole purpose is to disable
+the WMI device and put it in a well-known state for the WMI driver to pick up later after reboot
+or kexec. Most WMI drivers need no special shutdown handling and can thus omit this callback.</p>
 <p>Please note that new WMI drivers are required to be able to be instantiated multiple times,
 and are forbidden from using any deprecated GUID-based WMI functions. This means that the
 WMI driver should be prepared for the scenario that multiple matching WMI devices are present
@@ -261,7 +264,7 @@ the structure of the ACPI object passed to this callback is device-specific, and
 ACPI object is being done by the WMI subsystem, not the driver.</p>
 <p>The WMI driver core will take care that the notify() callback will only be called after
 the probe() callback has been called, and that no events are being received by the driver
-right before and after calling its remove() callback.</p>
+right before and after calling its remove() or shutdown() callback.</p>
 <p>However WMI driver developers should be aware that multiple WMI events can be received concurrently,
 so any locking (if necessary) needs to be provided by the WMI driver itself.</p>
 <p>In order to be able to receive WMI events containing no additional event data,
@@ -319,11 +322,11 @@ violations, you can invoke it with the following command:</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/wmi/driver-development-guide.rst.txt"

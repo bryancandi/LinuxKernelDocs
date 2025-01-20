@@ -7,9 +7,9 @@
 
     <title>Userland interfaces &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -639,13 +638,22 @@ a GPU context while it’s stopped.</p>
 <section id="kernel-mode-driver">
 <h3>Kernel Mode Driver<a class="headerlink" href="#kernel-mode-driver" title="Link to this heading">¶</a></h3>
 <p>The KMD is responsible for checking if the device needs a reset, and to perform
-it as needed. Usually a hang is detected when a job gets stuck executing. KMD
-should keep track of resets, because userspace can query any time about the
-reset status for a specific context. This is needed to propagate to the rest of
-the stack that a reset has happened. Currently, this is implemented by each
-driver separately, with no common DRM interface. Ideally this should be properly
-integrated at DRM scheduler to provide a common ground for all drivers. After a
-reset, KMD should reject new command submissions for affected contexts.</p>
+it as needed. Usually a hang is detected when a job gets stuck executing.</p>
+<p>Propagation of errors to userspace has proven to be tricky since it goes in
+the opposite direction of the usual flow of commands. Because of this vendor
+independent error handling was added to the &amp;dma_fence object, this way drivers
+can add an error code to their fences before signaling them. See function
+<a class="reference internal" href="../driver-api/dma-buf.html#c.dma_fence_set_error" title="dma_fence_set_error"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_set_error()</span></code></a> on how to do this and for examples of error codes to use.</p>
+<p>The DRM scheduler also allows setting error codes on all pending fences when
+hardware submissions are restarted after an reset. Error codes are also
+forwarded from the hardware fence to the scheduler fence to bubble up errors
+to the higher levels of the stack and eventually userspace.</p>
+<p>Fence errors can be queried by userspace through the generic SYNC_IOC_FILE_INFO
+IOCTL as well as through driver specific interfaces.</p>
+<p>Additional to setting fence errors drivers should also keep track of resets per
+context, the DRM scheduler provides the <a class="reference internal" href="drm-mm.html#c.drm_sched_entity_error" title="drm_sched_entity_error"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_error()</span></code></a> function as
+helper for this use case. After a reset, KMD should reject new command
+submissions for affected contexts.</p>
 </section>
 <section id="user-mode-driver">
 <h3>User Mode Driver<a class="headerlink" href="#user-mode-driver" title="Link to this heading">¶</a></h3>
@@ -1517,35 +1525,32 @@ CRTC ID’s, and the CRTC index is its position in this array.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_DUMB_BUFFER</span></span></span><a class="headerlink" href="#c.DRM_CAP_DUMB_BUFFER" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_BUFFER</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_BUFFER</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports creating dumb buffers via the
 <a class="reference internal" href="#c.DRM_IOCTL_MODE_CREATE_DUMB" title="DRM_IOCTL_MODE_CREATE_DUMB"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_CREATE_DUMB</span></code></a> ioctl.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_VBLANK_HIGH_CRTC">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_VBLANK_HIGH_CRTC</span></span></span><a class="headerlink" href="#c.DRM_CAP_VBLANK_HIGH_CRTC" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_VBLANK_HIGH_CRTC</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_VBLANK_HIGH_CRTC</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the kernel supports specifying a <a class="reference internal" href="#crtc-index"><span class="std std-ref">CRTC index</span></a>
 in the high bits of <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_wait_vblank_request.type</span></code>.</p>
 <p>Starting kernel version 2.6.39, this capability is always set to 1.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_DUMB_PREFERRED_DEPTH">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_DUMB_PREFERRED_DEPTH</span></span></span><a class="headerlink" href="#c.DRM_CAP_DUMB_PREFERRED_DEPTH" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFERRED_DEPTH</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFERRED_DEPTH</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>The preferred bit depth for dumb buffers.</p>
 <p>The bit depth is the number of bits used to indicate the color of a single
 pixel excluding any padding. This is different from the number of bits per
@@ -1553,233 +1558,216 @@ pixel. For instance, XRGB8888 has a bit depth of 24 but has 32 bits per
 pixel.</p>
 <p>Note that this preference only applies to dumb buffers, it’s irrelevant for
 other types of buffers.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_DUMB_PREFER_SHADOW">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_DUMB_PREFER_SHADOW</span></span></span><a class="headerlink" href="#c.DRM_CAP_DUMB_PREFER_SHADOW" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFER_SHADOW</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFER_SHADOW</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver prefers userspace to render to a shadow buffer
 instead of directly rendering to a dumb buffer. For best speed, userspace
 should do streaming ordered memory copies into the dumb buffer and never
 read from it.</p>
 <p>Note that this preference only applies to dumb buffers, it’s irrelevant for
 other types of buffers.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_PRIME">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_PRIME</span></span></span><a class="headerlink" href="#c.DRM_CAP_PRIME" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Bitfield of supported PRIME sharing capabilities. See <a class="reference internal" href="#c.DRM_PRIME_CAP_IMPORT" title="DRM_PRIME_CAP_IMPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_IMPORT</span></code></a>
 and <a class="reference internal" href="#c.DRM_PRIME_CAP_EXPORT" title="DRM_PRIME_CAP_EXPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_EXPORT</span></code></a>.</p>
 <p>Starting from kernel version 6.6, both <a class="reference internal" href="#c.DRM_PRIME_CAP_IMPORT" title="DRM_PRIME_CAP_IMPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_IMPORT</span></code></a> and
 <a class="reference internal" href="#c.DRM_PRIME_CAP_EXPORT" title="DRM_PRIME_CAP_EXPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_EXPORT</span></code></a> are always advertised.</p>
 <p>PRIME buffers are exposed as dma-buf file descriptors.
 See <a class="reference internal" href="drm-mm.html#prime-buffer-sharing"><span class="std std-ref">PRIME Buffer Sharing</span></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_PRIME_CAP_IMPORT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_PRIME_CAP_IMPORT</span></span></span><a class="headerlink" href="#c.DRM_PRIME_CAP_IMPORT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_IMPORT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_IMPORT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If this bit is set in <a class="reference internal" href="#c.DRM_CAP_PRIME" title="DRM_CAP_PRIME"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span></code></a>, the driver supports importing PRIME
 buffers via the <a class="reference internal" href="#c.DRM_IOCTL_PRIME_FD_TO_HANDLE" title="DRM_IOCTL_PRIME_FD_TO_HANDLE"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_FD_TO_HANDLE</span></code></a> ioctl.</p>
 <p>Starting from kernel version 6.6, this bit is always set in <a class="reference internal" href="#c.DRM_CAP_PRIME" title="DRM_CAP_PRIME"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span></code></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_PRIME_CAP_EXPORT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_PRIME_CAP_EXPORT</span></span></span><a class="headerlink" href="#c.DRM_PRIME_CAP_EXPORT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_EXPORT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_EXPORT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If this bit is set in <a class="reference internal" href="#c.DRM_CAP_PRIME" title="DRM_CAP_PRIME"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span></code></a>, the driver supports exporting PRIME
 buffers via the <a class="reference internal" href="#c.DRM_IOCTL_PRIME_HANDLE_TO_FD" title="DRM_IOCTL_PRIME_HANDLE_TO_FD"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_HANDLE_TO_FD</span></code></a> ioctl.</p>
 <p>Starting from kernel version 6.6, this bit is always set in <a class="reference internal" href="#c.DRM_CAP_PRIME" title="DRM_CAP_PRIME"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_PRIME</span></code></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_TIMESTAMP_MONOTONIC">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_TIMESTAMP_MONOTONIC</span></span></span><a class="headerlink" href="#c.DRM_CAP_TIMESTAMP_MONOTONIC" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_TIMESTAMP_MONOTONIC</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_TIMESTAMP_MONOTONIC</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 0, the kernel will report timestamps with <code class="docutils literal notranslate"><span class="pre">CLOCK_REALTIME</span></code> in
 struct drm_event_vblank. If set to 1, the kernel will report timestamps with
 <code class="docutils literal notranslate"><span class="pre">CLOCK_MONOTONIC</span></code>. See <code class="docutils literal notranslate"><span class="pre">clock_gettime(2)</span></code> for the definition of these
 clocks.</p>
 <p>Starting from kernel version 2.6.39, the default value for this capability
 is 1. Starting kernel version 4.15, this capability is always set to 1.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_ASYNC_PAGE_FLIP">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_ASYNC_PAGE_FLIP</span></span></span><a class="headerlink" href="#c.DRM_CAP_ASYNC_PAGE_FLIP" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ASYNC_PAGE_FLIP</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ASYNC_PAGE_FLIP</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports <a class="reference internal" href="#c.DRM_MODE_PAGE_FLIP_ASYNC" title="DRM_MODE_PAGE_FLIP_ASYNC"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_ASYNC</span></code></a> for legacy
 page-flips.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_CURSOR_WIDTH">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_CURSOR_WIDTH</span></span></span><a class="headerlink" href="#c.DRM_CAP_CURSOR_WIDTH" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_WIDTH</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_WIDTH</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>The <code class="docutils literal notranslate"><span class="pre">CURSOR_WIDTH</span></code> and <code class="docutils literal notranslate"><span class="pre">CURSOR_HEIGHT</span></code> capabilities return a valid
 width x height combination for the hardware cursor. The intention is that a
 hardware agnostic userspace can query a cursor plane size to use.</p>
 <p>Note that the cross-driver contract is to merely return a valid size;
 drivers are free to attach another meaning on top, eg. i915 returns the
 maximum plane size.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_CURSOR_HEIGHT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_CURSOR_HEIGHT</span></span></span><a class="headerlink" href="#c.DRM_CAP_CURSOR_HEIGHT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_HEIGHT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_HEIGHT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>See <a class="reference internal" href="#c.DRM_CAP_CURSOR_WIDTH" title="DRM_CAP_CURSOR_WIDTH"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_CURSOR_WIDTH</span></code></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_ADDFB2_MODIFIERS">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_ADDFB2_MODIFIERS</span></span></span><a class="headerlink" href="#c.DRM_CAP_ADDFB2_MODIFIERS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ADDFB2_MODIFIERS</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ADDFB2_MODIFIERS</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports supplying modifiers in the
 <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_ADDFB2</span></code> ioctl.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_PAGE_FLIP_TARGET">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_PAGE_FLIP_TARGET</span></span></span><a class="headerlink" href="#c.DRM_CAP_PAGE_FLIP_TARGET" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_PAGE_FLIP_TARGET</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_PAGE_FLIP_TARGET</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports the <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_TARGET_ABSOLUTE</span></code> and
 <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_TARGET_RELATIVE</span></code> flags in
 <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_crtc_page_flip_target.flags</span></code> for the <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_PAGE_FLIP</span></code>
 ioctl.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_CRTC_IN_VBLANK_EVENT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_CRTC_IN_VBLANK_EVENT</span></span></span><a class="headerlink" href="#c.DRM_CAP_CRTC_IN_VBLANK_EVENT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CRTC_IN_VBLANK_EVENT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_CRTC_IN_VBLANK_EVENT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the kernel supports reporting the CRTC ID in
 <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_event_vblank.crtc_id</span></code> for the <a class="reference internal" href="#c.DRM_EVENT_VBLANK" title="DRM_EVENT_VBLANK"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_EVENT_VBLANK</span></code></a> and
 <a class="reference internal" href="#c.DRM_EVENT_FLIP_COMPLETE" title="DRM_EVENT_FLIP_COMPLETE"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_EVENT_FLIP_COMPLETE</span></code></a> events.</p>
 <p>Starting kernel version 4.12, this capability is always set to 1.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_SYNCOBJ">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_SYNCOBJ</span></span></span><a class="headerlink" href="#c.DRM_CAP_SYNCOBJ" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_SYNCOBJ</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_SYNCOBJ</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports sync objects. See <a class="reference internal" href="drm-mm.html#drm-sync-objects"><span class="std std-ref">DRM Sync Objects</span></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_SYNCOBJ_TIMELINE">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_SYNCOBJ_TIMELINE</span></span></span><a class="headerlink" href="#c.DRM_CAP_SYNCOBJ_TIMELINE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_SYNCOBJ_TIMELINE</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_SYNCOBJ_TIMELINE</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports timeline operations on sync objects. See
 <a class="reference internal" href="drm-mm.html#drm-sync-objects"><span class="std std-ref">DRM Sync Objects</span></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP</span></span></span><a class="headerlink" href="#c.DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the driver supports <a class="reference internal" href="#c.DRM_MODE_PAGE_FLIP_ASYNC" title="DRM_MODE_PAGE_FLIP_ASYNC"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_ASYNC</span></code></a> for atomic
 commits.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_STEREO_3D">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_STEREO_3D</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_STEREO_3D" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_STEREO_3D</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_STEREO_3D</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the DRM core will expose the stereo 3D capabilities of the
 monitor by advertising the supported 3D layouts in the flags of <a class="reference internal" href="#c.drm_mode_modeinfo" title="drm_mode_modeinfo"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
 <span class="pre">drm_mode_modeinfo</span></code></a>. See <code class="docutils literal notranslate"><span class="pre">DRM_MODE_FLAG_3D_*</span></code>.</p>
 <p>This capability is always supported for all drivers starting from kernel
 version 3.13.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_UNIVERSAL_PLANES">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_UNIVERSAL_PLANES</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_UNIVERSAL_PLANES" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_UNIVERSAL_PLANES</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_UNIVERSAL_PLANES</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the DRM core will expose all planes (overlay, primary, and
 cursor) to userspace.</p>
 <p>This capability has been introduced in kernel version 3.15. Starting from
 kernel version 3.17, this capability is always supported for all drivers.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_ATOMIC">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_ATOMIC</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_ATOMIC" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ATOMIC</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ATOMIC</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the DRM core will expose atomic properties to userspace. This
 implicitly enables <a class="reference internal" href="#c.DRM_CLIENT_CAP_UNIVERSAL_PLANES" title="DRM_CLIENT_CAP_UNIVERSAL_PLANES"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_UNIVERSAL_PLANES</span></code></a> and
 <a class="reference internal" href="#c.DRM_CLIENT_CAP_ASPECT_RATIO" title="DRM_CLIENT_CAP_ASPECT_RATIO"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ASPECT_RATIO</span></code></a>.</p>
@@ -1788,45 +1776,42 @@ will fail with -EOPNOTSUPP.</p>
 <p>This capability has been introduced in kernel version 4.0. Starting from
 kernel version 4.2, this capability is always supported for atomic-capable
 drivers.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_ASPECT_RATIO">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_ASPECT_RATIO</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_ASPECT_RATIO" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ASPECT_RATIO</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ASPECT_RATIO</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the DRM core will provide aspect ratio information in modes.
 See <code class="docutils literal notranslate"><span class="pre">DRM_MODE_FLAG_PIC_AR_*</span></code>.</p>
 <p>This capability is always supported for all drivers starting from kernel
 version 4.18.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_WRITEBACK_CONNECTORS">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_WRITEBACK_CONNECTORS</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_WRITEBACK_CONNECTORS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_WRITEBACK_CONNECTORS</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_WRITEBACK_CONNECTORS</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>If set to 1, the DRM core will expose special connectors to be used for
 writing back to memory the scene setup in the commit. The client must enable
 <a class="reference internal" href="#c.DRM_CLIENT_CAP_ATOMIC" title="DRM_CLIENT_CAP_ATOMIC"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_ATOMIC</span></code></a> first.</p>
 <p>This capability is always supported for atomic-capable drivers starting from
 kernel version 4.19.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_CLIENT_CAP_CURSOR_PLANE_HOTSPOT">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_CLIENT_CAP_CURSOR_PLANE_HOTSPOT</span></span></span><a class="headerlink" href="#c.DRM_CLIENT_CAP_CURSOR_PLANE_HOTSPOT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_CURSOR_PLANE_HOTSPOT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_CLIENT_CAP_CURSOR_PLANE_HOTSPOT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Drivers for para-virtualized hardware (e.g. vmwgfx, qxl, virtio and
 virtualbox) have additional restrictions for cursor planes (thus
 making cursor planes on those drivers not truly universal,) e.g.
@@ -1844,7 +1829,7 @@ EOPNOTSUPP, which can be used by userspace to gauge
 requirements of the hardware/drivers they’re running on.</p>
 <p>This capability is always supported for atomic-capable virtualized
 drivers starting from kernel version 6.6.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_syncobj_eventfd">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_syncobj_eventfd</span></span></span><a class="headerlink" href="#c.drm_syncobj_eventfd" title="Link to this definition">¶</a><br /></dt>
@@ -1885,12 +1870,11 @@ be incremented by one.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_GEM_CLOSE</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_GEM_CLOSE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_GEM_CLOSE</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_GEM_CLOSE</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Close a GEM handle.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>GEM handles are not reference-counted by the kernel. User-space is
 responsible for managing their lifetime. For example, if user-space imports
@@ -1901,18 +1885,17 @@ when a memory object is allocated, then exported and imported again on the
 same DRM file description. The <a class="reference internal" href="#c.DRM_IOCTL_MODE_GETFB2" title="DRM_IOCTL_MODE_GETFB2"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_GETFB2</span></code></a> IOCTL is an exception
 and always returns fresh new GEM handles even if an existing GEM handle
 already refers to the same memory object before the IOCTL is performed.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_PRIME_HANDLE_TO_FD">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_PRIME_HANDLE_TO_FD</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_PRIME_HANDLE_TO_FD" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_HANDLE_TO_FD</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_HANDLE_TO_FD</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Convert a GEM handle to a DMA-BUF FD.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>User-space sets <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_prime_handle.handle</span></code> with the GEM handle to export and
 <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_prime_handle.flags</span></code>, and gets back a DMA-BUF file descriptor in
@@ -1920,18 +1903,17 @@ already refers to the same memory object before the IOCTL is performed.</p>
 <p>The export can fail for any driver-specific reason, e.g. because export is
 not supported for this specific GEM handle (but might be for others).</p>
 <p>Support for exporting DMA-BUFs is advertised via <a class="reference internal" href="#c.DRM_PRIME_CAP_EXPORT" title="DRM_PRIME_CAP_EXPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_EXPORT</span></code></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_PRIME_FD_TO_HANDLE">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_PRIME_FD_TO_HANDLE</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_PRIME_FD_TO_HANDLE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_FD_TO_HANDLE</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_FD_TO_HANDLE</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Convert a DMA-BUF FD to a GEM handle.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>User-space sets <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_prime_handle.fd</span></code> with a DMA-BUF file descriptor to
 import, and gets back a GEM handle in <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_prime_handle.handle</span></code>.
@@ -1944,36 +1926,34 @@ reference-count duplicated GEM handles. For more information see
 <p>The import can fail for any driver-specific reason, e.g. because import is
 only supported for DMA-BUFs allocated on this DRM device.</p>
 <p>Support for importing DMA-BUFs is advertised via <a class="reference internal" href="#c.DRM_PRIME_CAP_IMPORT" title="DRM_PRIME_CAP_IMPORT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_PRIME_CAP_IMPORT</span></code></a>.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_MODE_RMFB">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_MODE_RMFB</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_MODE_RMFB" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_RMFB</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_RMFB</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Remove a framebuffer.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This removes a framebuffer previously added via ADDFB/ADDFB2. The IOCTL
 argument is a framebuffer object ID.</p>
 <p>Warning: removing a framebuffer currently in-use on an enabled plane will
 disable that plane. The CRTC the plane is linked to may also be disabled
 (depending on driver capabilities).</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_MODE_CREATE_DUMB">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_MODE_CREATE_DUMB</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_MODE_CREATE_DUMB" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_CREATE_DUMB</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_CREATE_DUMB</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Create a new dumb buffer object.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>KMS dumb buffers provide a very primitive way to allocate a buffer object
 suitable for scanout and map it for software rendering. KMS dumb buffers are
@@ -1988,18 +1968,17 @@ it as a KMS framebuffer via <code class="xref c c-type docutils literal notransl
 <p><a class="reference internal" href="#c.DRM_CAP_DUMB_BUFFER" title="DRM_CAP_DUMB_BUFFER"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_BUFFER</span></code></a> indicates whether this IOCTL is supported.
 <a class="reference internal" href="#c.DRM_CAP_DUMB_PREFERRED_DEPTH" title="DRM_CAP_DUMB_PREFERRED_DEPTH"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFERRED_DEPTH</span></code></a> and <a class="reference internal" href="#c.DRM_CAP_DUMB_PREFER_SHADOW" title="DRM_CAP_DUMB_PREFER_SHADOW"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_CAP_DUMB_PREFER_SHADOW</span></code></a> indicate
 driver preferences for dumb buffers.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_MODE_GETFB2">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_MODE_GETFB2</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_MODE_GETFB2" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_GETFB2</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_GETFB2</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Get framebuffer metadata.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This queries metadata about a framebuffer. User-space fills
 <a class="reference internal" href="#c.drm_mode_fb_cmd2" title="drm_mode_fb_cmd2"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_fb_cmd2.fb_id</span></code></a> as the input, and the kernels fills the rest of the
@@ -2021,18 +2000,17 @@ modifier. Otherwise, user-space must ignore <a class="reference internal" href="
 can export each handle via <a class="reference internal" href="#c.DRM_IOCTL_PRIME_HANDLE_TO_FD" title="DRM_IOCTL_PRIME_HANDLE_TO_FD"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_PRIME_HANDLE_TO_FD</span></code></a>, then immediately
 close each unique handle via <a class="reference internal" href="#c.DRM_IOCTL_GEM_CLOSE" title="DRM_IOCTL_GEM_CLOSE"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_GEM_CLOSE</span></code></a>, making sure to not
 double-close handles which are specified multiple times in the array.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_MODE_CLOSEFB">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_MODE_CLOSEFB</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_MODE_CLOSEFB" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_CLOSEFB</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_CLOSEFB</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>Close a framebuffer.</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This closes a framebuffer previously added via ADDFB/ADDFB2. The IOCTL
 argument is a framebuffer object ID.</p>
@@ -2045,7 +2023,23 @@ framebuffer is cleaned up.</p>
 <p>Depending on the threat model, user-space may want to ensure that the
 framebuffer doesn’t expose any sensitive user information: closed
 framebuffers attached to a plane can be read back by the next DRM master.</p>
-</div>
+</div></blockquote>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_IOCTL_SET_CLIENT_NAME">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_SET_CLIENT_NAME</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_SET_CLIENT_NAME" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_SET_CLIENT_NAME</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p>Attach a name to a drm_file</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>Having a name allows for easier tracking and debugging.
+The length of the name (without null ending char) must be
+&lt;= DRM_CLIENT_NAME_MAX_LEN.
+The call will fail if the name contains whitespaces or non-printable chars.</p>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_event">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_event</span></span></span><a class="headerlink" href="#c.drm_event" title="Link to this definition">¶</a><br /></dt>
@@ -2081,48 +2075,45 @@ up are chipset specific. Generic DRM events include <a class="reference internal
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_EVENT_VBLANK</span></span></span><a class="headerlink" href="#c.DRM_EVENT_VBLANK" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_VBLANK</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_VBLANK</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>vertical blanking event</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This event is sent in response to <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_WAIT_VBLANK</span></code> with the
 <code class="xref c c-type docutils literal notranslate"><span class="pre">_DRM_VBLANK_EVENT</span></code> flag set.</p>
 <p>The event payload is a struct drm_event_vblank.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_EVENT_FLIP_COMPLETE">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_EVENT_FLIP_COMPLETE</span></span></span><a class="headerlink" href="#c.DRM_EVENT_FLIP_COMPLETE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_FLIP_COMPLETE</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_FLIP_COMPLETE</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>page-flip completion event</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This event is sent in response to an atomic commit or legacy page-flip with
 the <a class="reference internal" href="#c.DRM_MODE_PAGE_FLIP_EVENT" title="DRM_MODE_PAGE_FLIP_EVENT"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_EVENT</span></code></a> flag set.</p>
 <p>The event payload is a struct drm_event_vblank.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_EVENT_CRTC_SEQUENCE">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_EVENT_CRTC_SEQUENCE</span></span></span><a class="headerlink" href="#c.DRM_EVENT_CRTC_SEQUENCE" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_CRTC_SEQUENCE</span> <span class="pre">()</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_EVENT_CRTC_SEQUENCE</span></code></p>
 <blockquote>
+<div><blockquote>
 <div><p>CRTC sequence event</p>
 </div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
 <p><strong>Description</strong></p>
 <p>This event is sent in response to <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_CRTC_QUEUE_SEQUENCE</span></code>.</p>
 <p>The event payload is a struct drm_event_crtc_sequence.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_mode_modeinfo">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_mode_modeinfo</span></span></span><a class="headerlink" href="#c.drm_mode_modeinfo" title="Link to this definition">¶</a><br /></dt>
@@ -2625,23 +2616,21 @@ the format described in this structure.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_PAGE_FLIP_EVENT</span></span></span><a class="headerlink" href="#c.DRM_MODE_PAGE_FLIP_EVENT" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_EVENT</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_EVENT</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Request that the kernel sends back a vblank event (see
 struct drm_event_vblank) with the <a class="reference internal" href="#c.DRM_EVENT_FLIP_COMPLETE" title="DRM_EVENT_FLIP_COMPLETE"><code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_EVENT_FLIP_COMPLETE</span></code></a> type when the
 page-flip is done.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_MODE_PAGE_FLIP_ASYNC">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_PAGE_FLIP_ASYNC</span></span></span><a class="headerlink" href="#c.DRM_MODE_PAGE_FLIP_ASYNC" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_ASYNC</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_ASYNC</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Request that the page-flip is performed as soon as possible, ie. with no
 delay due to waiting for vblank. This may cause tearing to be visible on
 the screen.</p>
@@ -2652,18 +2641,17 @@ User-space should handle this, e.g. by falling back to a regular page-flip.</p>
 before being able to switch to asynchronous page-flips. As an exception,
 the driver will return success even though that first page-flip is not
 asynchronous.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_MODE_PAGE_FLIP_FLAGS">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_PAGE_FLIP_FLAGS</span></span></span><a class="headerlink" href="#c.DRM_MODE_PAGE_FLIP_FLAGS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_FLAGS</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_PAGE_FLIP_FLAGS</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Bitmask of flags suitable for <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_crtc_page_flip_target.flags</span></code>.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_mode_create_dumb">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_mode_create_dumb</span></span></span><a class="headerlink" href="#c.drm_mode_create_dumb" title="Link to this definition">¶</a><br /></dt>
@@ -2709,38 +2697,35 @@ the kernel fills <strong>handle</strong>, <strong>pitch</strong> and <strong>siz
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_ATOMIC_TEST_ONLY</span></span></span><a class="headerlink" href="#c.DRM_MODE_ATOMIC_TEST_ONLY" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_TEST_ONLY</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_TEST_ONLY</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Do not apply the atomic commit, instead check whether the hardware supports
 this configuration.</p>
 <p>See <a class="reference internal" href="drm-kms.html#c.drm_mode_config_funcs" title="drm_mode_config_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_config_funcs.atomic_check</span></code></a> for more details on test-only
 commits.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_MODE_ATOMIC_NONBLOCK">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_ATOMIC_NONBLOCK</span></span></span><a class="headerlink" href="#c.DRM_MODE_ATOMIC_NONBLOCK" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_NONBLOCK</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_NONBLOCK</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Do not block while applying the atomic commit. The <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_ATOMIC</span></code>
 IOCTL returns immediately instead of waiting for the changes to be applied
 in hardware. Note, the driver will still check that the update can be
 applied before retuning.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_MODE_ATOMIC_ALLOW_MODESET">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_ATOMIC_ALLOW_MODESET</span></span></span><a class="headerlink" href="#c.DRM_MODE_ATOMIC_ALLOW_MODESET" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_ALLOW_MODESET</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_ALLOW_MODESET</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Allow the update to result in temporary or transient visible artifacts while
 the update is being applied. Applying the update may also take significantly
 more time than a page flip. All visual artifacts will disappear by the time
@@ -2755,19 +2740,18 @@ artifacts can use <a class="reference internal" href="#c.DRM_MODE_ATOMIC_TEST_ON
 <p>To the best of the driver’s knowledge, visual artifacts are guaranteed to
 not appear when this flag is not set. Some sinks might display visual
 artifacts outside of the driver’s control.</p>
-</div>
+</div></blockquote>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_MODE_ATOMIC_FLAGS">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_MODE_ATOMIC_FLAGS</span></span></span><a class="headerlink" href="#c.DRM_MODE_ATOMIC_FLAGS" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_FLAGS</span> <span class="pre">()</span></code></p>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<p><strong>Description</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_ATOMIC_FLAGS</span></code></p>
+<blockquote>
+<div><p><strong>Description</strong></p>
 <p>Bitfield of flags accepted by the <code class="xref c c-type docutils literal notranslate"><span class="pre">DRM_IOCTL_MODE_ATOMIC</span></code> IOCTL in
 <code class="xref c c-type docutils literal notranslate"><span class="pre">drm_mode_atomic.flags</span></code>.</p>
-</div>
+</div></blockquote>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_mode_create_blob">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_mode_create_blob</span></span></span><a class="headerlink" href="#c.drm_mode_create_blob" title="Link to this definition">¶</a><br /></dt>
@@ -3013,11 +2997,11 @@ information on how dma-buf is integrated and exposed within DRM.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/gpu/drm-uapi.rst.txt"

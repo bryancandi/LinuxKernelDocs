@@ -7,34 +7,33 @@
 
     <title>ARM64 ELF hwcaps &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="HugeTLBpage on ARM64" href="hugetlbpage.html" />
+    <link rel="next" title="Guarded Control Stack support for AArch64 Linux" href="gcs.html" />
     <link rel="prev" title="CPU Hotplug and ACPI" href="cpu-hotplug.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -102,16 +101,19 @@
 <li class="toctree-l3"><a class="reference internal" href="acpi_object_usage.html">ACPI Tables</a></li>
 <li class="toctree-l3"><a class="reference internal" href="amu.html">Activity Monitors Unit (AMU) extension in AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="arm-acpi.html">ACPI on Arm systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="arm-cca.html">Arm Confidential Compute Architecture</a></li>
 <li class="toctree-l3"><a class="reference internal" href="asymmetric-32bit.html">Asymmetric 32-bit SoCs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="booting.html">Booting AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cpu-feature-registers.html">ARM64 CPU Feature Registers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cpu-hotplug.html">CPU Hotplug and ACPI</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">ARM64 ELF hwcaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gcs.html">Guarded Control Stack support for AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="hugetlbpage.html">HugeTLBpage on ARM64</a></li>
 <li class="toctree-l3"><a class="reference internal" href="kdump.html">crashkernel memory reservation on arm64</a></li>
 <li class="toctree-l3"><a class="reference internal" href="legacy_instructions.html">Legacy instructions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="memory.html">Memory Layout on AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="memory-tagging-extension.html">Memory Tagging Extension (MTE) in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mops.html">Memory copy/set instructions (MOPS)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="perf.html">Perf</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pointer-authentication.html">Pointer authentication in AArch64 Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ptdump.html">Kernel page table dump</a></li>
@@ -196,9 +198,9 @@ implementations, and/or with certain kernel configurations, but have no
 architected discovery mechanism available to userspace code at EL0. The
 kernel exposes the presence of these features to userspace through a set
 of flags called hwcaps, exposed in the auxiliary vector.</p>
-<p>Userspace software can test for features by acquiring the AT_HWCAP or
-AT_HWCAP2 entry of the auxiliary vector, and testing whether the relevant
-flags are set, e.g.:</p>
+<p>Userspace software can test for features by acquiring the AT_HWCAP,
+AT_HWCAP2 or AT_HWCAP3 entry of the auxiliary vector, and testing
+whether the relevant flags are set, e.g.:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>bool floating_point_is_present(void)
 {
         unsigned long hwcaps = getauxval(AT_HWCAP);
@@ -310,6 +312,9 @@ ID_AA64ISAR1_EL1.API == 0b0001, as described by
 <dt>HWCAP_PACG</dt><dd><p>Functionality implied by ID_AA64ISAR1_EL1.GPA == 0b0001 or
 ID_AA64ISAR1_EL1.GPI == 0b0001, as described by
 <a class="reference internal" href="pointer-authentication.html"><span class="doc">Pointer authentication in AArch64 Linux</span></a>.</p>
+</dd>
+<dt>HWCAP_GCS</dt><dd><p>Functionality implied by ID_AA64PFR1_EL1.GCS == 0b1, as
+described by <a class="reference internal" href="gcs.html"><span class="doc">Guarded Control Stack support for AArch64 Linux</span></a>.</p>
 </dd>
 <dt>HWCAP2_DCPODP</dt><dd><p>Functionality implied by ID_AA64ISAR1_EL1.DPB == 0b0010.</p>
 </dd>
@@ -461,11 +466,11 @@ and 63 of AT_HWCAP will always be returned as 0.</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/arch/arm64/elf_hwcaps.rst.txt"

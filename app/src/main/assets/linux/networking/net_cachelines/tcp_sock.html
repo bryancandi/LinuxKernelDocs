@@ -7,9 +7,9 @@
 
     <title>tcp_sock struct fast path usage breakdown &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=a152c8ac" />
     <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../../index.html">
-              <img class="logo" src="../../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -148,156 +147,906 @@
 
 <section id="tcp-sock-struct-fast-path-usage-breakdown">
 <h1>tcp_sock struct fast path usage breakdown<a class="headerlink" href="#tcp-sock-struct-fast-path-usage-breakdown" title="Link to this heading">¶</a></h1>
-<p>Type                          Name                    fastpath_tx_access  fastpath_rx_access  Comments
-..struct                      ..tcp_sock
-struct_inet_connection_sock   inet_conn
-u16                           tcp_header_len          read_mostly         read_mostly         tcp_bound_to_half_wnd,tcp_current_mss(tx);tcp_rcv_established(rx)
-u16                           gso_segs                read_mostly         -                   tcp_xmit_size_goal
-__be32                        pred_flags              read_write          read_mostly         tcp_select_window(tx);tcp_rcv_established(rx)
-u64                           bytes_received          -                   read_write          tcp_rcv_nxt_update(rx)
-u32                           segs_in                 -                   read_write          tcp_v6_rcv(rx)
-u32                           data_segs_in            -                   read_write          tcp_v6_rcv(rx)
-u32                           rcv_nxt                 read_mostly         read_write          tcp_cleanup_rbuf,tcp_send_ack,tcp_inq_hint,tcp_transmit_skb,tcp_receive_window(tx);tcp_v6_do_rcv,tcp_rcv_established,tcp_data_queue,tcp_receive_window,tcp_rcv_nxt_update(write)(rx)
-u32                           copied_seq              -                   read_mostly         tcp_cleanup_rbuf,tcp_rcv_space_adjust,tcp_inq_hint
-u32                           rcv_wup                 -                   read_write          __tcp_cleanup_rbuf,tcp_receive_window,tcp_receive_established
-u32                           snd_nxt                 read_write          read_mostly         tcp_rate_check_app_limited,__tcp_transmit_skb,tcp_event_new_data_sent(write)(tx);tcp_rcv_established,tcp_ack,tcp_clean_rtx_queue(rx)
-u32                           segs_out                read_write          -                   __tcp_transmit_skb
-u32                           data_segs_out           read_write          -                   __tcp_transmit_skb,tcp_update_skb_after_send
-u64                           bytes_sent              read_write          -                   __tcp_transmit_skb
-u64                           bytes_acked             -                   read_write          tcp_snd_una_update/tcp_ack
-u32                           dsack_dups
-u32                           snd_una                 read_mostly         read_write          tcp_wnd_end,tcp_urg_mode,tcp_minshall_check,tcp_cwnd_validate(tx);tcp_ack,tcp_may_update_window,tcp_clean_rtx_queue(write),tcp_ack_tstamp(rx)
-u32                           snd_sml                 read_write          -                   tcp_minshall_check,tcp_minshall_update
-u32                           rcv_tstamp              -                   read_mostly         tcp_ack
-u32                           lsndtime                read_write          -                   tcp_slow_start_after_idle_check,tcp_event_data_sent
-u32                           last_oow_ack_time
-u32                           compressed_ack_rcv_nxt
-u32                           tsoffset                read_mostly         read_mostly         tcp_established_options(tx);tcp_fast_parse_options(rx)
-struct_list_head              tsq_node                -                   -
-struct_list_head              tsorted_sent_queue      read_write          -                   tcp_update_skb_after_send
-u32                           snd_wl1                 -                   read_mostly         tcp_may_update_window
-u32                           snd_wnd                 read_mostly         read_mostly         tcp_wnd_end,tcp_tso_should_defer(tx);tcp_fast_path_on(rx)
-u32                           max_window              read_mostly         -                   tcp_bound_to_half_wnd,forced_push
-u32                           mss_cache               read_mostly         read_mostly         tcp_rate_check_app_limited,tcp_current_mss,tcp_sync_mss,tcp_sndbuf_expand,tcp_tso_should_defer(tx);tcp_update_pacing_rate,tcp_clean_rtx_queue(rx)
-u32                           window_clamp            read_mostly         read_write          tcp_rcv_space_adjust,__tcp_select_window
-u32                           rcv_ssthresh            read_mostly         -                   __tcp_select_window
-u8                            scaling_ratio           read_mostly         read_mostly         tcp_win_from_space
-struct                        tcp_rack
-u16                           advmss                  -                   read_mostly         tcp_rcv_space_adjust
-u8                            compressed_ack
-u8:2                          dup_ack_counter
-u8:1                          tlp_retrans
-u8:1                          tcp_usec_ts             read_mostly         read_mostly
-u32                           chrono_start            read_write          -                   tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)
-u32[3]                        chrono_stat             read_write          -                   tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)
-u8:2                          chrono_type             read_write          -                   tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)
-u8:1                          rate_app_limited        -                   read_write          tcp_rate_gen
-u8:1                          fastopen_connect
-u8:1                          fastopen_no_cookie
-u8:1                          is_sack_reneg           -                   read_mostly         tcp_skb_entail,tcp_ack
-u8:2                          fastopen_client_fail
-u8:4                          nonagle                 read_write          -                   tcp_skb_entail,tcp_push_pending_frames
-u8:1                          thin_lto
-u8:1                          recvmsg_inq
-u8:1                          repair                  read_mostly         -                   tcp_write_xmit
-u8:1                          frto
-u8                            repair_queue            -                   -
-u8:2                          save_syn
-u8:1                          syn_data
-u8:1                          syn_fastopen
-u8:1                          syn_fastopen_exp
-u8:1                          syn_fastopen_ch
-u8:1                          syn_data_acked
-u8:1                          is_cwnd_limited         read_mostly         -                   tcp_cwnd_validate,tcp_is_cwnd_limited
-u32                           tlp_high_seq            -                   read_mostly         tcp_ack
-u32                           tcp_tx_delay
-u64                           tcp_wstamp_ns           read_write          -                   tcp_pacing_check,tcp_tso_should_defer,tcp_update_skb_after_send
-u64                           tcp_clock_cache         read_write          read_write          tcp_mstamp_refresh(tcp_write_xmit/tcp_rcv_space_adjust),__tcp_transmit_skb,tcp_tso_should_defer;timer
-u64                           tcp_mstamp              read_write          read_write          tcp_mstamp_refresh(tcp_write_xmit/tcp_rcv_space_adjust)(tx);tcp_rcv_space_adjust,tcp_rate_gen,tcp_clean_rtx_queue,tcp_ack_update_rtt/tcp_time_stamp(rx);timer
-u32                           srtt_us                 read_mostly         read_write          tcp_tso_should_defer(tx);tcp_update_pacing_rate,__tcp_set_rto,tcp_rtt_estimator(rx)
-u32                           mdev_us                 read_write          -                   tcp_rtt_estimator
-u32                           mdev_max_us
-u32                           rttvar_us               -                   read_mostly         __tcp_set_rto
-u32                           rtt_seq                 read_write                              tcp_rtt_estimator
-struct_minmax                 rtt_min                 -                   read_mostly         tcp_min_rtt/tcp_rate_gen,tcp_min_rtttcp_update_rtt_min
-u32                           packets_out             read_write          read_write          tcp_packets_in_flight(tx/rx);tcp_slow_start_after_idle_check,tcp_nagle_check,tcp_rate_skb_sent,tcp_event_new_data_sent,tcp_cwnd_validate,tcp_write_xmit(tx);tcp_ack,tcp_clean_rtx_queue,tcp_update_pacing_rate(rx)
-u32                           retrans_out             -                   read_mostly         tcp_packets_in_flight,tcp_rate_check_app_limited
-u32                           max_packets_out         -                   read_write          tcp_cwnd_validate
-u32                           cwnd_usage_seq          -                   read_write          tcp_cwnd_validate
-u16                           urg_data                -                   read_mostly         tcp_fast_path_check
-u8                            ecn_flags               read_write          -                   tcp_ecn_send
-u8                            keepalive_probes
-u32                           reordering              read_mostly         -                   tcp_sndbuf_expand
-u32                           reord_seen
-u32                           snd_up                  read_write          read_mostly         tcp_mark_urg,tcp_urg_mode,__tcp_transmit_skb(tx);tcp_clean_rtx_queue(rx)
-struct_tcp_options_received   rx_opt                  read_mostly         read_write          tcp_established_options(tx);tcp_fast_path_on,tcp_ack_update_window,tcp_is_sack,tcp_data_queue,tcp_rcv_established,tcp_ack_update_rtt(rx)
-u32                           snd_ssthresh            -                   read_mostly         tcp_update_pacing_rate
-u32                           snd_cwnd                read_mostly         read_mostly         tcp_snd_cwnd,tcp_rate_check_app_limited,tcp_tso_should_defer(tx);tcp_update_pacing_rate
-u32                           snd_cwnd_cnt
-u32                           snd_cwnd_clamp
-u32                           snd_cwnd_used
-u32                           snd_cwnd_stamp
-u32                           prior_cwnd
-u32                           prr_delivered
-u32                           prr_out                 read_mostly         read_mostly         tcp_rate_skb_sent,tcp_newly_delivered(tx);tcp_ack,tcp_rate_gen,tcp_clean_rtx_queue(rx)
-u32                           delivered               read_mostly         read_write          tcp_rate_skb_sent, tcp_newly_delivered(tx);tcp_ack, tcp_rate_gen, tcp_clean_rtx_queue (rx)
-u32                           delivered_ce            read_mostly         read_write          tcp_rate_skb_sent(tx);tcp_rate_gen(rx)
-u32                           lost                    -                   read_mostly         tcp_ack
-u32                           app_limited             read_write          read_mostly         tcp_rate_check_app_limited,tcp_rate_skb_sent(tx);tcp_rate_gen(rx)
-u64                           first_tx_mstamp         read_write          -                   tcp_rate_skb_sent
-u64                           delivered_mstamp        read_write          -                   tcp_rate_skb_sent
-u32                           rate_delivered          -                   read_mostly         tcp_rate_gen
-u32                           rate_interval_us        -                   read_mostly         rate_delivered,rate_app_limited
-u32                           rcv_wnd                 read_write          read_mostly         tcp_select_window,tcp_receive_window,tcp_fast_path_check
-u32                           write_seq               read_write          -                   tcp_rate_check_app_limited,tcp_write_queue_empty,tcp_skb_entail,forced_push,tcp_mark_push
-u32                           notsent_lowat           read_mostly         -                   tcp_stream_memory_free
-u32                           pushed_seq              read_write          -                   tcp_mark_push,forced_push
-u32                           lost_out                read_mostly         read_mostly         tcp_left_out(tx);tcp_packets_in_flight(tx/rx);tcp_rate_check_app_limited(rx)
-u32                           sacked_out              read_mostly         read_mostly         tcp_left_out(tx);tcp_packets_in_flight(tx/rx);tcp_clean_rtx_queue(rx)
-struct_hrtimer                pacing_timer
-struct_hrtimer                compressed_ack_timer
-struct_sk_buff*               lost_skb_hint           read_mostly                             tcp_clean_rtx_queue
-struct_sk_buff*               retransmit_skb_hint     read_mostly         -                   tcp_clean_rtx_queue
-struct_rb_root                out_of_order_queue      -                   read_mostly         tcp_data_queue,tcp_fast_path_check
-struct_sk_buff*               ooo_last_skb
-struct_tcp_sack_block[1]      duplicate_sack
-struct_tcp_sack_block[4]      selective_acks
-struct_tcp_sack_block[4]      recv_sack_cache
-struct_sk_buff*               highest_sack            read_write          -                   tcp_event_new_data_sent
-int                           lost_cnt_hint
-u32                           prior_ssthresh
-u32                           high_seq
-u32                           retrans_stamp
-u32                           undo_marker
-int                           undo_retrans
-u64                           bytes_retrans
-u32                           total_retrans
-u32                           rto_stamp
-u16                           total_rto
-u16                           total_rto_recoveries
-u32                           total_rto_time
-u32                           urg_seq                 -                   -
-unsigned_int                  keepalive_time
-unsigned_int                  keepalive_intvl
-int                           linger2
-u8                            bpf_sock_ops_cb_flags
-u8:1                          bpf_chg_cc_inprogress
-u16                           timeout_rehash
-u32                           rcv_ooopack
-u32                           rcv_rtt_last_tsecr
-struct                        rcv_rtt_est             -                   read_write          tcp_rcv_space_adjust,tcp_rcv_established
-struct                        rcvq_space              -                   read_write          tcp_rcv_space_adjust
-struct                        mtu_probe
-u32                           plb_rehash
-u32                           mtu_info
-bool                          is_mptcp
-bool                          smc_hs_congested
-bool                          syn_smc
-struct_tcp_sock_af_ops*       af_specific
-struct_tcp_md5sig_info*       md5sig_info
-struct_tcp_fastopen_request*  fastopen_req
-struct_request_sock*          fastopen_rsk
-struct_saved_syn*             saved_syn</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>fastpath_tx_access</p></th>
+<th class="head"><p>fastpath_rx_access</p></th>
+<th class="head"><p>Comments</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>struct inet_connection_sock</p></td>
+<td><p>inet_conn</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u16</p></td>
+<td><p>tcp_header_len</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_bound_to_half_wnd,tcp_current_mss(tx);tcp_rcv_established(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u16</p></td>
+<td><p>gso_segs</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_xmit_size_goal</p></td>
+</tr>
+<tr class="row-odd"><td><p>__be32</p></td>
+<td><p>pred_flags</p></td>
+<td><p>read_write</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_select_window(tx);tcp_rcv_established(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u64</p></td>
+<td><p>bytes_received</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rcv_nxt_update(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>segs_in</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_v6_rcv(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>data_segs_in</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_v6_rcv(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>rcv_nxt</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_cleanup_rbuf,tcp_send_ack,tcp_inq_hint,tcp_transmit_skb,tcp_receive_window(tx);tcp_v6_do_rcv,tcp_rcv_established,tcp_data_queue,tcp_receive_window,tcp_rcv_nxt_update(write)(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>copied_seq</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_cleanup_rbuf,tcp_rcv_space_adjust,tcp_inq_hint</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>rcv_wup</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>__tcp_cleanup_rbuf,tcp_receive_window,tcp_receive_established</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_nxt</p></td>
+<td><p>read_write</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rate_check_app_limited,__tcp_transmit_skb,tcp_event_new_data_sent(write)(tx);tcp_rcv_established,tcp_ack,tcp_clean_rtx_queue(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>segs_out</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>__tcp_transmit_skb</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>data_segs_out</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>__tcp_transmit_skb,tcp_update_skb_after_send</p></td>
+</tr>
+<tr class="row-odd"><td><p>u64</p></td>
+<td><p>bytes_sent</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>__tcp_transmit_skb</p></td>
+</tr>
+<tr class="row-even"><td><p>u64</p></td>
+<td><p>bytes_acked</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_snd_una_update/tcp_ack</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>dsack_dups</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_una</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_wnd_end,tcp_urg_mode,tcp_minshall_check,tcp_cwnd_validate(tx);tcp_ack,tcp_may_update_window,tcp_clean_rtx_queue(write),tcp_ack_tstamp(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_sml</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_minshall_check,tcp_minshall_update</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rcv_tstamp</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_ack</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>lsndtime</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_slow_start_after_idle_check,tcp_event_data_sent</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>last_oow_ack_time</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>compressed_ack_rcv_nxt</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>tsoffset</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_established_options(tx);tcp_fast_parse_options(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>struct list_head</p></td>
+<td><p>tsq_node</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>struct list_head</p></td>
+<td><p>tsorted_sent_queue</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_update_skb_after_send</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_wl1</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_may_update_window</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_wnd</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_wnd_end,tcp_tso_should_defer(tx);tcp_fast_path_on(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>max_window</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_bound_to_half_wnd,forced_push</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>mss_cache</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rate_check_app_limited,tcp_current_mss,tcp_sync_mss,tcp_sndbuf_expand,tcp_tso_should_defer(tx);tcp_update_pacing_rate,tcp_clean_rtx_queue(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>window_clamp</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rcv_space_adjust,__tcp_select_window</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rcv_ssthresh</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>__tcp_select_window</p></td>
+</tr>
+<tr class="row-odd"><td><p>u8</p></td>
+<td><p>scaling_ratio</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_win_from_space</p></td>
+</tr>
+<tr class="row-even"><td><p>struct</p></td>
+<td><p>tcp_rack</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u16</p></td>
+<td><p>advmss</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rcv_space_adjust</p></td>
+</tr>
+<tr class="row-even"><td><p>u8</p></td>
+<td><p>compressed_ack</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:2</p></td>
+<td><p>dup_ack_counter</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>tlp_retrans</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>tcp_usec_ts</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>chrono_start</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32[3]</p></td>
+<td><p>chrono_stat</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)</p></td>
+</tr>
+<tr class="row-even"><td><p>u8:2</p></td>
+<td><p>chrono_type</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_chrono_start/stop(tcp_write_xmit,tcp_cwnd_validate,tcp_send_syn_data)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>rate_app_limited</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rate_gen</p></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>fastopen_connect</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>fastopen_no_cookie</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>is_sack_reneg</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_skb_entail,tcp_ack</p></td>
+</tr>
+<tr class="row-odd"><td><p>u8:2</p></td>
+<td><p>fastopen_client_fail</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:4</p></td>
+<td><p>nonagle</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_skb_entail,tcp_push_pending_frames</p></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>thin_lto</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>recvmsg_inq</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>repair</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_write_xmit</p></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>frto</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8</p></td>
+<td><p>repair_queue</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:2</p></td>
+<td><p>save_syn</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>syn_data</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>syn_fastopen</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>syn_fastopen_exp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>syn_fastopen_ch</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>syn_data_acked</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8:1</p></td>
+<td><p>is_cwnd_limited</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_cwnd_validate,tcp_is_cwnd_limited</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>tlp_high_seq</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_ack</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>tcp_tx_delay</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u64</p></td>
+<td><p>tcp_wstamp_ns</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_pacing_check,tcp_tso_should_defer,tcp_update_skb_after_send</p></td>
+</tr>
+<tr class="row-even"><td><p>u64</p></td>
+<td><p>tcp_clock_cache</p></td>
+<td><p>read_write</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_mstamp_refresh(tcp_write_xmit/tcp_rcv_space_adjust),__tcp_transmit_skb,tcp_tso_should_defer;timer</p></td>
+</tr>
+<tr class="row-odd"><td><p>u64</p></td>
+<td><p>tcp_mstamp</p></td>
+<td><p>read_write</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_mstamp_refresh(tcp_write_xmit/tcp_rcv_space_adjust)(tx);tcp_rcv_space_adjust,tcp_rate_gen,tcp_clean_rtx_queue,tcp_ack_update_rtt/tcp_time_stamp(rx);timer</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>srtt_us</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_tso_should_defer(tx);tcp_update_pacing_rate,__tcp_set_rto,tcp_rtt_estimator(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>mdev_us</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_rtt_estimator</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>mdev_max_us</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>rttvar_us</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>__tcp_set_rto</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rtt_seq</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_rtt_estimator</p></td>
+</tr>
+<tr class="row-odd"><td><p>struct minmax</p></td>
+<td><p>rtt_min</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_min_rtt/tcp_rate_gen,tcp_min_rtttcp_update_rtt_min</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>packets_out</p></td>
+<td><p>read_write</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_packets_in_flight(tx/rx);tcp_slow_start_after_idle_check,tcp_nagle_check,tcp_rate_skb_sent,tcp_event_new_data_sent,tcp_cwnd_validate,tcp_write_xmit(tx);tcp_ack,tcp_clean_rtx_queue,tcp_update_pacing_rate(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>retrans_out</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_packets_in_flight,tcp_rate_check_app_limited</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>max_packets_out</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_cwnd_validate</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>cwnd_usage_seq</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_cwnd_validate</p></td>
+</tr>
+<tr class="row-even"><td><p>u16</p></td>
+<td><p>urg_data</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_fast_path_check</p></td>
+</tr>
+<tr class="row-odd"><td><p>u8</p></td>
+<td><p>ecn_flags</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_ecn_send</p></td>
+</tr>
+<tr class="row-even"><td><p>u8</p></td>
+<td><p>keepalive_probes</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>reordering</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_sndbuf_expand</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>reord_seen</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_up</p></td>
+<td><p>read_write</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_mark_urg,tcp_urg_mode,__tcp_transmit_skb(tx);tcp_clean_rtx_queue(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>struct tcp_options_received</p></td>
+<td><p>rx_opt</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_established_options(tx);tcp_fast_path_on,tcp_ack_update_window,tcp_is_sack,tcp_data_queue,tcp_rcv_established,tcp_ack_update_rtt(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_ssthresh</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_update_pacing_rate</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_cwnd</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_snd_cwnd,tcp_rate_check_app_limited,tcp_tso_should_defer(tx);tcp_update_pacing_rate</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_cwnd_cnt</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_cwnd_clamp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>snd_cwnd_used</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>snd_cwnd_stamp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>prior_cwnd</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>prr_delivered</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>prr_out</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rate_skb_sent,tcp_newly_delivered(tx);tcp_ack,tcp_rate_gen,tcp_clean_rtx_queue(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>delivered</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rate_skb_sent, tcp_newly_delivered(tx);tcp_ack, tcp_rate_gen, tcp_clean_rtx_queue (rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>delivered_ce</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rate_skb_sent(tx);tcp_rate_gen(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>lost</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_ack</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>app_limited</p></td>
+<td><p>read_write</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rate_check_app_limited,tcp_rate_skb_sent(tx);tcp_rate_gen(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>u64</p></td>
+<td><p>first_tx_mstamp</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_rate_skb_sent</p></td>
+</tr>
+<tr class="row-odd"><td><p>u64</p></td>
+<td><p>delivered_mstamp</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_rate_skb_sent</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rate_delivered</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_rate_gen</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>rate_interval_us</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>rate_delivered,rate_app_limited</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rcv_wnd</p></td>
+<td><p>read_write</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_select_window,tcp_receive_window,tcp_fast_path_check</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>write_seq</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_rate_check_app_limited,tcp_write_queue_empty,tcp_skb_entail,forced_push,tcp_mark_push</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>notsent_lowat</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_stream_memory_free</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>pushed_seq</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_mark_push,forced_push</p></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>lost_out</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_left_out(tx);tcp_packets_in_flight(tx/rx);tcp_rate_check_app_limited(rx)</p></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>sacked_out</p></td>
+<td><p>read_mostly</p></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_left_out(tx);tcp_packets_in_flight(tx/rx);tcp_clean_rtx_queue(rx)</p></td>
+</tr>
+<tr class="row-even"><td><p>struct hrtimer</p></td>
+<td><p>pacing_timer</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct hrtimer</p></td>
+<td><p>compressed_ack_timer</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../kapi.html#c.sk_buff" title="sk_buff"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span></code></a>*</p></td>
+<td><p>lost_skb_hint</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_clean_rtx_queue</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../kapi.html#c.sk_buff" title="sk_buff"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span></code></a>*</p></td>
+<td><p>retransmit_skb_hint</p></td>
+<td><p>read_mostly</p></td>
+<td></td>
+<td><p>tcp_clean_rtx_queue</p></td>
+</tr>
+<tr class="row-even"><td><p>struct rb_root</p></td>
+<td><p>out_of_order_queue</p></td>
+<td></td>
+<td><p>read_mostly</p></td>
+<td><p>tcp_data_queue,tcp_fast_path_check</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../kapi.html#c.sk_buff" title="sk_buff"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span></code></a>*</p></td>
+<td><p>ooo_last_skb</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>struct tcp_sack_block[1]</p></td>
+<td><p>duplicate_sack</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct tcp_sack_block[4]</p></td>
+<td><p>selective_acks</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>struct tcp_sack_block[4]</p></td>
+<td><p>recv_sack_cache</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../kapi.html#c.sk_buff" title="sk_buff"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span></code></a>*</p></td>
+<td><p>highest_sack</p></td>
+<td><p>read_write</p></td>
+<td></td>
+<td><p>tcp_event_new_data_sent</p></td>
+</tr>
+<tr class="row-even"><td><p>int</p></td>
+<td><p>lost_cnt_hint</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>prior_ssthresh</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>high_seq</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>retrans_stamp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>undo_marker</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>int</p></td>
+<td><p>undo_retrans</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u64</p></td>
+<td><p>bytes_retrans</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>total_retrans</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rto_stamp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u16</p></td>
+<td><p>total_rto</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u16</p></td>
+<td><p>total_rto_recoveries</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>total_rto_time</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>urg_seq</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>unsigned_int</p></td>
+<td><p>keepalive_time</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>unsigned_int</p></td>
+<td><p>keepalive_intvl</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>int</p></td>
+<td><p>linger2</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u8</p></td>
+<td><p>bpf_sock_ops_cb_flags</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u8:1</p></td>
+<td><p>bpf_chg_cc_inprogress</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u16</p></td>
+<td><p>timeout_rehash</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>rcv_ooopack</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>rcv_rtt_last_tsecr</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct</p></td>
+<td><p>rcv_rtt_est</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rcv_space_adjust,tcp_rcv_established</p></td>
+</tr>
+<tr class="row-even"><td><p>struct</p></td>
+<td><p>rcvq_space</p></td>
+<td></td>
+<td><p>read_write</p></td>
+<td><p>tcp_rcv_space_adjust</p></td>
+</tr>
+<tr class="row-odd"><td><p>struct</p></td>
+<td><p>mtu_probe</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>u32</p></td>
+<td><p>plb_rehash</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>u32</p></td>
+<td><p>mtu_info</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>bool</p></td>
+<td><p>is_mptcp</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>bool</p></td>
+<td><p>smc_hs_congested</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>bool</p></td>
+<td><p>syn_smc</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct tcp_sock_af_ops*</p></td>
+<td><p>af_specific</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>struct tcp_md5sig_info*</p></td>
+<td><p>md5sig_info</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct tcp_fastopen_request*</p></td>
+<td><p>fastopen_req</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>struct request_sock*</p></td>
+<td><p>fastopen_rsk</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>struct saved_syn*</p></td>
+<td><p>saved_syn</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 </section>
 
 
@@ -308,11 +1057,11 @@ struct_saved_syn*             saved_syn</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../../_sources/networking/net_cachelines/tcp_sock.rst.txt"

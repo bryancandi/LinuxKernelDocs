@@ -7,9 +7,9 @@
 
     <title>IOMMUFD &#8212; The Linux Kernel  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
-    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=3918102e" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=a152c8ac" />
     <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -18,23 +18,22 @@
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
-
   
-  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head><body>
   <div class="document">
     
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
             <p class="logo"><a href="../index.html">
-              <img class="logo" src="../_static/logo.svg" alt="Logo of The Linux Kernel"/>
+              <img class="logo" src="../_static/logo.svg" alt="Logo"/>
             </a></p>
 <h1 class="logo"><a href="../index.html">The Linux Kernel</a></h1>
 
 
 
-<p class="blurb">6.12.0</p>
+<p class="blurb">6.13.0</p>
 
 
 
@@ -42,7 +41,7 @@
 
 
 
-<search id="searchbox" style="display: none" role="search">
+<div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
@@ -50,7 +49,7 @@
       <input type="submit" value="Go" />
     </form>
     </div>
-</search>
+</div>
 <script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
 
 <p>
@@ -185,44 +184,129 @@ container it copies an IOVA map to a list of iommu_domains held within it.</p>
 </li>
 <li><p>IOMMUFD_OBJ_DEVICE, representing a device that is bound to iommufd by an
 external driver.</p></li>
-<li><p>IOMMUFD_OBJ_HW_PAGETABLE, representing an actual hardware I/O page table
-(i.e. a single struct iommu_domain) managed by the iommu driver.</p>
-<p>The IOAS has a list of HW_PAGETABLES that share the same IOVA mapping and
-it will synchronize its mapping with each member HW_PAGETABLE.</p>
+<li><p>IOMMUFD_OBJ_HWPT_PAGING, representing an actual hardware I/O page table
+(i.e. a single struct iommu_domain) managed by the iommu driver. “PAGING”
+primarly indicates this type of HWPT should be linked to an IOAS. It also
+indicates that it is backed by an iommu_domain with __IOMMU_DOMAIN_PAGING
+feature flag. This can be either an UNMANAGED stage-1 domain for a device
+running in the user space, or a nesting parent stage-2 domain for mappings
+from guest-level physical addresses to host-level physical addresses.</p>
+<p>The IOAS has a list of HWPT_PAGINGs that share the same IOVA mapping and
+it will synchronize its mapping with each member HWPT_PAGING.</p>
 </li>
+<li><p>IOMMUFD_OBJ_HWPT_NESTED, representing an actual hardware I/O page table
+(i.e. a single struct iommu_domain) managed by user space (e.g. guest OS).
+“NESTED” indicates that this type of HWPT should be linked to an HWPT_PAGING.
+It also indicates that it is backed by an iommu_domain that has a type of
+IOMMU_DOMAIN_NESTED. This must be a stage-1 domain for a device running in
+the user space (e.g. in a guest VM enabling the IOMMU nested translation
+feature.) As such, it must be created with a given nesting parent stage-2
+domain to associate to. This nested stage-1 page table managed by the user
+space usually has mappings from guest-level I/O virtual addresses to guest-
+level physical addresses.</p></li>
+<li><p>IOMMUFD_OBJ_VIOMMU, representing a slice of the physical IOMMU instance,
+passed to or shared with a VM. It may be some HW-accelerated virtualization
+features and some SW resources used by the VM. For examples:</p>
+<ul class="simple">
+<li><p>Security namespace for guest owned ID, e.g. guest-controlled cache tags</p></li>
+<li><p>Non-device-affiliated event reporting, e.g. invalidation queue errors</p></li>
+<li><p>Access to a sharable nesting parent pagetable across physical IOMMUs</p></li>
+<li><p>Virtualization of various platforms IDs, e.g. RIDs and others</p></li>
+<li><p>Delivery of paravirtualized invalidation</p></li>
+<li><p>Direct assigned invalidation queues</p></li>
+<li><p>Direct assigned interrupts</p></li>
+</ul>
+<p>Such a vIOMMU object generally has the access to a nesting parent pagetable
+to support some HW-accelerated virtualization features. So, a vIOMMU object
+must be created given a nesting parent HWPT_PAGING object, and then it would
+encapsulate that HWPT_PAGING object. Therefore, a vIOMMU object can be used
+to allocate an HWPT_NESTED object in place of the encapsulated HWPT_PAGING.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The name “vIOMMU” isn’t necessarily identical to a virtualized IOMMU in a
+VM. A VM can have one giant virtualized IOMMU running on a machine having
+multiple physical IOMMUs, in which case the VMM will dispatch the requests
+or configurations from this single virtualized IOMMU instance to multiple
+vIOMMU objects created for individual slices of different physical IOMMUs.
+In other words, a vIOMMU object is always a representation of one physical
+IOMMU, not necessarily of a virtualized IOMMU. For VMMs that want the full
+virtualization features from physical IOMMUs, it is suggested to build the
+same number of virtualized IOMMUs as the number of physical IOMMUs, so the
+passed-through devices would be connected to their own virtualized IOMMUs
+backed by corresponding vIOMMU objects, in which case a guest OS would do
+the “dispatch” naturally instead of VMM trappings.</p>
+</div>
+</li>
+<li><p>IOMMUFD_OBJ_VDEVICE, representing a virtual device for an IOMMUFD_OBJ_DEVICE
+against an IOMMUFD_OBJ_VIOMMU. This virtual device holds the device’s virtual
+information or attributes (related to the vIOMMU) in a VM. An immediate vDATA
+example can be the virtual ID of the device on a vIOMMU, which is a unique ID
+that VMM assigns to the device for a translation channel/port of the vIOMMU,
+e.g. vSID of ARM SMMUv3, vDeviceID of AMD IOMMU, and vRID of Intel VT-d to a
+Context Table. Potential use cases of some advanced security information can
+be forwarded via this object too, such as security level or realm information
+in a Confidential Compute Architecture. A VMM should create a vDEVICE object
+to forward all the device information in a VM, when it connects a device to a
+vIOMMU, which is a separate ioctl call from attaching the same device to an
+HWPT_PAGING that the vIOMMU holds.</p></li>
 </ul>
 <p>All user-visible objects are destroyed via the IOMMU_DESTROY uAPI.</p>
-<p>The diagram below shows relationship between user-visible objects and kernel
+<p>The diagrams below show relationships between user-visible objects and kernel
 datastructures (external to iommufd), with numbers referred to operations
 creating the objects and links:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> _________________________________________________________
-|                         iommufd                         |
-|       [1]                                               |
-|  _________________                                      |
-| |                 |                                     |
-| |                 |                                     |
-| |                 |                                     |
-| |                 |                                     |
-| |                 |                                     |
-| |                 |                                     |
-| |                 |        [3]                 [2]      |
-| |                 |    ____________         __________  |
-| |      IOAS       |&lt;--|            |&lt;------|          | |
-| |                 |   |HW_PAGETABLE|       |  DEVICE  | |
-| |                 |   |____________|       |__________| |
-| |                 |         |                   |       |
-| |                 |         |                   |       |
-| |                 |         |                   |       |
-| |                 |         |                   |       |
-| |                 |         |                   |       |
-| |_________________|         |                   |       |
-|         |                   |                   |       |
-|_________|___________________|___________________|_______|
-          |                   |                   |
-          |              _____v______      _______v_____
-          | PFN storage |            |    |             |
-          |------------&gt;|iommu_domain|    |struct device|
-                        |____________|    |_____________|
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> _______________________________________________________________________
+|                      iommufd (HWPT_PAGING only)                       |
+|                                                                       |
+|        [1]                  [3]                                [2]    |
+|  ________________      _____________                        ________  |
+| |                |    |             |                      |        | |
+| |      IOAS      |&lt;---| HWPT_PAGING |&lt;---------------------| DEVICE | |
+| |________________|    |_____________|                      |________| |
+|         |                    |                                  |     |
+|_________|____________________|__________________________________|_____|
+          |                    |                                  |
+          |              ______v_____                          ___v__
+          | PFN storage |  (paging)  |                        |struct|
+          |------------&gt;|iommu_domain|&lt;-----------------------|device|
+                        |____________|                        |______|
+
+ _______________________________________________________________________
+|                      iommufd (with HWPT_NESTED)                       |
+|                                                                       |
+|        [1]                  [3]                [4]             [2]    |
+|  ________________      _____________      _____________     ________  |
+| |                |    |             |    |             |   |        | |
+| |      IOAS      |&lt;---| HWPT_PAGING |&lt;---| HWPT_NESTED |&lt;--| DEVICE | |
+| |________________|    |_____________|    |_____________|   |________| |
+|         |                    |                  |               |     |
+|_________|____________________|__________________|_______________|_____|
+          |                    |                  |               |
+          |              ______v_____       ______v_____       ___v__
+          | PFN storage |  (paging)  |     |  (nested)  |     |struct|
+          |------------&gt;|iommu_domain|&lt;----|iommu_domain|&lt;----|device|
+                        |____________|     |____________|     |______|
+
+ _______________________________________________________________________
+|                      iommufd (with vIOMMU/vDEVICE)                    |
+|                                                                       |
+|                             [5]                [6]                    |
+|                        _____________      _____________               |
+|                       |             |    |             |              |
+|      |----------------|    vIOMMU   |&lt;---|   vDEVICE   |&lt;----|        |
+|      |                |             |    |_____________|     |        |
+|      |                |             |                        |        |
+|      |      [1]       |             |          [4]           | [2]    |
+|      |     ______     |             |     _____________     _|______  |
+|      |    |      |    |     [3]     |    |             |   |        | |
+|      |    | IOAS |&lt;---|(HWPT_PAGING)|&lt;---| HWPT_NESTED |&lt;--| DEVICE | |
+|      |    |______|    |_____________|    |_____________|   |________| |
+|      |        |              |                  |               |     |
+|______|________|______________|__________________|_______________|_____|
+       |        |              |                  |               |
+ ______v_____   |        ______v_____       ______v_____       ___v__
+|   struct   |  |  PFN  |  (paging)  |     |  (nested)  |     |struct|
+|iommu_device|  |------&gt;|iommu_domain|&lt;----|iommu_domain|&lt;----|device|
+|____________|   storage|____________|     |____________|     |______|
 </pre></div>
 </div>
 <ol class="arabic">
@@ -236,21 +320,62 @@ ioctls to allow userspace to initiate the binding operation. Successful
 completion of this operation establishes the desired DMA ownership over the
 device. The driver must also set the driver_managed_dma flag and must not
 touch the device until this operation succeeds.</p></li>
-<li><p>IOMMUFD_OBJ_HW_PAGETABLE is created when an external driver calls the IOMMUFD
-kAPI to attach a bound device to an IOAS. Similarly the external driver uAPI
-allows userspace to initiate the attaching operation. If a compatible
-pagetable already exists then it is reused for the attachment. Otherwise a
-new pagetable object and iommu_domain is created. Successful completion of
-this operation sets up the linkages among IOAS, device and iommu_domain. Once
-this completes the device could do DMA.</p>
-<p>Every iommu_domain inside the IOAS is also represented to userspace as a
-HW_PAGETABLE object.</p>
+<li><p>IOMMUFD_OBJ_HWPT_PAGING can be created in two ways:</p>
+<ul class="simple">
+<li><p>IOMMUFD_OBJ_HWPT_PAGING is automatically created when an external driver
+calls the IOMMUFD kAPI to attach a bound device to an IOAS. Similarly the
+external driver uAPI allows userspace to initiate the attaching operation.
+If a compatible member HWPT_PAGING object exists in the IOAS’s HWPT_PAGING
+list, then it will be reused. Otherwise a new HWPT_PAGING that represents
+an iommu_domain to userspace will be created, and then added to the list.
+Successful completion of this operation sets up the linkages among IOAS,
+device and iommu_domain. Once this completes the device could do DMA.</p></li>
+<li><p>IOMMUFD_OBJ_HWPT_PAGING can be manually created via the IOMMU_HWPT_ALLOC
+uAPI, provided an ioas_id via &#64;pt_id to associate the new HWPT_PAGING to
+the corresponding IOAS object. The benefit of this manual allocation is to
+allow allocation flags (defined in <a class="reference internal" href="#c.iommufd_hwpt_alloc_flags" title="iommufd_hwpt_alloc_flags"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">iommufd_hwpt_alloc_flags</span></code></a>), e.g. it
+allocates a nesting parent HWPT_PAGING if the IOMMU_HWPT_ALLOC_NEST_PARENT
+flag is set.</p></li>
+</ul>
+</li>
+<li><p>IOMMUFD_OBJ_HWPT_NESTED can be only manually created via the IOMMU_HWPT_ALLOC
+uAPI, provided an hwpt_id or a viommu_id of a vIOMMU object encapsulating a
+nesting parent HWPT_PAGING via &#64;pt_id to associate the new HWPT_NESTED object
+to the corresponding HWPT_PAGING object. The associating HWPT_PAGING object
+must be a nesting parent manually allocated via the same uAPI previously with
+an IOMMU_HWPT_ALLOC_NEST_PARENT flag, otherwise the allocation will fail. The
+allocation will be further validated by the IOMMU driver to ensure that the
+nesting parent domain and the nested domain being allocated are compatible.
+Successful completion of this operation sets up linkages among IOAS, device,
+and iommu_domains. Once this completes the device could do DMA via a 2-stage
+translation, a.k.a nested translation. Note that multiple HWPT_NESTED objects
+can be allocated by (and then associated to) the same nesting parent.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Future IOMMUFD updates will provide an API to create and manipulate the
-HW_PAGETABLE directly.</p>
+<p>Either a manual IOMMUFD_OBJ_HWPT_PAGING or an IOMMUFD_OBJ_HWPT_NESTED is
+created via the same IOMMU_HWPT_ALLOC uAPI. The difference is at the type
+of the object passed in via the &#64;pt_id field of struct iommufd_hwpt_alloc.</p>
 </div>
 </li>
+<li><p>IOMMUFD_OBJ_VIOMMU can be only manually created via the IOMMU_VIOMMU_ALLOC
+uAPI, provided a dev_id (for the device’s physical IOMMU to back the vIOMMU)
+and an hwpt_id (to associate the vIOMMU to a nesting parent HWPT_PAGING). The
+iommufd core will link the vIOMMU object to the struct iommu_device that the
+<a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> is behind. And an IOMMU driver can implement a viommu_alloc op
+to allocate its own vIOMMU data structure embedding the core-level structure
+iommufd_viommu and some driver-specific data. If necessary, the driver can
+also configure its HW virtualization feature for that vIOMMU (and thus for
+the VM). Successful completion of this operation sets up the linkages between
+the vIOMMU object and the HWPT_PAGING, then this vIOMMU object can be used
+as a nesting parent object to allocate an HWPT_NESTED object described above.</p></li>
+<li><p>IOMMUFD_OBJ_VDEVICE can be only manually created via the IOMMU_VDEVICE_ALLOC
+uAPI, provided a viommu_id for an iommufd_viommu object and a dev_id for an
+iommufd_device object. The vDEVICE object will be the binding between these
+two parent objects. Another &#64;virt_id will be also set via the uAPI providing
+the iommufd core an index to store the vDEVICE object to a vDEVICE array per
+vIOMMU. If necessary, the IOMMU driver may choose to implement a vdevce_alloc
+op to init its HW for virtualization feature related to a vDEVICE. Successful
+completion of this operation sets up the linkages between vIOMMU and device.</p></li>
 </ol>
 <p>A device can only bind to an iommufd due to DMA ownership claim and attach to at
 most one IOAS object (no support of PASID yet).</p>
@@ -261,7 +386,10 @@ most one IOAS object (no support of PASID yet).</p>
 <ul class="simple">
 <li><p>iommufd_ioas for IOMMUFD_OBJ_IOAS.</p></li>
 <li><p>iommufd_device for IOMMUFD_OBJ_DEVICE.</p></li>
-<li><p>iommufd_hw_pagetable for IOMMUFD_OBJ_HW_PAGETABLE.</p></li>
+<li><p>iommufd_hwpt_paging for IOMMUFD_OBJ_HWPT_PAGING.</p></li>
+<li><p>iommufd_hwpt_nested for IOMMUFD_OBJ_HWPT_NESTED.</p></li>
+<li><p>iommufd_viommu for IOMMUFD_OBJ_VIOMMU.</p></li>
+<li><p>iommufd_vdevice for IOMMUFD_OBJ_VDEVICE.</p></li>
 </ul>
 <p>Several terminologies when looking at these datastructures:</p>
 <ul class="simple">
@@ -568,6 +696,46 @@ iova.</p>
 <p>If IOMMU_IOAS_MAP_FIXED_IOVA is specified then the iova range must currently
 be unused, existing IOVA cannot be replaced.</p>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_ioas_map_file">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_ioas_map_file</span></span></span><a class="headerlink" href="#c.iommu_ioas_map_file" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ioctl(IOMMU_IOAS_MAP_FILE)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_ioas_map_file {
+    __u32 size;
+    __u32 flags;
+    __u32 ioas_id;
+    __s32 fd;
+    __aligned_u64 start;
+    __aligned_u64 length;
+    __aligned_u64 iova;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_ioas_map_file" title="iommu_ioas_map_file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_ioas_map_file</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>same as for iommu_ioas_map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ioas_id</span></code></dt><dd><p>same as for iommu_ioas_map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fd</span></code></dt><dd><p>the memfd to map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>byte offset from start of file to map from</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">length</span></code></dt><dd><p>same as for iommu_ioas_map</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">iova</span></code></dt><dd><p>same as for iommu_ioas_map</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Set an IOVA mapping from a memfd file.  All other arguments and semantics
+match those of IOMMU_IOAS_MAP.</p>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.iommu_ioas_copy">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_ioas_copy</span></span></span><a class="headerlink" href="#c.iommu_ioas_copy" title="Link to this definition">¶</a><br /></dt>
 <dd><p>ioctl(IOMMU_IOAS_COPY)</p>
@@ -657,7 +825,7 @@ everything.</p>
 <p><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_RLIMIT_MODE</span></code></p>
 <blockquote>
 <div><p>Change how RLIMIT_MEMLOCK accounting works. The caller must have privilege
-to invoke this. Value 0 (default) is user based accouting, 1 uses process
+to invoke this. Value 0 (default) is user based accounting, 1 uses process
 based accounting. Global option, object_id must be 0</p>
 </div></blockquote>
 <p><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_HUGE_PAGES</span></code></p>
@@ -792,6 +960,14 @@ enforced on device attachment</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_FAULT_ID_VALID</span></code></dt><dd><p>The fault_id field of hwpt allocation data is
 valid.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_ALLOC_PASID</span></code></dt><dd><p>Requests a domain that can be used with PASID. The
+domain can be attached to any PASID on the device.
+Any domain attached to the non-PASID part of the
+device must also be flagged, otherwise attaching a
+PASID will blocked.
+If IOMMU does not support PASID it will return
+error (-EOPNOTSUPP).</p>
+</dd>
 </dl>
 </div>
 <dl class="c enum">
@@ -839,6 +1015,35 @@ valid.</p>
 </dd>
 </dl>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_hwpt_arm_smmuv3">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_hwpt_arm_smmuv3</span></span></span><a class="headerlink" href="#c.iommu_hwpt_arm_smmuv3" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ARM SMMUv3 nested STE (IOMMU_HWPT_DATA_ARM_SMMUV3)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_hwpt_arm_smmuv3 {
+    __aligned_le64 ste[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ste</span></code></dt><dd><p>The first two double words of the user space Stream Table Entry for
+the translation. Must be little-endian.
+Allowed fields: (Refer to “5.2 Stream Table Entry” in SMMUv3 HW Spec)
+- word-0: V, Cfg, S1Fmt, S1ContextPtr, S1CDMax
+- word-1: EATS, S1DSS, S1CIR, S1COR, S1CSH, S1STALLD</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>-EIO will be returned if <strong>ste</strong> is not legal or contains any non-allowed field.
+Cfg can be used to select a S1, Bypass or Abort configuration. A Bypass
+nested domain will translate the same as the nesting parent. The S1 will
+install a Context Descriptor Table pointing at userspace memory translated
+by the nesting parent.</p>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.iommu_hwpt_data_type">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_hwpt_data_type</span></span></span><a class="headerlink" href="#c.iommu_hwpt_data_type" title="Link to this definition">¶</a><br /></dt>
@@ -851,6 +1056,8 @@ valid.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_DATA_NONE</span></code></dt><dd><p>no data</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_DATA_VTD_S1</span></code></dt><dd><p>Intel VT-d stage-1 page table</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_DATA_ARM_SMMUV3</span></code></dt><dd><p>ARM SMMUv3 Context Descriptor Table</p>
 </dd>
 </dl>
 </div>
@@ -885,7 +1092,7 @@ valid.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev_id</span></code></dt><dd><p>The device to allocate this HWPT for</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pt_id</span></code></dt><dd><p>The IOAS or HWPT to connect this HWPT to</p>
+<dt><code class="docutils literal notranslate"><span class="pre">pt_id</span></code></dt><dd><p>The IOAS or HWPT or vIOMMU to connect this HWPT to</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">out_hwpt_id</span></code></dt><dd><p>The ID of the new HWPT</p>
 </dd>
@@ -912,11 +1119,13 @@ underlying iommu driver’s iommu_domain kernel object.</p>
 IOAS via the <strong>pt_id</strong>. The <strong>data_type</strong> for this allocation must be set to
 IOMMU_HWPT_DATA_NONE. The HWPT can be allocated as a parent HWPT for a
 nesting configuration by passing IOMMU_HWPT_ALLOC_NEST_PARENT via <strong>flags</strong>.</p>
-<p>A user-managed nested HWPT will be created from a given parent HWPT via
-<strong>pt_id</strong>, in which the parent HWPT must be allocated previously via the
-same ioctl from a given IOAS (<strong>pt_id</strong>). In this case, the <strong>data_type</strong>
-must be set to a pre-defined type corresponding to an I/O page table
-type supported by the underlying IOMMU hardware.</p>
+<p>A user-managed nested HWPT will be created from a given vIOMMU (wrapping a
+parent HWPT) or a parent HWPT via <strong>pt_id</strong>, in which the parent HWPT must be
+allocated previously via the same ioctl from a given IOAS (<strong>pt_id</strong>). In this
+case, the <strong>data_type</strong> must be set to a pre-defined type corresponding to an
+I/O page table type supported by the underlying IOMMU hardware. The device
+via <strong>dev_id</strong> and the vIOMMU via <strong>pt_id</strong> must be associated to the same IOMMU
+instance.</p>
 <p>If the <strong>data_type</strong> is set to IOMMU_HWPT_DATA_NONE, <strong>data_len</strong> and
 <strong>data_uptr</strong> should be zero. Otherwise, both <strong>data_len</strong> and <strong>data_uptr</strong>
 must be given.</p>
@@ -968,6 +1177,59 @@ section 11.4.3 Extended Capability Register.</p>
 <p><strong>Description</strong></p>
 <p>User needs to understand the Intel VT-d specification to decode the
 register value.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_hw_info_arm_smmuv3">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_hw_info_arm_smmuv3</span></span></span><a class="headerlink" href="#c.iommu_hw_info_arm_smmuv3" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ARM SMMUv3 hardware information (IOMMU_HW_INFO_TYPE_ARM_SMMUV3)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_hw_info_arm_smmuv3 {
+    __u32 flags;
+    __u32 __reserved;
+    __u32 idr[6];
+    __u32 iidr;
+    __u32 aidr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Must be set to 0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__reserved</span></code></dt><dd><p>Must be 0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">idr</span></code></dt><dd><p>Implemented features for ARM SMMU Non-secure programming interface</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">iidr</span></code></dt><dd><p>Information about the implementation and implementer of ARM SMMU,
+and architecture version supported</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">aidr</span></code></dt><dd><p>ARM SMMU architecture version</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>For the details of <strong>idr</strong>, <strong>iidr</strong> and <strong>aidr</strong>, please refer to the chapters
+from 6.3.1 to 6.3.6 in the SMMUv3 Spec.</p>
+<p>This reports the raw HW capability, and not all bits are meaningful to be
+read by userspace. Only the following fields should be used:</p>
+<p>idr[0]: ST_LEVEL, TERM_MODEL, STALL_MODEL, TTENDIAN , CD2L, ASID16, TTF
+idr[1]: SIDSIZE, SSIDSIZE
+idr[3]: BBML, RIL
+idr[5]: VAX, GRAN64K, GRAN16K, GRAN4K</p>
+<ul class="simple">
+<li><p>S1P should be assumed to be true if a NESTED HWPT can be created</p></li>
+<li><p>VFIO/iommufd only support platforms with COHACC, it should be assumed to be
+true.</p></li>
+<li><p>ATS is a per-device property. If the VMM describes any devices as ATS
+capable in ACPI/DT it should set the corresponding idr.</p></li>
+</ul>
+<p>This list may expand in future (eg E0PD, AIE, PBHA, D128, DS etc). It is
+important that VMMs do not read bits outside the list to allow for
+compatibility with future kernels. Several features in the SMMUv3
+architecture are not currently supported by the kernel for nesting: HTTU,
+BTM, MPAM and others.</p>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.iommu_hw_info_type">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_hw_info_type</span></span></span><a class="headerlink" href="#c.iommu_hw_info_type" title="Link to this definition">¶</a><br /></dt>
@@ -981,6 +1243,8 @@ register value.</p>
 info</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HW_INFO_TYPE_INTEL_VTD</span></code></dt><dd><p>Intel VT-d iommu info type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HW_INFO_TYPE_ARM_SMMUV3</span></code></dt><dd><p>ARM SMMUv3 iommu info type</p>
 </dd>
 </dl>
 </div>
@@ -1166,6 +1430,8 @@ dirty bit metadata set in the IOPTE.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HWPT_INVALIDATE_DATA_VTD_S1</span></code></dt><dd><p>Invalidation data for VTD_S1</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VIOMMU_INVALIDATE_DATA_ARM_SMMUV3</span></code></dt><dd><p>Invalidation data for ARM SMMUv3</p>
+</dd>
 </dl>
 </div>
 <dl class="c enum">
@@ -1220,6 +1486,39 @@ tell the impacted cache scope after modifying the stage-1 page table.</p>
 to be 0 and <strong>npages</strong> to be U64_MAX.</p>
 <p>The device TLB will be invalidated automatically if ATS is enabled.</p>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_viommu_arm_smmuv3_invalidate">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_viommu_arm_smmuv3_invalidate</span></span></span><a class="headerlink" href="#c.iommu_viommu_arm_smmuv3_invalidate" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ARM SMMUv3 cache invalidation (IOMMU_VIOMMU_INVALIDATE_DATA_ARM_SMMUV3)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_viommu_arm_smmuv3_invalidate {
+    __aligned_le64 cmd[2];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">cmd</span></code></dt><dd><p>128-bit cache invalidation command that runs in SMMU CMDQ.
+Must be little-endian.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<dl class="simple">
+<dt>Supported command list only when passing in a vIOMMU via <strong>hwpt_id</strong>:</dt><dd><p>CMDQ_OP_TLBI_NSNH_ALL
+CMDQ_OP_TLBI_NH_VA
+CMDQ_OP_TLBI_NH_VAA
+CMDQ_OP_TLBI_NH_ALL
+CMDQ_OP_TLBI_NH_ASID
+CMDQ_OP_ATC_INV
+CMDQ_OP_CFGI_CD
+CMDQ_OP_CFGI_CD_ALL</p>
+</dd>
+</dl>
+<p>-EIO will be returned if the command is not supported.</p>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.iommu_hwpt_invalidate">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_hwpt_invalidate</span></span></span><a class="headerlink" href="#c.iommu_hwpt_invalidate" title="Link to this definition">¶</a><br /></dt>
 <dd><p>ioctl(IOMMU_HWPT_INVALIDATE)</p>
@@ -1242,7 +1541,7 @@ to be 0 and <strong>npages</strong> to be U64_MAX.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_hwpt_invalidate" title="iommu_hwpt_invalidate"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_hwpt_invalidate</span></code></a>)</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hwpt_id</span></code></dt><dd><p>ID of a nested HWPT for cache invalidation</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hwpt_id</span></code></dt><dd><p>ID of a nested HWPT or a vIOMMU, for cache invalidation</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">data_uptr</span></code></dt><dd><p>User pointer to an array of driver-specific cache invalidation
 data.</p>
@@ -1261,9 +1560,11 @@ Output the number of requests successfully handled by kernel.</p>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>Invalidate the iommu cache for user-managed page table. Modifications on a
-user-managed page table should be followed by this operation to sync cache.
-Each ioctl can support one or more cache invalidation requests in the array
+<p>Invalidate iommu cache for user-managed page table or vIOMMU. Modifications
+on a user-managed page table should be followed by this operation, if a HWPT
+is passed in via <strong>hwpt_id</strong>. Other caches, such as device cache or descriptor
+cache can be flushed if a vIOMMU is passed in via the <strong>hwpt_id</strong> field.</p>
+<p>Each ioctl can support one or more cache invalidation requests in the array
 that has a total size of <strong>entry_len</strong> * <strong>entry_num</strong>.</p>
 <p>An empty invalidation request array by setting <strong>entry_num**==0 is allowed, and
 **entry_len</strong> and <strong>data_uptr</strong> would be ignored in this case. This can be used to
@@ -1422,6 +1723,131 @@ access. This is the “Invalid Request” in PCI
 </div>
 <p><strong>Description</strong></p>
 <p>Explicitly allocate a fault handling object.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.iommu_viommu_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_viommu_type</span></span></span><a class="headerlink" href="#c.iommu_viommu_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Virtual IOMMU Type</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VIOMMU_TYPE_DEFAULT</span></code></dt><dd><p>Reserved for future use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VIOMMU_TYPE_ARM_SMMUV3</span></code></dt><dd><p>ARM SMMUv3 driver specific type</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_viommu_alloc">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_viommu_alloc</span></span></span><a class="headerlink" href="#c.iommu_viommu_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ioctl(IOMMU_VIOMMU_ALLOC)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_viommu_alloc {
+    __u32 size;
+    __u32 flags;
+    __u32 type;
+    __u32 dev_id;
+    __u32 hwpt_id;
+    __u32 out_viommu_id;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_viommu_alloc" title="iommu_viommu_alloc"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_viommu_alloc</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Must be 0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of the virtual IOMMU. Must be defined in <a class="reference internal" href="#c.iommu_viommu_type" title="iommu_viommu_type"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">iommu_viommu_type</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_id</span></code></dt><dd><p>The device’s physical IOMMU will be used to back the virtual IOMMU</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hwpt_id</span></code></dt><dd><p>ID of a nesting parent HWPT to associate to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_viommu_id</span></code></dt><dd><p>Output virtual IOMMU ID for the allocated object</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Allocate a virtual IOMMU object, representing the underlying physical IOMMU’s
+virtualization support that is a security-isolated slice of the real IOMMU HW
+that is unique to a specific VM. Operations global to the IOMMU are connected
+to the vIOMMU, such as:
+- Security namespace for guest owned ID, e.g. guest-controlled cache tags
+- Non-device-affiliated event reporting, e.g. invalidation queue errors
+- Access to a sharable nesting parent pagetable across physical IOMMUs
+- Virtualization of various platforms IDs, e.g. RIDs and others
+- Delivery of paravirtualized invalidation
+- Direct assigned invalidation queues
+- Direct assigned interrupts</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_vdevice_alloc">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_vdevice_alloc</span></span></span><a class="headerlink" href="#c.iommu_vdevice_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ioctl(IOMMU_VDEVICE_ALLOC)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_vdevice_alloc {
+    __u32 size;
+    __u32 viommu_id;
+    __u32 dev_id;
+    __u32 out_vdevice_id;
+    __aligned_u64 virt_id;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_vdevice_alloc" title="iommu_vdevice_alloc"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_vdevice_alloc</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">viommu_id</span></code></dt><dd><p>vIOMMU ID to associate with the virtual device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev_id</span></code></dt><dd><p>The physical device to allocate a virtual instance on the vIOMMU</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_vdevice_id</span></code></dt><dd><p>Object handle for the vDevice. Pass to IOMMU_DESTORY</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">virt_id</span></code></dt><dd><p>Virtual device ID per vIOMMU, e.g. vSID of ARM SMMUv3, vDeviceID
+of AMD IOMMU, and vRID of a nested Intel VT-d to a Context Table</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Allocate a virtual device instance (for a physical device) against a vIOMMU.
+This instance holds the device’s information (related to its vIOMMU) in a VM.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_ioas_change_process">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_ioas_change_process</span></span></span><a class="headerlink" href="#c.iommu_ioas_change_process" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ioctl(VFIO_IOAS_CHANGE_PROCESS)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_ioas_change_process {
+    __u32 size;
+    __u32 __reserved;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_ioas_change_process" title="iommu_ioas_change_process"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_ioas_change_process</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__reserved</span></code></dt><dd><p>Must be 0</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This transfers pinned memory counts for every memory map in every IOAS
+in the context to the current process.  This only supports maps created
+with IOMMU_IOAS_MAP_FILE, and returns EINVAL if other maps are present.
+If the ioctl returns a failure status, then nothing is changed.</p>
+<p>This API is useful for transferring operation of a device from one process
+to another, such as during userland live update.</p>
 </section>
 <section id="iommufd-kernel-api">
 <h2>IOMMUFD Kernel API<a class="headerlink" href="#iommufd-kernel-api" title="Link to this heading">¶</a></h2>
@@ -1769,11 +2195,11 @@ type1. New features on the radar include:</p>
     <div class="clearer"></div>
   </div>
     <div class="footer">
-      &#169;The kernel development community.
+      &copy;The kernel development community.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
       <a href="../_sources/userspace-api/iommufd.rst.txt"
