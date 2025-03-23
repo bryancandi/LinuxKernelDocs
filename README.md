@@ -5,4 +5,4 @@ The documentation is compiled using the latest mainline kernel source. This will
 \
 https://www.kernel.org \
 https://www.kernel.org/category/releases.html \
-https://play.google.com/store/apps/details?id=com.bryancandi.linux.kernel.docs \
+https://play.google.com/store/apps/details?id=com.bryancandi.linux.kernel.docs
