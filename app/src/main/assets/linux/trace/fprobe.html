@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -86,6 +86,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-usage-of-fprobe">The usage of fprobe</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-fprobe-entry-exit-handler">The fprobe entry/exit handler</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#entry-data-size-and-exit-handlers-on-the-same-function">Entry data size and exit handlers on the same function</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#share-the-callbacks-with-kprobes">Share the callbacks with kprobes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#the-missed-counter">The missed counter</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#functions-and-structures">Functions and structures</a></li>
@@ -177,9 +178,10 @@
 <h1>Fprobe - Function entry/exit probe<a class="headerlink" href="#fprobe-function-entry-exit-probe" title="Link to this heading">¶</a></h1>
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
-<p>Fprobe is a function entry/exit probe mechanism based on ftrace.
-Instead of using ftrace full feature, if you only want to attach callbacks
-on function entry and exit, similar to the kprobes and kretprobes, you can
+<p>Fprobe is a function entry/exit probe based on the function-graph tracing
+feature in ftrace.
+Instead of tracing all functions, if you want to attach callbacks on specific
+function entry and exit, similar to the kprobes and kretprobes, you can
 use fprobe. Compared with kprobes and kretprobes, fprobe gives faster
 instrumentation for multiple functions with single handler. This document
 describes how to use fprobe.</p>
@@ -245,13 +247,15 @@ returns as same as unregister_ftrace_function().</p>
 <section id="the-fprobe-entry-exit-handler">
 <h2>The fprobe entry/exit handler<a class="headerlink" href="#the-fprobe-entry-exit-handler" title="Link to this heading">¶</a></h2>
 <p>The prototype of the entry/exit callback function are as follows:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">entry_callback</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">fprobe</span><span class="w"> </span><span class="o">*</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">entry_ip</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret_ip</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">pt_regs</span><span class="w"> </span><span class="o">*</span><span class="n">regs</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">entry_data</span><span class="p">);</span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">entry_callback</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">fprobe</span><span class="w"> </span><span class="o">*</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">entry_ip</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret_ip</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ftrace_regs</span><span class="w"> </span><span class="o">*</span><span class="n">fregs</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">entry_data</span><span class="p">);</span>
 
-<span class="kt">void</span><span class="w"> </span><span class="nf">exit_callback</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">fprobe</span><span class="w"> </span><span class="o">*</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">entry_ip</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret_ip</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">pt_regs</span><span class="w"> </span><span class="o">*</span><span class="n">regs</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">entry_data</span><span class="p">);</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">exit_callback</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">fprobe</span><span class="w"> </span><span class="o">*</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">entry_ip</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">ret_ip</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ftrace_regs</span><span class="w"> </span><span class="o">*</span><span class="n">fregs</span><span class="p">,</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">entry_data</span><span class="p">);</span>
 </pre></div>
 </div>
-<p>Note that the &#64;entry_ip is saved at function entry and passed to exit handler.
-If the entry callback function returns !0, the corresponding exit callback will be cancelled.</p>
+<p>Note that the &#64;entry_ip is saved at function entry and passed to exit
+handler.
+If the entry callback function returns !0, the corresponding exit callback
+will be cancelled.</p>
 <dl class="simple">
 <dt>&#64;fp</dt><dd><p>This is the address of <cite>fprobe</cite> data structure related to this handler.
 You can embed the <cite>fprobe</cite> to your data structure and get it by
@@ -264,11 +268,9 @@ the address where the ftrace is instrumented.</p>
 <dt>&#64;ret_ip</dt><dd><p>This is the return address that the traced function will return to,
 somewhere in the caller. This can be used at both entry and exit.</p>
 </dd>
-<dt>&#64;regs</dt><dd><p>This is the <cite>pt_regs</cite> data structure at the entry and exit. Note that
-the instruction pointer of &#64;regs may be different from the &#64;entry_ip
-in the entry_handler. If you need traced instruction pointer, you need
-to use &#64;entry_ip. On the other hand, in the exit_handler, the instruction
-pointer of &#64;regs is set to the current return address.</p>
+<dt>&#64;fregs</dt><dd><p>This is the <cite>ftrace_regs</cite> data structure at the entry and exit. This
+includes the function parameters, or the return values. So user can
+access thos values via appropriate <cite>ftrace_regs_*</cite> APIs.</p>
 </dd>
 <dt>&#64;entry_data</dt><dd><p>This is a local storage to share the data between entry and exit handlers.
 This storage is NULL by default. If the user specify <cite>exit_handler</cite> field
@@ -276,6 +278,16 @@ and <cite>entry_data_size</cite> field when registering the fprobe, the storage 
 allocated and passed to both <cite>entry_handler</cite> and <cite>exit_handler</cite>.</p>
 </dd>
 </dl>
+</section>
+<section id="entry-data-size-and-exit-handlers-on-the-same-function">
+<h2>Entry data size and exit handlers on the same function<a class="headerlink" href="#entry-data-size-and-exit-handlers-on-the-same-function" title="Link to this heading">¶</a></h2>
+<p>Since the entry data is passed via per-task stack and it has limited size,
+the entry data size per probe is limited to <cite>15 * sizeof(long)</cite>. You also need
+to take care that the different fprobes are probing on the same function, this
+limit becomes smaller. The entry data size is aligned to <cite>sizeof(long)</cite> and
+each fprobe which has exit handler uses a <cite>sizeof(long)</cite> space on the stack,
+you should keep the number of fprobes on the same function as small as
+possible.</p>
 </section>
 <section id="share-the-callbacks-with-kprobes">
 <h2>Share the callbacks with kprobes<a class="headerlink" href="#share-the-callbacks-with-kprobes" title="Link to this heading">¶</a></h2>
@@ -310,8 +322,8 @@ This counter counts up when;</p>
 <div><ul class="simple">
 <li><p>fprobe fails to take ftrace_recursion lock. This usually means that a function
 which is traced by other ftrace users is called from the entry_handler.</p></li>
-<li><p>fprobe fails to setup the function exit because of the shortage of rethook
-(the shadow stack for hooking the function return.)</p></li>
+<li><p>fprobe fails to setup the function exit because of failing to allocate the
+data buffer from the per-task shadow stack.</p></li>
 </ul>
 </div></blockquote>
 <p>The <cite>fprobe::nmissed</cite> field counts up in both cases. Therefore, the former
@@ -325,6 +337,62 @@ increase the counter.</p>
 <section id="functions-and-structures">
 <h2>Functions and structures<a class="headerlink" href="#functions-and-structures" title="Link to this heading">¶</a></h2>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.fprobe_hlist_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fprobe_hlist_node</span></span></span><a class="headerlink" href="#c.fprobe_hlist_node" title="Link to this definition">¶</a><br /></dt>
+<dd><p>address based hash list node for fprobe.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fprobe_hlist_node {
+    struct hlist_node       hlist;
+    unsigned long           addr;
+    struct fprobe           *fp;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">hlist</span></code></dt><dd><p>The hlist node for address search hash table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>One of the probing address of <strong>fp</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fp</span></code></dt><dd><p>The fprobe which owns this.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.fprobe_hlist">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fprobe_hlist</span></span></span><a class="headerlink" href="#c.fprobe_hlist" title="Link to this definition">¶</a><br /></dt>
+<dd><p>hash list nodes for fprobe.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fprobe_hlist {
+    struct hlist_node               hlist;
+    struct rcu_head                 rcu;
+    struct fprobe                   *fp;
+    int size;
+    struct fprobe_hlist_node        array[] ;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">hlist</span></code></dt><dd><p>The hlist node for existence checking hash table.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rcu</span></code></dt><dd><p>rcu_head for RCU deferred release.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fp</span></code></dt><dd><p>The fprobe which owns this fprobe_hlist.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>The size of <strong>array</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">array</span></code></dt><dd><p>The fprobe_hlist_node for each address to probe.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.fprobe">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fprobe</span></span></span><a class="headerlink" href="#c.fprobe" title="Link to this definition">¶</a><br /></dt>
 <dd><p>ftrace based probe.</p>
@@ -333,36 +401,28 @@ increase the counter.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fprobe {
-#ifdef CONFIG_FUNCTION_TRACER;
-    struct ftrace_ops       ops;
-#endif;
     unsigned long           nmissed;
     unsigned int            flags;
-    struct rethook          *rethook;
     size_t entry_data_size;
-    int nr_maxactive;
     fprobe_entry_cb entry_handler;
     fprobe_exit_cb exit_handler;
+    struct fprobe_hlist     *hlist_array;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p>The ftrace_ops.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">nmissed</span></code></dt><dd><p>The counter for missing events.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>The status flag.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rethook</span></code></dt><dd><p>The rethook data structure. (internal data)</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">entry_data_size</span></code></dt><dd><p>The private data storage size.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">nr_maxactive</span></code></dt><dd><p>The max number of active functions.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">entry_handler</span></code></dt><dd><p>The callback function for function entry.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">exit_handler</span></code></dt><dd><p>The callback function for function exit.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hlist_array</span></code></dt><dd><p>The fprobe_hlist for fprobe search from IP hash table.</p>
 </dd>
 </dl>
 </div>
@@ -429,7 +489,7 @@ If <strong>notfilter</strong> is not NULL, the symbols matched the <strong>notfi
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fprobe</span> <span class="pre">*fp</span></code></dt><dd><p>A fprobe data structure to be registered.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*addrs</span></code></dt><dd><p>An array of target ftrace location addresses.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*addrs</span></code></dt><dd><p>An array of target function address.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">num</span></code></dt><dd><p>The number of entries of <strong>addrs</strong>.</p>
 </dd>
@@ -465,7 +525,7 @@ you are sure the symbols exist in the kernel.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.unregister_fprobe">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">unregister_fprobe</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.fprobe" title="fprobe"><span class="n"><span class="pre">fprobe</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.unregister_fprobe" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Unregister fprobe from ftrace</p>
+<dd><p>Unregister fprobe.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">

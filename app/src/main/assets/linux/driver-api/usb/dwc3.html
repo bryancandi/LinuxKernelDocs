@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -856,6 +856,7 @@ operations, both of which can be traced. Format is:</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct dwc3_ep {
     struct usb_ep           endpoint;
+    struct delayed_work     nostream_work;
     struct list_head        cancelled_list;
     struct list_head        pending_list;
     struct list_head        started_list;
@@ -875,7 +876,7 @@ operations, both of which can be traced. Format is:</p>
 #define DWC3_EP_WAIT_TRANSFER_COMPLETE  BIT(7);
 #define DWC3_EP_IGNORE_NEXT_NOSTREAM    BIT(8);
 #define DWC3_EP_FORCE_RESTART_STREAM    BIT(9);
-#define DWC3_EP_FIRST_STREAM_PRIMED     BIT(10);
+#define DWC3_EP_STREAM_PRIMED           BIT(10);
 #define DWC3_EP_PENDING_CLEAR_STALL     BIT(11);
 #define DWC3_EP_TXFIFO_RESIZED          BIT(12);
 #define DWC3_EP_DELAY_STOP             BIT(13);
@@ -899,6 +900,8 @@ operations, both of which can be traced. Format is:</p>
 <p><strong>Members</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">endpoint</span></code></dt><dd><p>usb endpoint</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nostream_work</span></code></dt><dd><p>work for handling bulk NoStream</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cancelled_list</span></code></dt><dd><p>list of cancelled requests for this endpoint</p>
 </dd>
@@ -1032,7 +1035,6 @@ combo_num = ‘b00</p>
     struct usb_request      request;
     struct list_head        list;
     struct dwc3_ep          *dep;
-    struct scatterlist      *sg;
     struct scatterlist      *start_sg;
     unsigned int            num_pending_sgs;
     unsigned int            remaining;

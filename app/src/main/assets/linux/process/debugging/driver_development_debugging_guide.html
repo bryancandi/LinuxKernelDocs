@@ -13,7 +13,7 @@
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Userspace debugging advice" href="userspace_debugging_guide.html" />
+    <link rel="next" title="Debugging kernel and modules via gdb" href="gdb-kernel-debugging.html" />
     <link rel="prev" title="Debugging advice for Linux Kernel developers" href="index.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -182,7 +182,11 @@ For general debugging advice, see the <a class="reference internal" href="index.
 <li><p><a class="reference internal" href="#psi-pressure-stall-information-tracking" id="id14">PSI (Pressure stall information tracking)</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#device-coredump" id="id15">device coredump</a></p></li>
+<li><p><a class="reference internal" href="#device-coredump" id="id15">device coredump</a></p>
+<ul>
+<li><p><a class="reference internal" href="#devcoredump-interfaces" id="id16">devcoredump interfaces</a></p></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -342,16 +346,190 @@ resources, that can cause performance disruptions or even OOM kills.</p>
 </section>
 <section id="device-coredump">
 <h2><a class="toc-backref" href="#id15" role="doc-backlink">device coredump</a><a class="headerlink" href="#device-coredump" title="Link to this heading">¶</a></h2>
-<p>Prerequisite: <code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;linux/devcoredump.h&gt;</span></code></p>
+<p>Prerequisite: <code class="docutils literal notranslate"><span class="pre">CONFIG_DEV_COREDUMP</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;linux/devcoredump.h&gt;</span></code></p>
 <p>Provides the infrastructure for a driver to provide arbitrary data to userland.
 It is most often used in conjunction with udev or similar userland application
 to listen for kernel uevents, which indicate that the dump is ready. Udev has
 rules to copy that file somewhere for long-term storage and analysis, as by
-default, the data for the dump is automatically cleaned up after 5 minutes.
-That data is analyzed with driver-specific tools or GDB.</p>
+default, the data for the dump is automatically cleaned up after a default
+5 minutes. That data is analyzed with driver-specific tools or GDB.</p>
+<p>A device coredump can be created with a vmalloc area, with read/free
+methods, or as a scatter/gather list.</p>
 <p>You can find an example implementation at:
-<a class="reference external" href="https://elixir.bootlin.com/linux/v6.11.6/source/drivers/media/platform/qcom/venus/core.c#L30">drivers/media/platform/qcom/venus/core.c</a></p>
+<a class="reference external" href="https://elixir.bootlin.com/linux/v6.11.6/source/drivers/media/platform/qcom/venus/core.c#L30">drivers/media/platform/qcom/venus/core.c</a>,
+in the Bluetooth HCI layer, in several wireless drivers, and in several
+DRM drivers.</p>
+<section id="devcoredump-interfaces">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">devcoredump interfaces</a><a class="headerlink" href="#devcoredump-interfaces" title="Link to this heading">¶</a></h3>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dev_coredumpm">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_coredumpm</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">module</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">owner</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">read</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">free</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_coredumpm" title="Link to this definition">¶</a><br /></dt>
+<dd><p>create device coredump with read/free methods</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the <a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for the crashed device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">module</span> <span class="pre">*owner</span></code></dt><dd><p>the module that contains the read/free functions, use <code class="docutils literal notranslate"><span class="pre">THIS_MODULE</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>data cookie for the <strong>read</strong>/<strong>free</strong> functions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">datalen</span></code></dt><dd><p>length of the data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>allocation flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ssize_t</span> <span class="pre">(*read)(char</span> <span class="pre">*buffer,</span> <span class="pre">loff_t</span> <span class="pre">offset,</span> <span class="pre">size_t</span> <span class="pre">count,</span> <span class="pre">void</span> <span class="pre">*data,</span> <span class="pre">size_t</span> <span class="pre">datalen)</span></code></dt><dd><p>function to read from the given buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*free)(void</span> <span class="pre">*data)</span></code></dt><dd><p>function to free the given buffer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a new device coredump for the given device. If a previous one hasn’t
+been read yet, the new coredump is discarded. The data lifetime is determined
+by the device coredump framework and when it is no longer needed the <strong>free</strong>
+function will be called to free the data.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dev_coredumpv">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_coredumpv</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_coredumpv" title="Link to this definition">¶</a><br /></dt>
+<dd><p>create device coredump with vmalloc data</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the <a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for the crashed device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>vmalloc data containing the device coredump</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">datalen</span></code></dt><dd><p>length of the data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>allocation flags</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function takes ownership of the vmalloc’ed data and will free
+it when it is no longer used. See <a class="reference internal" href="#c.dev_coredumpm" title="dev_coredumpm"><code class="xref c c-func docutils literal notranslate"><span class="pre">dev_coredumpm()</span></code></a> for more information.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.devcd_free_sgtable">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devcd_free_sgtable</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devcd_free_sgtable" title="Link to this definition">¶</a><br /></dt>
+<dd><p>free all the memory of the given scatterlist table (i.e. both pages and scatterlist instances)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>pointer to sg_table to free</p>
+</dd>
+</dl>
+<p><strong>NOTE</strong></p>
+<p>if two tables allocated with devcd_alloc_sgtable and then chained
+using the sg_chain function then that function should be called only once
+on the chained table</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.devcd_read_from_sgtable">
+<span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devcd_read_from_sgtable</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">buf_len</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">data_len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devcd_read_from_sgtable" title="Link to this definition">¶</a><br /></dt>
+<dd><p>copy data from sg_table to a given buffer and return the number of bytes read</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">char</span> <span class="pre">*buffer</span></code></dt><dd><p>the buffer to copy the data to it</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">loff_t</span> <span class="pre">offset</span></code></dt><dd><p>start copy from <strong>offset****</strong> bytes from the head of the data
+in the given scatterlist</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">buf_len</span></code></dt><dd><p>the length of the buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>the scatterlist table to copy from</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">data_len</span></code></dt><dd><p>the length of the data in the sg_table</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>the number of bytes copied</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dev_coredump_put">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_coredump_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_coredump_put" title="Link to this definition">¶</a><br /></dt>
+<dd><p>remove device coredump</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the <a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for the crashed device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.dev_coredump_put" title="dev_coredump_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">dev_coredump_put()</span></code></a> removes coredump, if exists, for a given device from
+the file system and free its associated data otherwise, does nothing.</p>
+<p>It is useful for modules that do not want to keep coredump
+available after its unload.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dev_coredumpm_timeout">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_coredumpm_timeout</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">module</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">owner</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">read</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">loff_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">free</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">)</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_coredumpm_timeout" title="Link to this definition">¶</a><br /></dt>
+<dd><p>create device coredump with read/free methods with a custom timeout.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the <a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for the crashed device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">module</span> <span class="pre">*owner</span></code></dt><dd><p>the module that contains the read/free functions, use <code class="docutils literal notranslate"><span class="pre">THIS_MODULE</span></code></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*data</span></code></dt><dd><p>data cookie for the <strong>read</strong>/<strong>free</strong> functions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">datalen</span></code></dt><dd><p>length of the data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>allocation flags</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ssize_t</span> <span class="pre">(*read)(char</span> <span class="pre">*buffer,</span> <span class="pre">loff_t</span> <span class="pre">offset,</span> <span class="pre">size_t</span> <span class="pre">count,</span> <span class="pre">void</span> <span class="pre">*data,</span> <span class="pre">size_t</span> <span class="pre">datalen)</span></code></dt><dd><p>function to read from the given buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">(*free)(void</span> <span class="pre">*data)</span></code></dt><dd><p>function to free the given buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">timeout</span></code></dt><dd><p>time in jiffies to remove coredump</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a new device coredump for the given device. If a previous one hasn’t
+been read yet, the new coredump is discarded. The data lifetime is determined
+by the device coredump framework and when it is no longer needed the <strong>free</strong>
+function will be called to free the data.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dev_coredumpsg">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_coredumpsg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">scatterlist</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">table</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">datalen</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_coredumpsg" title="Link to this definition">¶</a><br /></dt>
+<dd><p>create device coredump that uses scatterlist as data parameter</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>the <a class="reference internal" href="../../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> for the crashed device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">scatterlist</span> <span class="pre">*table</span></code></dt><dd><p>the dump data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">datalen</span></code></dt><dd><p>length of the data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>allocation flags</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Creates a new device coredump for the given device. If a previous one hasn’t
+been read yet, the new coredump is discarded. The data lifetime is determined
+by the device coredump framework and when it is no longer needed
+it will free the data.</p>
+</div>
 <p><strong>Copyright</strong> ©2024 : Collabora</p>
+</section>
 </section>
 </section>
 

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -78,6 +78,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../cdrom/index.html">CD-ROM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../scsi/index.html">SCSI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../target/index.html">TCM Virtual Device</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../nvme/index.html">NVMe Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a></li>
@@ -152,20 +153,40 @@ extent mappings. Instead of block-by-block mapping (such as bmap), fiemap
 returns a list of extents.</p>
 <section id="request-basics">
 <h2>Request Basics<a class="headerlink" href="#request-basics" title="Link to this heading">¶</a></h2>
-<p>A fiemap request is encoded within struct fiemap:</p>
+<p>A fiemap request is encoded within <a class="reference internal" href="#c.fiemap" title="fiemap"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fiemap</span></code></a>:</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.fiemap">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fiemap</span></span></span><a class="headerlink" href="#c.fiemap" title="Link to this definition">¶</a><br /></dt>
+<dd><p>file extent mappings</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fiemap {
-      __u64   fm_start;        /* logical offset (inclusive) at
-                                * which to start mapping (in) */
-      __u64   fm_length;       /* logical length of mapping which
-                                * userspace cares about (in) */
-      __u32   fm_flags;        /* FIEMAP_FLAG_* flags for request (in/out) */
-      __u32   fm_mapped_extents; /* number of extents that were
-                                  * mapped (out) */
-      __u32   fm_extent_count; /* size of fm_extents array (in) */
-      __u32   fm_reserved;
-      struct fiemap_extent fm_extents[0]; /* array of mapped extents (out) */
+    __u64 fm_start;
+    __u64 fm_length;
+    __u32 fm_flags;
+    __u32 fm_mapped_extents;
+    __u32 fm_extent_count;
+    struct fiemap_extent fm_extents[];
 };
 </pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fm_start</span></code></dt><dd><p>byte offset (inclusive) at which to start mapping (in)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fm_length</span></code></dt><dd><p>logical length of mapping which userspace wants (in)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fm_flags</span></code></dt><dd><p>FIEMAP_FLAG_* flags for request (in/out)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fm_mapped_extents</span></code></dt><dd><p>number of extents that were mapped (out)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fm_extent_count</span></code></dt><dd><p>size of fm_extents array (in)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fm_extents</span></code></dt><dd><p>array of mapped extents (out)</p>
+</dd>
+</dl>
 </div>
 <p>fm_start, and fm_length specify the logical range within the file
 which the process would like mappings for. Extents returned mirror
@@ -194,6 +215,8 @@ nothing to prevent the file from changing between calls to FIEMAP.</p>
 <dt>FIEMAP_FLAG_XATTR</dt><dd><p>If this flag is set, the extents returned will describe the inodes
 extended attribute lookup tree, instead of its data tree.</p>
 </dd>
+<dt>FIEMAP_FLAG_CACHE</dt><dd><p>This flag requests caching of the extents.</p>
+</dd>
 </dl>
 </section>
 <section id="extent-mapping">
@@ -211,17 +234,33 @@ complete the requested range and will not have the FIEMAP_EXTENT_LAST
 flag set (see the next section on extent flags).</p>
 <p>Each extent is described by a single fiemap_extent structure as
 returned in fm_extents:</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.fiemap_extent">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fiemap_extent</span></span></span><a class="headerlink" href="#c.fiemap_extent" title="Link to this definition">¶</a><br /></dt>
+<dd><p>description of one fiemap extent</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fiemap_extent {
-        __u64       fe_logical;  /* logical offset in bytes for the start of
-                            * the extent */
-        __u64       fe_physical; /* physical offset in bytes for the start
-                            * of the extent */
-        __u64       fe_length;   /* length in bytes for the extent */
-        __u64       fe_reserved64[2];
-        __u32       fe_flags;    /* FIEMAP_EXTENT_* flags for this extent */
-        __u32       fe_reserved[3];
+    __u64 fe_logical;
+    __u64 fe_physical;
+    __u64 fe_length;
+    __u32 fe_flags;
 };
 </pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fe_logical</span></code></dt><dd><p>byte offset of the extent in the file</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fe_physical</span></code></dt><dd><p>byte offset of extent on disk</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fe_length</span></code></dt><dd><p>length in bytes for this extent</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fe_flags</span></code></dt><dd><p>FIEMAP_EXTENT_* flags for this extent</p>
+</dd>
+</dl>
 </div>
 <p>All offsets and lengths are in bytes and mirror those on disk.  It is valid
 for an extents logical offset to start before the request or its logical
@@ -295,6 +334,8 @@ based addressing scheme.  Since returning an extent for each block back to
 userspace would be highly inefficient, the kernel will try to merge most
 adjacent blocks into ‘extents’.</p>
 </dd>
+<dt>FIEMAP_EXTENT_SHARED</dt><dd><p>This flag is set to request that space be shared with other files.</p>
+</dd>
 </dl>
 </section>
 <section id="vfs-file-system-implementation">
@@ -310,15 +351,35 @@ each discovered extent:</p>
                    u64 len);
 </pre></div>
 </div>
-<p>-&gt;fiemap is passed struct fiemap_extent_info which describes the
+<p>-&gt;fiemap is passed <a class="reference internal" href="#c.fiemap_extent_info" title="fiemap_extent_info"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fiemap_extent_info</span></code></a> which describes the
 fiemap request:</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.fiemap_extent_info">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fiemap_extent_info</span></span></span><a class="headerlink" href="#c.fiemap_extent_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>fiemap request to a filesystem</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct fiemap_extent_info {
-      unsigned int fi_flags;          /* Flags as passed from user */
-      unsigned int fi_extents_mapped; /* Number of mapped extents */
-      unsigned int fi_extents_max;    /* Size of fiemap_extent array */
-      struct fiemap_extent *fi_extents_start; /* Start of fiemap_extent array */
+    unsigned int fi_flags;
+    unsigned int fi_extents_mapped;
+    unsigned int fi_extents_max;
+    struct fiemap_extent __user *fi_extents_start;
 };
 </pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fi_flags</span></code></dt><dd><p>Flags as passed from user</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fi_extents_mapped</span></code></dt><dd><p>Number of mapped extents</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fi_extents_max</span></code></dt><dd><p>Size of fiemap_extent array</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fi_extents_start</span></code></dt><dd><p>Start of fiemap_extent array</p>
+</dd>
+</dl>
 </div>
 <p>It is intended that the file system should not need to access any of this
 structure directly. Filesystem handlers should be tolerant to signals and return

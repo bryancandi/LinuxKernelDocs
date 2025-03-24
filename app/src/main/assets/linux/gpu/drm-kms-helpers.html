@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -5887,6 +5887,10 @@ shall not create a drm_connector.</p>
     enum drm_mode_status(*hdmi_tmds_char_rate_valid)(const struct drm_bridge *bridge,const struct drm_display_mode *mode, unsigned long long tmds_rate);
     int (*hdmi_clear_infoframe)(struct drm_bridge *bridge, enum hdmi_infoframe_type type);
     int (*hdmi_write_infoframe)(struct drm_bridge *bridge,enum hdmi_infoframe_type type, const u8 *buffer, size_t len);
+    int (*hdmi_audio_startup)(struct drm_connector *connector, struct drm_bridge *bridge);
+    int (*hdmi_audio_prepare)(struct drm_connector *connector,struct drm_bridge *bridge,struct hdmi_codec_daifmt *fmt, struct hdmi_codec_params *hparms);
+    void (*hdmi_audio_shutdown)(struct drm_connector *connector, struct drm_bridge *bridge);
+    int (*hdmi_audio_mute_stream)(struct drm_connector *connector,struct drm_bridge *bridge, bool enable, int direction);
     void (*debugfs_init)(struct drm_bridge *bridge, struct dentry *root);
 };
 </pre></div>
@@ -6261,6 +6265,27 @@ times, once for every updated infoframe type.</p>
 <p>This callback is optional but it must be implemented by bridges that
 set the DRM_BRIDGE_OP_HDMI flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_startup</span></code></dt><dd><p>Called when ASoC starts an audio stream setup. The
+<strong>hdmi_audio_startup()</strong> is optional.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_prepare</span></code></dt><dd><p>Configures HDMI-encoder for audio stream. Can be called multiple
+times for each setup. Mandatory if HDMI audio is enabled in the
+bridge’s configuration.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_shutdown</span></code></dt><dd><p>Shut down the audio stream. Mandatory if HDMI audio is enabled in
+the bridge’s configuration.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_mute_stream</span></code></dt><dd><p>Mute/unmute HDMI audio stream. The <strong>hdmi_audio_mute_stream</strong> callback
+is optional.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">debugfs_init</span></code></dt><dd><p>Allows bridges to create bridge-specific debugfs files.</p>
 </dd>
 </dl>
@@ -6367,6 +6392,10 @@ drivers.</p>
     const char *product;
     unsigned int supported_formats;
     unsigned int max_bpc;
+    struct device *hdmi_audio_dev;
+    int hdmi_audio_max_i2s_playback_channels;
+    unsigned int hdmi_audio_spdif_playback : 1;
+    int hdmi_audio_dai_port;
 };
 </pre></div>
 </div>
@@ -6430,6 +6459,15 @@ output formats. This is only relevant if <strong>DRM_BRIDGE_OP_HDMI</strong> is 
 <dt><code class="docutils literal notranslate"><span class="pre">max_bpc</span></code></dt><dd><p>Maximum bits per char the HDMI bridge supports. Allowed
 values are 8, 10 and 12. This is only relevant if
 <strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dev</span></code></dt><dd><p>device to be used as a parent for the HDMI Codec</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_max_i2s_playback_channels</span></code></dt><dd><p>maximum number of playback
+I2S channels for the HDMI codec</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_spdif_playback</span></code></dt><dd><p>set if HDMI codec has S/PDIF playback port</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dai_port</span></code></dt><dd><p>sound DAI port, -1 if it is not enabled</p>
 </dd>
 </dl>
 </div>
@@ -7657,6 +7695,27 @@ kernel-module when built as a module.</p>
 <p>A DRM_MODE_PANEL_ORIENTATION_* value if there is a quirk for this system,
 or DRM_MODE_PANEL_ORIENTATION_UNKNOWN if there is no quirk.</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_get_panel_min_brightness_quirk">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_get_panel_min_brightness_quirk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_edid</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">edid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_get_panel_min_brightness_quirk" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get minimum supported brightness level for a panel.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_edid</span> <span class="pre">*edid</span></code></dt><dd><p>EDID of the panel to check</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function checks for platform specific (e.g. DMI based) quirks
+providing info on the minimum backlight brightness for systems where this
+cannot be probed correctly from the hard-/firm-ware.</p>
+<p><strong>Return</strong></p>
+<p>A negative error value or
+an override value in the range [0, 255] representing 0-100% to be scaled to
+the drivers target range.</p>
+</div>
 </section>
 <section id="panel-self-refresh-helper-reference">
 <h2>Panel Self Refresh Helper Reference<a class="headerlink" href="#panel-self-refresh-helper-reference" title="Link to this heading">¶</a></h2>
@@ -8728,6 +8787,68 @@ layout of the returned <strong>link_status</strong> matches the DPCD register la
 DPRX PHY link status.</p>
 <p>Returns 0 if the information was read successfully or a negative error code
 on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_write_payload">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_write_payload</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">vcpid</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">start_time_slot</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">time_slot_count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_write_payload" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Write Virtual Channel information to payload table</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">vcpid</span></code></dt><dd><p>Virtual Channel Payload ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">start_time_slot</span></code></dt><dd><p>Starting time slot</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">time_slot_count</span></code></dt><dd><p>Time slot count</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Write the Virtual Channel payload allocation table, checking the payload
+update status and retrying as necessary.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error otherwise</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_clear_payload">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_clear_payload</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_clear_payload" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Clear the entire VC Payload ID table</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Clear the entire VC Payload ID table.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code on errors.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_poll_act_handled">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_poll_act_handled</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">timeout_ms</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_poll_act_handled" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Poll for ACT handled status</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">timeout_ms</span></code></dt><dd><p>Timeout in ms</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Try waiting for the sink to finish updating its payload table by polling for
+the ACT handled bit of DP_PAYLOAD_TABLE_UPDATE_STATUS for up to <strong>timeout_ms</strong>
+milliseconds, defaulting to 3000 ms if 0.</p>
+<p><strong>Return</strong></p>
+<p>0 if the ACT was handled in time, negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_downstream_is_type">
@@ -11159,15 +11280,13 @@ function will send the sideband messages to finish allocating this payload.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_get_vc_payload_bw">
-<span class="n"><span class="pre">fixed20_12</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_get_vc_payload_bw</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><span class="n"><span class="pre">drm_dp_mst_topology_mgr</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mgr</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">link_rate</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">link_lane_count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_get_vc_payload_bw" title="Link to this definition">¶</a><br /></dt>
-<dd><p>get the VC payload BW for an MST link</p>
+<span class="n"><span class="pre">fixed20_12</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_get_vc_payload_bw</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">link_rate</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">link_lane_count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_get_vc_payload_bw" title="Link to this definition">¶</a><br /></dt>
+<dd><p>get the VC payload BW for an MTP link</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dp_mst_topology_mgr</span> <span class="pre">*mgr</span></code></dt><dd><p>The <a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_dp_mst_topology_mgr</span></code></a> to use</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">link_rate</span></code></dt><dd><p>link rate in 10kbits/s units</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">link_lane_count</span></code></dt><dd><p>lane count</p>
@@ -17026,23 +17145,6 @@ specification.</p>
 error code on failure.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.hdmi_infoframe_check">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hdmi_infoframe_check</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.hdmi_infoframe" title="hdmi_infoframe"><span class="n"><span class="pre">hdmi_infoframe</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frame</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hdmi_infoframe_check" title="Link to this definition">¶</a><br /></dt>
-<dd><p>check a HDMI infoframe</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">union</span> <span class="pre">hdmi_infoframe</span> <span class="pre">*frame</span></code></dt><dd><p>HDMI infoframe</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Validates that the infoframe is consistent and updates derived fields
-(eg. length) based on other fields.</p>
-<p>Returns 0 on success or a negative error code on failure.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.hdmi_infoframe_pack_only">
 <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hdmi_infoframe_pack_only</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.hdmi_infoframe" title="hdmi_infoframe"><span class="n"><span class="pre">hdmi_infoframe</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frame</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hdmi_infoframe_pack_only" title="Link to this definition">¶</a><br /></dt>
 <dd><p>write a HDMI infoframe to binary buffer</p>
@@ -18155,6 +18257,7 @@ This variant uses endpoint specifier.</p>
 <p><strong>Description</strong></p>
 <p>Gets parent DSI bus for a DSI device controlled through a bus other
 than MIPI-DCS (SPI, I2C, etc.) using the Device Tree.</p>
+<p>This function assumes that the device’s port**0** is the DSI input.</p>
 <p>Returns pointer to mipi_dsi_host if successful, -EINVAL if the
 request is unsupported, -EPROBE_DEFER if the DSI host is found but
 not available, or -ENODEV otherwise.</p>

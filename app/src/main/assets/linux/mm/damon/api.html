@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Free Page Reporting" href="../free_page_reporting.html" />
-    <link rel="prev" title="Design" href="design.html" />
+    <link rel="prev" title="DAMON Moniting Interval Parameters Tuning Example" href="monitoring_intervals_tuning_example.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -419,10 +419,14 @@ size quotas.  The quotas can be set by writing non-zero values to <code class="x
 <code class="xref c c-type docutils literal notranslate"><span class="pre">ms</span></code> milliseconds within <code class="xref c c-type docutils literal notranslate"><span class="pre">reset_interval</span></code> for applying the action.  If the
 size quota is set, DAMON tries to apply the action only up to <code class="xref c c-type docutils literal notranslate"><span class="pre">sz</span></code> bytes
 within <code class="xref c c-type docutils literal notranslate"><span class="pre">reset_interval</span></code>.</p>
-<p>Internally, the time quota is transformed to a size quota using estimated
-throughput of the scheme’s action.  DAMON then compares it against <code class="xref c c-type docutils literal notranslate"><span class="pre">sz</span></code> and
-uses smaller one as the effective quota.</p>
-<p>If <strong>goals</strong> is not empt, DAMON calculates yet another size quota based on the
+<p>To convince the different types of quotas and goals, DAMON internally
+converts those into one single size quota called “effective quota”.  DAMON
+internally uses it as the only one real quota.  The conversion is made as
+follows.</p>
+<p>The time quota is transformed to a size quota using estimated throughput of
+the scheme’s action.  DAMON then compares it against <code class="xref c c-type docutils literal notranslate"><span class="pre">sz</span></code> and uses smaller
+one as the effective quota.</p>
+<p>If <strong>goals</strong> is not empty, DAMON calculates yet another size quota based on the
 goals using its internal feedback loop algorithm, for every <strong>reset_interval</strong>.
 Then, if the new size quota is smaller than the effective quota, it uses the
 new size quota as the effective quota.</p>
@@ -501,6 +505,7 @@ between <code class="xref c c-type docutils literal notranslate"><span class="pr
     unsigned long sz_tried;
     unsigned long nr_applied;
     unsigned long sz_applied;
+    unsigned long sz_ops_filter_passed;
     unsigned long qt_exceeds;
 };
 </pre></div>
@@ -515,10 +520,32 @@ between <code class="xref c c-type docutils literal notranslate"><span class="pr
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sz_applied</span></code></dt><dd><p>Total size of regions that the scheme is applied.</p>
 </dd>
+</dl>
+<p><code class="docutils literal notranslate"><span class="pre">sz_ops_filter_passed</span></code></p>
+<blockquote>
+<div><p>Total bytes that passed ops layer-handled DAMOS filters.</p>
+</div></blockquote>
+<dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">qt_exceeds</span></code></dt><dd><p>Total number of times the quota of the scheme has exceeded.</p>
 </dd>
 </dl>
 </div>
+<p><strong>Description</strong></p>
+<p>“Tried an action to a region” in this context means the DAMOS core logic
+determined the region as eligible to apply the action.  The access pattern
+(<a class="reference internal" href="#c.damos_access_pattern" title="damos_access_pattern"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_access_pattern</span></code></a>), quotas (<a class="reference internal" href="#c.damos_quota" title="damos_quota"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_quota</span></code></a>), watermarks
+(<a class="reference internal" href="#c.damos_watermarks" title="damos_watermarks"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_watermarks</span></code></a>) and filters (<a class="reference internal" href="#c.damos_filter" title="damos_filter"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_filter</span></code></a>) that handled
+on core logic can affect this.  The core logic asks the operation set
+(<a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a>) to apply the action to the region.</p>
+<p>“Applied an action to a region” in this context means the operation set
+(<a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a>) successfully applied the action to the region, at
+least to a part of the region.  The filters (<a class="reference internal" href="#c.damos_filter" title="damos_filter"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_filter</span></code></a>) that
+handled on operation set layer and type of the action and pages of the
+region can affect this.  For example, if a filter is set to exclude
+anonymous pages and the region has only anonymous pages, the region will be
+failed at applying the action.  If the action is <code class="xref c c-type docutils literal notranslate"><span class="pre">DAMOS_PAGEOUT</span></code> and all
+pages of the region are already paged out, the region will be failed at
+applying the action.</p>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.damos_filter_type">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damos_filter_type</span></span></span><a class="headerlink" href="#c.damos_filter_type" title="Link to this definition">¶</a><br /></dt>
@@ -563,6 +590,7 @@ the two types.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct damos_filter {
     enum damos_filter_type type;
     bool matching;
+    bool allow;
     union {
         unsigned short memcg_id;
         struct damon_addr_range addr_range;
@@ -574,9 +602,11 @@ the two types.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of the page.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of the target memory.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">matching</span></code></dt><dd><p>If the matching page should filtered out or in.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">matching</span></code></dt><dd><p>Whether this is for <strong>type</strong>-matching memory.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">allow</span></code></dt><dd><p>Whether to include or exclude the <strong>matching</strong> memory.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -594,9 +624,36 @@ DAMOS_FILTER_TYPE_TARGET.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>Before applying the <a class="reference internal" href="#c.damos" title="damos"><code class="xref c c-type docutils literal notranslate"><span class="pre">damos-&gt;action</span></code></a> to a memory region, DAMOS checks if each
-page of the region matches to this and avoid applying the action if so.
-Support of each filter type depends on the running <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_operations</span></code></a>
-and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type" title="damos_filter_type"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">damos_filter_type</span></code></a> for more detai.</p>
+byte of the region matches to this given condition and avoid applying the
+action if so.  Support of each filter type depends on the running <a class="reference internal" href="#c.damon_operations" title="damon_operations"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">damon_operations</span></code></a> and the type.  Refer to <a class="reference internal" href="#c.damos_filter_type" title="damos_filter_type"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">damos_filter_type</span></code></a> for more
+details.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.damos_walk_control">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damos_walk_control</span></span></span><a class="headerlink" href="#c.damos_walk_control" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Control <a class="reference internal" href="#c.damos_walk" title="damos_walk"><code class="xref c c-func docutils literal notranslate"><span class="pre">damos_walk()</span></code></a>.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct damos_walk_control {
+    void (*walk_fn)(void *data, struct damon_ctx *ctx,struct damon_target *t, struct damon_region *r, struct damos *s, unsigned long sz_filter_passed);
+    void *data;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">walk_fn</span></code></dt><dd><p>Function to be called back for each region.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Data that will be passed to walk functions.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Control <a class="reference internal" href="#c.damos_walk" title="damos_walk"><code class="xref c c-func docutils literal notranslate"><span class="pre">damos_walk()</span></code></a>, which requests specific kdamond to invoke the given
+function to each region that eligible to apply actions of the kdamond’s
+schemes.  Refer to <a class="reference internal" href="#c.damos_walk" title="damos_walk"><code class="xref c c-func docutils literal notranslate"><span class="pre">damos_walk()</span></code></a> for more details.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.damos_access_pattern">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damos_access_pattern</span></span></span><a class="headerlink" href="#c.damos_access_pattern" title="Link to this definition">¶</a><br /></dt>
@@ -732,7 +789,7 @@ address spaces</p>
     unsigned int (*check_accesses)(struct damon_ctx *context);
     void (*reset_aggregated)(struct damon_ctx *context);
     int (*get_scheme_score)(struct damon_ctx *context,struct damon_target *t, struct damon_region *r, struct damos *scheme);
-    unsigned long (*apply_scheme)(struct damon_ctx *context,struct damon_target *t, struct damon_region *r, struct damos *scheme);
+    unsigned long (*apply_scheme)(struct damon_ctx *context,struct damon_target *t, struct damon_region *r, struct damos *scheme, unsigned long *sz_filter_passed);
     bool (*target_valid)(struct damon_target *t);
     void (*cleanup)(struct damon_ctx *context);
 };
@@ -791,7 +848,8 @@ as an integer in [0, <code class="xref c c-type docutils literal notranslate"><s
 <strong>apply_scheme</strong> is called from <strong>kdamond</strong> when a region for user provided
 DAMON-based operation scheme is found.  It should apply the scheme’s action
 to the region and return bytes of the region that the action is successfully
-applied.
+applied.  It should also report how many bytes of the region has passed
+filters (<a class="reference internal" href="#c.damos_filter" title="damos_filter"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_filter</span></code></a>) that handled by itself.
 <strong>target_valid</strong> should check whether the target is still valid for the
 monitoring.
 <strong>cleanup</strong> is called from <strong>kdamond</strong> just before its termination.</p>
@@ -1135,6 +1193,63 @@ returns -EBUSY.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">nr_ctxs</span></code></dt><dd><p>size of <strong>ctxs</strong></p>
 </dd>
 </dl>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.damon_call">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damon_call</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><span class="n"><span class="pre">damon_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">damon_call_control</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">control</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.damon_call" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Invoke a given function on DAMON worker thread (kdamond).</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>DAMON context to call the function for.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_call_control</span> <span class="pre">*control</span></code></dt><dd><p>Control variable of the call request.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Ask DAMON worker thread (kdamond) of <strong>ctx</strong> to call a function with an
+argument data that respectively passed via <code class="xref c c-type docutils literal notranslate"><span class="pre">damon_call_control-&gt;fn</span></code> and
+<code class="xref c c-type docutils literal notranslate"><span class="pre">damon_call_control-&gt;data</span></code> of <strong>control</strong>, and wait until the kdamond finishes
+handling of the request.</p>
+<p>The kdamond executes the function with the argument in the main loop, just
+after a sampling of the iteration is finished.  The function can hence
+safely access the internal data of the <a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span></code></a> without additional
+synchronization.  The return value of the function will be saved in
+<code class="xref c c-type docutils literal notranslate"><span class="pre">damon_call_control-&gt;return_code</span></code>.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.damos_walk">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">damos_walk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><span class="n"><span class="pre">damon_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.damos_walk_control" title="damos_walk_control"><span class="n"><span class="pre">damos_walk_control</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">control</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.damos_walk" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Invoke a given functions while DAMOS walk regions.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>DAMON context to call the functions for.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damos_walk_control</span> <span class="pre">*control</span></code></dt><dd><p>Control variable of the walk request.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Ask DAMON worker thread (kdamond) of <strong>ctx</strong> to call a function for each region
+that the kdamond will apply DAMOS action to, and wait until the kdamond
+finishes handling of the request.</p>
+<p>The kdamond executes the given function in the main loop, for each region
+just after it applied any DAMOS actions of <strong>ctx</strong> to it.  The invocation is
+made only within one <a class="reference internal" href="#c.damos" title="damos"><code class="xref c c-type docutils literal notranslate"><span class="pre">damos-&gt;apply_interval_us</span></code></a> since <a class="reference internal" href="#c.damos_walk" title="damos_walk"><code class="xref c c-func docutils literal notranslate"><span class="pre">damos_walk()</span></code></a>
+invocation, for each scheme.  The given callback function can hence safely
+access the internal data of <a class="reference internal" href="#c.damon_ctx" title="damon_ctx"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_ctx</span></code></a> and <a class="reference internal" href="#c.damon_region" title="damon_region"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">damon_region</span></code></a> that
+each of the scheme will apply the action for next interval, without
+additional synchronizations against the kdamond.  If every scheme of <strong>ctx</strong>
+passed at least one <a class="reference internal" href="#c.damos" title="damos"><code class="xref c c-type docutils literal notranslate"><span class="pre">damos-&gt;apply_interval_us</span></code></a>, kdamond marks the request as
+completed so that <a class="reference internal" href="#c.damos_walk" title="damos_walk"><code class="xref c c-func docutils literal notranslate"><span class="pre">damos_walk()</span></code></a> can wakeup and return.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative error code otherwise.</p>
 </div>

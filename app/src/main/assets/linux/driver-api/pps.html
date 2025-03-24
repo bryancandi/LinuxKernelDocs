@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -81,6 +81,7 @@
 <li class="toctree-l3"><a class="reference internal" href="dmaengine/index.html">DMAEngine documentation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dpll.html">The Linux kernel dpll subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="edac.html">Error Detection And Correction (EDAC) Devices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extcon.html">Extcon Device Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="firmware/index.html">Linux Firmware API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fpga/index.html">FPGA Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="frame-buffer.html">Frame Buffer Library</a></li>
@@ -378,6 +379,46 @@ This is available in the pps-tools repository mentioned above.</p>
 <p>Sometimes one needs to be able not only to catch PPS signals but to produce
 them also. For example, running a distributed simulation, which requires
 computers’ clock to be synchronized very tightly.</p>
+<p>To do so the class pps-gen has been added. PPS generators can be
+registered in the kernel by defining a struct pps_gen_source_info as
+follows:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct pps_gen_source_info pps_gen_dummy_info = {
+        .name                   = &quot;dummy&quot;,
+        .use_system_clock       = true,
+        .get_time               = pps_gen_dummy_get_time,
+        .enable                 = pps_gen_dummy_enable,
+};
+</pre></div>
+</div>
+<p>Where the use_system_clock states if the generator uses the system
+clock to generate its pulses, or they are from a peripheral device
+clock. Method get_time() is used to query the time stored into the
+generator clock, while the method enable() is used to enable or
+disable the PPS pulse generation.</p>
+<p>Then calling the function pps_gen_register_source() in your
+initialization routine as follows creates a new generator in the
+system:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>pps_gen = pps_gen_register_source(&amp;pps_gen_dummy_info);
+</pre></div>
+</div>
+</section>
+<section id="generators-sysfs-support">
+<h2>Generators SYSFS support<a class="headerlink" href="#generators-sysfs-support" title="Link to this heading">¶</a></h2>
+<p>If the SYSFS filesystem is enabled in the kernel it provides a new class:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ls /sys/class/pps-gen/
+pps-gen0/  pps-gen1/  pps-gen2/
+</pre></div>
+</div>
+<p>Every directory is the ID of a PPS generator defined in the system and
+inside of it you find several files:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ ls -F /sys/class/pps-gen/pps-gen0/
+dev  enable  name  power/  subsystem@  system  time  uevent
+</pre></div>
+</div>
+<p>To enable the PPS signal generation you can use the command below:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>$ echo 1 &gt; /sys/class/pps-gen/pps-gen0/enable
+</pre></div>
+</div>
 </section>
 <section id="parallel-port-generator">
 <h2>Parallel port generator<a class="headerlink" href="#parallel-port-generator" title="Link to this heading">¶</a></h2>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -89,6 +89,7 @@
 <li class="toctree-l3"><a class="reference internal" href="floating-point.html">Floating-point API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="union_find.html">Union-Find in Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="min_heap.html">Min Heap API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parser.html">Generic parser</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#low-level-entry-and-exit">Low level entry and exit</a></li>
@@ -211,16 +212,17 @@ call <a class="reference internal" href="#c.xa_tag_pointer" title="xa_tag_pointe
 to turn a tagged entry back into an untagged pointer and <a class="reference internal" href="#c.xa_pointer_tag" title="xa_pointer_tag"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_pointer_tag()</span></code></a>
 to retrieve the tag of an entry.  Tagged pointers use the same bits that
 are used to distinguish value entries from normal pointers, so you must
-decide whether they want to store value entries or tagged pointers in
-any particular XArray.</p>
+decide whether you want to store value entries or tagged pointers in any
+particular XArray.</p>
 <p>The XArray does not support storing <a class="reference internal" href="kernel-api.html#c.IS_ERR" title="IS_ERR"><code class="xref c c-func docutils literal notranslate"><span class="pre">IS_ERR()</span></code></a> pointers as some
 conflict with value entries or internal entries.</p>
 <p>An unusual feature of the XArray is the ability to create entries which
 occupy a range of indices.  Once stored to, looking up any index in
 the range will return the same entry as looking up any other index in
 the range.  Storing to any index will store to all of them.  Multi-index
-entries can be explicitly split into smaller entries, or storing <code class="docutils literal notranslate"><span class="pre">NULL</span></code>
-into any entry will cause the XArray to forget about the range.</p>
+entries can be explicitly split into smaller entries. Unsetting (using
+<a class="reference internal" href="#c.xa_erase" title="xa_erase"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_erase()</span></code></a> or <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a> with <code class="docutils literal notranslate"><span class="pre">NULL</span></code>) any entry will cause the XArray
+to forget about the range.</p>
 </section>
 <section id="normal-api">
 <h2>Normal API<a class="headerlink" href="#normal-api" title="Link to this heading">¶</a></h2>
@@ -228,13 +230,14 @@ into any entry will cause the XArray to forget about the range.</p>
 for statically allocated XArrays or <a class="reference internal" href="#c.xa_init" title="xa_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_init()</span></code></a> for dynamically
 allocated ones.  A freshly-initialised XArray contains a <code class="docutils literal notranslate"><span class="pre">NULL</span></code>
 pointer at every index.</p>
-<p>You can then set entries using <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a> and get entries
-using <a class="reference internal" href="#c.xa_load" title="xa_load"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_load()</span></code></a>.  xa_store will overwrite any entry with the
-new entry and return the previous entry stored at that index.  You can
-use <a class="reference internal" href="#c.xa_erase" title="xa_erase"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_erase()</span></code></a> instead of calling <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a> with a
-<code class="docutils literal notranslate"><span class="pre">NULL</span></code> entry.  There is no difference between an entry that has never
-been stored to, one that has been erased and one that has most recently
-had <code class="docutils literal notranslate"><span class="pre">NULL</span></code> stored to it.</p>
+<p>You can then set entries using <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a> and get entries using
+<a class="reference internal" href="#c.xa_load" title="xa_load"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_load()</span></code></a>.  <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a> will overwrite any entry with the new entry and
+return the previous entry stored at that index.  You can unset entries
+using <a class="reference internal" href="#c.xa_erase" title="xa_erase"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_erase()</span></code></a> or by setting the entry to <code class="docutils literal notranslate"><span class="pre">NULL</span></code> using <a class="reference internal" href="#c.xa_store" title="xa_store"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_store()</span></code></a>.
+There is no difference between an entry that has never been stored to
+and one that has been erased with <a class="reference internal" href="#c.xa_erase" title="xa_erase"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_erase()</span></code></a>; an entry that has most
+recently had <code class="docutils literal notranslate"><span class="pre">NULL</span></code> stored to it is also equivalent except if the
+XArray was initialized with <code class="docutils literal notranslate"><span class="pre">XA_FLAGS_ALLOC</span></code>.</p>
 <p>You can conditionally replace an entry at an index by using
 <a class="reference internal" href="#c.xa_cmpxchg" title="xa_cmpxchg"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_cmpxchg()</span></code></a>.  Like cmpxchg(), it will only succeed if
 the entry at that index has the ‘old’ value.  It also returns the entry

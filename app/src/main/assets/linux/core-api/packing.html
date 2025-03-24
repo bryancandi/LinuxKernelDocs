@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -89,6 +89,7 @@
 <li class="toctree-l3"><a class="reference internal" href="floating-point.html">Floating-point API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="union_find.html">Union-Find in Linux</a></li>
 <li class="toctree-l3"><a class="reference internal" href="min_heap.html">Min Heap API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parser.html">Generic parser</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#low-level-entry-and-exit">Low level entry and exit</a></li>
@@ -374,13 +375,108 @@ bottom within a column.</p>
 <h2>Intended use<a class="headerlink" href="#intended-use" title="Link to this heading">¶</a></h2>
 <p>Drivers that opt to use this API first need to identify which of the above 3
 quirk combinations (for a total of 8) match what the hardware documentation
-describes. Then they should wrap the packing() function, creating a new
-xxx_packing() that calls it using the proper QUIRK_* one-hot bits set.</p>
+describes.</p>
+<p>There are 3 supported usage patterns, detailed below.</p>
+<section id="packing">
+<h3>packing()<a class="headerlink" href="#packing" title="Link to this heading">¶</a></h3>
+<p>This API function is deprecated.</p>
 <p>The packing() function returns an int-encoded error code, which protects the
 programmer against incorrect API use.  The errors are not expected to occur
-during runtime, therefore it is reasonable for xxx_packing() to return void
-and simply swallow those errors. Optionally it can dump stack or print the
-error description.</p>
+during runtime, therefore it is reasonable to wrap packing() into a custom
+function which returns void and swallows those errors. Optionally it can
+dump stack or print the error description.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">my_packing</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">u64</span><span class="w"> </span><span class="o">*</span><span class="n">val</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">startbit</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">endbit</span><span class="p">,</span>
+<span class="w">                </span><span class="kt">size_t</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="n">packing_op</span><span class="w"> </span><span class="n">op</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">err</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* Adjust quirks accordingly */</span>
+<span class="w">        </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">packing</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="n">val</span><span class="p">,</span><span class="w"> </span><span class="n">startbit</span><span class="p">,</span><span class="w"> </span><span class="n">endbit</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">,</span><span class="w"> </span><span class="n">op</span><span class="p">,</span><span class="w"> </span><span class="n">QUIRK_LSW32_IS_FIRST</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likely</span><span class="p">(</span><span class="o">!</span><span class="n">err</span><span class="p">))</span>
+<span class="w">                </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;Start bit (%d) expected to be larger than end (%d)</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+<span class="w">                       </span><span class="n">startbit</span><span class="p">,</span><span class="w"> </span><span class="n">endbit</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="n">ERANGE</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="p">((</span><span class="n">startbit</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">endbit</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">64</span><span class="p">)</span>
+<span class="w">                        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;Field %d-%d too large for 64 bits!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+<span class="w">                               </span><span class="n">startbit</span><span class="p">,</span><span class="w"> </span><span class="n">endbit</span><span class="p">);</span>
+<span class="w">                </span><span class="k">else</span>
+<span class="w">                        </span><span class="n">pr_err</span><span class="p">(</span><span class="s">&quot;Cannot store %llx inside bits %d-%d (would truncate)</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+<span class="w">                               </span><span class="o">*</span><span class="n">val</span><span class="p">,</span><span class="w"> </span><span class="n">startbit</span><span class="p">,</span><span class="w"> </span><span class="n">endbit</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">dump_stack</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="pack-and-unpack">
+<h3>pack() and unpack()<a class="headerlink" href="#pack-and-unpack" title="Link to this heading">¶</a></h3>
+<p>These are const-correct variants of packing(), and eliminate the last “enum
+packing_op op” argument.</p>
+<p>Calling pack(...) is equivalent, and preferred, to calling packing(..., PACK).</p>
+<p>Calling unpack(...) is equivalent, and preferred, to calling packing(..., UNPACK).</p>
+</section>
+<section id="pack-fields-and-unpack-fields">
+<h3>pack_fields() and unpack_fields()<a class="headerlink" href="#pack-fields-and-unpack-fields" title="Link to this heading">¶</a></h3>
+<p>The library exposes optimized functions for the scenario where there are many
+fields represented in a buffer, and it encourages consumer drivers to avoid
+repetitive calls to pack() and unpack() for each field, but instead use
+pack_fields() and unpack_fields(), which reduces the code footprint.</p>
+<p>These APIs use field definitions in arrays of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">packed_field_u8</span></code> or
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">packed_field_u16</span></code>, allowing consumer drivers to minimize the size
+of these arrays according to their custom requirements.</p>
+<p>The pack_fields() and unpack_fields() API functions are actually macros which
+automatically select the appropriate function at compile time, based on the
+type of the fields array passed in.</p>
+<p>An additional benefit over pack() and unpack() is that sanity checks on the
+field definitions are handled at compile time with <code class="docutils literal notranslate"><span class="pre">BUILD_BUG_ON</span></code> rather
+than only when the offending code is executed. These functions return void and
+wrapping them to handle unexpected errors is not necessary.</p>
+<p>It is recommended, but not required, that you wrap your packed buffer into a
+structured type with a fixed size. This generally makes it easier for the
+compiler to enforce that the correct size buffer is used.</p>
+<p>Here is an example of how to use the fields APIs:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* Ordering inside the unpacked structure is flexible and can be different</span>
+<span class="cm"> * from the packed buffer. Here, it is optimized to reduce padding.</span>
+<span class="cm"> */</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="n">u64</span><span class="w"> </span><span class="n">field3</span><span class="p">;</span>
+<span class="w">     </span><span class="n">u32</span><span class="w"> </span><span class="n">field4</span><span class="p">;</span>
+<span class="w">     </span><span class="n">u16</span><span class="w"> </span><span class="n">field1</span><span class="p">;</span>
+<span class="w">     </span><span class="n">u8</span><span class="w"> </span><span class="n">field2</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="cp">#define SIZE 13</span>
+
+<span class="n">typdef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">__packed</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="n">SIZE</span><span class="p">];</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="n">packed_buf_t</span><span class="p">;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">packed_field_u8</span><span class="w"> </span><span class="n">fields</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">PACKED_FIELD</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">90</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">,</span><span class="w"> </span><span class="n">field1</span><span class="p">),</span>
+<span class="w">        </span><span class="n">PACKED_FIELD</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span><span class="w"> </span><span class="mi">87</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">,</span><span class="w"> </span><span class="n">field2</span><span class="p">),</span>
+<span class="w">        </span><span class="n">PACKED_FIELD</span><span class="p">(</span><span class="mi">86</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">,</span><span class="w"> </span><span class="n">field3</span><span class="p">),</span>
+<span class="w">        </span><span class="n">PACKED_FIELD</span><span class="p">(</span><span class="mi">29</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="p">,</span><span class="w"> </span><span class="n">field4</span><span class="p">),</span>
+<span class="p">};</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">unpack_your_data</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">packed_buf_t</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="w"> </span><span class="o">*</span><span class="n">unpacked</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="n">BUILD_BUG_ON</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">SIZE</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">unpack_fields</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">unpacked</span><span class="p">,</span><span class="w"> </span><span class="n">fields</span><span class="p">,</span>
+<span class="w">                      </span><span class="n">QUIRK_LITTLE_ENDIAN</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">pack_your_data</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">data</span><span class="w"> </span><span class="o">*</span><span class="n">unpacked</span><span class="p">,</span><span class="w"> </span><span class="n">packed_buf_t</span><span class="w"> </span><span class="o">*</span><span class="n">buf</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">        </span><span class="n">BUILD_BUG_ON</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">SIZE</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">pack_fields</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">unpacked</span><span class="p">,</span><span class="w"> </span><span class="n">fields</span><span class="p">,</span>
+<span class="w">                    </span><span class="n">QUIRK_LITTLE_ENDIAN</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
 </section>
 </section>
 

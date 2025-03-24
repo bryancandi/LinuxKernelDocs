@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -1799,7 +1799,7 @@ was a load or a store, instruction abort if it was an instruction
 fetch) is injected in the guest.</p>
 <section id="id9">
 <h4>S390:<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h4>
-<p>Returns -EINVAL if the VM has the KVM_VM_S390_UCONTROL flag set.
+<p>Returns -EINVAL or -EEXIST if the VM has the KVM_VM_S390_UCONTROL flag set.
 Returns -EINVAL if called on a protected VM.</p>
 </section>
 </section>
@@ -2310,14 +2310,17 @@ this function/index combination</p>
 </dd>
 </dl>
 </div></blockquote>
-<p>The TSC deadline timer feature (CPUID leaf 1, ecx[24]) is always returned
-as false, since the feature depends on KVM_CREATE_IRQCHIP for local APIC
-support.  Instead it is reported via:</p>
+<p>x2APIC (CPUID leaf 1, ecx[21) and TSC deadline timer (CPUID leaf 1, ecx[24])
+may be returned as true, but they depend on KVM_CREATE_IRQCHIP for in-kernel
+emulation of the local APIC.  TSC deadline timer support is also reported via:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>ioctl(KVM_CHECK_EXTENSION, KVM_CAP_TSC_DEADLINE_TIMER)
 </pre></div>
 </div>
 <p>if that returns true and you use KVM_CREATE_IRQCHIP, or if you emulate the
 feature in userspace, then you can enable the feature for KVM_SET_CPUID2.</p>
+<p>Enabling x2APIC in KVM_SET_CPUID2 requires KVM_CREATE_IRQCHIP as KVM doesn’t
+support forwarding x2APIC MSR accesses to userspace, i.e. KVM does not support
+emulating x2APIC in userspace.</p>
 </section>
 <section id="kvm-ppc-get-pvinfo">
 <h3>4.47 KVM_PPC_GET_PVINFO<a class="headerlink" href="#kvm-ppc-get-pvinfo" title="Link to this heading">¶</a></h3>
@@ -7581,7 +7584,7 @@ will always be fixed in the VMM regardless of where it is mapped
 in guest physical address space. This attribute should be used in
 preference to KVM_XEN_ATTR_TYPE_SHARED_INFO as it avoids
 unnecessary invalidation of an internal cache when the page is
-re-mapped in guest physcial address space.</p>
+re-mapped in guest physical address space.</p>
 <p>Setting the hva to zero will disable the shared_info page.</p>
 </dd>
 <dt>KVM_XEN_ATTR_TYPE_UPCALL_VECTOR</dt><dd><p>Sets the exception vector used to deliver Xen event channel upcalls.
@@ -9829,7 +9832,8 @@ branch to guests’ 0x200 interrupt vector.</p>
 <dd class="field-even"><p>args[0] defines which exits are disabled</p>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>0 on success, -EINVAL when args[0] contains invalid exits</p>
+<dd class="field-odd"><p>0 on success, -EINVAL when args[0] contains invalid exits
+or if any vCPUs have already been created</p>
 </dd>
 </dl>
 <p>Valid bits in args[0] are:</p>

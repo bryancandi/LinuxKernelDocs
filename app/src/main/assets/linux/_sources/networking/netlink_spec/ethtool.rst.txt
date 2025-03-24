@@ -353,14 +353,14 @@ Get ring params.
         :attributes: [``header``]
 
     **reply**
-        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``]
+        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``, ``hds-thresh``, ``hds-thresh-max``]
 
 :dump:
     **request**
         :attributes: [``header``]
 
     **reply**
-        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``]
+        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``, ``hds-thresh``, ``hds-thresh-max``]
 
 
 
@@ -373,7 +373,7 @@ Set ring params.
 :attribute-set: :ref:`ethtool-attribute-set-rings`
 :do:
     **request**
-        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``]
+        :attributes: [``header``, ``rx-max``, ``rx-mini-max``, ``rx-jumbo-max``, ``tx-max``, ``rx``, ``rx-mini``, ``rx-jumbo``, ``tx``, ``rx-buf-len``, ``tcp-data-split``, ``cqe-size``, ``tx-push``, ``rx-push``, ``tx-push-buf-len``, ``tx-push-buf-len-max``, ``hds-thresh``, ``hds-thresh-max``]
 
 
 
@@ -575,17 +575,17 @@ Get tsinfo params.
 :attribute-set: :ref:`ethtool-attribute-set-tsinfo`
 :do:
     **request**
-        :attributes: [``header``]
+        :attributes: [``header``, ``hwtstamp-provider``]
 
     **reply**
-        :attributes: [``header``, ``timestamping``, ``tx-types``, ``rx-filters``, ``phc-index``, ``stats``]
+        :attributes: [``header``, ``timestamping``, ``tx-types``, ``rx-filters``, ``phc-index``, ``stats``, ``hwtstamp-provider``]
 
 :dump:
     **request**
-        :attributes: [``header``]
+        :attributes: [``header``, ``hwtstamp-provider``]
 
     **reply**
-        :attributes: [``header``, ``timestamping``, ``tx-types``, ``rx-filters``, ``phc-index``, ``stats``]
+        :attributes: [``header``, ``timestamping``, ``tx-types``, ``rx-filters``, ``phc-index``, ``stats``, ``hwtstamp-provider``]
 
 
 
@@ -1044,6 +1044,45 @@ Notification for change in PHY devices.
 :notify: phy-get
 
 
+.. _ethtool-operation-tsconfig-get:
+
+tsconfig-get
+============
+Get hwtstamp config.
+
+:attribute-set: :ref:`ethtool-attribute-set-tsconfig`
+:do:
+    **request**
+        :attributes: [``header``]
+
+    **reply**
+        :attributes: [``header``, ``hwtstamp-provider``, ``tx-types``, ``rx-filters``, ``hwtstamp-flags``]
+
+:dump:
+    **request**
+        :attributes: [``header``]
+
+    **reply**
+        :attributes: [``header``, ``hwtstamp-provider``, ``tx-types``, ``rx-filters``, ``hwtstamp-flags``]
+
+
+
+.. _ethtool-operation-tsconfig-set:
+
+tsconfig-set
+============
+Set hwtstamp config.
+
+:attribute-set: :ref:`ethtool-attribute-set-tsconfig`
+:do:
+    **request**
+        :attributes: [``header``, ``hwtstamp-provider``, ``tx-types``, ``rx-filters``, ``hwtstamp-flags``]
+
+    **reply**
+        :attributes: [``header``, ``hwtstamp-provider``, ``tx-types``, ``rx-filters``, ``hwtstamp-flags``]
+
+
+
 
 -----------
 Definitions
@@ -1056,6 +1095,7 @@ udp-tunnel-type
 ===============
 :enum-name: None
 :type: enum
+:enum-cnt-name: __ethtool-udp-tunnel-type-cnt
 
 
 :entries:
@@ -1069,6 +1109,7 @@ udp-tunnel-type
 stringset
 =========
 :type: enum
+:header: linux/ethtool.h
 
 
 :entries:
@@ -1079,12 +1120,14 @@ stringset
 header-flags
 ============
 :type: flags
+:name-prefix: ethtool-flag-
+:doc: common ethtool header flags
 
 
 :entries:
-    - ``compact-bitsets``
-    - ``omit-reply``
-    - ``stats``
+    :compact-bitsets: use compact bitsets in reply
+    :omit-reply: provide optional reply for SET or ACT requests
+    :stats: request statistics, if supported by the driver
 
 
 .. _ethtool-definition-module-fw-flash-status:
@@ -1092,34 +1135,37 @@ header-flags
 module-fw-flash-status
 ======================
 :type: enum
+:doc: plug-in module firmware flashing status
+:header: linux/ethtool.h
 
 
 :entries:
-    - ``started``
-    - ``in_progress``
-    - ``completed``
-    - ``error``
+    :started: The firmware flashing process has started.
+    :in_progress: The firmware flashing process is in progress.
+    :completed: The firmware flashing process was completed successfully.
+    :error: The firmware flashing process was stopped due to an error.
 
 
 .. _ethtool-definition-c33-pse-ext-state:
 
 c33-pse-ext-state
 =================
-:enum-name: None
+:doc: groups of PSE extended states functions. IEEE 802.3-2022 33.2.4.4 Variables
 :type: enum
 :name-prefix: ethtool-c33-pse-ext-state-
+:header: linux/ethtool.h
 
 
 :entries:
-    - ``none``
-    - ``error-condition``
-    - ``mr-mps-valid``
-    - ``mr-pse-enable``
-    - ``option-detect-ted``
-    - ``option-vport-lim``
-    - ``ovld-detected``
-    - ``power-not-available``
-    - ``short-detected``
+    :none: none
+    :error-condition: Group of error_condition states
+    :mr-mps-valid: Group of mr_mps_valid states
+    :mr-pse-enable: Group of mr_pse_enable states
+    :option-detect-ted: Group of option_detect_ted states
+    :option-vport-lim: Group of option_vport_lim states
+    :ovld-detected: Group of ovld_detected states
+    :power-not-available: Group of power_not_available states
+    :short-detected: Group of short_detected states
 
 
 .. _ethtool-definition-phy-upstream-type:
@@ -1135,6 +1181,19 @@ phy-upstream-type
     - ``phy``
 
 
+.. _ethtool-definition-tcp-data-split:
+
+tcp-data-split
+==============
+:type: enum
+
+
+:entries:
+    - ``unknown``
+    - ``disabled``
+    - ``enabled``
+
+
 
 --------------
 Attribute sets
@@ -1145,6 +1204,11 @@ Attribute sets
 
 header
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 dev-index (``u32``)
 ~~~~~~~~~~~~~~~~~~~
 
@@ -1166,6 +1230,11 @@ phy-index (``u32``)
 
 bitset-bit
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 index (``u32``)
 ~~~~~~~~~~~~~~~
 
@@ -1182,6 +1251,11 @@ value (``flag``)
 
 bitset-bits
 ===========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 bit (``nest``)
 ~~~~~~~~~~~~~~
 :multi-attr: True
@@ -1192,6 +1266,11 @@ bit (``nest``)
 
 bitset
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 nomask (``flag``)
 ~~~~~~~~~~~~~~~~~
 
@@ -1217,6 +1296,11 @@ mask (``binary``)
 
 string
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 index (``u32``)
 ~~~~~~~~~~~~~~~
 
@@ -1229,6 +1313,16 @@ value (``string``)
 
 strings
 =======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 string (``nest``)
 ~~~~~~~~~~~~~~~~~
 :multi-attr: True
@@ -1239,6 +1333,11 @@ string (``nest``)
 
 stringset
 =========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 id (``u32``)
 ~~~~~~~~~~~~
 
@@ -1257,6 +1356,11 @@ strings (``nest``)
 
 stringsets
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 stringset (``nest``)
 ~~~~~~~~~~~~~~~~~~~~
 :multi-attr: True
@@ -1267,6 +1371,11 @@ stringset (``nest``)
 
 strset
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1285,6 +1394,11 @@ counts-only (``flag``)
 
 privflags
 =========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1299,6 +1413,11 @@ flags (``nest``)
 
 rings
 =====
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1342,6 +1461,7 @@ rx-buf-len (``u32``)
 
 tcp-data-split (``u8``)
 ~~~~~~~~~~~~~~~~~~~~~~~
+:enum: :ref:`ethtool-definition-tcp-data-split`
 
 
 cqe-size (``u32``)
@@ -1364,42 +1484,66 @@ tx-push-buf-len-max (``u32``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+hds-thresh (``u32``)
+~~~~~~~~~~~~~~~~~~~~
+
+
+hds-thresh-max (``u32``)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 .. _ethtool-attribute-set-mm-stat:
 
 mm-stat
 =======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pad (``pad``)
 ~~~~~~~~~~~~~
 
 
 reassembly-errors (``u64``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeFrameAssErrorCount
 
 
 smd-errors (``u64``)
 ~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeFrameSmdErrorCount
 
 
 reassembly-ok (``u64``)
 ~~~~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeFrameAssOkCount
 
 
 rx-frag-count (``u64``)
 ~~~~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeFragCountRx
 
 
 tx-frag-count (``u64``)
 ~~~~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeFragCountTx
 
 
 hold-count (``u64``)
 ~~~~~~~~~~~~~~~~~~~~
+:doc: aMACMergeHoldCount
 
 
 .. _ethtool-attribute-set-mm:
 
 mm
 ==
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1450,6 +1594,11 @@ stats (``nest``)
 
 linkinfo
 ========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1479,6 +1628,11 @@ transceiver (``u8``)
 
 linkmodes
 =========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1526,6 +1680,11 @@ rate-matching (``u8``)
 
 linkstate
 =========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1559,6 +1718,11 @@ ext-down-cnt (``u32``)
 
 debug
 =====
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1573,6 +1737,11 @@ msgmask (``nest``)
 
 wol
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1591,6 +1760,11 @@ sopass (``binary``)
 
 features
 ========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1620,6 +1794,11 @@ nochange (``nest``)
 
 channels
 ========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1661,6 +1840,11 @@ combined-count (``u32``)
 
 irq-moderation
 ==============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 usec (``u32``)
 ~~~~~~~~~~~~~~
 
@@ -1677,6 +1861,11 @@ comps (``u32``)
 
 profile
 =======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 irq-moderation (``nest``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 :multi-attr: True
@@ -1687,6 +1876,11 @@ irq-moderation (``nest``)
 
 coalesce
 ========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1814,6 +2008,11 @@ tx-profile (``nest``)
 
 pause-stat
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pad (``pad``)
 ~~~~~~~~~~~~~
 
@@ -1830,6 +2029,11 @@ rx-frames (``u64``)
 
 pause
 =====
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1860,6 +2064,11 @@ stats-src (``u32``)
 
 eee
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1895,6 +2104,11 @@ tx-lpi-timer (``u32``)
 
 ts-stat
 =======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 tx-pkts (``uint``)
 ~~~~~~~~~~~~~~~~~~
 
@@ -1907,10 +2121,36 @@ tx-err (``uint``)
 ~~~~~~~~~~~~~~~~~
 
 
+tx-onestep-pkts-unconfirmed (``uint``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+.. _ethtool-attribute-set-ts-hwtstamp-provider:
+
+ts-hwtstamp-provider
+====================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
+index (``u32``)
+~~~~~~~~~~~~~~~
+
+
+qualifier (``u32``)
+~~~~~~~~~~~~~~~~~~~
+
+
 .. _ethtool-attribute-set-tsinfo:
 
 tsinfo
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1940,26 +2180,44 @@ stats (``nest``)
 :nested-attributes: :ref:`ethtool-attribute-set-ts-stat`
 
 
+hwtstamp-provider (``nest``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-ts-hwtstamp-provider`
+
+
 .. _ethtool-attribute-set-cable-result:
 
 cable-result
 ============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pair (``u8``)
 ~~~~~~~~~~~~~
+:doc: ETHTOOL_A_CABLE_PAIR
 
 
 code (``u8``)
 ~~~~~~~~~~~~~
+:doc: ETHTOOL_A_CABLE_RESULT_CODE
 
 
 src (``u32``)
 ~~~~~~~~~~~~~
+:doc: ETHTOOL_A_CABLE_INF_SRC
 
 
 .. _ethtool-attribute-set-cable-fault-length:
 
 cable-fault-length
 ==================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pair (``u8``)
 ~~~~~~~~~~~~~
 
@@ -1976,6 +2234,11 @@ src (``u32``)
 
 cable-nest
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 result (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-cable-result`
@@ -1990,6 +2253,11 @@ fault-length (``nest``)
 
 cable-test
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -1999,6 +2267,11 @@ header (``nest``)
 
 cable-test-ntf
 ==============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2006,6 +2279,7 @@ header (``nest``)
 
 status (``u8``)
 ~~~~~~~~~~~~~~~
+:doc: _STARTED/_COMPLETE
 
 
 nest (``nest``)
@@ -2017,6 +2291,11 @@ nest (``nest``)
 
 cable-test-tdr-cfg
 ==================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 first (``u32``)
 ~~~~~~~~~~~~~~~
 
@@ -2037,6 +2316,11 @@ pair (``u8``)
 
 cable-test-tdr-ntf
 ==================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2055,6 +2339,11 @@ nest (``nest``)
 
 cable-test-tdr
 ==============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2069,6 +2358,11 @@ cfg (``nest``)
 
 tunnel-udp-entry
 ================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 port (``u16``)
 ~~~~~~~~~~~~~~
 :byte-order: big-endian
@@ -2083,6 +2377,11 @@ type (``u32``)
 
 tunnel-udp-table
 ================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 size (``u32``)
 ~~~~~~~~~~~~~~
 
@@ -2102,6 +2401,11 @@ entry (``nest``)
 
 tunnel-udp
 ==========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 table (``nest``)
 ~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-tunnel-udp-table`
@@ -2111,6 +2415,11 @@ table (``nest``)
 
 tunnel-info
 ===========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2125,6 +2434,11 @@ udp-ports (``nest``)
 
 fec-stat
 ========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pad (``pad``)
 ~~~~~~~~~~~~~
 
@@ -2148,6 +2462,11 @@ corr-bits (``binary``)
 
 fec
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2175,6 +2494,11 @@ stats (``nest``)
 
 module-eeprom
 =============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2208,6 +2532,11 @@ data (``binary``)
 
 stats-grp
 =========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pad (``pad``)
 ~~~~~~~~~~~~~
 
@@ -2267,6 +2596,11 @@ hist-val
 
 stats
 =====
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 pad (``pad``)
 ~~~~~~~~~~~~~
 
@@ -2294,6 +2628,11 @@ src (``u32``)
 
 phc-vclocks
 ===========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2312,6 +2651,11 @@ index (``binary``)
 
 module
 ======
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2329,6 +2673,11 @@ power-mode (``u8``)
 
 c33-pse-pw-limit
 ================
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 min (``u32``)
 ~~~~~~~~~~~~~
 
@@ -2341,6 +2690,11 @@ max (``u32``)
 
 pse
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2413,6 +2767,11 @@ c33-pse-pw-limit-ranges (``nest``)
 
 rss
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2447,6 +2806,11 @@ start-context (``u32``)
 
 plca
 ====
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2488,6 +2852,11 @@ burst-tmr (``u32``)
 
 module-fw-flash
 ===============
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2522,6 +2891,11 @@ total (``uint``)
 
 phy
 ===
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
 header (``nest``)
 ~~~~~~~~~~~~~~~~~
 :nested-attributes: :ref:`ethtool-attribute-set-header`
@@ -2554,4 +2928,38 @@ upstream-sfp-name (``string``)
 
 downstream-sfp-name (``string``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+.. _ethtool-attribute-set-tsconfig:
+
+tsconfig
+========
+unspec (``unused``)
+~~~~~~~~~~~~~~~~~~~
+:value: 0
+
+
+header (``nest``)
+~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-header`
+
+
+hwtstamp-provider (``nest``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-ts-hwtstamp-provider`
+
+
+tx-types (``nest``)
+~~~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-bitset`
+
+
+rx-filters (``nest``)
+~~~~~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-bitset`
+
+
+hwtstamp-flags (``nest``)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+:nested-attributes: :ref:`ethtool-attribute-set-bitset`
 

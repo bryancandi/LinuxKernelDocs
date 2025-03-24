@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -430,6 +430,7 @@ CPU mappings on buffer move. Protected by load/unload sync.</p>
     struct dma_fence *move;
     struct list_head lru[TTM_MAX_BO_PRIORITY];
     uint64_t usage;
+    struct dmem_cgroup_region *cg;
 };
 </pre></div>
 </div>
@@ -453,6 +454,8 @@ CPU mappings on buffer move. Protected by load/unload sync.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">usage</span></code></dt><dd><p>How much of the resources are used, protected by the
 bdev-&gt;lru_lock.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cg</span></code></dt><dd><p><code class="xref c c-type docutils literal notranslate"><span class="pre">dmem_cgroup_region</span></code> used for memory accounting, if not NULL.</p>
 </dd>
 </dl>
 </div>
@@ -501,6 +504,7 @@ bdev-&gt;lru_lock.</p>
     uint32_t placement;
     struct ttm_bus_placement bus;
     struct ttm_buffer_object *bo;
+    struct dmem_cgroup_pool_state *css;
     struct ttm_lru_item lru;
 };
 </pre></div>
@@ -518,6 +522,8 @@ bdev-&gt;lru_lock.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">bus</span></code></dt><dd><p>Placement on io bus accessible to the CPU</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bo</span></code></dt><dd><p>weak reference to the BO, protected by ttm_device::lru_lock</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">css</span></code></dt><dd><p>cgroup state this resource is charged to</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">lru</span></code></dt><dd><p>Least recently used list, see <a class="reference internal" href="#c.ttm_resource_manager" title="ttm_resource_manager"><code class="xref c c-type docutils literal notranslate"><span class="pre">ttm_resource_manager.lru</span></code></a></p>
 </dd>
@@ -1544,7 +1550,7 @@ direct access to the object can be more efficient.</p>
 don’t have their own file handle. Two alternative methods currently
 co-exist to map GEM objects to userspace. The first method uses a
 driver-specific ioctl to perform the mapping operation, calling
-do_mmap() under the hood. This is often considered
+<a class="reference internal" href="../core-api/mm-api.html#c.do_mmap" title="do_mmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">do_mmap()</span></code></a> under the hood. This is often considered
 dubious, seems to be discouraged for new GEM-enabled drivers, and will
 thus not be described here.</p>
 <p>The second method uses the mmap system call on the DRM file handle. void
@@ -1640,17 +1646,19 @@ from the client in libdrm.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DRM_GEM_OBJECT_PURGEABLE</span></code></dt><dd><p>object marked as purgeable by userspace</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_GEM_OBJECT_ACTIVE</span></code></dt><dd><p>object is currently used by an active submission</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
 <p>Bitmask of status used for fdinfo memory stats, see <a class="reference internal" href="#c.drm_gem_object_funcs" title="drm_gem_object_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gem_object_funcs.status</span></code></a>
-and <a class="reference internal" href="drm-internals.html#c.drm_show_fdinfo" title="drm_show_fdinfo"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_fdinfo()</span></code></a>.  Note that an object can DRM_GEM_OBJECT_PURGEABLE if
-it still active or not resident, in which case <a class="reference internal" href="drm-internals.html#c.drm_show_fdinfo" title="drm_show_fdinfo"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_fdinfo()</span></code></a> will not
+and <a class="reference internal" href="drm-internals.html#c.drm_show_fdinfo" title="drm_show_fdinfo"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_fdinfo()</span></code></a>.  Note that an object can report DRM_GEM_OBJECT_PURGEABLE
+and be active or not resident, in which case <a class="reference internal" href="drm-internals.html#c.drm_show_fdinfo" title="drm_show_fdinfo"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_show_fdinfo()</span></code></a> will not
 account for it as purgeable.  So drivers do not need to check if the buffer
-is idle and resident to return this bit.  (Ie. userspace can mark a buffer
-as purgeable even while it is still busy on the GPU.. it does not _actually_
-become puregeable until it becomes idle.  The status gem object func does
-not need to consider this.)</p>
+is idle and resident to return this bit, i.e. userspace can mark a buffer as
+purgeable even while it is still busy on the GPU. It will not get reported in
+the puregeable stats until it becomes idle.  The status gem object func does
+not need to consider this.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_gem_object_funcs">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_object_funcs</span></span></span><a class="headerlink" href="#c.drm_gem_object_funcs" title="Link to this definition">¶</a><br /></dt>
@@ -4448,7 +4456,7 @@ region and the given node will be returned, as long as the node spans the
 whole requested area (given the size in number of pages as <strong>pages</strong>).</p>
 <p>Note that before lookup the vma offset manager lookup lock must be acquired
 with <a class="reference internal" href="#c.drm_vma_offset_lock_lookup" title="drm_vma_offset_lock_lookup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_vma_offset_lock_lookup()</span></code></a>. See there for an example. This can then be
-used to implement weakly referenced lookups using kref_get_unless_zero().</p>
+used to implement weakly referenced lookups using <a class="reference internal" href="../core-api/kref.html#c.kref_get_unless_zero" title="kref_get_unless_zero"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get_unless_zero()</span></code></a>.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>drm_vma_offset_lock_lookup(mgr);
 node = drm_vma_offset_lookup_locked(mgr);
 if (node)

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -78,6 +78,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../cdrom/index.html">CD-ROM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../scsi/index.html">SCSI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../target/index.html">TCM Virtual Device</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../nvme/index.html">NVMe Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a></li>
@@ -561,8 +562,13 @@ exported for use by modules.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct pipe_inode_info {
     struct mutex mutex;
     wait_queue_head_t rd_wait, wr_wait;
-    unsigned int head;
-    unsigned int tail;
+    union {
+        unsigned long head_tail;
+        struct {
+            pipe_index_t head;
+            pipe_index_t tail;
+        };
+    };
     unsigned int max_usage;
     unsigned int ring_size;
     unsigned int nr_accounted;
@@ -593,6 +599,12 @@ exported for use by modules.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">rd_wait</span></code></dt><dd><p>reader wait point in case of empty pipe</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">wr_wait</span></code></dt><dd><p>writer wait point in case of full pipe</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">head_tail</span></code></dt><dd><p>unsigned long union of <strong>head</strong> and <strong>tail</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_struct}</span></code></dt><dd><p>anonymous</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">head</span></code></dt><dd><p>The point of buffer production</p>
 </dd>
@@ -648,9 +660,9 @@ exported for use by modules.</p>
 <p>true if pipe is a watch queue, false otherwise.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.pipe_empty">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_empty</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">head</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">tail</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_empty" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Return true if the pipe is empty</p>
+<dt class="sig sig-object c" id="c.pipe_occupancy">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_occupancy</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">head</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">tail</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_occupancy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return number of slots used in the pipe</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -663,9 +675,9 @@ exported for use by modules.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.pipe_occupancy">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_occupancy</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">head</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">tail</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_occupancy" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Return number of slots used in the pipe</p>
+<dt class="sig sig-object c" id="c.pipe_empty">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_empty</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">head</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">tail</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_empty" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return true if the pipe is empty</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -691,6 +703,45 @@ exported for use by modules.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">tail</span></code></dt><dd><p>The pipe ring tail pointer</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">limit</span></code></dt><dd><p>The maximum amount of slots available.</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.pipe_is_full">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_is_full</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pipe_inode_info" title="pipe_inode_info"><span class="n"><span class="pre">pipe_inode_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_is_full" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return true if the pipe is full</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">pipe_inode_info</span> <span class="pre">*pipe</span></code></dt><dd><p>the pipe</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.pipe_is_empty">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_is_empty</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pipe_inode_info" title="pipe_inode_info"><span class="n"><span class="pre">pipe_inode_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_is_empty" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return true if the pipe is empty</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">pipe_inode_info</span> <span class="pre">*pipe</span></code></dt><dd><p>the pipe</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.pipe_buf_usage">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pipe_buf_usage</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.pipe_inode_info" title="pipe_inode_info"><span class="n"><span class="pre">pipe_inode_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pipe</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pipe_buf_usage" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return how many pipe buffers are in use</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">pipe_inode_info</span> <span class="pre">*pipe</span></code></dt><dd><p>the pipe</p>
 </dd>
 </dl>
 </div>

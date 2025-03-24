@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -78,6 +78,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../cdrom/index.html">CD-ROM</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">SCSI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../target/index.html">TCM Virtual Device</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../nvme/index.html">NVMe Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a></li>
@@ -170,12 +171,12 @@ invoking hostt-&gt;queuecommand() or the block layer will time it out.</p>
 <section id="completing-a-scmd-w-scsi-done">
 <h4>1.2.1 Completing a scmd w/ scsi_done<a class="headerlink" href="#completing-a-scmd-w-scsi-done" title="Link to this heading">¶</a></h4>
 <p>For all non-EH commands, scsi_done() is the completion callback.  It
-just calls blk_complete_request() to delete the block layer timer and
-raise SCSI_SOFTIRQ</p>
-<p>SCSI_SOFTIRQ handler scsi_softirq calls scsi_decide_disposition() to
-determine what to do with the command.  scsi_decide_disposition()
-looks at the scmd-&gt;result value and sense data to determine what to do
-with the command.</p>
+just calls <a class="reference internal" href="../block/blk-mq.html#c.blk_mq_complete_request" title="blk_mq_complete_request"><code class="xref c c-func docutils literal notranslate"><span class="pre">blk_mq_complete_request()</span></code></a> to delete the block layer timer and
+raise BLOCK_SOFTIRQ.</p>
+<p>The BLOCK_SOFTIRQ indirectly calls scsi_complete(), which calls
+scsi_decide_disposition() to determine what to do with the command.
+scsi_decide_disposition() looks at the scmd-&gt;result value and sense
+data to determine what to do with the command.</p>
 <blockquote>
 <div><ul>
 <li><p>SUCCESS</p>
@@ -237,7 +238,7 @@ for commands for which the SCSI_EH_ABORT_SCHEDULED flag is set (this
 indicates that the command already had been aborted once, and this is a
 retry which failed), when retries are exceeded, or when the EH deadline is
 expired. In these cases Step #3 is taken.</p></li>
-<li><p>scsi_eh_scmd_add(scmd, SCSI_EH_CANCEL_CMD) is invoked for the
+<li><p>scsi_eh_scmd_add(scmd) is invoked for the
 command.  See [1-4] for more information.</p></li>
 </ol>
 </div></blockquote>
@@ -409,7 +410,6 @@ consistency)</p>
 <dt class="field-odd">ACTION<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../driver-api/scsi.html#c.scsi_eh_finish_cmd" title="scsi_eh_finish_cmd"><code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_eh_finish_cmd()</span></code></a> is invoked to EH-finish scmd</p>
 <ul class="simple">
-<li><p>scsi_setup_cmd_retry()</p></li>
 <li><p>move from local eh_work_q to local eh_done_q</p></li>
 </ul>
 </dd>
@@ -461,7 +461,7 @@ cleared by this action.</p></li>
 <p><code class="docutils literal notranslate"><span class="pre">scsi_eh_get_sense</span></code></p>
 <blockquote>
 <div><p>This action is taken for each error-completed
-(!SCSI_EH_CANCEL_CMD) commands without valid sense data.  Most
+command without valid sense data.  Most
 SCSI transports/LLDDs automatically acquire sense data on
 command failures (autosense).  Autosense is recommended for
 performance reasons and as sense information could get out of
@@ -499,28 +499,6 @@ causes higher-severity recovery to be taken for the scmd.</p></li>
 </li>
 </ol>
 </div></blockquote>
-<ol class="arabic simple" start="3">
-<li><p>If !list_empty(&amp;eh_work_q), invoke scsi_eh_abort_cmds().</p></li>
-</ol>
-<p><code class="docutils literal notranslate"><span class="pre">scsi_eh_abort_cmds</span></code></p>
-<blockquote>
-<div><p>This action is taken for each timed out command when
-no_async_abort is enabled in the host template.
-hostt-&gt;eh_abort_handler() is invoked for each scmd.  The
-handler returns SUCCESS if it has succeeded to make LLDD and
-all related hardware forget about the scmd.</p>
-<p>If a timedout scmd is successfully aborted and the sdev is
-either offline or ready, <a class="reference internal" href="../driver-api/scsi.html#c.scsi_eh_finish_cmd" title="scsi_eh_finish_cmd"><code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_eh_finish_cmd()</span></code></a> is invoked for
-the scmd.  Otherwise, the scmd is left in eh_work_q for
-higher-severity actions.</p>
-<p>Note that both offline and ready status mean that the sdev is
-ready to process new scmds, where processing also implies
-immediate failing; thus, if a sdev is in one of the two
-states, no further recovery action is needed.</p>
-<p>Device readiness is tested using scsi_eh_tur() which issues
-TEST_UNIT_READY command.  Note that the scmd must have been
-aborted successfully before reusing it for TEST_UNIT_READY.</p>
-</div></blockquote>
 <ol class="arabic simple" start="4">
 <li><p>If !list_empty(&amp;eh_work_q), invoke <a class="reference internal" href="../driver-api/scsi.html#c.scsi_eh_ready_devs" title="scsi_eh_ready_devs"><code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_eh_ready_devs()</span></code></a></p></li>
 </ol>
@@ -535,7 +513,7 @@ make failed sdevs ready for new commands.</p>
 <blockquote>
 <div><p>For each sdev which has failed scmds with valid sense data
 of which <a class="reference internal" href="../driver-api/scsi.html#c.scsi_check_sense" title="scsi_check_sense"><code class="xref c c-func docutils literal notranslate"><span class="pre">scsi_check_sense()</span></code></a>’s verdict is FAILED,
-START_STOP_UNIT command is issued w/ start=1.  Note that
+START STOP UNIT command is issued w/ start=1.  Note that
 as we explicitly choose error-completed scmds, it is known
 that lower layers have forgotten about the scmd and we can
 reuse it for STU.</p>
@@ -632,8 +610,6 @@ except for #1 must be implemented by eh_strategy_handler().</p>
 <div><p>The following conditions must be true on exit from the handler.</p>
 <ul class="simple">
 <li><p>shost-&gt;host_failed is zero.</p></li>
-<li><p>Each scmd is in such a state that scsi_setup_cmd_retry() on the
-scmd doesn’t make any difference.</p></li>
 <li><p>shost-&gt;eh_cmd_q is cleared.</p></li>
 <li><p>Each scmd-&gt;eh_entry is cleared.</p></li>
 <li><p>Either scsi_queue_insert() or scsi_finish_command() is called on

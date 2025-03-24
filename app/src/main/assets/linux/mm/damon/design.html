@@ -13,7 +13,7 @@
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="next" title="DAMON Moniting Interval Parameters Tuning Example" href="monitoring_intervals_tuning_example.html" />
     <link rel="prev" title="Frequently Asked Questions" href="faq.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -321,7 +321,7 @@ minimum and the maximum number of regions for the trade-off.</p>
 assumption is not guaranteed.</p>
 </section>
 <section id="adaptive-regions-adjustment">
-<h4>Adaptive Regions Adjustment<a class="headerlink" href="#adaptive-regions-adjustment" title="Link to this heading">¶</a></h4>
+<span id="damon-design-adaptive-regions-adjustment"></span><h4>Adaptive Regions Adjustment<a class="headerlink" href="#adaptive-regions-adjustment" title="Link to this heading">¶</a></h4>
 <p>Even somehow the initial monitoring target regions are well constructed to
 fulfill the assumption (pages in same region have similar access frequencies),
 the data access pattern can be dynamically changed.  This will result in low
@@ -368,6 +368,51 @@ interval (<code class="docutils literal notranslate"><span class="pre">update</s
 tracepoints.  For more details, please refer to the documentations for
 <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-schemes-tried-regions"><span class="std std-ref">DAMOS tried regions</span></a> and <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#tracepoint"><span class="std std-ref">Tracepoints for Monitoring Results</span></a>,
 respectively.</p>
+</section>
+<section id="monitoring-parameters-tuning-guide">
+<span id="damon-design-monitoring-params-tuning-guide"></span><h4>Monitoring Parameters Tuning Guide<a class="headerlink" href="#monitoring-parameters-tuning-guide" title="Link to this heading">¶</a></h4>
+<p>In short, set <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code> to capture meaningful amount of accesses
+for the purpose.  The amount of accesses can be measured using <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>
+and <code class="docutils literal notranslate"><span class="pre">age</span></code> of regions in the aggregated monitoring results snapshot.  The
+default value of the interval, <code class="docutils literal notranslate"><span class="pre">100ms</span></code>, turns out to be too short in many
+cases.  Set <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code> proportional to <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>.  By
+default, <code class="docutils literal notranslate"><span class="pre">1/20</span></code> is recommended as the ratio.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Aggregation</span> <span class="pre">interval</span></code> should be set as the time interval that the workload
+can make an amount of accesses for the monitoring purpose, within the interval.
+If the interval is too short, only small number of accesses are captured.  As a
+result, the monitoring results look everything is samely accessed only rarely.
+For many purposes, that would be useless.  If it is too long, however, the time
+to converge regions with the <a class="reference internal" href="#damon-design-adaptive-regions-adjustment"><span class="std std-ref">regions adjustment mechanism</span></a> can be too long, depending on the
+time scale of the given purpose.  This could happen if the workload is actually
+making only rare accesses but the user thinks the amount of accesses for the
+monitoring purpose too high.  For such cases, the target amount of access to
+capture per <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code> should carefully reconsidered.  Also, note
+that the captured amount of accesses is represented with not only
+<code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>, but also <code class="docutils literal notranslate"><span class="pre">age</span></code>.  For example, even if every region on the
+monitoring results show zero <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>, regions could still be
+distinguished using <code class="docutils literal notranslate"><span class="pre">age</span></code> values as the recency information.</p>
+<p>Hence the optimum value of <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code> depends on the access
+intensiveness of the workload.  The user should tune the interval based on the
+amount of access that captured on each aggregated snapshot of the monitoring
+results.</p>
+<p>Note that the default value of the interval is 100 milliseconds, which is too
+short in many cases, especially on large systems.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Sampling</span> <span class="pre">interval</span></code> defines the resolution of each aggregation.  If it is set
+too large, monitoring results will look like every region was samely rarely
+accessed, or samely frequently accessed.  That is, regions become
+undistinguishable based on access pattern, and therefore the results will be
+useless in many use cases.  If <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code> is too small, it will not
+degrade the resolution, but will increase the monitoring overhead.  If it is
+appropriate enough to provide a resolution of the monitoring results that
+sufficient for the given purpose, it shouldn’t be unnecessarily further
+lowered.  It is recommended to be set proportional to <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>.
+By default, the ratio is set as <code class="docutils literal notranslate"><span class="pre">1/20</span></code>, and it is still recommended.</p>
+<p>Refer to below documents for an example tuning based on the above guide.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="monitoring_intervals_tuning_example.html">DAMON Moniting Interval Parameters Tuning Example</a></li>
+</ul>
+</div>
 </section>
 </section>
 <section id="operation-schemes">
@@ -560,9 +605,32 @@ only anonymous pages can impact their program’s performance.  They can also
 have a list of latency-critical processes.</p>
 <p>To let users optimize DAMOS schemes with such special knowledge, DAMOS provides
 a feature called DAMOS filters.  The feature allows users to set an arbitrary
-number of filters for each scheme.  Each filter specifies the type of target
-memory, and whether it should exclude the memory of the type (filter-out), or
-all except the memory of the type (filter-in).</p>
+number of filters for each scheme.  Each filter specifies</p>
+<ul class="simple">
+<li><p>a type of memory (<code class="docutils literal notranslate"><span class="pre">type</span></code>),</p></li>
+<li><p>whether it is for the memory of the type or all except the type
+(<code class="docutils literal notranslate"><span class="pre">matching</span></code>), and</p></li>
+<li><p>whether it is to allow (include) or reject (exclude) applying
+the scheme’s action to the memory (<code class="docutils literal notranslate"><span class="pre">allow</span></code>).</p></li>
+</ul>
+<p>When multiple filters are installed, each filter is evaluated in the installed
+order.  If a part of memory is matched to one of the filter, next filters are
+ignored.  If the memory passes through the filters evaluation stage because it
+is not matched to any of the filters, applying the scheme’s action to it is
+allowed, same to the behavior when no filter exists.</p>
+<p>For example, let’s assume 1) a filter for allowing anonymous pages and 2)
+another filter for rejecting young pages are installed in the order.  If a page
+of a region that eligible to apply the scheme’s action is an anonymous page,
+the scheme’s action will be applied to the page regardless of whether it is
+young or not, since it matches with the first allow-filter.  If the page is
+not anonymous but young, the scheme’s action will not be applied, since the
+second reject-filter blocks it.  If the page is neither anonymous nor young,
+the page will pass through the filters evaluation stage since there is no
+matching filter, and the action will be applied to the page.</p>
+<p>Note that the action can equally be applied to memory that either explicitly
+filter-allowed or filters evaluation stage passed.  It means that installing
+allow-filters at the end of the list makes no practical change but only
+filters-checking overhead.</p>
 <p>For efficient handling of filters, some types of filters are handled by the
 core layer, while others are handled by operations set.  In the latter case,
 hence, support of the filter types depends on the DAMON operations set.  In
@@ -570,7 +638,7 @@ case of the core layer-handled filters, the memory regions that excluded by the
 filter are not counted as the scheme has tried to the region.  In contrast, if
 a memory regions is filtered by an operations set layer-handled filter, it is
 counted as the scheme has tried.  This difference affects the statistics.</p>
-<p>Below types of filters are currently supported.</p>
+<p>Below <code class="docutils literal notranslate"><span class="pre">type</span></code> of filters are currently supported.</p>
 <ul class="simple">
 <li><dl class="simple">
 <dt>anonymous page</dt><dd><ul>
@@ -617,9 +685,47 @@ scheme.</p></li>
 <p>To know how user-space can set the watermarks via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-filters"><span class="std std-ref">filters</span></a> part of the
 documentation.</p>
 </section>
+<section id="statistics">
+<span id="damon-design-damos-stat"></span><h4>Statistics<a class="headerlink" href="#statistics" title="Link to this heading">¶</a></h4>
+<p>The statistics of DAMOS behaviors that designed to help monitoring, tuning and
+debugging of DAMOS.</p>
+<p>DAMOS accounts below statistics for each scheme, from the beginning of the
+scheme’s execution.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nr_tried</span></code>: Total number of regions that the scheme is tried to be applied.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sz_trtied</span></code>: Total size of regions that the scheme is tried to be applied.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sz_ops_filter_passed</span></code>: Total bytes that passed operations set
+layer-handled DAMOS filters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nr_applied</span></code>: Total number of regions that the scheme is applied.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sz_applied</span></code>: Total size of regions that the scheme is applied.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qt_exceeds</span></code>: Total number of times the quota of the scheme has exceeded.</p></li>
+</ul>
+<p>“A scheme is tried to be applied to a region” means DAMOS core logic determined
+the region is eligible to apply the scheme’s <a class="reference internal" href="#damon-design-damos-action"><span class="std std-ref">action</span></a>.  The <a class="reference internal" href="#damon-design-damos-access-pattern"><span class="std std-ref">access pattern</span></a>, <a class="reference internal" href="#damon-design-damos-quotas"><span class="std std-ref">quotas</span></a>, <a class="reference internal" href="#damon-design-damos-watermarks"><span class="std std-ref">watermarks</span></a>, and <a class="reference internal" href="#damon-design-damos-filters"><span class="std std-ref">filters</span></a> that handled on core logic could affect this.
+The core logic will only ask the underlying <a class="reference internal" href="#damon-operations-set"><span class="std std-ref">operation set</span></a> to do apply the action to the region, so whether the
+action is really applied or not is unclear.  That’s why it is called “tried”.</p>
+<p>“A scheme is applied to a region” means the <a class="reference internal" href="#damon-operations-set"><span class="std std-ref">operation set</span></a> has applied the action to at least a part of the
+region.  The <a class="reference internal" href="#damon-design-damos-filters"><span class="std std-ref">filters</span></a> that handled by the
+operation set, and the types of the <a class="reference internal" href="#damon-design-damos-action"><span class="std std-ref">action</span></a>
+and the pages of the region can affect this.  For example, if a filter is set
+to exclude anonymous pages and the region has only anonymous pages, or if the
+action is <code class="docutils literal notranslate"><span class="pre">pageout</span></code> while all pages of the region are unreclaimable, applying
+the action to the region will fail.</p>
+<p>To know how user-space can read the stats via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to :ref:s`stats &lt;sysfs_stats&gt;` part of the
+documentation.</p>
+</section>
+<section id="regions-walking">
+<h4>Regions Walking<a class="headerlink" href="#regions-walking" title="Link to this heading">¶</a></h4>
+<p>DAMOS feature allowing users access each region that a DAMOS action has just
+applied.  Using this feature, DAMON <a class="reference internal" href="#damon-design-api"><span class="std std-ref">API</span></a> allows users
+access full properties of the regions including the access monitoring results
+and amount of the region’s internal memory that passed the DAMOS filters.
+<a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a> also allows users read the data
+via special <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-schemes-tried-regions"><span class="std std-ref">files</span></a>.</p>
+</section>
 </section>
 <section id="application-programming-interface">
-<h3>Application Programming Interface<a class="headerlink" href="#application-programming-interface" title="Link to this heading">¶</a></h3>
+<span id="damon-design-api"></span><h3>Application Programming Interface<a class="headerlink" href="#application-programming-interface" title="Link to this heading">¶</a></h3>
 <p>The programming interface for kernel space data access-aware applications.
 DAMON is a framework, so it does nothing by itself.  Instead, it only helps
 other kernel components such as subsystems and modules building their data
@@ -643,28 +749,26 @@ applications using the interfaces.</p>
 <h3>General Purpose User Interface Modules<a class="headerlink" href="#general-purpose-user-interface-modules" title="Link to this heading">¶</a></h3>
 <p>DAMON modules that provide user space ABIs for general purpose DAMON usage in
 runtime.</p>
-<p>DAMON user interface modules, namely ‘DAMON sysfs interface’ and ‘DAMON debugfs
-interface’ are DAMON API user kernel modules that provide ABIs to the
-user-space.  Please note that DAMON debugfs interface is currently deprecated.</p>
-<p>Like many other ABIs, the modules create files on sysfs and debugfs, allow
-users to specify their requests to and get the answers from DAMON by writing to
-and reading from the files.  As a response to such I/O, DAMON user interface
-modules control DAMON and retrieve the results as user requested via the DAMON
-API, and return the results to the user-space.</p>
+<p>Like many other ABIs, the modules create files on pseudo file systems like
+‘sysfs’, allow users to specify their requests to and get the answers from
+DAMON by writing to and reading from the files.  As a response to such I/O,
+DAMON user interface modules control DAMON and retrieve the results as user
+requested via the DAMON API, and return the results to the user-space.</p>
 <p>The ABIs are designed to be used for user space applications development,
 rather than human beings’ fingers.  Human users are recommended to use such
 user space tools.  One such Python-written user space tool is available at
 Github (<a class="reference external" href="https://github.com/damonitor/damo">https://github.com/damonitor/damo</a>), Pypi
 (<a class="reference external" href="https://pypistats.org/packages/damo">https://pypistats.org/packages/damo</a>), and Fedora
 (<a class="reference external" href="https://packages.fedoraproject.org/pkgs/python-damo/damo/">https://packages.fedoraproject.org/pkgs/python-damo/damo/</a>).</p>
-<p>Please refer to the ABI <a class="reference internal" href="../../admin-guide/mm/damon/usage.html"><span class="doc">document</span></a> for
-details of the interfaces.</p>
+<p>Currently, one module for this type, namely ‘DAMON sysfs interface’ is
+available.  Please refer to the ABI <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">doc</span></a> for details of
+the interfaces.</p>
 </section>
 <section id="special-purpose-access-aware-kernel-modules">
 <h3>Special-Purpose Access-aware Kernel Modules<a class="headerlink" href="#special-purpose-access-aware-kernel-modules" title="Link to this heading">¶</a></h3>
 <p>DAMON modules that provide user space ABI for specific purpose DAMON usage.</p>
-<p>DAMON sysfs/debugfs user interfaces are for full control of all DAMON features
-in runtime.  For each special-purpose system-wide data access-aware system
+<p>DAMON user interface modules are for full control of all DAMON features in
+runtime.  For each special-purpose system-wide data access-aware system
 operations such as proactive reclamation or LRU lists balancing, the interfaces
 could be simplified by removing unnecessary knobs for the specific purpose, and
 extended for boot-time and even compile time control.  Default values of DAMON

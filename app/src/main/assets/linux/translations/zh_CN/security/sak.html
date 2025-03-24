@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Linux 安全注意键（SAK）处理 &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=a152c8ac" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="SipHash - 一种短输入伪随机函数（PRF）" href="siphash.html" />
+    <link rel="prev" title="Linux安全模块：Linux通用安全钩子" href="lsm.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">6.14.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><!-- SPDX-License-Identifier: GPL-2.0 -->
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/index.html">All development-process docs</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../locking/index.html">Locking</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rust/index.html">Rust</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../arch/index.html">CPU architectures</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Translations</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">中文翻译</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../index.html#linux">与Linux 内核社区一起工作</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#api">内部API文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id2">开发工具和流程</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id3">面向用户的文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id5">固件相关文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id6">体系结构文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id7">其他文档</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id8">术语表</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#id9">索引和表格</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../zh_TW/index.html">繁體中文翻譯</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../it_IT/index.html">La documentazione del kernel Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ko_KR/index.html">한국어 번역</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ja_JP/index.html">日本語訳</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../sp_SP/index.html">Traducción al español</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../index.html#disclaimer">Disclaimer</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../../_sources/translations/zh_CN/security/sak.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <!-- SPDX-License-Identifier: GPL-2.0 -->
+<!-- Copyright © 2023, Oracle and/or its affiliates. -->
+
+
+
+<div class="language-selection">
+Chinese (Simplified)
+
+<ul>
+
+<li><a href="../../../security/sak.html">English</a></li>
+
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>此文件的目的是为让中文读者更容易阅读和理解，而不是作为一个分支。 因此，
+如果您对此文件有任何意见或更新，请先尝试更新原始英文文件。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>如果您发现本文档与原始文件有任何不同或者有翻译问题，请联系该文件的译者，
+或者请求时奎亮的帮助：&lt;<a class="reference external" href="mailto:alexs&#37;&#52;&#48;kernel&#46;org">alexs<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;。</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Original<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../../security/sak.html"><span class="doc">Linux Secure Attention Key (SAK) handling</span></a></p>
+</dd>
+<dt class="field-even">翻译<span class="colon">:</span></dt>
+<dd class="field-even"><p>张巍 zhangwei &lt;<a class="reference external" href="mailto:zhangwei&#37;&#52;&#48;cqsoftware&#46;com&#46;cn">zhangwei<span>&#64;</span>cqsoftware<span>&#46;</span>com<span>&#46;</span>cn</a>&gt;</p>
+</dd>
+</dl>
+<section id="linux-sak">
+<h1>Linux 安全注意键（SAK）处理<a class="headerlink" href="#linux-sak" title="Link to this heading">¶</a></h1>
+<dl class="field-list simple">
+<dt class="field-odd">日期<span class="colon">:</span></dt>
+<dd class="field-odd"><p>2001年3月18日</p>
+</dd>
+<dt class="field-even">作者<span class="colon">:</span></dt>
+<dd class="field-even"><p>Andrew Morton</p>
+</dd>
+</dl>
+<p>操作系统的安全注意键是一种安全工具，用于防止系统上存在特洛伊
+木马密码捕获程序。它提供了一种无法规避的方式，用于终止所有可
+能伪装成登录应用程序的程序。用户需要在登录系统之前输入这个安
+全键。</p>
+<p>从键盘输入的方式生成安全注意键，Linux提供了两种相似但不同的
+方式。一种是按下ALT-SYSRQ-K组合键，但你不应该使用这种方式，
+因为它只有在内核启用了SYSRQ支持的情况下才能使用。</p>
+<p>正确生成SAK的方式是使用``loadkeys``来定义键序列。无论内核是否
+编译了sysrq支持，这种方式都能够正常工作。</p>
+<p>当键盘处于原始模式时，SAK 能够正常工作。这意味着，一旦定义，
+SAK 将终止正在运行的 X 服务器。如果系统处于运行级别 5，X 服
+务器将重新启动，这正是你希望发生的情况。</p>
+<p>你应该使用什么键序列？ CTRL-ALT-DEL用于重启机器，CTRL-ALT-
+BACKSPACE对X服务器有特殊作用。我们将选择CTRL-ALT-PAUSE。</p>
+<p>在你的rc.sysinit（或rc.local）文件中，添加以下命令:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;Control Alt keycode 101 = SAK&quot; | /bin/loadkeys
+</pre></div>
+</div>
+<p>就这样！只有超级用户才能重新编程SAK键。</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ol class="arabic">
+<li><p>Linux SAK据说并不是C2级安全性的系统所要求的”真正的SAK”。
+该原因作者也不知道</p></li>
+<li><p>在键盘输入的模式下，SAK会终止所有打开了/dev/console的应用
+程序。</p>
+<p>但是不幸的是，这也包括一些你实际上不希望被终止的程序。原因是
+这些程序错误的保持了/dev/console的打开状态。务必确保向你的
+Linux发行版提供商投诉这个问题。</p>
+<p>你可以用以下的命令来识别将被SAK终止的程序:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># ls -l /proc/[0-9]*/fd/* | grep console
+l-wx------    1 root     root           64 Mar 18 00:46 /proc/579/fd/0 -&gt; /dev/console
+</pre></div>
+</div>
+<p>然后:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># ps aux|grep 579
+root       579  0.0  0.1  1088  436 ?        S    00:43   0:00 gpm -t ps/2
+</pre></div>
+</div>
+<p>所以``gpm``会被SAK杀死。这应该gpm中的bug。它应该正在关闭标准输入，
+你可以通过查找initscript来启动gpm并更改它：</p>
+<p>老的:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>daemon gpm
+</pre></div>
+</div>
+<p>新的:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>daemon gpm &lt; /dev/null
+</pre></div>
+</div>
+<p>Vixie cron似乎也有这个问题，并且需要采取相同的处理方式。</p>
+<p>此外，某个著名的Linux发行版在它的rc.sysinit和rc scripts的脚本中
+包含了以下三行代码:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>exec 3&lt;&amp;0
+exec 4&gt;&amp;1
+exec 5&gt;&amp;2
+</pre></div>
+</div>
+<p>这些代码会导致所有的守护进程将文件描述符3、4和5关联到/dev/console。
+所以SAK会将他们所有都终止。一个简单的解决办法就是删掉这些代码，但是
+这样做会导致系统管理应用程序出现异常 - 要对所有的情况进行充分测试。</p>
+</li>
+</ol>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &copy;The kernel development community.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/translations/zh_CN/security/sak.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

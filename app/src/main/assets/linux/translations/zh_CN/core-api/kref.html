@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -236,7 +236,7 @@ kref_init(&amp;data-&gt;refcount);
 <p>一旦你有一个初始化的kref，你必须遵循以下规则:</p>
 <ol class="arabic">
 <li><p>如果你对一个指针做了一个非临时性的拷贝，特别是如果它可以被传递给另一个执
-行线程，你必须在传递之前用kref_get()增加refcount:</p>
+行线程，你必须在传递之前用<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>增加refcount:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>kref_get(&amp;data-&gt;refcount);
 
  如果你已经有了一个指向kref-ed结构体的有效指针（refcount不能为零），你
@@ -244,7 +244,7 @@ kref_init(&amp;data-&gt;refcount);
 </pre></div>
 </div>
 </li>
-<li><p>当你完成对一个指针的处理时，你必须调用kref_put():</p>
+<li><p>当你完成对一个指针的处理时，你必须调用<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>kref_put(&amp;data-&gt;refcount, data_release);
 </pre></div>
 </div>
@@ -253,7 +253,7 @@ kref_init(&amp;data-&gt;refcount);
 有锁的情况下这样做是安全的。</p>
 </li>
 <li><p>如果代码试图获得对一个kref-ed结构体的引用，而不持有一个有效的指针，它必
-须按顺序访问，在kref_put()期间不能发生kref_get()，并且该结构体在kref_get()
+须按顺序访问，在<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>期间不能发生<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>，并且该结构体在<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>
 期间必须保持有效。</p></li>
 </ol>
 <p>例如，如果你分配了一些数据，然后将其传递给另一个线程来处理:</p>
@@ -299,11 +299,11 @@ out:
 }
 </pre></div>
 </div>
-<p>这样，两个线程处理数据的顺序并不重要，kref_put()处理知道数据不再被引用并释
-放它。kref_get()不需要锁，因为我们已经有了一个有效的指针，我们拥有一个
+<p>这样，两个线程处理数据的顺序并不重要，<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>处理知道数据不再被引用并释
+放它。<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>不需要锁，因为我们已经有了一个有效的指针，我们拥有一个
 refcount。put不需要锁，因为没有任何东西试图在没有持有指针的情况下获取数据。</p>
-<p>在上面的例子中，kref_put()在成功和错误路径中都会被调用2次。这是必要的，因
-为引用计数被kref_init()和kref_get()递增了2次。</p>
+<p>在上面的例子中，<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>在成功和错误路径中都会被调用2次。这是必要的，因
+为引用计数被<a class="reference internal" href="../../../core-api/kref.html#c.kref_init" title="kref_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_init()</span></code></a>和<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>递增了2次。</p>
 <p>请注意，规则1中的 “before “是非常重要的。你不应该做类似于:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>task = kthread_run(more_data_handling, data, &quot;more_data_handling&quot;);
 if (task == ERR_PTR(-ENOMEM)) {
@@ -334,7 +334,7 @@ kref_put(&amp;obj-&gt;ref, obj_cleanup);
 </pre></div>
 </div>
 <p>最后一条规则（规则3）是最难处理的一条。例如，你有一个每个项目都被krefed的列表，
-而你希望得到第一个项目。你不能只是从列表中抽出第一个项目，然后kref_get()它。
+而你希望得到第一个项目。你不能只是从列表中抽出第一个项目，然后<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>它。
 这违反了规则3，因为你还没有持有一个有效的指针。你必须添加一个mutex（或其他锁）。
 比如说:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static DEFINE_MUTEX(mutex);
@@ -373,8 +373,8 @@ static void put_entry(struct my_data *entry)
 }
 </pre></div>
 </div>
-<p>如果你不想在整个释放操作过程中持有锁，kref_put()的返回值是有用的。假设你不想在
-上面的例子中在持有锁的情况下调用<a class="reference internal" href="../../../core-api/mm-api.html#c.kfree" title="kfree"><code class="xref c c-func docutils literal notranslate"><span class="pre">kfree()</span></code></a>（因为这样做有点无意义）。你可以使用kref_put()，
+<p>如果你不想在整个释放操作过程中持有锁，<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>的返回值是有用的。假设你不想在
+上面的例子中在持有锁的情况下调用<a class="reference internal" href="../../../core-api/mm-api.html#c.kfree" title="kfree"><code class="xref c c-func docutils literal notranslate"><span class="pre">kfree()</span></code></a>（因为这样做有点无意义）。你可以使用<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>，
 如下所示:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static void release_entry(struct kref *ref)
 {
@@ -396,7 +396,7 @@ static void put_entry(struct my_data *entry)
 <p>如果你必须调用其他程序作为释放操作的一部分，而这些程序可能需要很长的时间，或者可
 能要求相同的锁，那么这真的更有用。请注意，在释放例程中做所有的事情还是比较好的，
 因为它比较整洁。</p>
-<p>上面的例子也可以用kref_get_unless_zero()来优化，方法如下:</p>
+<p>上面的例子也可以用<a class="reference internal" href="../../../core-api/kref.html#c.kref_get_unless_zero" title="kref_get_unless_zero"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get_unless_zero()</span></code></a>来优化，方法如下:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct my_data *get_entry()
 {
         struct my_data *entry = NULL;
@@ -426,11 +426,11 @@ static void put_entry(struct my_data *entry)
 }
 </pre></div>
 </div>
-<p>这对于在put_entry()中移除kref_put()周围的mutex锁是很有用的，但是重要的是
+<p>这对于在put_entry()中移除<a class="reference internal" href="../../../core-api/kref.html#c.kref_put" title="kref_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_put()</span></code></a>周围的mutex锁是很有用的，但是重要的是
 kref_get_unless_zero被封装在查找表中的同一关键部分，否则kref_get_unless_zero
 可能引用已经释放的内存。注意，在不检查其返回值的情况下使用kref_get_unless_zero
-是非法的。如果你确信（已经有了一个有效的指针）kref_get_unless_zero()会返回true，
-那么就用kref_get()代替。</p>
+是非法的。如果你确信（已经有了一个有效的指针）<a class="reference internal" href="../../../core-api/kref.html#c.kref_get_unless_zero" title="kref_get_unless_zero"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get_unless_zero()</span></code></a>会返回true，
+那么就用<a class="reference internal" href="../../../core-api/kref.html#c.kref_get" title="kref_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">kref_get()</span></code></a>代替。</p>
 </section>
 <section id="krefsrcu">
 <h2>Krefs和RCU<a class="headerlink" href="#krefsrcu" title="Link to this heading">¶</a></h2>

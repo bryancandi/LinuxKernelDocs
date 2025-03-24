@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -302,6 +302,7 @@ echo 1 &gt; /sys/kernel/debug/dri/1/DP-1/test/active
     struct zynqmp_disp_layer *layers[ZYNQMP_DPSUB_NUM_LAYERS];
     struct zynqmp_dp *dp;
     unsigned int dma_align;
+    struct zynqmp_dpsub_audio *audio;
 };
 </pre></div>
 </div>
@@ -335,6 +336,8 @@ driven by the live input</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dp</span></code></dt><dd><p>The DisplayPort controller</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dma_align</span></code></dt><dd><p>DMA alignment constraint (must be a power of 2)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">audio</span></code></dt><dd><p>DP audio data</p>
 </dd>
 </dl>
 </div>
@@ -515,7 +518,6 @@ driven by the live input</p>
     struct zynqmp_dpsub *dpsub;
     void __iomem *blend;
     void __iomem *avbuf;
-    void __iomem *audio;
     struct zynqmp_disp_layer layers[ZYNQMP_DPSUB_NUM_LAYERS];
 };
 </pre></div>
@@ -529,8 +531,6 @@ driven by the live input</p>
 <dt><code class="docutils literal notranslate"><span class="pre">blend</span></code></dt><dd><p>Register I/O base address for the blender</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">avbuf</span></code></dt><dd><p>Register I/O base address for the audio/video buffer manager</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">audio</span></code></dt><dd><p>Registers I/O base address for the audio mixer</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">layers</span></code></dt><dd><p>Layers (planes)</p>
 </dd>
@@ -811,37 +811,6 @@ handle RGB and YCrCb components permutations.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zynqmp_disp_layer</span> <span class="pre">*layer</span></code></dt><dd><p>The layer</p>
 </dd>
 </dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.zynqmp_disp_audio_enable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zynqmp_disp_audio_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zynqmp_disp" title="zynqmp_disp"><span class="n"><span class="pre">zynqmp_disp</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">disp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zynqmp_disp_audio_enable" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Enable the audio mixer</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zynqmp_disp</span> <span class="pre">*disp</span></code></dt><dd><p>Display controller</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Enable the audio mixer by de-asserting the soft reset. The audio state is set to
-default values by the reset, set the default mixer volume explicitly.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.zynqmp_disp_audio_disable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zynqmp_disp_audio_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zynqmp_disp" title="zynqmp_disp"><span class="n"><span class="pre">zynqmp_disp</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">disp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zynqmp_disp_audio_disable" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Disable the audio mixer</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zynqmp_disp</span> <span class="pre">*disp</span></code></dt><dd><p>Display controller</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Disable the audio mixer by asserting its soft reset.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.zynqmp_disp_layer_find_format">
@@ -1847,38 +1816,6 @@ layers are connected.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Disable vblank interrupt</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.zynqmp_dpsub_audio_enabled">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zynqmp_dpsub_audio_enabled</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zynqmp_dpsub" title="zynqmp_dpsub"><span class="n"><span class="pre">zynqmp_dpsub</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dpsub</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zynqmp_dpsub_audio_enabled" title="Link to this definition">¶</a><br /></dt>
-<dd><p>If the audio is enabled</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zynqmp_dpsub</span> <span class="pre">*dpsub</span></code></dt><dd><p>DisplayPort subsystem</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Return if the audio is enabled depending on the audio clock.</p>
-<p><strong>Return</strong></p>
-<p>true if audio is enabled, or false.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.zynqmp_dpsub_get_audio_clk_rate">
-<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zynqmp_dpsub_get_audio_clk_rate</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zynqmp_dpsub" title="zynqmp_dpsub"><span class="n"><span class="pre">zynqmp_dpsub</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dpsub</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zynqmp_dpsub_get_audio_clk_rate" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Get the current audio clock rate</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zynqmp_dpsub</span> <span class="pre">*dpsub</span></code></dt><dd><p>DisplayPort subsystem</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p>the current audio clock rate.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.zynqmp_dpsub_drm_handle_vblank">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -590,8 +590,8 @@ is again deprecated and ts[2] holds a hardware timestamp if set.</p>
 </section>
 </section>
 </section>
-<section id="hardware-timestamping-configuration-siocshwtstamp-and-siocghwtstamp">
-<h2>3. Hardware Timestamping configuration: SIOCSHWTSTAMP and SIOCGHWTSTAMP<a class="headerlink" href="#hardware-timestamping-configuration-siocshwtstamp-and-siocghwtstamp" title="Link to this heading">¶</a></h2>
+<section id="hardware-timestamping-configuration-ethtool-msg-tsconfig-set-get">
+<h2>3. Hardware Timestamping configuration: ETHTOOL_MSG_TSCONFIG_SET/GET<a class="headerlink" href="#hardware-timestamping-configuration-ethtool-msg-tsconfig-set-get" title="Link to this heading">¶</a></h2>
 <p>Hardware time stamping must also be initialized for each device driver
 that is expected to do hardware time stamping. The parameter is defined in
 include/uapi/linux/net_tstamp.h as:</p>
@@ -603,12 +603,13 @@ include/uapi/linux/net_tstamp.h as:</p>
 </pre></div>
 </div>
 <p>Desired behavior is passed into the kernel and to a specific device by
-calling ioctl(SIOCSHWTSTAMP) with a pointer to a struct ifreq whose
-ifr_data points to a struct hwtstamp_config. The tx_type and
-rx_filter are hints to the driver what it is expected to do. If
-the requested fine-grained filtering for incoming packets is not
-supported, the driver may time stamp more than just the requested types
-of packets.</p>
+calling the tsconfig netlink socket <code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_TSCONFIG_SET</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">ETHTOOL_A_TSCONFIG_TX_TYPES</span></code>, <code class="docutils literal notranslate"><span class="pre">ETHTOOL_A_TSCONFIG_RX_FILTERS</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ETHTOOL_A_TSCONFIG_HWTSTAMP_FLAGS</span></code> netlink attributes are then used to set
+the struct hwtstamp_config accordingly.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ETHTOOL_A_TSCONFIG_HWTSTAMP_PROVIDER</span></code> netlink nested attribute is used
+to select the source of the hardware time stamping. It is composed of an index
+for the device source and a qualifier for the type of time stamping.</p>
 <p>Drivers are free to use a more permissive configuration than the requested
 configuration. It is expected that drivers should only implement directly the
 most generic mode that can be supported. For example if the hardware can
@@ -623,9 +624,15 @@ indicates that SIOCSHWTSTAMP is not supported at all).</p>
 <p>Only a processes with admin rights may change the configuration. User
 space is responsible to ensure that multiple processes don’t interfere
 with each other and that the settings are reset.</p>
-<p>Any process can read the actual configuration by passing this
-structure to ioctl(SIOCGHWTSTAMP) in the same way.  However, this has
-not been implemented in all drivers.</p>
+<p>Any process can read the actual configuration by requesting tsconfig netlink
+socket <code class="docutils literal notranslate"><span class="pre">ETHTOOL_MSG_TSCONFIG_GET</span></code>.</p>
+<p>The legacy configuration is the use of the ioctl(SIOCSHWTSTAMP) with a pointer
+to a struct ifreq whose ifr_data points to a struct hwtstamp_config.
+The tx_type and rx_filter are hints to the driver what it is expected to do.
+If the requested fine-grained filtering for incoming packets is not
+supported, the driver may time stamp more than just the requested types
+of packets. ioctl(SIOCGHWTSTAMP) is used in the same way as the
+ioctl(SIOCSHWTSTAMP). However, this has not been implemented in all drivers.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/* possible values for hwtstamp_config-&gt;tx_type */
 enum {
         /*
@@ -667,9 +674,10 @@ enum {
 <section id="hardware-timestamping-implementation-device-drivers">
 <h3>3.1 Hardware Timestamping Implementation: Device Drivers<a class="headerlink" href="#hardware-timestamping-implementation-device-drivers" title="Link to this heading">¶</a></h3>
 <p>A driver which supports hardware time stamping must support the
-SIOCSHWTSTAMP ioctl and update the supplied struct hwtstamp_config with
-the actual values as described in the section on SIOCSHWTSTAMP.  It
-should also support SIOCGHWTSTAMP.</p>
+ndo_hwtstamp_set NDO or the legacy SIOCSHWTSTAMP ioctl and update the
+supplied struct hwtstamp_config with the actual values as described in
+the section on SIOCSHWTSTAMP. It should also support ndo_hwtstamp_get or
+the legacy SIOCGHWTSTAMP.</p>
 <p>Time stamps for received packets must be stored in the skb. To get a pointer
 to the shared time stamp structure of the skb call skb_hwtstamps(). Then
 set the time stamps in the structure:</p>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -163,12 +163,9 @@ driver doesn’t allocate physically contiguous objects on its own.
 Display engines requiring physically contiguous allocations should
 look into Mesa’s “renderonly” support (as used by the Mesa pl111
 driver) for an example of how to integrate with V3D.</p>
-<p>Long term, we should support evicting pages from the MMU when under
-memory pressure (thus the v3d_bo_get_pages() refcounting), but
-that’s not a high priority since our systems tend to not have swap.</p>
 <section id="address-space-management">
 <h3>Address space management<a class="headerlink" href="#address-space-management" title="Link to this heading">¶</a></h3>
-<p>The V3D 3.x hardware (compared to VC4) now includes an MMU.  It has
+<p>The V3D 3.x hardware (compared to VC4) now includes an MMU. It has
 a single level of page tables for the V3D’s 4GB address space to
 map to AXI bus addresses, thus it could need up to 4MB of
 physically contiguous memory to store the PTEs.</p>
@@ -177,20 +174,20 @@ and switching between them is expensive, we load all BOs into the
 same 4GB address space.</p>
 <p>To protect clients from each other, we should use the GMP to
 quickly mask out (at 128kb granularity) what pages are available to
-each client.  This is not yet implemented.</p>
+each client. This is not yet implemented.</p>
 </section>
 <section id="gpu-scheduling">
 <h3>GPU Scheduling<a class="headerlink" href="#gpu-scheduling" title="Link to this heading">¶</a></h3>
 <p>The shared DRM GPU scheduler is used to coordinate submitting jobs
-to the hardware.  Each DRM fd (roughly a client process) gets its
-own scheduler entity, which will process jobs in order.  The GPU
-scheduler will round-robin between clients to submit the next job.</p>
+to the hardware. Each DRM fd (roughly a client process) gets its
+own scheduler entity, which will process jobs in order. The GPU
+scheduler will schedule the clients with a FIFO scheduling algorithm.</p>
 <p>For simplicity, and in order to keep latency low for interactive
 jobs when bulk background jobs are queued up, we submit a new job
 to the HW only when it has completed the last one, instead of
-filling up the CT[01]Q FIFOs with jobs.  Similarly, we use
-<a class="reference internal" href="drm-mm.html#c.drm_sched_job_add_dependency" title="drm_sched_job_add_dependency"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_add_dependency()</span></code></a> to manage the dependency between bin and
-render, instead of having the clients submit jobs using the HW’s
+filling up the CT[01]Q FIFOs with jobs. Similarly, we use
+<cite><a class="reference internal" href="drm-mm.html#c.drm_sched_job_add_dependency" title="drm_sched_job_add_dependency"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_add_dependency()</span></code></a></cite> to manage the dependency between bin
+and render, instead of having the clients submit jobs using the HW’s
 semaphores to interlock between them.</p>
 </section>
 </section>

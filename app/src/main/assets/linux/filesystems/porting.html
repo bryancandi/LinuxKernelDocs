@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -78,6 +78,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../cdrom/index.html">CD-ROM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../scsi/index.html">SCSI Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../target/index.html">TCM Virtual Device</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../nvme/index.html">NVMe Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a></li>
@@ -367,7 +368,7 @@ deliberate; as soon as struct block_device * is propagated in a reasonable
 way by that code fixing will become trivial; until then nothing can be
 done.</p>
 <p><strong>mandatory</strong></p>
-<p>block truncatation on error exit from -&gt;write_begin, and -&gt;direct_IO
+<p>block truncation on error exit from -&gt;write_begin, and -&gt;direct_IO
 moved from generic methods (block_write_begin, cont_write_begin,
 nobh_write_begin, blockdev_direct_IO*) to callers.  Take a look at
 ext2_write_failed and callers for an example.</p>
@@ -965,6 +966,19 @@ pointer are gone.</p>
 <p><strong>mandatory</strong></p>
 <p>set_blocksize() takes opened <a class="reference internal" href="api-summary.html#c.file" title="file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span></code></a> instead of struct block_device now
 and it <em>must</em> be opened exclusive.</p>
+<p>---</p>
+<p>** mandatory**</p>
+<p>-&gt;d_revalidate() gets two extra arguments - inode of parent directory and
+name our dentry is expected to have.  Both are stable (dir is pinned in
+non-RCU case and will stay around during the call in RCU case, and name
+is guaranteed to stay unchanging).  Your instance doesn’t have to use
+either, but it often helps to avoid a lot of painful boilerplate.
+Note that while name-&gt;name is stable and NUL-terminated, it may (and
+often will) have name-&gt;name[name-&gt;len] equal to ‘/’ rather than ‘0’ -
+in normal case it points into the pathname being looked up.
+NOTE: if you need something like full path from the root of filesystem,
+you are still on your own - this assists with simple cases, but it’s not
+magic.</p>
 </section>
 
 

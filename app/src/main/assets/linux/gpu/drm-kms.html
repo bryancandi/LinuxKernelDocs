@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.13.0</p>
+<p class="blurb">6.14.0</p>
 
 
 
@@ -7747,8 +7747,7 @@ with an optional ‘i’ suffix for interlaced modes.</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
-<p><strong>modes</strong>’s vrefresh rate in Hz, rounded to the nearest integer. Calculates the
-value first if it is not yet set.</p>
+<p><strong>modes</strong>’s vrefresh rate in Hz, rounded to the nearest integer.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_mode_get_hv_timing">
@@ -9125,6 +9124,7 @@ Properties</span></a></p>
     enum drm_mode_status(*tmds_char_rate_valid)(const struct drm_connector *connector,const struct drm_display_mode *mode, unsigned long long tmds_rate);
     int (*clear_infoframe)(struct drm_connector *connector, enum hdmi_infoframe_type type);
     int (*write_infoframe)(struct drm_connector *connector,enum hdmi_infoframe_type type, const u8 *buffer, size_t len);
+    const struct drm_edid *(*read_edid)(struct drm_connector *connector);
 };
 </pre></div>
 </div>
@@ -9155,6 +9155,14 @@ type.</p>
 <p>The <strong>write_infoframe</strong> callback is mandatory.</p>
 <p>Returns:
 0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">read_edid</span></code></dt><dd><p>This callback is used by the framework as a replacement for reading
+the EDID from connector-&gt;ddc. It is still recommended to provide
+connector-&gt;ddc instead of implementing this callback. Returned EDID
+should be freed via the <a class="reference internal" href="drm-kms-helpers.html#c.drm_edid_free" title="drm_edid_free"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_edid_free()</span></code></a>.</p>
+<p>The <strong>read_edid</strong> callback is optional.</p>
+<p>Returns:
+Valid EDID on success, NULL in case of failure.</p>
 </dd>
 </dl>
 </div>
@@ -9449,6 +9457,51 @@ passed through the kernel command line. This structure allows to
 express those parameters and will be filled by the command-line
 parser.</p>
 <dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_connector_hdmi_audio">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_hdmi_audio</span></span></span><a class="headerlink" href="#c.drm_connector_hdmi_audio" title="Link to this definition">¶</a><br /></dt>
+<dd><p>DRM gemeric HDMI Codec-related structure</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_connector_hdmi_audio {
+    const struct drm_connector_hdmi_audio_funcs *funcs;
+    struct platform_device *codec_pdev;
+    struct mutex lock;
+    void (*plugged_cb)(struct device *dev, bool plugged);
+    struct device *plugged_cb_dev;
+    bool last_state;
+    int dai_port;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>Implementation of the HDMI codec functionality to be used by the DRM
+HDMI Codec framework.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">codec_pdev</span></code></dt><dd><p>Platform device created to hold the HDMI Codec. It will be
+automatically unregistered during <a class="reference internal" href="#c.drm_connector_cleanup" title="drm_connector_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_cleanup()</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>Mutex to protect <strong>last_state</strong>, <strong>plugged_cb</strong> and <strong>plugged_cb_dev</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">plugged_cb</span></code></dt><dd><p>Callback to be called when the HDMI sink get plugged to or unplugged
+from this connector. This is assigned by the framework when
+requested by the ASoC code.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">plugged_cb_dev</span></code></dt><dd><p>The data for <strong>plugged_cb()</strong>. It is being provided by the ASoC.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">last_state</span></code></dt><dd><p>Last plugged state recored by the framework. It is used to correctly
+report the state to <strong>plugged_cb()</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dai_port</span></code></dt><dd><p>The port in DT that is used for the Codec DAI.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>HDMI drivers usually incorporate a HDMI Codec. This structure expresses the
+generic HDMI Codec as used by the DRM HDMI Codec framework.</p>
+<dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_connector">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector</span></span></span><a class="headerlink" href="#c.drm_connector" title="Link to this definition">¶</a><br /></dt>
 <dd><p>central DRM connector control structure</p>
@@ -9507,6 +9560,7 @@ parser.</p>
     struct drm_encoder *encoder;
 #define MAX_ELD_BYTES   128;
     uint8_t eld[MAX_ELD_BYTES];
+    struct mutex eld_mutex;
     bool latency_present[2];
     int video_latency[2];
     int audio_latency[2];
@@ -9527,6 +9581,7 @@ parser.</p>
     struct llist_node free_node;
     struct hdr_sink_metadata hdr_sink_metadata;
     struct drm_connector_hdmi hdmi;
+    struct drm_connector_hdmi_audio hdmi_audio;
 };
 </pre></div>
 </div>
@@ -9691,7 +9746,9 @@ Only really meaningful for non-atomic drivers. Atomic drivers should
 instead look at <a class="reference internal" href="#c.drm_connector_state" title="drm_connector_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_state.best_encoder</span></code></a>, and in case they
 need the CRTC driving this output, <a class="reference internal" href="#c.drm_connector_state" title="drm_connector_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_state.crtc</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">eld</span></code></dt><dd><p>EDID-like data, if present</p>
+<dt><code class="docutils literal notranslate"><span class="pre">eld</span></code></dt><dd><p>EDID-like data, if present, protected by <strong>eld_mutex</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">eld_mutex</span></code></dt><dd><p>protection for concurrenct access to <strong>eld</strong></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">latency_present</span></code></dt><dd><p>AV delay info from ELD, if found</p>
 </dd>
@@ -9767,6 +9824,8 @@ connector from any context, in conjunction with
 <dt><code class="docutils literal notranslate"><span class="pre">hdr_sink_metadata</span></code></dt><dd><p>HDR Metadata Information read from sink</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdmi</span></code></dt><dd><p>HDMI-related variable and properties.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio</span></code></dt><dd><p>HDMI codec properties and non-DRM state.</p>
 </dd>
 </dl>
 </div>
@@ -9986,6 +10045,43 @@ take care of cleanup and deallocation.</p>
 <p>Zero on success, error code on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_connector_dynamic_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_dynamic_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><span class="n"><span class="pre">drm_connector_funcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">funcs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">connector_type</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ddc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_dynamic_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Init a preallocated dynamic connector</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>the connector to init</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_connector_funcs</span> <span class="pre">*funcs</span></code></dt><dd><p>callbacks for this connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">connector_type</span></code></dt><dd><p>user visible type of the connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_adapter</span> <span class="pre">*ddc</span></code></dt><dd><p>pointer to the associated ddc adapter</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Initialises a preallocated dynamic connector. Connectors should be
+subclassed as part of driver connector objects. The connector
+structure should not be allocated with devm_kzalloc().</p>
+<p>Drivers should call this for dynamic connectors which can be hotplugged
+after <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a> has been called already, e.g. DP MST connectors.
+For all other - static - connectors, drivers should call one of the
+drm_connector_init*()/drmm_connector_init*() functions.</p>
+<p>After calling this function the drivers must call
+<a class="reference internal" href="#c.drm_connector_dynamic_register" title="drm_connector_dynamic_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_dynamic_register()</span></code></a>.</p>
+<p>To remove the connector the driver must call <a class="reference internal" href="#c.drm_connector_unregister" title="drm_connector_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_unregister()</span></code></a>
+followed by <a class="reference internal" href="#c.drm_connector_put" title="drm_connector_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_put()</span></code></a>. Putting the last reference will call the
+driver’s <a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_funcs.destroy</span></code></a> hook, which in turn must call
+<a class="reference internal" href="#c.drm_connector_cleanup" title="drm_connector_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_cleanup()</span></code></a> and free the connector structure.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_connector_init_with_ddc">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_init_with_ddc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><span class="n"><span class="pre">drm_connector_funcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">funcs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">connector_type</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ddc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_init_with_ddc" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Init a preallocated connector</p>
@@ -10172,11 +10268,35 @@ possible_clones and possible_crtcs bitmasks.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Register userspace interfaces for a connector. Only call this for connectors
-which can be hotplugged after <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a> has been called already,
-e.g. DP MST connectors. All other connectors will be registered automatically
-when calling <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
+<p>Register userspace interfaces for a connector. Drivers shouldn’t call this
+function. Static connectors will be registered automatically by DRM core
+from <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>, dynamic connectors (MST) should be registered by
+drivers calling <a class="reference internal" href="#c.drm_connector_dynamic_register" title="drm_connector_dynamic_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_dynamic_register()</span></code></a>.</p>
 <p>When the connector is no longer available, callers must call
+<a class="reference internal" href="#c.drm_connector_unregister" title="drm_connector_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_unregister()</span></code></a>.</p>
+<p><strong>Note</strong></p>
+<p>Existing uses of this function in drivers should be a nop already and
+are scheduled to be removed.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_connector_dynamic_register">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_connector_dynamic_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_connector_dynamic_register" title="Link to this definition">¶</a><br /></dt>
+<dd><p>register a dynamic connector</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>the connector to register</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Register userspace interfaces for a connector. Only call this for connectors
+initialized by calling <a class="reference internal" href="#c.drm_connector_dynamic_init" title="drm_connector_dynamic_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_dynamic_init()</span></code></a>. All other connectors
+will be registered automatically when calling <a class="reference internal" href="drm-internals.html#c.drm_dev_register" title="drm_dev_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_register()</span></code></a>.</p>
+<p>When the connector is no longer available the driver must call
 <a class="reference internal" href="#c.drm_connector_unregister" title="drm_connector_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_unregister()</span></code></a>.</p>
 <p><strong>Return</strong></p>
 <p>Zero on success, error code on failure.</p>
@@ -10194,9 +10314,14 @@ when calling <a class="reference internal" href="drm-internals.html#c.drm_dev_re
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Unregister userspace interfaces for a connector. Only call this for
-connectors which have been registered explicitly by calling
-<a class="reference internal" href="#c.drm_connector_register" title="drm_connector_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_register()</span></code></a>.</p>
+<p>Unregister userspace interfaces for a connector. Drivers should call this
+for dynamic connectors (MST) only, which were registered explicitly by
+calling <a class="reference internal" href="#c.drm_connector_dynamic_register" title="drm_connector_dynamic_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_dynamic_register()</span></code></a>. All other - static - connectors
+will be unregistered automatically by DRM core and drivers shouldn’t call
+this function for those.</p>
+<p><strong>Note</strong></p>
+<p>Existing uses of this function in drivers for static connectors
+should be a nop already and are scheduled to be removed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_get_connector_status_name">
@@ -12868,6 +12993,9 @@ connector is linked to. Drivers should never set this property directly,
 it is handled by the DRM core by calling the <a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_connector_funcs.dpms</span></code></a>
 callback. For atomic drivers the remapping to the “ACTIVE” property is
 implemented in the DRM core.</p>
+<p>On atomic drivers any DPMS setproperty ioctl where the value does not
+change is completely skipped, otherwise a full atomic commit will occur.
+On legacy drivers the exact behavior is driver specific.</p>
 <p>Note that this property cannot be set through the MODE_ATOMIC ioctl,
 userspace must use “ACTIVE” on the CRTC instead.</p>
 <p>WARNING:</p>
