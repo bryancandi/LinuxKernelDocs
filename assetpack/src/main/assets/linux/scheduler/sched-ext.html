@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -235,8 +235,7 @@ nr_rejected   : 0
 enable_seq    : 1
 </pre></div>
 </div>
-<p>If <code class="docutils literal notranslate"><span class="pre">CONFIG_SCHED_DEBUG</span></code> is set, whether a given task is on sched_ext can
-be determined as follows:</p>
+<p>Whether a given task is on sched_ext can be determined as follows:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span># grep ext /proc/self/sched
 ext.enabled                                  :                    1
 </pre></div>
@@ -406,6 +405,40 @@ DSQs are executed automatically.</p>
 dispatching, and must be dispatched to with <code class="docutils literal notranslate"><span class="pre">scx_bpf_dsq_insert()</span></code>. See
 the function documentation and usage in <code class="docutils literal notranslate"><span class="pre">tools/sched_ext/scx_simple.bpf.c</span></code>
 for more information.</p>
+</section>
+<section id="task-lifecycle">
+<h3>Task Lifecycle<a class="headerlink" href="#task-lifecycle" title="Link to this heading">¶</a></h3>
+<p>The following pseudo-code summarizes the entire lifecycle of a task managed
+by a sched_ext scheduler:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">.</span><span class="n">init_task</span><span class="p">();</span><span class="w">            </span><span class="cm">/* A new task is created */</span>
+<span class="n">ops</span><span class="p">.</span><span class="n">enable</span><span class="p">();</span><span class="w">               </span><span class="cm">/* Enable BPF scheduling for the task */</span>
+
+<span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">task</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">SCHED_EXT</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">task</span><span class="w"> </span><span class="n">can</span><span class="w"> </span><span class="n">migrate</span><span class="p">)</span>
+<span class="w">        </span><span class="n">ops</span><span class="p">.</span><span class="n">select_cpu</span><span class="p">();</span><span class="w">   </span><span class="cm">/* Called on wakeup (optimization) */</span>
+
+<span class="w">    </span><span class="n">ops</span><span class="p">.</span><span class="n">runnable</span><span class="p">();</span><span class="w">         </span><span class="cm">/* Task becomes ready to run */</span>
+
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">task</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">runnable</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">task</span><span class="w"> </span><span class="n">is</span><span class="w"> </span><span class="n">not</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="n">DSQ</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">ops</span><span class="p">.</span><span class="n">enqueue</span><span class="p">();</span><span class="w">  </span><span class="cm">/* Task can be added to a DSQ */</span>
+
+<span class="w">            </span><span class="cm">/* A CPU becomes available */</span>
+
+<span class="w">            </span><span class="n">ops</span><span class="p">.</span><span class="n">dispatch</span><span class="p">();</span><span class="w"> </span><span class="cm">/* Task is moved to a local DSQ */</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">ops</span><span class="p">.</span><span class="n">running</span><span class="p">();</span><span class="w">      </span><span class="cm">/* Task starts running on its assigned CPU */</span>
+<span class="w">        </span><span class="n">ops</span><span class="p">.</span><span class="n">tick</span><span class="p">();</span><span class="w">         </span><span class="cm">/* Called every 1/HZ seconds */</span>
+<span class="w">        </span><span class="n">ops</span><span class="p">.</span><span class="n">stopping</span><span class="p">();</span><span class="w">     </span><span class="cm">/* Task stops running (time slice expires or wait) */</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">ops</span><span class="p">.</span><span class="n">quiescent</span><span class="p">();</span><span class="w">        </span><span class="cm">/* Task releases its assigned CPU (wait) */</span>
+<span class="p">}</span>
+
+<span class="n">ops</span><span class="p">.</span><span class="n">disable</span><span class="p">();</span><span class="w">              </span><span class="cm">/* Disable BPF scheduling for the task */</span>
+<span class="n">ops</span><span class="p">.</span><span class="n">exit_task</span><span class="p">();</span><span class="w">            </span><span class="cm">/* Task is destroyed */</span>
+</pre></div>
+</div>
 </section>
 </section>
 <section id="where-to-look">

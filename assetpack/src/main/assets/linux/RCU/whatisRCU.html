@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -1043,6 +1043,16 @@ unfortunately any spinlock in a <code class="docutils literal notranslate"><span
 initialized after each and every call to <a class="reference internal" href="../core-api/mm-api.html#c.kmem_cache_alloc" title="kmem_cache_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">kmem_cache_alloc()</span></code></a>, which renders
 reference-free spinlock acquisition completely unsafe.  Therefore, when
 using <code class="docutils literal notranslate"><span class="pre">SLAB_TYPESAFE_BY_RCU</span></code>, make proper use of a reference counter.
+If using refcount_t, the specialized refcount_{add|inc}_not_zero_acquire()
+and <a class="reference internal" href="../driver-api/basics.html#c.refcount_set_release" title="refcount_set_release"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_set_release()</span></code></a> APIs should be used to ensure correct operation
+ordering when verifying object identity and when initializing newly
+allocated objects. Acquire fence in refcount_{add|inc}_not_zero_acquire()
+ensures that identity checks happen <em>after</em> reference count is taken.
+<a class="reference internal" href="../driver-api/basics.html#c.refcount_set_release" title="refcount_set_release"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_set_release()</span></code></a> should be called after a newly allocated object is
+fully initialized and release fence ensures that new values are visible
+<em>before</em> refcount can be successfully taken by other users. Once
+<a class="reference internal" href="../driver-api/basics.html#c.refcount_set_release" title="refcount_set_release"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_set_release()</span></code></a> is called, the object should be considered visible
+by other tasks.
 (Those willing to initialize their locks in a kmem_cache constructor
 may also use locking, including cache-friendly sequence locking.)</p>
 <p>With traditional reference counting -- such as that implemented by the

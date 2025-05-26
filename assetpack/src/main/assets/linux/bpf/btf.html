@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../accounting/index.html">Accounting</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cpu-freq/index.html">CPUFreq - CPU frequency and voltage scaling code in the Linux(TM) kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../edac/index.html">EDAC Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../iio/index.html">Industrial I/O</a></li>
@@ -253,7 +254,8 @@ sequentially and type id is assigned to each recognized type starting from id
      * bits 24-28: kind (e.g. int, ptr, array...etc)
      * bits 29-30: unused
      * bit     31: kind_flag, currently used by
-     *             struct, union, fwd, enum and enum64.
+     *             struct, union, enum, fwd, enum64,
+     *             decl_tag and type_tag
      */
     __u32 info;
     /* &quot;size&quot; is used by INT, ENUM, STRUCT, UNION and ENUM64.
@@ -683,7 +685,7 @@ map definition.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">btf_type</span></code> encoding requirement:</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">name_off</span></code>: offset to a non-empty string</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code>: 0</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code>: 0 or 1</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info.kind</span></code>: BTF_KIND_DECL_TAG</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info.vlen</span></code>: 0</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: <code class="docutils literal notranslate"><span class="pre">struct</span></code>, <code class="docutils literal notranslate"><span class="pre">union</span></code>, <code class="docutils literal notranslate"><span class="pre">func</span></code>, <code class="docutils literal notranslate"><span class="pre">var</span></code> or <code class="docutils literal notranslate"><span class="pre">typedef</span></code></p></li>
@@ -696,8 +698,7 @@ map definition.</p>
 };
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">name_off</span></code> encodes btf_decl_tag attribute string.
-The <code class="docutils literal notranslate"><span class="pre">type</span></code> should be <code class="docutils literal notranslate"><span class="pre">struct</span></code>, <code class="docutils literal notranslate"><span class="pre">union</span></code>, <code class="docutils literal notranslate"><span class="pre">func</span></code>, <code class="docutils literal notranslate"><span class="pre">var</span></code> or <code class="docutils literal notranslate"><span class="pre">typedef</span></code>.
+<p>The <code class="docutils literal notranslate"><span class="pre">type</span></code> should be <code class="docutils literal notranslate"><span class="pre">struct</span></code>, <code class="docutils literal notranslate"><span class="pre">union</span></code>, <code class="docutils literal notranslate"><span class="pre">func</span></code>, <code class="docutils literal notranslate"><span class="pre">var</span></code> or <code class="docutils literal notranslate"><span class="pre">typedef</span></code>.
 For <code class="docutils literal notranslate"><span class="pre">var</span></code> or <code class="docutils literal notranslate"><span class="pre">typedef</span></code> type, <code class="docutils literal notranslate"><span class="pre">btf_decl_tag.component_idx</span></code> must be <code class="docutils literal notranslate"><span class="pre">-1</span></code>.
 For the other three types, if the btf_decl_tag attribute is
 applied to the <code class="docutils literal notranslate"><span class="pre">struct</span></code>, <code class="docutils literal notranslate"><span class="pre">union</span></code> or <code class="docutils literal notranslate"><span class="pre">func</span></code> itself,
@@ -705,13 +706,20 @@ applied to the <code class="docutils literal notranslate"><span class="pre">stru
 the attribute is applied to a <code class="docutils literal notranslate"><span class="pre">struct</span></code>/<code class="docutils literal notranslate"><span class="pre">union</span></code> member or
 a <code class="docutils literal notranslate"><span class="pre">func</span></code> argument, and <code class="docutils literal notranslate"><span class="pre">btf_decl_tag.component_idx</span></code> should be a
 valid index (starting from 0) pointing to a member or an argument.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code> is 0, then this is a normal decl tag, and the
+<code class="docutils literal notranslate"><span class="pre">name_off</span></code> encodes btf_decl_tag attribute string.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code> is 1, then the decl tag represents an arbitrary
+__attribute__. In this case, <code class="docutils literal notranslate"><span class="pre">name_off</span></code> encodes a string
+representing the attribute-list of the attribute specifier. For
+example, for an <code class="docutils literal notranslate"><span class="pre">__attribute__((aligned(4)))</span></code> the string’s contents
+is <code class="docutils literal notranslate"><span class="pre">aligned(4)</span></code>.</p>
 </section>
 <section id="btf-kind-type-tag">
 <h4>2.2.18 BTF_KIND_TYPE_TAG<a class="headerlink" href="#btf-kind-type-tag" title="Link to this heading">¶</a></h4>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">btf_type</span></code> encoding requirement:</dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">name_off</span></code>: offset to a non-empty string</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code>: 0</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code>: 0 or 1</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info.kind</span></code>: BTF_KIND_TYPE_TAG</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info.vlen</span></code>: 0</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">type</span></code>: the type with <code class="docutils literal notranslate"><span class="pre">btf_type_tag</span></code> attribute</p></li>
@@ -729,6 +737,12 @@ It has the following btf type chain:</p>
 type_tag, then zero or more const/volatile/restrict/typedef
 and finally the base type. The base type is one of
 int, ptr, array, struct, union, enum, func_proto and float types.</p>
+<p>Similarly to decl tags, if the <code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code> is 0, then this is a
+normal type tag, and the <code class="docutils literal notranslate"><span class="pre">name_off</span></code> encodes btf_type_tag attribute
+string.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">info.kind_flag</span></code> is 1, then the type tag represents an arbitrary
+__attribute__, and the <code class="docutils literal notranslate"><span class="pre">name_off</span></code> encodes a string representing the
+attribute-list of the attribute specifier.</p>
 </section>
 <section id="btf-kind-enum64">
 <h4>2.2.19 BTF_KIND_ENUM64<a class="headerlink" href="#btf-kind-enum64" title="Link to this heading">¶</a></h4>

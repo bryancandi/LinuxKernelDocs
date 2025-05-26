@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -153,6 +153,7 @@
 <p>Extended console support by Tejun Heo &lt;<a class="reference external" href="mailto:tj&#37;&#52;&#48;kernel&#46;org">tj<span>&#64;</span>kernel<span>&#46;</span>org</a>&gt;, May 1 2015</p>
 <p>Release prepend support by Breno Leitao &lt;<a class="reference external" href="mailto:leitao&#37;&#52;&#48;debian&#46;org">leitao<span>&#64;</span>debian<span>&#46;</span>org</a>&gt;, Jul 7 2023</p>
 <p>Userdata append support by Matthew Wood &lt;<a class="reference external" href="mailto:thepacketgeek&#37;&#52;&#48;gmail&#46;com">thepacketgeek<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;, Jan 22 2024</p>
+<p>Sysdata append support by Breno Leitao &lt;<a class="reference external" href="mailto:leitao&#37;&#52;&#48;debian&#46;org">leitao<span>&#64;</span>debian<span>&#46;</span>org</a>&gt;, Jan 15 2025</p>
 <p>Please send bug reports to Matt Mackall &lt;<a class="reference external" href="mailto:mpm&#37;&#52;&#48;selenic&#46;com">mpm<span>&#64;</span>selenic<span>&#46;</span>com</a>&gt;
 Satyam Sharma &lt;<a class="reference external" href="mailto:satyam&#46;sharma&#37;&#52;&#48;gmail&#46;com">satyam<span>&#46;</span>sharma<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;, and Cong Wang &lt;<a class="reference external" href="mailto:xiyou&#46;wangcong&#37;&#52;&#48;gmail&#46;com">xiyou<span>&#46;</span>wangcong<span>&#64;</span>gmail<span>&#46;</span>com</a>&gt;</p>
 <section id="introduction">
@@ -176,7 +177,7 @@ following format:</p>
        r             if present, prepend kernel version (release) to the message
        src-port      source for UDP packets (defaults to 6665)
        src-ip        source IP to use (interface address)
-       dev           network interface (eth0)
+       dev           network interface name (eth0) or MAC address
        tgt-port      port for logging agent (6666)
        tgt-ip        IP address for logging agent
        tgt-macaddr   ethernet MAC address for logging agent (broadcast)
@@ -192,6 +193,10 @@ following format:</p>
 </div>
 <p>or using IPv6:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>insmod netconsole netconsole=@/,@fd00:1:2:3::1/
+</pre></div>
+</div>
+<p>or using a MAC address to select the egress interface:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>linux netconsole=4444@10.0.0.1/22:33:44:55:66:77,9353@10.0.0.2/12:34:56:78:9a:bc
 </pre></div>
 </div>
 <p>It also supports logging to multiple remote agents by specifying
@@ -393,6 +398,94 @@ val2
 </pre></div>
 </div>
 <p>It is recommended to not write user data values with newlines.</p>
+</div>
+</section>
+<section id="task-name-auto-population-in-userdata">
+<h3>Task name auto population in userdata<a class="headerlink" href="#task-name-auto-population-in-userdata" title="Link to this heading">¶</a></h3>
+<p>Inside the netconsole configfs hierarchy, there is a file called
+<cite>taskname_enabled</cite> under the <cite>userdata</cite> directory. This file is used to enable
+or disable the automatic task name population feature. This feature
+automatically populates the current task name that is scheduled in the CPU
+sneding the message.</p>
+<p>To enable task name auto-population:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 1 &gt; /sys/kernel/config/netconsole/target1/userdata/taskname_enabled
+</pre></div>
+</div>
+<p>When this option is enabled, the netconsole messages will include an additional
+line in the userdata field with the format <cite>taskname=&lt;task name&gt;</cite>. This allows
+the receiver of the netconsole messages to easily find which application was
+currently scheduled when that message was generated, providing extra context
+for kernel messages and helping to categorize them.</p>
+<p>Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;This is a message&quot; &gt; /dev/kmsg
+12,607,22085407756,-;This is a message
+ taskname=echo
+</pre></div>
+</div>
+<p>In this example, the message was generated while “echo” was the current
+scheduled process.</p>
+</section>
+<section id="kernel-release-auto-population-in-userdata">
+<h3>Kernel release auto population in userdata<a class="headerlink" href="#kernel-release-auto-population-in-userdata" title="Link to this heading">¶</a></h3>
+<p>Within the netconsole configfs hierarchy, there is a file named <cite>release_enabled</cite>
+located in the <cite>userdata</cite> directory. This file controls the kernel release
+(version) auto-population feature, which appends the kernel release information
+to userdata dictionary in every message sent.</p>
+<p>To enable the release auto-population:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 1 &gt; /sys/kernel/config/netconsole/target1/userdata/release_enabled
+</pre></div>
+</div>
+<p>Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;This is a message&quot; &gt; /dev/kmsg
+12,607,22085407756,-;This is a message
+ release=6.14.0-rc6-01219-g3c027fbd941d
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This feature provides the same data as the “release prepend” feature.
+However, in this case, the release information is appended to the userdata
+dictionary rather than being included in the message header.</p>
+</div>
+</section>
+<section id="cpu-number-auto-population-in-userdata">
+<h3>CPU number auto population in userdata<a class="headerlink" href="#cpu-number-auto-population-in-userdata" title="Link to this heading">¶</a></h3>
+<p>Inside the netconsole configfs hierarchy, there is a file called
+<cite>cpu_nr</cite> under the <cite>userdata</cite> directory. This file is used to enable or disable
+the automatic CPU number population feature. This feature automatically
+populates the CPU number that is sending the message.</p>
+<p>To enable the CPU number auto-population:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 1 &gt; /sys/kernel/config/netconsole/target1/userdata/cpu_nr
+</pre></div>
+</div>
+<p>When this option is enabled, the netconsole messages will include an additional
+line in the userdata field with the format <cite>cpu=&lt;cpu_number&gt;</cite>. This allows the
+receiver of the netconsole messages to easily differentiate and demultiplex
+messages originating from different CPUs, which is particularly useful when
+dealing with parallel log output.</p>
+<p>Example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;This is a message&quot; &gt; /dev/kmsg
+12,607,22085407756,-;This is a message
+ cpu=42
+</pre></div>
+</div>
+<p>In this example, the message was sent by CPU 42.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the user has set a conflicting <cite>cpu</cite> key in the userdata dictionary,
+both keys will be reported, with the kernel-populated entry appearing after
+the user one. For example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span># User-defined CPU entry
+mkdir -p /sys/kernel/config/netconsole/target1/userdata/cpu
+echo &quot;1&quot; &gt; /sys/kernel/config/netconsole/target1/userdata/cpu/value
+</pre></div>
+</div>
+<p>Output might look like:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>12,607,22085407756,-;This is a message
+ cpu=1
+ cpu=42    # kernel-populated value
+</pre></div>
+</div>
 </div>
 </section>
 </section>

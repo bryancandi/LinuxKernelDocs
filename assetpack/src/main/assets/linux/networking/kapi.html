@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -2723,6 +2723,8 @@ for <a class="reference internal" href="#c.sock" title="sock"><code class="xref 
     u8 sk_txrehash;
     u8 sk_clockid;
     u8 sk_txtime_deadline_mode : 1,sk_txtime_report_errors : 1, sk_txtime_unused : 6;
+#define SK_BPF_CB_FLAG_TEST(SK, FLAG) ((SK)-&gt;sk_bpf_cb_flags &amp; (FLAG));
+    u8 sk_bpf_cb_flags;
     void *sk_user_data;
 #ifdef CONFIG_SECURITY;
     void *sk_security;
@@ -2740,6 +2742,9 @@ for <a class="reference internal" href="#c.sock" title="sock"><code class="xref 
     struct rcu_head         sk_rcu;
     netns_tracker ns_tracker;
     struct xarray           sk_user_frags;
+#if IS_ENABLED(CONFIG_PROVE_LOCKING) &amp;&amp; IS_ENABLED(CONFIG_MODULES);
+    struct module           *sk_owner;
+#endif;
 };
 </pre></div>
 </div>
@@ -2922,6 +2927,8 @@ for timestamping</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_txtime_unused</span></code></dt><dd><p>unused txtime flags</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_bpf_cb_flags</span></code></dt><dd><p>used in bpf_setsockopt()</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_user_data</span></code></dt><dd><p>RPC layer private data. Write-protected by <strong>sk_callback_lock</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_security</span></code></dt><dd><p>used by security modules</p>
@@ -2947,6 +2954,9 @@ for timestamping</p>
 <dt><code class="docutils literal notranslate"><span class="pre">ns_tracker</span></code></dt><dd><p>tracker for netns reference</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_user_frags</span></code></dt><dd><p>xarray of pages the user is holding a reference on.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_owner</span></code></dt><dd><p>reference to the real owner of the socket that calls
+sock_lock_init_class_and_name().</p>
 </dd>
 </dl>
 </div>
@@ -3704,6 +3714,34 @@ a statically initialized list</p>
 </dl>
 <p><strong>Note</strong></p>
 <p>This will <a class="reference internal" href="../core-api/kernel-api.html#c.synchronize_rcu" title="synchronize_rcu"><code class="xref c c-func docutils literal notranslate"><span class="pre">synchronize_rcu()</span></code></a> to ensure no users when it returns.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.napi_skb_cache_get_bulk">
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_skb_cache_get_bulk</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skbs</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_skb_cache_get_bulk" title="Link to this definition">¶</a><br /></dt>
+<dd><p>obtain a number of zeroed skb heads from the cache</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">**skbs</span></code></dt><dd><p>pointer to an at least <strong>n</strong>-sized array to fill with skb pointers</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">n</span></code></dt><dd><p>number of entries to provide</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Tries to obtain <strong>n</strong> <a class="reference internal" href="#c.sk_buff" title="sk_buff"><code class="xref c c-type docutils literal notranslate"><span class="pre">sk_buff</span></code></a> entries from the NAPI percpu cache and writes
+the pointers into the provided array <strong>skbs</strong>. If there are less entries
+available, tries to replenish the cache and bulk-allocates the diff from
+the MM layer if needed.
+The heads are being zeroed with either <a class="reference internal" href="../core-api/kernel-api.html#c.memset" title="memset"><code class="xref c c-func docutils literal notranslate"><span class="pre">memset()</span></code></a> or <code class="docutils literal notranslate"><span class="pre">__GFP_ZERO</span></code>, so they are
+ready for {,__}<a class="reference internal" href="#c.build_skb_around" title="build_skb_around"><code class="xref c c-func docutils literal notranslate"><span class="pre">build_skb_around()</span></code></a> and don’t have any data buffers attached.
+Must be called <em>only</em> from the BH context.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>number of successfully allocated skbs (<strong>n</strong> if no actual allocation</dt><dd><p>needed or kmem_cache_alloc_bulk() didn’t fail).</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.build_skb_around">
@@ -8419,24 +8457,6 @@ Returns the number of the unit assigned or a negative errno code.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.dev_set_alias">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_set_alias</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">alias</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_set_alias" title="Link to this definition">¶</a><br /></dt>
-<dd><p>change ifalias of a device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*alias</span></code></dt><dd><p>name up to IFALIASZ</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">len</span></code></dt><dd><p>limit of bytes to copy from info</p>
-<p>Set ifalias for a device,</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.netdev_features_change">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netdev_features_change</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netdev_features_change" title="Link to this definition">¶</a><br /></dt>
 <dd><p>device changes features</p>
@@ -8447,22 +8467,6 @@ Returns the number of the unit assigned or a negative errno code.</p>
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device to cause notification</p>
 <p>Called to indicate a device has changed features.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.netdev_state_change">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">netdev_state_change</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.netdev_state_change" title="Link to this definition">¶</a><br /></dt>
-<dd><p>device changes state</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device to cause notification</p>
-<p>Called to indicate a device has changed state. This function calls
-the notifier chains for netdev_chain and sends a NEWLINK message
-to the routing socket.</p>
 </dd>
 </dl>
 </div>
@@ -8503,60 +8507,6 @@ migration.</p>
 a device wants to inform the rest of the network about some sort of
 reconfiguration such as a failover event or virtual machine
 migration.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_open">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_open</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netlink_ext_ack</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">extack</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_open" title="Link to this definition">¶</a><br /></dt>
-<dd><p>prepare an interface for use.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device to open</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netlink_ext_ack</span> <span class="pre">*extack</span></code></dt><dd><p>netlink extended ack</p>
-<p>Takes a device from down to up state. The device’s private open
-function is invoked and then the multicast lists are loaded. Finally
-the device is moved into the up state and a <code class="docutils literal notranslate"><span class="pre">NETDEV_UP</span></code> message is
-sent to the netdev notifier chain.</p>
-<p>Calling this function on an active interface is a nop. On a failure
-a negative errno code is returned.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_close">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_close</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_close" title="Link to this definition">¶</a><br /></dt>
-<dd><p>shutdown an interface.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device to shutdown</p>
-<p>This function moves an active device into down state. A
-<code class="docutils literal notranslate"><span class="pre">NETDEV_GOING_DOWN</span></code> is sent to the netdev notifier chain. The device
-is then deactivated and finally a <code class="docutils literal notranslate"><span class="pre">NETDEV_DOWN</span></code> is sent to the notifier
-chain.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_disable_lro">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_disable_lro</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_disable_lro" title="Link to this definition">¶</a><br /></dt>
-<dd><p>disable Large Receive Offload on a device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-<p>Disable Large Receive Offload (LRO) on a net device.  Must be
-called under RTNL.  This is needed if received packets may be
-forwarded to another interface.</p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.register_netdevice_notifier">
@@ -8691,17 +8641,19 @@ we have to clear all information in the skb that could
 impact namespace isolation.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.dev_nit_active">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_nit_active</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_nit_active" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.dev_nit_active_rcu">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_nit_active_rcu</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_nit_active_rcu" title="Link to this definition">¶</a><br /></dt>
 <dd><p>return true if any network interface taps are in use</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>network device to check for the presence of taps</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>network device to check for the presence of taps</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>The caller must hold the RCU lock</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.netif_set_real_num_rx_queues">
@@ -9492,47 +9444,6 @@ careful with locks. The caller must hold RCU lock.
 The caller must hold the RTNL lock.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.dev_set_promiscuity">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_set_promiscuity</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">inc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_set_promiscuity" title="Link to this definition">¶</a><br /></dt>
-<dd><p>update promiscuity count on a device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">inc</span></code></dt><dd><p>modifier</p>
-<p>Add or remove promiscuity from a device. While the count in the device
-remains above zero the interface remains promiscuous. Once it hits zero
-the device reverts back to normal filtering operation. A negative inc
-value is used to drop promiscuity on the device.
-Return 0 if successful or a negative errno code on error.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_set_allmulti">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_set_allmulti</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">inc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_set_allmulti" title="Link to this definition">¶</a><br /></dt>
-<dd><p>update allmulti count on a device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">inc</span></code></dt><dd><p>modifier</p>
-<p>Add or remove reception of all multicast frames to a device. While the
-count in the device remains above zero the interface remains listening
-to all interfaces. Once it hits zero the device reverts back to normal
-filtering operation. A negative <strong>inc</strong> value is used to drop the counter
-when releasing a resource needing all multicasts.
-Return 0 if successful or a negative errno code on error.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.dev_get_flags">
 <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_get_flags</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_get_flags" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get flags reported to userspace</p>
@@ -9543,25 +9454,6 @@ Return 0 if successful or a negative errno code on error.</p>
 <dl>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
 <p>Get the combination of flag bits exported through APIs to userspace.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_change_flags">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_change_flags</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netlink_ext_ack</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">extack</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_change_flags" title="Link to this definition">¶</a><br /></dt>
-<dd><p>change device settings</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">flags</span></code></dt><dd><p>device state flags</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netlink_ext_ack</span> <span class="pre">*extack</span></code></dt><dd><p>netlink extended ack</p>
-<p>Change settings on device based state flags. The flags are
-in the userspace exported format.</p>
 </dd>
 </dl>
 </div>
@@ -9579,24 +9471,6 @@ in the userspace exported format.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*addr</span></code></dt><dd><p>new address</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netlink_ext_ack</span> <span class="pre">*extack</span></code></dt><dd><p>netlink extended ack</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dev_set_mac_address">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dev_set_mac_address</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">sockaddr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sa</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">netlink_ext_ack</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">extack</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dev_set_mac_address" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Change Media Access Control Address</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sockaddr</span> <span class="pre">*sa</span></code></dt><dd><p>new address</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netlink_ext_ack</span> <span class="pre">*extack</span></code></dt><dd><p>netlink extended ack</p>
-<p>Change the hardware (MAC) address of the device</p>
 </dd>
 </dl>
 </div>
@@ -9922,33 +9796,6 @@ from the kernel tables.</p>
 <p>This is just a wrapper for unregister_netdevice that takes
 the rtnl semaphore.  In general you want to use this and not
 unregister_netdevice.</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.__dev_change_net_namespace">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__dev_change_net_namespace</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.net_device" title="net_device"><span class="n"><span class="pre">net_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.__dev_change_net_namespace" title="net"><span class="n"><span class="pre">net</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">net</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pat</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">new_ifindex</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__dev_change_net_namespace" title="Link to this definition">¶</a><br /></dt>
-<dd><p>move device to different nethost namespace</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span> <span class="pre">*dev</span></code></dt><dd><p>device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net</span> <span class="pre">*net</span></code></dt><dd><p>network namespace</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*pat</span></code></dt><dd><p>If not NULL name pattern to try if the current device name
-is already taken in the destination network namespace.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">new_ifindex</span></code></dt><dd><p>If not zero, specifies device index in the target
-namespace.</p>
-<blockquote>
-<div><p>This function shuts down a device interface and moves it
-to a new network namespace. On success 0 is returned, on
-a failure a netagive errno code is returned.</p>
-<p>Callers must hold the rtnl semaphore.</p>
-</div></blockquote>
 </dd>
 </dl>
 </div>
@@ -10828,6 +10675,37 @@ device address, assign an appropriate packet type.</p>
 <p>An Ethernet frame should have a minimum size of 60 bytes.  This function
 takes short frames and pads them with zeros up to the 60 byte limit.</p>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.gro_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gro_node</span></span></span><a class="headerlink" href="#c.gro_node" title="Link to this definition">¶</a><br /></dt>
+<dd><p>structure to support Generic Receive Offload</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct gro_node {
+    unsigned long           bitmask;
+    struct gro_list         hash[GRO_HASH_BUCKETS];
+    struct list_head        rx_list;
+    u32 rx_count;
+    u32 cached_napi_id;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bitmask</span></code></dt><dd><p>bitmask to indicate used buckets in <strong>hash</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hash</span></code></dt><dd><p>hashtable of pending aggregated skbs, separated by flows</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_list</span></code></dt><dd><p>list of pending <code class="docutils literal notranslate"><span class="pre">GRO_NORMAL</span></code> skbs</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_count</span></code></dt><dd><p>cached current length of <strong>rx_list</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cached_napi_id</span></code></dt><dd><p>napi_struct::napi_id cached for hotpath, 0 for standalone</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.napi_is_scheduled">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">napi_is_scheduled</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">napi_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.napi_is_scheduled" title="Link to this definition">¶</a><br /></dt>
@@ -11286,9 +11164,11 @@ during any kernel release.</p>
     struct lock_class_key   *qdisc_tx_busylock;
     bool proto_down;
     bool threaded;
+    bool irq_affinity_auto;
+    bool rx_cpu_rmap_auto;
     unsigned long           see_all_hwtstamp_requests:1;
     unsigned long           change_proto_down:1;
-    unsigned long           netns_local:1;
+    unsigned long           netns_immutable:1;
     unsigned long           fcoe_mtu:1;
     struct list_head        net_notifier_list;
 #if IS_ENABLED(CONFIG_MACSEC);
@@ -11318,6 +11198,7 @@ during any kernel release.</p>
     unsigned long           gro_flush_timeout;
     u32 napi_defer_hard_irqs;
     bool up;
+    bool request_ops_lock;
     struct mutex            lock;
 #if IS_ENABLED(CONFIG_NET_SHAPER);
     struct net_shaper_hierarchy *net_shaper_hierarchy;
@@ -11705,6 +11586,15 @@ switch port.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">threaded</span></code></dt><dd><p>napi threaded mode is enabled</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">irq_affinity_auto</span></code></dt><dd><p>driver wants the core to store and re-assign the IRQ
+affinity. Set by netif_enable_irq_affinity(), then
+the driver must create a persistent napi by
+<a class="reference internal" href="#c.netif_napi_add_config" title="netif_napi_add_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">netif_napi_add_config()</span></code></a> and finally bind the napi to
+IRQ (via netif_napi_set_irq()).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rx_cpu_rmap_auto</span></code></dt><dd><p>driver wants the core to manage the ARFS rmap.
+Set by calling netif_enable_cpu_rmap().</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">see_all_hwtstamp_requests</span></code></dt><dd><p>device wants to see calls to
 ndo_hwtstamp_set() for all timestamp requests
 regardless of source, even if those aren’t
@@ -11712,7 +11602,7 @@ HWTSTAMP_SOURCE_NETDEV</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">change_proto_down</span></code></dt><dd><p>device supports setting carrier via IFLA_PROTO_DOWN</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">netns_local</span></code></dt><dd><p>interface can’t change network namespaces</p>
+<dt><code class="docutils literal notranslate"><span class="pre">netns_immutable</span></code></dt><dd><p>interface can’t change network namespaces</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fcoe_mtu</span></code></dt><dd><p>device supports maximum FCoE MTU, 2158 bytes</p>
 </dd>
@@ -11778,17 +11668,39 @@ or closed (<strong>lock</strong> does not protect .ndo_open, or .ndo_close).</p>
 </dd>
 </dl>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">request_ops_lock</span></code></dt><dd><p>request the core to run all <strong>netdev_ops</strong> and
+<strong>ethtool_ops</strong> under the <strong>lock</strong>.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>netdev-scope lock, protects a small selection of fields.
 Should always be taken using netdev_lock() / netdev_unlock() helpers.
 Drivers are free to use it for other protection.</p>
+<p>For the drivers that implement shaper or queue API, the scope
+of this lock is expanded to cover most ndo/queue/ethtool/sysfs
+operations. Drivers may opt-in to this behavior by setting
+<strong>request_ops_lock</strong>.</p>
+<p><strong>lock</strong> protection mixes with rtnl_lock in multiple ways, fields are
+either:</p>
+<ul class="simple">
+<li><p>simply protected by the instance <strong>lock</strong>;</p></li>
+<li><p>double protected - writers hold both locks, readers hold either;</p></li>
+<li><p>ops protected - protected by the lock held around the NDOs
+and other callbacks, that is the instance lock on devices for
+which netdev_need_ops_lock() returns true, otherwise by rtnl_lock;</p></li>
+<li><p>double ops protected - always protected by rtnl_lock but for
+devices for which netdev_need_ops_lock() returns true - also
+the instance lock.</p></li>
+</ul>
 <dl class="simple">
-<dt>Protects:</dt><dd><p><strong>gro_flush_timeout</strong>, <strong>napi_defer_hard_irqs</strong>, <strong>napi_list</strong>,
+<dt>Simply protects:</dt><dd><p><strong>gro_flush_timeout</strong>, <strong>napi_defer_hard_irqs</strong>, <strong>napi_list</strong>,
 <strong>net_shaper_hierarchy</strong>, <strong>reg_state</strong>, <strong>threaded</strong></p>
 </dd>
-<dt>Partially protects (writers must hold both <strong>lock</strong> and rtnl_lock):</dt><dd><p><strong>up</strong></p>
+<dt>Double protects:</dt><dd><p><strong>up</strong></p>
+</dd>
+<dt>Double ops protects:</dt><dd><p><strong>real_num_rx_queues</strong>, <strong>real_num_tx_queues</strong></p>
+</dd>
+<dt>Also protects some fields in:</dt><dd><p>struct napi_struct, struct netdev_queue, struct netdev_rx_queue</p>
 </dd>
 </dl>
-<p>Also protects some fields in struct napi_struct.</p>
 <p>Ordering: take after rtnl_lock.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">net_shaper_hierarchy</span></code></dt><dd><dl class="simple">
@@ -12864,21 +12776,6 @@ current state.  Use at own risk.</p>
 handling the ioctl.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_queue_state_machine">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_queue_state_machine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">jiffies</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_queue_state_machine" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Trigger the state machine to run soon</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">jiffies</span></code></dt><dd><p>Run the state machine after these jiffies</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_trigger_machine">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_trigger_machine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_trigger_machine" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Trigger the state machine to run now</p>
@@ -13214,6 +13111,28 @@ condition.</p>
 status. Trigger the state machine and work a work queue.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phy_loopback">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_loopback</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">speed</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_loopback" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Configure loopback mode of PHY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">enable</span></code></dt><dd><p>enable or disable loopback mode</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">speed</span></code></dt><dd><p>enable loopback mode with speed</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Configure loopback mode of PHY and signal link down and link up if speed is
+changing.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code on failure.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_eee_tx_clock_stop_capable">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_eee_tx_clock_stop_capable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_eee_tx_clock_stop_capable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>indicate whether the MAC can stop tx clock</p>
@@ -13382,30 +13301,6 @@ failed to complete its normal wake sequence.</p>
 <p>Returns 0 on success or &lt; 0 on error.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_find_valid">
-<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">phy_setting</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">phy_find_valid</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">speed</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">duplex</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">supported</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_find_valid" title="Link to this definition">¶</a><br /></dt>
-<dd><p>find a PHY setting that matches the requested parameters</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">speed</span></code></dt><dd><p>desired speed</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">duplex</span></code></dt><dd><p>desired duplex</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*supported</span></code></dt><dd><p>mask of supported link modes</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Locate a supported phy setting that is, in priority order:
-- an exact match for the specified speed and duplex mode
-- a match for the specified speed, or slower speed
-- the slowest supported speed
-Returns the matched phy_setting entry, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if no supported phy
-settings were found.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_supported_speeds">
 <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_supported_speeds</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phy</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">speeds</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_supported_speeds" title="Link to this definition">¶</a><br /></dt>
 <dd><p>return all speeds currently supported by a phy device</p>
@@ -13476,6 +13371,21 @@ all currently supported speeds, will return as many speeds as can fit.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">kernel_hwtstamp_config</span> <span class="pre">*config</span></code></dt><dd><p>structure holding the timestamping configuration</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">netlink_ext_ack</span> <span class="pre">*extack</span></code></dt><dd><p>netlink extended ack structure, for error reporting</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_queue_state_machine">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_queue_state_machine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">jiffies</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_queue_state_machine" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Trigger the state machine to run soon</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">jiffies</span></code></dt><dd><p>Run the state machine after these jiffies</p>
 </dd>
 </dl>
 </div>
@@ -13692,6 +13602,25 @@ invokes it to update the PHY statistics. If not, it returns 0.</p>
 <p>0 on success, or a negative error code if the callback fails.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phy_get_next_update_time">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_get_next_update_time</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_get_next_update_time" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Determine the next PHY update time</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>Pointer to the phy_device structure</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function queries the PHY driver to get the time for the next polling
+event. If the driver does not implement the callback, a default value is
+used.</p>
+<p><strong>Return</strong></p>
+<p>The time for the next polling event in jiffies</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_state_machine">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_state_machine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">work_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">work</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_state_machine" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Handle the state machine</p>
@@ -13780,33 +13709,6 @@ configuration.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_lookup_setting">
-<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">phy_setting</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">phy_lookup_setting</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">speed</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">duplex</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mask</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">exact</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_lookup_setting" title="Link to this definition">¶</a><br /></dt>
-<dd><p>lookup a PHY setting</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">speed</span></code></dt><dd><p>speed to match</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">duplex</span></code></dt><dd><p>duplex to match</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*mask</span></code></dt><dd><p>allowed link modes</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">exact</span></code></dt><dd><p>an exact match is required</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Search the settings array for a setting that matches the speed and
-duplex, and which is supported.</p>
-<p>If <strong>exact</strong> is unset, either an exact match or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> for no match will
-be returned.</p>
-<p>If <strong>exact</strong> is set, an exact match, the fastest supported setting at
-or below the specified speed, the slowest supported setting, or if
-they all fail, <code class="docutils literal notranslate"><span class="pre">NULL</span></code> will be returned.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_set_max_speed">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_set_max_speed</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">max_speed</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_set_max_speed" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Set the maximum speed the PHY should support</p>
@@ -13858,24 +13760,6 @@ by the MAC.</p>
 <p>Resolve our and the link partner advertisements into their corresponding
 speed and duplex. If full duplex was negotiated, extract the pause mode
 from the link partner mask.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phy_check_downshift">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_check_downshift</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_check_downshift" title="Link to this definition">¶</a><br /></dt>
-<dd><p>check whether downshift occurred</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Check whether a downshift to a lower speed occurred. If this should be the
-case warn the user.
-Prerequisite for detecting downshift is that PHY driver implements the
-read_status callback and sets phydev-&gt;speed to the actual link speed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__phy_read_mmd">
@@ -13984,32 +13868,6 @@ the addr_offset value.</p>
 <p>It’s assumed that the entire PHY package is either C22 or C45.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_package_read_mmd">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_read_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_read_mmd" title="Link to this definition">¶</a><br /></dt>
-<dd><p>read MMD reg relative to PHY package base addr</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to read from</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to read</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Convenience helper for reading a register of an MMD on a given PHY
-using the PHY package base address. The base address is added to
-the addr_offset value.</p>
-<p>Same calling rules as for <a class="reference internal" href="#c.phy_read" title="phy_read"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_read()</span></code></a>;</p>
-<p><strong>NOTE</strong></p>
-<p>It’s assumed that the entire PHY package is either C22 or C45.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.__phy_package_write_mmd">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__phy_package_write_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__phy_package_write_mmd" title="Link to this definition">¶</a><br /></dt>
 <dd><p>write MMD reg relative to PHY package base addr</p>
@@ -14034,34 +13892,6 @@ the addr_offset value.</p>
 using the PHY package base address. The base address is added to
 the addr_offset value.</p>
 <p>Same calling rules as for <a class="reference internal" href="#c.__phy_write" title="__phy_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">__phy_write()</span></code></a>;</p>
-<p><strong>NOTE</strong></p>
-<p>It’s assumed that the entire PHY package is either C22 or C45.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phy_package_write_mmd">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_write_mmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr_offset</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">devad</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">regnum</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_write_mmd" title="Link to this definition">¶</a><br /></dt>
-<dd><p>write MMD reg relative to PHY package base addr</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">addr_offset</span></code></dt><dd><p>The offset to be added to PHY package base_addr</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">devad</span></code></dt><dd><p>The MMD to write to</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">regnum</span></code></dt><dd><p>The register on the MMD to write</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">val</span></code></dt><dd><p>value to write to <strong>regnum</strong></p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Convenience helper for writing a register of an MMD on a given PHY
-using the PHY package base address. The base address is added to
-the addr_offset value.</p>
-<p>Same calling rules as for <a class="reference internal" href="#c.phy_write" title="phy_write"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_write()</span></code></a>;</p>
 <p><strong>NOTE</strong></p>
 <p>It’s assumed that the entire PHY package is either C22 or C45.</p>
 </div>
@@ -14803,7 +14633,7 @@ the current PLCA status information from the standard registers in MMD 31.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.genphy_c45_eee_is_active">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_c45_eee_is_active</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adv</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_c45_eee_is_active" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_c45_eee_is_active</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">lp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_c45_eee_is_active" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get EEE status</p>
 </dd></dl>
 
@@ -14812,14 +14642,12 @@ the current PLCA status information from the standard registers in MMD 31.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*adv</span></code></dt><dd><p>variable to store advertised linkmodes</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*lp</span></code></dt><dd><p>variable to store LP advertised linkmodes</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>this function will read local and link partner PHY
-advertisements. Compare them return current EEE state.</p>
+<p>this function will read link partner PHY advertisement
+and compare it to local advertisement to return current EEE state.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.genphy_c45_ethtool_get_eee">
@@ -14895,7 +14723,7 @@ value if there was a change which triggered auto-neg.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_RGMII_RXID</span></code></dt><dd><p>RGMII with Internal RX delay</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_RGMII_TXID</span></code></dt><dd><p>RGMII with Internal RX delay</p>
+<dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_RGMII_TXID</span></code></dt><dd><p>RGMII with Internal TX delay</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">PHY_INTERFACE_MODE_RTBI</span></code></dt><dd><p>Reduced TBI</p>
 </dd>
@@ -15011,45 +14839,6 @@ into the clock rates.</p>
 </dd>
 </dl>
 </div>
-<dl class="c struct">
-<dt class="sig sig-object c" id="c.phy_package_shared">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_shared</span></span></span><a class="headerlink" href="#c.phy_package_shared" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Shared information in PHY packages</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct phy_package_shared {
-    u8 base_addr;
-    struct device_node *np;
-    refcount_t refcnt;
-    unsigned long flags;
-    size_t priv_size;
-    void *priv;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">base_addr</span></code></dt><dd><p>Base PHY address of PHY package used to combine PHYs
-in one package and for offset calculation of phy_package_read/write</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">np</span></code></dt><dd><p>Pointer to the Device Node if PHY package defined in DT</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">refcnt</span></code></dt><dd><p>Number of PHYs connected to this shared data</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Initialization of PHY package</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">priv_size</span></code></dt><dd><p>Size of the shared private data <strong>priv</strong></p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">priv</span></code></dt><dd><p>Driver private data shared across a PHY package</p>
-</dd>
-</dl>
-</div>
-<p><strong>Description</strong></p>
-<p>Represents a shared structure between different phydev’s in the same
-package, for example a quad PHY. See <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a> and
-<a class="reference internal" href="#c.phy_package_leave" title="phy_package_leave"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_leave()</span></code></a>.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.mii_bus">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mii_bus</span></span></span><a class="headerlink" href="#c.mii_bus" title="Link to this definition">¶</a><br /></dt>
@@ -15286,7 +15075,7 @@ Once complete, move to UP to restart the PHY.
     unsigned long adv_old[BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS)];
     unsigned long supported_eee[BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS)];
     unsigned long advertising_eee[BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS)];
-    unsigned long eee_broken_modes[BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS)];
+    unsigned long eee_disabled_modes[BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS)];
     bool enable_tx_lpi;
     bool eee_active;
     struct eee_config eee_cfg;
@@ -15431,7 +15220,7 @@ will switch between depending on media speed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">advertising_eee</span></code></dt><dd><p>Currently advertised EEE linkmodes</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">eee_broken_modes</span></code></dt><dd><p>Energy efficient ethernet modes which should be prohibited</p>
+<dt><code class="docutils literal notranslate"><span class="pre">eee_disabled_modes</span></code></dt><dd><p>Energy efficient ethernet modes not to be advertised</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">enable_tx_lpi</span></code></dt><dd><p>When True, MAC should transmit LPI to PHY</p>
 </dd>
@@ -15718,7 +15507,7 @@ what is actually used.</p>
     void (*get_stats)(struct phy_device *dev, struct ethtool_stats *stats, u64 *data);
     int (*get_tunable)(struct phy_device *dev, struct ethtool_tunable *tuna, void *data);
     int (*set_tunable)(struct phy_device *dev,struct ethtool_tunable *tuna, const void *data);
-    int (*set_loopback)(struct phy_device *dev, bool enable);
+    int (*set_loopback)(struct phy_device *dev, bool enable, int speed);
     int (*get_sqi)(struct phy_device *dev);
     int (*get_sqi_max)(struct phy_device *dev);
     int (*get_plca_cfg)(struct phy_device *dev, struct phy_plca_cfg *plca_cfg);
@@ -15730,6 +15519,7 @@ what is actually used.</p>
     int (*led_hw_control_set)(struct phy_device *dev, u8 index, unsigned long rules);
     int (*led_hw_control_get)(struct phy_device *dev, u8 index, unsigned long *rules);
     int (*led_polarity_set)(struct phy_device *dev, int index, unsigned long modes);
+    unsigned int (*get_next_update_time)(struct phy_device *dev);
 };
 </pre></div>
 </div>
@@ -15894,7 +15684,13 @@ counters for accurate reporting through the <cite>get_phy_stats</cite> and
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_tunable</span></code></dt><dd><p>Set the value of a tunable</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">set_loopback</span></code></dt><dd><p>Set the loopback mood of the PHY</p>
+<dt><code class="docutils literal notranslate"><span class="pre">set_loopback</span></code></dt><dd><p>Set the loopback mode of the PHY
+enable selects if the loopback mode is enabled or disabled. If the
+loopback mode is enabled, then the speed of the loopback mode can be
+requested with the speed argument. If the speed argument is zero,
+then any speed can be selected. If the speed argument is &gt; 0, then
+this speed shall be selected for the loopback mode or EOPNOTSUPP
+shall be returned if speed selection is not supported.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_sqi</span></code></dt><dd><p>Get the signal quality indication</p>
 </dd>
@@ -15946,6 +15742,14 @@ be represented in rules, or some other error happens.</p>
 to make it correctly turn ON or OFF.</p>
 <p>Returns 0, or an error code.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_next_update_time</span></code></dt><dd><p>Get the time until the next update event
+<strong>dev</strong>: PHY device</p>
+<p>Callback to determine the time (in jiffies) until the next
+update event for the PHY state  machine. Allows PHY drivers to
+dynamically adjust polling intervals based on link state or other
+conditions.</p>
+<p>Returns the time in jiffies until the next update event.</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
@@ -15996,21 +15800,6 @@ false depending whether it matches, using the bound driver mask. The
 <strong>phydev</strong> must be bound to a driver.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_set_eee_broken">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_set_eee_broken</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">link_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_set_eee_broken" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Mark an EEE mode as broken so that it isn’t advertised.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">link_mode</span></code></dt><dd><p>The broken EEE mode</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_is_started">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_is_started</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_is_started" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Convenience function to check whether PHY is started</p>
@@ -16020,6 +15809,21 @@ false depending whether it matches, using the bound driver mask. The
 <p><strong>Parameters</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_disable_eee_mode">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_disable_eee_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">link_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_disable_eee_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Don’t advertise an EEE mode.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>The phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">link_mode</span></code></dt><dd><p>The EEE mode to be disabled</p>
 </dd>
 </dl>
 </div>
@@ -16411,19 +16215,6 @@ default if the phydev does not have default_timestamp flag enabled.</p>
 <p>True if phy is the default hw timestamp, false otherwise.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.phy_is_internal">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_is_internal</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_is_internal" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Convenience function for testing if a PHY is internal</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the phy_device struct</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.phy_on_sfp">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_on_sfp</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_on_sfp" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Convenience function for testing if a PHY is on an SFP module</p>
@@ -16512,27 +16303,6 @@ word as defined in 802.3z. (See 802.3-2015 37.2.1 Config_Reg encoding)</p>
 <p>Helper macro for PHY drivers which do not do anything special in module
 init/exit. Each module may only use this macro once, and calling it
 replaces <a class="reference internal" href="../driver-api/basics.html#c.module_init" title="module_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_init()</span></code></a> and <a class="reference internal" href="../driver-api/basics.html#c.module_exit" title="module_exit"><code class="xref c c-func docutils literal notranslate"><span class="pre">module_exit()</span></code></a>.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phy_register_fixup">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_register_fixup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus_id</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">phy_uid</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">phy_uid_mask</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">run</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_register_fixup" title="Link to this definition">¶</a><br /></dt>
-<dd><p>creates a new phy_fixup and adds it to the list</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*bus_id</span></code></dt><dd><p>A string which matches phydev-&gt;mdio.dev.bus_id (or PHY_ANY_ID)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">phy_uid</span></code></dt><dd><p>Used to match against phydev-&gt;phy_id (the UID of the PHY)
-It can also be PHY_ANY_UID</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">phy_uid_mask</span></code></dt><dd><p>Applied to phydev-&gt;phy_id and fixup-&gt;phy_uid before
-comparison</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">(*run)(struct</span> <span class="pre">phy_device</span> <span class="pre">*)</span></code></dt><dd><p>The actual code to be run when a matching PHY is found</p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phy_unregister_fixup">
@@ -16836,131 +16606,6 @@ This function takes a reference on the phy device.</p>
 <dt>Same as phy_attach_direct() except that a PHY bus_id</dt><dd><p>string is passed instead of a pointer to a <a class="reference internal" href="#c.phy_device" title="phy_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span></code></a>.</p>
 </dd>
 </dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">base_addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_join" title="Link to this definition">¶</a><br /></dt>
-<dd><p>join a common PHY group</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">base_addr</span></code></dt><dd><p>cookie and base PHY address of PHY package for offset
-calculation of global register access</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This joins a PHY group and provides a shared storage for all phydevs in
-this group. This is intended to be used for packages which contain
-more than one PHY, for example a quad PHY transceiver.</p>
-<p>The base_addr parameter serves as cookie which has to have the same values
-for all members of one group and as the base PHY address of the PHY package
-for offset calculation to access generic registers of a PHY package.
-Usually, one of the PHY addresses of the different PHYs in the package
-provides access to these global registers.
-The address which is given here, will be used in the phy_package_read()
-and phy_package_write() convenience functions as base and added to the
-passed offset in those functions.</p>
-<p>This will set the shared pointer of the phydev to the shared storage.
-If this is the first call for a this cookie the shared storage will be
-allocated. If priv_size is non-zero, the given amount of bytes are
-allocated for the priv member.</p>
-<p>Returns &lt; 1 on error, 0 on success. Esp. calling <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a>
-with the same cookie but a different priv_size is an error.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.of_phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">of_phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.of_phy_package_join" title="Link to this definition">¶</a><br /></dt>
-<dd><p>join a common PHY group in PHY package</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This is a variant of phy_package_join for PHY package defined in DT.</p>
-<p>The parent node of the <strong>phydev</strong> is checked as a valid PHY package node
-structure (by matching the node name “ethernet-phy-package”) and the
-base_addr for the PHY package is passed to phy_package_join.</p>
-<p>With this configuration the shared struct will also have the np value
-filled to use additional DT defined properties in PHY specific
-probe_once and config_init_once PHY package OPs.</p>
-<p>Returns &lt; 0 on error, 0 on success. Esp. calling <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a>
-with the same cookie but a different priv_size is an error. Or a parent
-node is not detected or is not valid or doesn’t match the expected node
-name for PHY package.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phy_package_leave">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_package_leave</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_package_leave" title="Link to this definition">¶</a><br /></dt>
-<dd><p>leave a common PHY group</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This leaves a PHY group created by <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a>. If this phydev
-was the last user of the shared data between the group, this data is
-freed. Resets the phydev-&gt;shared pointer to NULL.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.devm_phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">base_addr</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_phy_package_join" title="Link to this definition">¶</a><br /></dt>
-<dd><p>resource managed <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a></p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>device that is registering this PHY package</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">base_addr</span></code></dt><dd><p>cookie and base PHY address of PHY package for offset
-calculation of global register access</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Managed <a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a>. Shared storage fetched by this function,
-<a class="reference internal" href="#c.phy_package_leave" title="phy_package_leave"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_leave()</span></code></a> is automatically called on driver detach. See
-<a class="reference internal" href="#c.phy_package_join" title="phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_join()</span></code></a> for more information.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.devm_of_phy_package_join">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">devm_of_phy_package_join</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">priv_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.devm_of_phy_package_join" title="Link to this definition">¶</a><br /></dt>
-<dd><p>resource managed <a class="reference internal" href="#c.of_phy_package_join" title="of_phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">of_phy_package_join()</span></code></a></p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>device that is registering this PHY package</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">priv_size</span></code></dt><dd><p>if non-zero allocate this amount of bytes for private data</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Managed <a class="reference internal" href="#c.of_phy_package_join" title="of_phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">of_phy_package_join()</span></code></a>. Shared storage fetched by this function,
-<a class="reference internal" href="#c.phy_package_leave" title="phy_package_leave"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_package_leave()</span></code></a> is automatically called on driver detach. See
-<a class="reference internal" href="#c.of_phy_package_join" title="of_phy_package_join"><code class="xref c c-func docutils literal notranslate"><span class="pre">of_phy_package_join()</span></code></a> for more information.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phy_detach">
@@ -17465,6 +17110,27 @@ array then size = 0 and the value of the delay property is returned.
 Return -EINVAL if the delay is invalid or cannot be found.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phy_get_tx_amplitude_gain">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_get_tx_amplitude_gain</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">ethtool_link_mode_bit_indices</span></span><span class="w"> </span><span class="n"><span class="pre">linkmode</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_get_tx_amplitude_gain" title="Link to this definition">¶</a><br /></dt>
+<dd><p>stores tx amplitude gain in <strong>val</strong></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>pointer to the devices device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ethtool_link_mode_bit_indices</span> <span class="pre">linkmode</span></code></dt><dd><p>linkmode for which the tx amplitude gain should be retrieved</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*val</span></code></dt><dd><p>tx amplitude gain</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 on success, &lt; 0 on failure</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.fwnode_mdio_find_device">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mdio_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">fwnode_mdio_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.fwnode_mdio_find_device" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Given a fwnode, find the mdio_device</p>
@@ -17542,6 +17208,52 @@ named references to the phy node.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_driver</span> <span class="pre">*new_driver</span></code></dt><dd><p>new phy_driver to register</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">module</span> <span class="pre">*owner</span></code></dt><dd><p>module owning this PHY</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_uses_state_machine">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_uses_state_machine</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_uses_state_machine" title="Link to this definition">¶</a><br /></dt>
+<dd><p>test whether consumer driver uses PAL state machine</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>the target PHY device structure</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Ultimately, this aims to indirectly determine whether the PHY is attached
+to a consumer which uses the state machine by calling <a class="reference internal" href="#c.phy_start" title="phy_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_start()</span></code></a> and
+<a class="reference internal" href="#c.phy_stop" title="phy_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_stop()</span></code></a>.</p>
+<p>When the PHY driver consumer uses phylib, it must have previously called
+<a class="reference internal" href="#c.phy_connect_direct" title="phy_connect_direct"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_connect_direct()</span></code></a> or one of its derivatives, so that <a class="reference internal" href="#c.phy_prepare_link" title="phy_prepare_link"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_prepare_link()</span></code></a>
+has set up a hook for monitoring state changes.</p>
+<p>When the PHY driver is used by the MAC driver consumer through phylink (the
+only other provider of a phy_link_change() method), using the PHY state
+machine is not optional.</p>
+<p><strong>Return</strong></p>
+<p>true if consumer calls <a class="reference internal" href="#c.phy_start" title="phy_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_start()</span></code></a> and <a class="reference internal" href="#c.phy_stop" title="phy_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_stop()</span></code></a>, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phy_register_fixup">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_register_fixup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus_id</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">phy_uid</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">phy_uid_mask</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">run</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_register_fixup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>creates a new phy_fixup and adds it to the list</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*bus_id</span></code></dt><dd><p>A string which matches phydev-&gt;mdio.dev.bus_id (or PHY_ANY_ID)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">phy_uid</span></code></dt><dd><p>Used to match against phydev-&gt;phy_id (the UID of the PHY)
+It can also be PHY_ANY_UID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">phy_uid_mask</span></code></dt><dd><p>Applied to phydev-&gt;phy_id and fixup-&gt;phy_uid before
+comparison</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">(*run)(struct</span> <span class="pre">phy_device</span> <span class="pre">*)</span></code></dt><dd><p>The actual code to be run when a matching PHY is found</p>
 </dd>
 </dl>
 </div>
@@ -18661,7 +18373,7 @@ reported to the kernel log.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mac_link_down">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mac_link_down</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">interface</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mac_link_down" title="Link to this definition">¶</a><br /></dt>
-<dd><p>take the link down</p>
+<dd><p>notification that the link has gone down</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -18675,15 +18387,19 @@ reported to the kernel log.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>If <strong>mode</strong> is not an in-band negotiation mode (as defined by
-phylink_autoneg_inband()), force the link down and disable any
-Energy Efficient Ethernet MAC configuration. Interface type
-selection must be done in <a class="reference internal" href="#c.mac_config" title="mac_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_config()</span></code></a>.</p>
+<p>Notifies the MAC that the link has gone down. This will not be called
+unless <a class="reference internal" href="#c.mac_link_up" title="mac_link_up"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_link_up()</span></code></a> has been previously called.</p>
+<p>The MAC should stop processing packets for transmission and reception.
+phylink will have called <a class="reference internal" href="#c.netif_carrier_off" title="netif_carrier_off"><code class="xref c c-func docutils literal notranslate"><span class="pre">netif_carrier_off()</span></code></a> to notify the networking
+stack that the link has gone down, so MAC drivers should not make this
+call.</p>
+<p>If <strong>mode</strong> is <code class="docutils literal notranslate"><span class="pre">MLO_AN_INBAND</span></code>, then this function must not prevent the
+link coming up.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mac_link_up">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mac_link_up</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_config" title="phylink_config"><span class="n"><span class="pre">phylink_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">config</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phy</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <a class="reference internal" href="#c.phy_interface_t" title="phy_interface_t"><span class="n"><span class="pre">phy_interface_t</span></span></a><span class="w"> </span><span class="n"><span class="pre">interface</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">speed</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">duplex</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">tx_pause</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">rx_pause</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mac_link_up" title="Link to this definition">¶</a><br /></dt>
-<dd><p>allow the link to come up</p>
+<dd><p>notification that the link has come up</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -18691,7 +18407,7 @@ selection must be done in <a class="reference internal" href="#c.mac_config" tit
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span> <span class="pre">*config</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_config" title="phylink_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phy</span></code></dt><dd><p>any attached phy</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phy</span></code></dt><dd><p>any attached phy (deprecated - please use LPI interfaces)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">mode</span></code></dt><dd><p>link autonegotiation mode</p>
 </dd>
@@ -18707,7 +18423,10 @@ selection must be done in <a class="reference internal" href="#c.mac_config" tit
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Configure the MAC for an established link.</p>
+<p>Notifies the MAC that the link has come up, and the parameters of the
+link as seen from the MACs point of view. If <a class="reference internal" href="#c.mac_link_up" title="mac_link_up"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_link_up()</span></code></a> has been
+called previously, there will be an intervening call to <a class="reference internal" href="#c.mac_link_down" title="mac_link_down"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_link_down()</span></code></a>
+before this method will be subsequently called.</p>
 <p><strong>speed</strong>, <strong>duplex</strong>, <strong>tx_pause</strong> and <strong>rx_pause</strong> indicate the finalised link
 settings, and should be used to configure the MAC block appropriately
 where these settings are not automatically conveyed from the PCS block,
@@ -18716,10 +18435,9 @@ is disabled.</p>
 <p>Note that when 802.3z in-band negotiation is in use, it is possible
 that the user wishes to override the pause settings, and this should
 be allowed when considering the implementation of this method.</p>
-<p>If in-band negotiation mode is disabled, allow the link to come up. If
-<strong>phy</strong> is non-<code class="docutils literal notranslate"><span class="pre">NULL</span></code>, configure Energy Efficient Ethernet by calling
-<a class="reference internal" href="#c.phy_init_eee" title="phy_init_eee"><code class="xref c c-func docutils literal notranslate"><span class="pre">phy_init_eee()</span></code></a> and perform appropriate MAC configuration for EEE.
-Interface type selection must be done in <a class="reference internal" href="#c.mac_config" title="mac_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_config()</span></code></a>.</p>
+<p>Once configured, the MAC may begin to process packets for transmission
+and reception.</p>
+<p>Interface type selection must be done in <a class="reference internal" href="#c.mac_config" title="mac_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_config()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mac_disable_tx_lpi">
@@ -18774,7 +18492,6 @@ clock may be stopped.</p>
     unsigned long supported_interfaces[BITS_TO_LONGS(PHY_INTERFACE_MODE_MAX)];
     const struct phylink_pcs_ops *ops;
     struct phylink *phylink;
-    bool neg_mode;
     bool poll;
     bool rxc_always_on;
 };
@@ -18788,8 +18505,6 @@ are supported by this PCS.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p>a pointer to the <a class="reference internal" href="#c.phylink_pcs_ops" title="phylink_pcs_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_pcs_ops</span></code></a> structure</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">phylink</span></code></dt><dd><p>pointer to <a class="reference internal" href="#c.phylink_config" title="phylink_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_config</span></code></a></p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">neg_mode</span></code></dt><dd><p>provide PCS neg mode via “mode” argument</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">poll</span></code></dt><dd><p>poll the PCS for link changes</p>
 </dd>
@@ -18824,6 +18539,8 @@ the PCS driver.</p>
     int (*pcs_config)(struct phylink_pcs *pcs, unsigned int neg_mode,phy_interface_t interface,const unsigned long *advertising, bool permit_pause_to_mac);
     void (*pcs_an_restart)(struct phylink_pcs *pcs);
     void (*pcs_link_up)(struct phylink_pcs *pcs, unsigned int neg_mode, phy_interface_t interface, int speed, int duplex);
+    void (*pcs_disable_eee)(struct phylink_pcs *pcs);
+    void (*pcs_enable_eee)(struct phylink_pcs *pcs);
     int (*pcs_pre_init)(struct phylink_pcs *pcs);
 };
 </pre></div>
@@ -18850,6 +18567,12 @@ the PCS driver.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pcs_link_up</span></code></dt><dd><p>program the PCS for the resolved link configuration
 (where necessary).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pcs_disable_eee</span></code></dt><dd><p>optional notification to PCS that EEE has been disabled
+at the MAC.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pcs_enable_eee</span></code></dt><dd><p>optional notification to PCS that EEE will be enabled at
+the MAC.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pcs_pre_init</span></code></dt><dd><p>configure PCS components necessary for MAC hardware
 initialization e.g. RX clock for stmmac.</p>
@@ -18986,6 +18709,12 @@ be programmed to acknowledge the inband word from the PHY.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">neg_mode</span></code> argument should be tested via the phylink_mode_*() family of
 functions, or for PCS that set pcs-&gt;neg_mode true, should be tested
 against the PHYLINK_PCS_NEG_* definitions.</p>
+<p><a class="reference internal" href="#c.pcs_config" title="pcs_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">pcs_config()</span></code></a> will be called when configuration of the PCS is required
+or when the advertisement is possibly updated. It must not unnecessarily
+disrupt an established link.</p>
+<p>When an autonegotiation restart is required for 802.3z modes, .<a class="reference internal" href="#c.pcs_config" title="pcs_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">pcs_config()</span></code></a>
+should return a positive non-zero integer (e.g. 1) to indicate to phylink
+to call the <a class="reference internal" href="#c.pcs_an_restart" title="pcs_an_restart"><code class="xref c c-func docutils literal notranslate"><span class="pre">pcs_an_restart()</span></code></a> method.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.pcs_an_restart">
@@ -19033,6 +18762,36 @@ functions, or for PCS that set pcs-&gt;neg_mode true, should be tested
 against the PHYLINK_PCS_NEG_* definitions.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.pcs_disable_eee">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pcs_disable_eee</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_pcs" title="phylink_pcs"><span class="n"><span class="pre">phylink_pcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pcs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pcs_disable_eee" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disable EEE at the PCS</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_pcs</span> <span class="pre">*pcs</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_pcs" title="phylink_pcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_pcs</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Optional method informing the PCS that EEE has been disabled at the MAC.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.pcs_enable_eee">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pcs_enable_eee</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_pcs" title="phylink_pcs"><span class="n"><span class="pre">phylink_pcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pcs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pcs_enable_eee" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Enable EEE at the PCS</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_pcs</span> <span class="pre">*pcs</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink_pcs" title="phylink_pcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink_pcs</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Optional method informing the PCS that EEE is about to be enabled at the MAC.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.pcs_pre_init">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pcs_pre_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_pcs" title="phylink_pcs"><span class="n"><span class="pre">phylink_pcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pcs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.pcs_pre_init" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Configure PCS components necessary for MAC initialization</p>
@@ -19077,6 +18836,22 @@ pre-initialization.</p>
 <p><strong>Description</strong></p>
 <p>Return the PCS link timer setting in nanoseconds for the PHY <strong>interface</strong>
 mode, or -EINVAL if not appropriate.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_mac_implements_lpi">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_mac_implements_lpi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink_mac_ops" title="phylink_mac_ops"><span class="n"><span class="pre">phylink_mac_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_mac_implements_lpi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>determine if MAC implements LPI ops</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">phylink_mac_ops</span> <span class="pre">*ops</span></code></dt><dd><p>phylink_mac_ops structure</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns true if the phylink MAC operations structure indicates that the
+LPI operations have been implemented, false otherwise.</p>
 </div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.phylink">
@@ -19126,6 +18901,21 @@ determine the correct speed to pass to the MAC when the phy is performing
 rate matching.</p>
 <p><strong>Return</strong></p>
 <p>The maximum speed of <strong>interface</strong></p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_caps_to_link_caps">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_caps_to_link_caps</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">caps</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_caps_to_link_caps" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Convert a set of MAC capabilities LINK caps</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">caps</span></code></dt><dd><p>A set of MAC capabilities</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>The corresponding set of LINK_CAPA as defined in phy-caps.h</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_caps_to_linkmodes">
@@ -19499,6 +19289,40 @@ function.</p>
 down (in other words, it will trigger a <a class="reference internal" href="#c.mac_link_down" title="mac_link_down"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_link_down()</span></code></a> method call.)</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_rx_clk_stop_block">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_rx_clk_stop_block</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_rx_clk_stop_block" title="Link to this definition">¶</a><br /></dt>
+<dd><p>block PHY ability to stop receive clock in LPI</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span> <span class="pre">*pl</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink" title="phylink"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span></code></a> returned from <a class="reference internal" href="#c.phylink_create" title="phylink_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_create()</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Disable the PHY’s ability to stop the receive clock while the receive path
+is in EEE LPI state, until the number of calls to <a class="reference internal" href="#c.phylink_rx_clk_stop_block" title="phylink_rx_clk_stop_block"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_rx_clk_stop_block()</span></code></a>
+are balanced by calls to <a class="reference internal" href="#c.phylink_rx_clk_stop_unblock" title="phylink_rx_clk_stop_unblock"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_rx_clk_stop_unblock()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_rx_clk_stop_unblock">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_rx_clk_stop_unblock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_rx_clk_stop_unblock" title="Link to this definition">¶</a><br /></dt>
+<dd><p>unblock PHY ability to stop receive clock</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span> <span class="pre">*pl</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink" title="phylink"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span></code></a> returned from <a class="reference internal" href="#c.phylink_create" title="phylink_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_create()</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>All calls to <a class="reference internal" href="#c.phylink_rx_clk_stop_block" title="phylink_rx_clk_stop_block"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_rx_clk_stop_block()</span></code></a> must be balanced with a
+corresponding call to <a class="reference internal" href="#c.phylink_rx_clk_stop_unblock" title="phylink_rx_clk_stop_unblock"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_rx_clk_stop_unblock()</span></code></a> to restore the PHYs
+ability to stop the receive clock when the receive path is in EEE LPI mode.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_suspend">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_suspend</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">mac_wol</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_suspend" title="Link to this definition">¶</a><br /></dt>
 <dd><p>handle a network device suspend event</p>
@@ -19522,6 +19346,22 @@ can also bring down the link between the MAC and PHY.</p></li>
 <li><p>If Wake-on-Lan is active, but being handled by the MAC, the MAC
 still needs to receive packets, so we can not bring the link down.</p></li>
 </ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.phylink_prepare_resume">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_prepare_resume</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_prepare_resume" title="Link to this definition">¶</a><br /></dt>
+<dd><p>prepare to resume a network device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span> <span class="pre">*pl</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink" title="phylink"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span></code></a> returned from <a class="reference internal" href="#c.phylink_create" title="phylink_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_create()</span></code></a></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Optional, but if called must be called prior to <a class="reference internal" href="#c.phylink_resume" title="phylink_resume"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_resume()</span></code></a>.</p>
+<p>Prepare to resume a network device, preparing the PHY as necessary.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_resume">
@@ -19677,23 +19517,6 @@ negotiation.</p>
 <p>Read the Energy Efficient Ethernet error counter from the PHY associated
 with the phylink instance specified by <strong>pl</strong>.</p>
 <p>Returns positive error counter value, or negative error code.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.phylink_init_eee">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phylink_init_eee</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phylink" title="phylink"><span class="n"><span class="pre">phylink</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pl</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">clk_stop_enable</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phylink_init_eee" title="Link to this definition">¶</a><br /></dt>
-<dd><p>init and check the EEE features</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span> <span class="pre">*pl</span></code></dt><dd><p>a pointer to a <a class="reference internal" href="#c.phylink" title="phylink"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phylink</span></code></a> returned from <a class="reference internal" href="#c.phylink_create" title="phylink_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">phylink_create()</span></code></a></p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">clk_stop_enable</span></code></dt><dd><p>allow PHY to stop receive clock</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Must be called either with RTNL held or within <a class="reference internal" href="#c.mac_link_up" title="mac_link_up"><code class="xref c c-func docutils literal notranslate"><span class="pre">mac_link_up()</span></code></a></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.phylink_ethtool_get_eee">

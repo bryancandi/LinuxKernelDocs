@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -694,9 +694,125 @@ it needs to recreate the contexts to keep going.</p>
 <h3>Reporting causes of resets<a class="headerlink" href="#reporting-causes-of-resets" title="Link to this heading">¶</a></h3>
 <p>Apart from propagating the reset through the stack so apps can recover, it’s
 really useful for driver developers to learn more about what caused the reset in
-the first place. DRM devices should make use of devcoredump to store relevant
-information about the reset, so this information can be added to user bug
-reports.</p>
+the first place. For this, drivers can make use of devcoredump to store relevant
+information about the reset and send device wedged event with <code class="docutils literal notranslate"><span class="pre">none</span></code> recovery
+method (as explained in “Device Wedging” chapter) to notify userspace, so this
+information can be collected and added to user bug reports.</p>
+</section>
+</section>
+<section id="device-wedging">
+<h2>Device Wedging<a class="headerlink" href="#device-wedging" title="Link to this heading">¶</a></h2>
+<p>Drivers can optionally make use of device wedged event (implemented as
+<a class="reference internal" href="drm-internals.html#c.drm_dev_wedged_event" title="drm_dev_wedged_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_wedged_event()</span></code></a> in DRM subsystem), which notifies userspace of ‘wedged’
+(hanged/unusable) state of the DRM device through a uevent. This is useful
+especially in cases where the device is no longer operating as expected and has
+become unrecoverable from driver context. Purpose of this implementation is to
+provide drivers a generic way to recover the device with the help of userspace
+intervention, without taking any drastic measures (like resetting or
+re-enumerating the full bus, on which the underlying physical device is sitting)
+in the driver.</p>
+<p>A ‘wedged’ device is basically a device that is declared dead by the driver
+after exhausting all possible attempts to recover it from driver context. The
+uevent is the notification that is sent to userspace along with a hint about
+what could possibly be attempted to recover the device from userspace and bring
+it back to usable state. Different drivers may have different ideas of a
+‘wedged’ device depending on hardware implementation of the underlying physical
+device, and hence the vendor agnostic nature of the event. It is up to the
+drivers to decide when they see the need for device recovery and how they want
+to recover from the available methods.</p>
+<section id="driver-prerequisites">
+<h3>Driver prerequisites<a class="headerlink" href="#driver-prerequisites" title="Link to this heading">¶</a></h3>
+<p>The driver, before opting for recovery, needs to make sure that the ‘wedged’
+device doesn’t harm the system as a whole by taking care of the prerequisites.
+Necessary actions must include disabling DMA to system memory as well as any
+communication channels with other devices. Further, the driver must ensure
+that all dma_fences are signalled and any device state that the core kernel
+might depend on is cleaned up. All existing mmaps should be invalidated and
+page faults should be redirected to a dummy page. Once the event is sent, the
+device must be kept in ‘wedged’ state until the recovery is performed. New
+accesses to the device (IOCTLs) should be rejected, preferably with an error
+code that resembles the type of failure the device has encountered. This will
+signify the reason for wedging, which can be reported to the application if
+needed.</p>
+</section>
+<section id="recovery">
+<h3>Recovery<a class="headerlink" href="#recovery" title="Link to this heading">¶</a></h3>
+<p>Current implementation defines three recovery methods, out of which, drivers
+can use any one, multiple or none. Method(s) of choice will be sent in the
+uevent environment as <code class="docutils literal notranslate"><span class="pre">WEDGED=&lt;method1&gt;[,..,&lt;methodN&gt;]</span></code> in order of less to
+more side-effects. If driver is unsure about recovery or method is unknown
+(like soft/hard system reboot, firmware flashing, physical device replacement
+or any other procedure which can’t be attempted on the fly), <code class="docutils literal notranslate"><span class="pre">WEDGED=unknown</span></code>
+will be sent instead.</p>
+<p>Userspace consumers can parse this event and attempt recovery as per the
+following expectations.</p>
+<blockquote>
+<div><table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Recovery method</p></th>
+<th class="head"><p>Consumer expectations</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>none</p></td>
+<td><p>optional telemetry collection</p></td>
+</tr>
+<tr class="row-odd"><td><p>rebind</p></td>
+<td><p>unbind + bind driver</p></td>
+</tr>
+<tr class="row-even"><td><p>bus-reset</p></td>
+<td><p>unbind + bus reset/re-enumeration + bind</p></td>
+</tr>
+<tr class="row-odd"><td><p>unknown</p></td>
+<td><p>consumer policy</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>The only exception to this is <code class="docutils literal notranslate"><span class="pre">WEDGED=none</span></code>, which signifies that the device
+was temporarily ‘wedged’ at some point but was recovered from driver context
+using device specific methods like reset. No explicit recovery is expected from
+the consumer in this case, but it can still take additional steps like gathering
+telemetry information (devcoredump, syslog). This is useful because the first
+hang is usually the most critical one which can result in consequential hangs or
+complete wedging.</p>
+</section>
+<section id="consumer-prerequisites">
+<h3>Consumer prerequisites<a class="headerlink" href="#consumer-prerequisites" title="Link to this heading">¶</a></h3>
+<p>It is the responsibility of the consumer to make sure that the device or its
+resources are not in use by any process before attempting recovery. With IOCTLs
+erroring out, all device memory should be unmapped and file descriptors should
+be closed to prevent leaks or undefined behaviour. The idea here is to clear the
+device of all user context beforehand and set the stage for a clean recovery.</p>
+</section>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h3>
+<p>Udev rule:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>SUBSYSTEM==&quot;drm&quot;, ENV{WEDGED}==&quot;rebind&quot;, DEVPATH==&quot;*/drm/card[0-9]&quot;,
+RUN+=&quot;/path/to/rebind.sh $env{DEVPATH}&quot;
+</pre></div>
+</div>
+<p>Recovery script:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#!/bin/sh
+
+DEVPATH=$(readlink -f /sys/$1/device)
+DEVICE=$(basename $DEVPATH)
+DRIVER=$(readlink -f $DEVPATH/driver)
+
+echo -n $DEVICE &gt; $DRIVER/unbind
+echo -n $DEVICE &gt; $DRIVER/bind
+</pre></div>
+</div>
+</section>
+<section id="customization">
+<h3>Customization<a class="headerlink" href="#customization" title="Link to this heading">¶</a></h3>
+<p>Although basic recovery is possible with a simple script, consumers can define
+custom policies around recovery. For example, if the driver supports multiple
+recovery methods, consumers can opt for the suitable one depending on scenarios
+like repeat offences or vendor specific failures. Consumers can also choose to
+have the device available for debugging or telemetry collection and base their
+recovery decision on the findings. This is useful especially when the driver is
+unsure about recovery or method is unknown.</p>
 </section>
 </section>
 <section id="ioctl-support-on-device-nodes">

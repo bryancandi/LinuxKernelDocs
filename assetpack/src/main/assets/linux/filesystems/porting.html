@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -967,7 +967,7 @@ pointer are gone.</p>
 <p>set_blocksize() takes opened <a class="reference internal" href="api-summary.html#c.file" title="file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span></code></a> instead of struct block_device now
 and it <em>must</em> be opened exclusive.</p>
 <p>---</p>
-<p>** mandatory**</p>
+<p><strong>mandatory</strong></p>
 <p>-&gt;d_revalidate() gets two extra arguments - inode of parent directory and
 name our dentry is expected to have.  Both are stable (dir is pinned in
 non-RCU case and will stay around during the call in RCU case, and name
@@ -979,6 +979,41 @@ in normal case it points into the pathname being looked up.
 NOTE: if you need something like full path from the root of filesystem,
 you are still on your own - this assists with simple cases, but it’s not
 magic.</p>
+<p>---</p>
+<p><strong>recommended</strong></p>
+<p>kern_path_locked() and user_path_locked() no longer return a negative
+dentry so this doesn’t need to be checked.  If the name cannot be found,
+ERR_PTR(-ENOENT) is returned.</p>
+<p>---</p>
+<p><strong>recommended</strong></p>
+<p>lookup_one_qstr_excl() is changed to return errors in more cases, so
+these conditions don’t require explicit checks:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>if LOOKUP_CREATE is NOT given, then the dentry won’t be negative,
+ERR_PTR(-ENOENT) is returned instead</p></li>
+<li><p>if LOOKUP_EXCL IS given, then the dentry won’t be positive,
+ERR_PTR(-EEXIST) is rreturned instread</p></li>
+</ul>
+</div></blockquote>
+<p>LOOKUP_EXCL now means “target must not exist”.  It can be combined with
+LOOK_CREATE or LOOKUP_RENAME_TARGET.</p>
+<p>---</p>
+<p><strong>mandatory</strong>
+invalidate_inodes() is gone use <a class="reference internal" href="api-summary.html#c.evict_inodes" title="evict_inodes"><code class="xref c c-func docutils literal notranslate"><span class="pre">evict_inodes()</span></code></a> instead.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>-&gt;mkdir() now returns a dentry.  If the created inode is found to
+already be in cache and have a dentry (often IS_ROOT()), it will need to
+be spliced into the given name in place of the given dentry. That dentry
+now needs to be returned.  If the original dentry is used, NULL should
+be returned.  Any error should be returned with <a class="reference internal" href="../core-api/kernel-api.html#c.ERR_PTR" title="ERR_PTR"><code class="xref c c-func docutils literal notranslate"><span class="pre">ERR_PTR()</span></code></a>.</p>
+<p>In general, filesystems which use d_instantiate_new() to install the new
+inode can safely return NULL.  Filesystems which may not have an I_NEW inode
+should use <a class="reference internal" href="api-summary.html#c.d_drop" title="d_drop"><code class="xref c c-func docutils literal notranslate"><span class="pre">d_drop()</span></code></a>;<a class="reference internal" href="api-summary.html#c.d_splice_alias" title="d_splice_alias"><code class="xref c c-func docutils literal notranslate"><span class="pre">d_splice_alias()</span></code></a> and return the result of the latter.</p>
+<p>If a positive dentry cannot be returned for some reason, in-kernel
+clients such as cachefiles, nfsd, smb/server may not perform ideally but
+will fail-safe.</p>
 </section>
 
 

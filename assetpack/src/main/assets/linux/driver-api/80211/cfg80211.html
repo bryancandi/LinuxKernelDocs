@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -326,6 +326,9 @@ even if it is otherwise disabled.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_ALLOW_6GHZ_VLP_AP</span></code></dt><dd><p>Allow using this channel for AP operation
 with very low power (VLP), even if otherwise set to NO_IR.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IEEE80211_CHAN_ALLOW_20MHZ_ACTIVITY</span></code></dt><dd><p>Allow activity on a 20 MHz channel,
+even if otherwise set to NO_IR.</p>
 </dd>
 </dl>
 </div>
@@ -1086,14 +1089,10 @@ rejected unless this or <strong>available_antennas_rx</strong> is set.</p>
 configured as RX antennas. Antenna configuration commands will be
 rejected unless this or <strong>available_antennas_tx</strong> is set.</p>
 </dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">probe_resp_offload</span></code></p>
-<blockquote>
-<div><p>Bitmap of supported protocols for probe response offloading.
+<dt><code class="docutils literal notranslate"><span class="pre">probe_resp_offload</span></code></dt><dd><p>Bitmap of supported protocols for probe response offloading.
 See <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">nl80211_probe_resp_offload_support_attr</span></code>. Only valid
 when the wiphy flag <strong>WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD</strong> is set.</p>
-</div></blockquote>
-<dl class="simple">
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">extended_capabilities</span></code></dt><dd><p>extended capabilities supported by the driver,
 additional capabilities might be supported by userspace; these are
 the 802.11 extended capabilities (“Extended Capabilities element”)
@@ -2307,9 +2306,6 @@ only valid if bw is <code class="docutils literal notranslate"><span class="pre"
     u64 assoc_at;
     u64 rx_bytes;
     u64 tx_bytes;
-    u16 llid;
-    u16 plid;
-    u8 plink_state;
     s8 signal;
     s8 signal_avg;
     u8 chains;
@@ -2325,27 +2321,30 @@ only valid if bw is <code class="docutils literal notranslate"><span class="pre"
     struct sta_bss_parameters bss_param;
     struct nl80211_sta_flag_update sta_flags;
     int generation;
+    u32 beacon_loss_count;
     const u8 *assoc_req_ies;
     size_t assoc_req_ies_len;
-    u32 beacon_loss_count;
     s64 t_offset;
+    u16 llid;
+    u16 plid;
+    u8 plink_state;
+    u8 connected_to_gate;
+    u8 connected_to_as;
+    u32 airtime_link_metric;
     enum nl80211_mesh_power_mode local_pm;
     enum nl80211_mesh_power_mode peer_pm;
     enum nl80211_mesh_power_mode nonpeer_pm;
     u32 expected_throughput;
+    u16 airtime_weight;
+    s8 ack_signal;
+    s8 avg_ack_signal;
+    struct cfg80211_tid_stats *pertid;
     u64 tx_duration;
     u64 rx_duration;
     u64 rx_beacon;
     u8 rx_beacon_signal_avg;
-    u8 connected_to_gate;
-    struct cfg80211_tid_stats *pertid;
-    s8 ack_signal;
-    s8 avg_ack_signal;
-    u16 airtime_weight;
     u32 rx_mpdu_count;
     u32 fcs_err_count;
-    u32 airtime_link_metric;
-    u8 connected_to_as;
     bool mlo_params_valid;
     u8 assoc_link_id;
     u8 mld_addr[ETH_ALEN] ;
@@ -2368,12 +2367,6 @@ indicate the relevant values in this struct for them</p>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_bytes</span></code></dt><dd><p>bytes (size of MPDUs) received from this station</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_bytes</span></code></dt><dd><p>bytes (size of MPDUs) transmitted to this station</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">llid</span></code></dt><dd><p>mesh local link id</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">plid</span></code></dt><dd><p>mesh peer link id</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">plink_state</span></code></dt><dd><p>mesh peer link state</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">signal</span></code></dt><dd><p>The signal strength, type depends on the wiphy’s signal_type.
 For CFG80211_SIGNAL_TYPE_MBM, value is expressed in _dBm_.</p>
@@ -2410,6 +2403,8 @@ This number should increase every time the list of stations
 changes, i.e. when a station is added or removed, so that
 userspace can tell whether it got a consistent snapshot.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">beacon_loss_count</span></code></dt><dd><p>Number of times beacon loss event has triggered.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">assoc_req_ies</span></code></dt><dd><p>IEs from (Re)Association Request.
 This is used only when in AP mode with drivers that do not use
 user space MLME/SME implementation. The information is provided for
@@ -2417,9 +2412,19 @@ the <a class="reference internal" href="#c.cfg80211_new_sta" title="cfg80211_new
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">assoc_req_ies_len</span></code></dt><dd><p>Length of assoc_req_ies buffer in octets.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">beacon_loss_count</span></code></dt><dd><p>Number of times beacon loss event has triggered.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">t_offset</span></code></dt><dd><p>Time offset of the station relative to this host.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">llid</span></code></dt><dd><p>mesh local link id</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">plid</span></code></dt><dd><p>mesh peer link id</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">plink_state</span></code></dt><dd><p>mesh peer link state</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">connected_to_gate</span></code></dt><dd><p>true if mesh STA has a path to mesh gate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">connected_to_as</span></code></dt><dd><p>true if mesh STA has a path to authentication server</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">airtime_link_metric</span></code></dt><dd><p>mesh airtime link metric.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">local_pm</span></code></dt><dd><p>local mesh STA power save mode</p>
 </dd>
@@ -2430,6 +2435,17 @@ the <a class="reference internal" href="#c.cfg80211_new_sta" title="cfg80211_new
 <dt><code class="docutils literal notranslate"><span class="pre">expected_throughput</span></code></dt><dd><p>expected throughput in kbps (including 802.11 headers)
 towards this station.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">airtime_weight</span></code></dt><dd><p>current airtime scheduling weight</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ack_signal</span></code></dt><dd><p>signal strength (in dBm) of the last ACK frame.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">avg_ack_signal</span></code></dt><dd><p>average rssi value of ack packet for the no of msdu’s has
+been sent.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pertid</span></code></dt><dd><p>per-TID statistics, see <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_tid_stats</span></code>, using the last
+(IEEE80211_NUM_TIDS) index for MSDUs not encapsulated in QoS-MPDUs.
+Note that this doesn’t use the <strong>filled</strong> bit, but is used if non-NULL.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">tx_duration</span></code></dt><dd><p>aggregate PPDU duration(usecs) for all the frames to a peer</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_duration</span></code></dt><dd><p>aggregate PPDU duration(usecs) for all the frames from a peer</p>
@@ -2439,28 +2455,11 @@ towards this station.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_beacon_signal_avg</span></code></dt><dd><p>signal strength average (in dBm) for beacons received
 from this peer</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">connected_to_gate</span></code></dt><dd><p>true if mesh STA has a path to mesh gate</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pertid</span></code></dt><dd><p>per-TID statistics, see <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">cfg80211_tid_stats</span></code>, using the last
-(IEEE80211_NUM_TIDS) index for MSDUs not encapsulated in QoS-MPDUs.
-Note that this doesn’t use the <strong>filled</strong> bit, but is used if non-NULL.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ack_signal</span></code></dt><dd><p>signal strength (in dBm) of the last ACK frame.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">avg_ack_signal</span></code></dt><dd><p>average rssi value of ack packet for the no of msdu’s has
-been sent.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">airtime_weight</span></code></dt><dd><p>current airtime scheduling weight</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_mpdu_count</span></code></dt><dd><p>number of MPDUs received from this station</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fcs_err_count</span></code></dt><dd><p>number of packets (MPDUs) received from this station with
 an FCS error. This counter should be incremented only when TA of the
 received packet with an FCS error matches the peer MAC address.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">airtime_link_metric</span></code></dt><dd><p>mesh airtime link metric.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">connected_to_as</span></code></dt><dd><p>true if mesh STA has a path to authentication server</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mlo_params_valid</span></code></dt><dd><p>Indicates <strong>assoc_link_id</strong> and <strong>mld_addr</strong> fields are filled
 by driver. Drivers use this only in <a class="reference internal" href="#c.cfg80211_new_sta" title="cfg80211_new_sta"><code class="xref c c-func docutils literal notranslate"><span class="pre">cfg80211_new_sta()</span></code></a> calls when AP
@@ -2508,7 +2507,7 @@ the accepted and rejected affiliated links of the connected station.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_OTHER_BSS</span></code></dt><dd><p>disable BSSID filtering</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_COOK_FRAMES</span></code></dt><dd><p>report frames after processing</p>
+<dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_COOK_FRAMES</span></code></dt><dd><p>deprecated, will unconditionally be refused</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">MONITOR_FLAG_ACTIVE</span></code></dt><dd><p>active monitor, ACKs frames on its MAC address</p>
 </dd>
@@ -2789,6 +2788,7 @@ authentication.</p>
     struct cfg80211_assoc_link links[IEEE80211_MLD_MAX_NUM_LINKS];
     const u8 *ap_mld_addr;
     s8 link_id;
+    u16 ext_mld_capa_ops;
 };
 </pre></div>
 </div>
@@ -2818,11 +2818,11 @@ frame.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>See <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">cfg80211_assoc_req_flags</span></code></p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">supported_selectors</span></code></dt><dd><p>supported selectors in IEEE 802.11 format
+<dt><code class="docutils literal notranslate"><span class="pre">supported_selectors</span></code></dt><dd><p>supported BSS selectors in IEEE 802.11 format
 (or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> for no change).
 If <code class="docutils literal notranslate"><span class="pre">NULL</span></code>, then support for SAE_H2E should be assumed.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">supported_selectors_len</span></code></dt><dd><p>Length of supported_selectors in octets.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">supported_selectors_len</span></code></dt><dd><p>number of supported BSS selectors</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ht_capa</span></code></dt><dd><p>HT Capabilities over-rides.  Values set in ht_capa_mask
 will be used in ht_capa.  Un-supported values will be ignored.</p>
@@ -2853,6 +2853,9 @@ valid iff <strong>link_id</strong> &gt;= 0</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">link_id</span></code></dt><dd><p>&gt;= 0 for MLO connections, where links are given, and indicates
 the link on which the association request should be sent</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ext_mld_capa_ops</span></code></dt><dd><p>extended MLD capabilities and operations set by
+userspace for the association</p>
 </dd>
 </dl>
 </div>
@@ -3349,7 +3352,7 @@ caching.</p>
     int (*set_hw_timestamp)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_set_hw_timestamp *hwts);
     int (*set_ttlm)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_ttlm_params *params);
     u32 (*get_radio_mask)(struct wiphy *wiphy, struct net_device *dev);
-    int (*assoc_ml_reconf)(struct wiphy *wiphy, struct net_device *dev,struct cfg80211_assoc_link *add_links, u16 rem_links);
+    int (*assoc_ml_reconf)(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_ml_reconf_req *req);
     int (*set_epcs)(struct wiphy *wiphy, struct net_device *dev, bool val);
 };
 </pre></div>
@@ -4627,6 +4630,7 @@ unspecified reasons; see <code class="xref c c-type docutils literal notranslate
     struct cfg80211_bss *transmitted_bss;
     struct list_head nontrans_list;
     s32 signal;
+    u64 ts_boottime;
     u16 beacon_interval;
     u16 capability;
     u8 bssid[ETH_ALEN];
@@ -4669,6 +4673,8 @@ non-transmitted one (multi-BSSID support)</p>
 (multi-BSSID support)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">signal</span></code></dt><dd><p>signal strength value (type depends on the wiphy’s signal_type)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ts_boottime</span></code></dt><dd><p>timestamp of the last BSS update in nanoseconds since boot</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">beacon_interval</span></code></dt><dd><p>the beacon interval as from the frame</p>
 </dd>

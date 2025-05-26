@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -761,15 +761,13 @@ used for object placement.</p>
 <span class="sig-name descname"><span class="n"><span class="pre">ttm_resource_manager_for_each_res</span></span></span><a class="headerlink" href="#c.ttm_resource_manager_for_each_res" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<p><code class="docutils literal notranslate"><span class="pre">ttm_resource_manager_for_each_res</span> <span class="pre">(man,</span> <span class="pre">cursor,</span> <span class="pre">res)</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">ttm_resource_manager_for_each_res</span> <span class="pre">(cursor,</span> <span class="pre">res)</span></code></p>
 <blockquote>
 <div><p>iterate over all resources</p>
 </div></blockquote>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">man</span></code></dt><dd><p>the resource manager</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cursor</span></code></dt><dd><p><a class="reference internal" href="#c.ttm_resource_cursor" title="ttm_resource_cursor"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_resource_cursor</span></code></a> for the current position</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">res</span></code></dt><dd><p>the current resource</p>
@@ -973,13 +971,16 @@ at debug statistics of the specified ttm_resource_manager.</p>
 #define TTM_TT_FLAG_EXTERNAL            BIT(2);
 #define TTM_TT_FLAG_EXTERNAL_MAPPABLE   BIT(3);
 #define TTM_TT_FLAG_DECRYPTED           BIT(4);
-#define TTM_TT_FLAG_PRIV_POPULATED      BIT(5);
+#define TTM_TT_FLAG_BACKED_UP           BIT(5);
+#define TTM_TT_FLAG_PRIV_POPULATED      BIT(6);
     uint32_t page_flags;
     uint32_t num_pages;
     struct sg_table *sg;
     dma_addr_t *dma_address;
     struct file *swap_storage;
+    struct file *backup;
     enum ttm_caching caching;
+    struct ttm_pool_tt_restore *restore;
 };
 </pre></div>
 </div>
@@ -1019,6 +1020,8 @@ not encrypted. The framework will try to match what the dma layer
 is doing, but note that it is a little fragile because ttm page
 fault handling abuses the DMA api a bit and dma_map_attrs can’t be
 used to assure pgprot always matches.</p>
+<p>TTM_TT_FLAG_BACKED_UP: TTM internal only. This is set if the
+<a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span></code></a> has been (possibly partially) backed up.</p>
 <p>TTM_TT_FLAG_PRIV_POPULATED: TTM internal only. DO NOT USE. This is
 set by TTM after <a class="reference internal" href="#c.ttm_tt_populate" title="ttm_tt_populate"><code class="xref c c-func docutils literal notranslate"><span class="pre">ttm_tt_populate()</span></code></a> has successfully returned, and is
 then unset when TTM calls <a class="reference internal" href="#c.ttm_tt_unpopulate" title="ttm_tt_unpopulate"><code class="xref c c-func docutils literal notranslate"><span class="pre">ttm_tt_unpopulate()</span></code></a>.</p>
@@ -1031,8 +1034,15 @@ then unset when TTM calls <a class="reference internal" href="#c.ttm_tt_unpopula
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">swap_storage</span></code></dt><dd><p>Pointer to shmem <a class="reference internal" href="../filesystems/api-summary.html#c.file" title="file"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">file</span></code></a> for swap storage.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">backup</span></code></dt><dd><p>Pointer to backup struct for backed up tts.
+Could be unified with <strong>swap_storage</strong>. Meanwhile, the driver’s
+<a class="reference internal" href="#c.ttm_tt_create" title="ttm_tt_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">ttm_tt_create()</span></code></a> callback is responsible for assigning
+this field.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">caching</span></code></dt><dd><p>The current caching state of the pages, see <a class="reference internal" href="#c.ttm_caching" title="ttm_caching"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span>
 <span class="pre">ttm_caching</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">restore</span></code></dt><dd><p>Partial restoration from backup state. TTM private</p>
 </dd>
 </dl>
 </div>
@@ -1060,6 +1070,52 @@ then unset when TTM calls <a class="reference internal" href="#c.ttm_tt_unpopula
 <dt><code class="docutils literal notranslate"><span class="pre">prot</span></code></dt><dd><p>Cached page protection for mapping.</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ttm_tt_is_swapped">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ttm_tt_is_swapped</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><span class="n"><span class="pre">ttm_tt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ttm_tt_is_swapped" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Whether the ttm_tt is swapped out or backed up</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">ttm_tt</span> <span class="pre">*tt</span></code></dt><dd><p>The <a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>true if swapped or backed up, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ttm_tt_is_backed_up">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ttm_tt_is_backed_up</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><span class="n"><span class="pre">ttm_tt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ttm_tt_is_backed_up" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Whether the ttm_tt backed up</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">ttm_tt</span> <span class="pre">*tt</span></code></dt><dd><p>The <a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>true if swapped or backed up, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ttm_tt_clear_backed_up">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ttm_tt_clear_backed_up</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><span class="n"><span class="pre">ttm_tt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ttm_tt_clear_backed_up" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Clear the ttm_tt backed-up status</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span> <span class="pre">*tt</span></code></dt><dd><p>The <a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Drivers can use this functionto clear the backed-up status,
+for example before destroying or re-validating a purged tt.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ttm_tt_create">
@@ -1199,6 +1255,29 @@ No pages are actually allocated.</p>
 <p>Marks pages for clearing so that the next time the page vector is
 populated, the pages will be cleared.</p>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.ttm_backup_flags">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ttm_backup_flags</span></span></span><a class="headerlink" href="#c.ttm_backup_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Flags to govern backup behaviour.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ttm_backup_flags {
+    u32 purge : 1;
+    u32 writeback : 1;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">purge</span></code></dt><dd><p>Free pages without backing up. Bypass pools.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">writeback</span></code></dt><dd><p>Attempt to copy contents directly to swap space, even
+if that means blocking on writes to external memory.</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.ttm_agp_tt_create">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><span class="n"><span class="pre">ttm_tt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">ttm_agp_tt_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ttm_buffer_object</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bo</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">agp_bridge_data</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">page_flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ttm_agp_tt_create" title="Link to this definition">¶</a><br /></dt>
@@ -1235,6 +1314,25 @@ bind and unbind memory backing a ttm_tt.</p>
 </dl>
 <p><strong>Return</strong></p>
 <p>Pointer to the embedded struct ttm_kmap_iter.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.ttm_tt_setup_backup">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ttm_tt_setup_backup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.ttm_tt" title="ttm_tt"><span class="n"><span class="pre">ttm_tt</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">tt</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ttm_tt_setup_backup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allocate and assign a backup structure for a ttm_tt</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ttm_tt</span> <span class="pre">*tt</span></code></dt><dd><p>The ttm_tt for wich to allocate and assign a backup structure.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Assign a backup structure to be used for tt backup. This should
+typically be done at bo creation, to avoid allocations at shrinking
+time.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code on failure.</p>
 </div>
 </section>
 <section id="ttm-page-pool-reference">
@@ -1981,6 +2079,21 @@ call this without already holding a reference. No locks required.</p>
 <p><strong>Description</strong></p>
 <p>This helper should only be used for fdinfo shared memory stats to determine
 if a GEM object is shared.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_gem_is_imported">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_is_imported</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_is_imported" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Tests if GEM object’s buffer has been imported</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_gem_object</span> <span class="pre">*obj</span></code></dt><dd><p>the GEM object</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>True if the GEM object’s buffer has been imported, false otherwise</p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.drm_gem_gpuva_set_lock">
@@ -7176,6 +7289,8 @@ it is save against removal of elements.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DRM_GPUVA_OP_PREFETCH</span></code></dt><dd><p>the prefetch op type</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_GPUVA_OP_DRIVER</span></code></dt><dd><p>the driver defined op type</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
@@ -9572,11 +9687,6 @@ one more job the scheduler’s credit count would exceed the scheduler’s
 credit limit, the job won’t be executed. Instead, the scheduler will wait
 until the credit count has decreased enough to not overflow its credit limit.
 This implies waiting for previously executed jobs.</p>
-<p>Optionally, drivers may register a callback (update_job_credits) provided by
-<a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_backend_ops</span></code></a> to update the job’s credits dynamically. The
-scheduler executes this callback every time the scheduler considers a job for
-execution and subsequently checks whether the job fits the scheduler’s credit
-limit.</p>
 </section>
 <section id="scheduler-function-references">
 <h3>Scheduler Function References<a class="headerlink" href="#scheduler-function-references" title="Link to this heading">¶</a></h3>
@@ -9801,31 +9911,31 @@ belongs to.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_sched_job {
-    struct spsc_node                queue_node;
-    struct list_head                list;
+    u64 id;
+    ktime_t submit_ts;
     struct drm_gpu_scheduler        *sched;
     struct drm_sched_fence          *s_fence;
-    u32 credits;
-    union {
-        struct dma_fence_cb             finish_cb;
-        struct work_struct              work;
-    };
-    uint64_t id;
-    atomic_t karma;
-    enum drm_sched_priority         s_priority;
     struct drm_sched_entity         *entity;
+    enum drm_sched_priority         s_priority;
+    u32 credits;
+    unsigned int                    last_dependency;
+    atomic_t karma;
+    struct spsc_node                queue_node;
+    struct list_head                list;
+    union {
+        struct dma_fence_cb     finish_cb;
+        struct work_struct      work;
+    };
     struct dma_fence_cb             cb;
     struct xarray                   dependencies;
-    unsigned long                   last_dependency;
-    ktime_t submit_ts;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">queue_node</span></code></dt><dd><p>used to append this struct to the queue of jobs in an entity.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>a unique id assigned to each job scheduled on the scheduler.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>a job participates in a “pending” and “done” lists.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">submit_ts</span></code></dt><dd><p>When the job was pushed into the entity queue.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sched</span></code></dt><dd><p>The scheduler this job is or will be scheduled on. Gets set by
 <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a>. Valid until drm_sched_backend_ops.free_job()
@@ -9833,7 +9943,21 @@ has finished.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">s_fence</span></code></dt><dd><p>contains the fences for the scheduling of job.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">entity</span></code></dt><dd><p>the entity to which this job belongs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">s_priority</span></code></dt><dd><p>the priority of the job.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">credits</span></code></dt><dd><p>the number of credits this job contributes to the scheduler</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">last_dependency</span></code></dt><dd><p>tracks <strong>dependencies</strong> as they signal</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">karma</span></code></dt><dd><p>increment on every hang caused by this job. If this exceeds the hang
+limit of the scheduler then the job is marked guilty and will not
+be scheduled further.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">queue_node</span></code></dt><dd><p>used to append this struct to the queue of jobs in an entity.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">list</span></code></dt><dd><p>a job participates in a “pending” and “done” lists.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
 </dd>
@@ -9841,25 +9965,11 @@ has finished.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">work</span></code></dt><dd><p>Helper to reschedule job kill to different context.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">id</span></code></dt><dd><p>a unique id assigned to each job scheduled on the scheduler.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">karma</span></code></dt><dd><p>increment on every hang caused by this job. If this exceeds the hang
-limit of the scheduler then the job is marked guilty and will not
-be scheduled further.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">s_priority</span></code></dt><dd><p>the priority of the job.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">entity</span></code></dt><dd><p>the entity to which this job belongs.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cb</span></code></dt><dd><p>the callback for the parent fence in s_fence.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dependencies</span></code></dt><dd><p>Contains the dependencies as <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_fence" title="dma_fence"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_fence</span></code></a> for this job, see
 <a class="reference internal" href="#c.drm_sched_job_add_dependency" title="drm_sched_job_add_dependency"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_add_dependency()</span></code></a> and
 <a class="reference internal" href="#c.drm_sched_job_add_implicit_dependencies" title="drm_sched_job_add_implicit_dependencies"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_add_implicit_dependencies()</span></code></a>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">last_dependency</span></code></dt><dd><p>tracks <strong>dependencies</strong> as they signal</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">submit_ts</span></code></dt><dd><p>When the job was pushed into the entity queue.</p>
 </dd>
 </dl>
 </div>
@@ -9880,7 +9990,6 @@ to schedule the job.</p>
     struct dma_fence *(*run_job)(struct drm_sched_job *sched_job);
     enum drm_gpu_sched_stat (*timedout_job)(struct drm_sched_job *sched_job);
     void (*free_job)(struct drm_sched_job *sched_job);
-    u32 (*update_job_credits)(struct drm_sched_job *sched_job);
 };
 </pre></div>
 </div>
@@ -9937,14 +10046,6 @@ available, i.e. has been unplugged.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">free_job</span></code></dt><dd><p>Called once the job’s finished fence has been signaled
 and it’s time to clean it up.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">update_job_credits</span></code></dt><dd><p>Called when the scheduler is considering this
-job for execution.</p>
-<p>This callback returns the number of credits the job would take if
-pushed to the hardware. Drivers may use this to dynamically update
-the job’s credit count. For instance, deduct the number of credits
-for already signalled native fences.</p>
-<p>This callback is optional.</p>
 </dd>
 </dl>
 </div>
@@ -10045,6 +10146,55 @@ guilty and it will no longer be considered for scheduling.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>One scheduler is implemented for each hardware ring.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_sched_init_args">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_init_args</span></span></span><a class="headerlink" href="#c.drm_sched_init_args" title="Link to this definition">¶</a><br /></dt>
+<dd><p>parameters for initializing a DRM GPU scheduler</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_sched_init_args {
+    const struct drm_sched_backend_ops *ops;
+    struct workqueue_struct *submit_wq;
+    struct workqueue_struct *timeout_wq;
+    u32 num_rqs;
+    u32 credit_limit;
+    unsigned int hang_limit;
+    long timeout;
+    atomic_t *score;
+    const char *name;
+    struct device *dev;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">ops</span></code></dt><dd><p>backend operations provided by the driver</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">submit_wq</span></code></dt><dd><p>workqueue to use for submission. If NULL, an ordered wq is
+allocated and used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeout_wq</span></code></dt><dd><p>workqueue to use for timeout work. If NULL, the system_wq is used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_rqs</span></code></dt><dd><p>Number of run-queues. This may be at most DRM_SCHED_PRIORITY_COUNT,
+as there’s usually one run-queue per priority, but may be less.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">credit_limit</span></code></dt><dd><p>the number of credits this scheduler can hold from all jobs</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">hang_limit</span></code></dt><dd><p>number of times to allow a job to hang before dropping it.
+This mechanism is DEPRECATED. Set it to 0.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeout</span></code></dt><dd><p>timeout value in jiffies for submitted jobs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">score</span></code></dt><dd><p>score atomic shared with other schedulers. May be NULL.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>name (typically the driver’s name). Used for debugging</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>associated device. Used for debugging</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_tdr_queue_imm">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_tdr_queue_imm</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_tdr_queue_imm" title="Link to this definition">¶</a><br /></dt>
@@ -10321,6 +10471,23 @@ own fences.</p>
 <p>0 on success, or an error on failing to expand the array.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_sched_job_has_dependency">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_job_has_dependency</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_job" title="drm_sched_job"><span class="n"><span class="pre">drm_sched_job</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">job</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/dma-buf.html#c.dma_fence" title="dma_fence"><span class="n"><span class="pre">dma_fence</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fence</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_job_has_dependency" title="Link to this definition">¶</a><br /></dt>
+<dd><p>check whether fence is the job’s dependency</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_job</span> <span class="pre">*job</span></code></dt><dd><p>scheduler job to check</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_fence</span> <span class="pre">*fence</span></code></dt><dd><p>fence to look for</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>True if <strong>fence</strong> is found within the job’s dependencies, or otherwise false.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_job_cleanup">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_job_cleanup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_job" title="drm_sched_job"><span class="n"><span class="pre">drm_sched_job</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">job</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_job_cleanup" title="Link to this definition">¶</a><br /></dt>
 <dd><p>clean up scheduler job resources</p>
@@ -10335,10 +10502,11 @@ own fences.</p>
 <p><strong>Description</strong></p>
 <p>Cleans up the resources allocated with <a class="reference internal" href="#c.drm_sched_job_init" title="drm_sched_job_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_init()</span></code></a>.</p>
 <p>Drivers should call this from their error unwind code if <strong>job</strong> is aborted
-before <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> is called.</p>
-<p>After that point of no return <strong>job</strong> is committed to be executed by the
-scheduler, and this function should be called from the
-<a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched_backend_ops.free_job</span></code></a> callback.</p>
+before it was submitted to an entity with <a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a>.</p>
+<p>Since calling <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> causes the job’s fences to be initialized,
+it is up to the driver to ensure that fences that were exposed to external
+parties get signaled. <a class="reference internal" href="#c.drm_sched_job_cleanup" title="drm_sched_job_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_cleanup()</span></code></a> does not ensure this.</p>
+<p>This function must also be called in <a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_backend_ops</span></code></a>.free_job</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_pick_best">
@@ -10360,7 +10528,7 @@ drm_gpu_schedulers are ready</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><span class="n"><span class="pre">drm_sched_backend_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">submit_wq</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">num_rqs</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">credit_limit</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hang_limit</span></span>, <span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">timeout</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">workqueue_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timeout_wq</span></span>, <span class="n"><span class="pre">atomic_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">score</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_init" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><span class="n"><span class="pre">drm_gpu_scheduler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sched</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_sched_init_args" title="drm_sched_init_args"><span class="n"><span class="pre">drm_sched_init_args</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_sched_init" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Init a gpu scheduler instance</p>
 </dd></dl>
 
@@ -10369,27 +10537,7 @@ drm_gpu_schedulers are ready</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_gpu_scheduler</span> <span class="pre">*sched</span></code></dt><dd><p>scheduler instance</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_sched_backend_ops</span> <span class="pre">*ops</span></code></dt><dd><p>backend operations for this scheduler</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_struct</span> <span class="pre">*submit_wq</span></code></dt><dd><p>workqueue to use for submission. If NULL, an ordered wq is
-allocated and used</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">num_rqs</span></code></dt><dd><p>number of runqueues, one for each priority, up to DRM_SCHED_PRIORITY_COUNT</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">credit_limit</span></code></dt><dd><p>the number of credits this scheduler can hold from all jobs</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">hang_limit</span></code></dt><dd><p>number of times to allow a job to hang before dropping it</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">timeout</span></code></dt><dd><p>timeout value in jiffies for the scheduler</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">workqueue_struct</span> <span class="pre">*timeout_wq</span></code></dt><dd><p>workqueue to use for timeout work. If NULL, the system_wq is
-used</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">atomic_t</span> <span class="pre">*score</span></code></dt><dd><p>optional score atomic shared with other schedulers</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*name</span></code></dt><dd><p>name used for debugging</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>target <a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a></p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_sched_init_args</span> <span class="pre">*args</span></code></dt><dd><p>scheduler initialization arguments</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

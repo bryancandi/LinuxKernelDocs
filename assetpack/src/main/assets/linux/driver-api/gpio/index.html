@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -449,6 +449,8 @@ will allocate and map all IRQs during initialization.</p>
     int (*get_multiple)(struct gpio_chip *gc,unsigned long *mask, unsigned long *bits);
     void (*set)(struct gpio_chip *gc, unsigned int offset, int value);
     void (*set_multiple)(struct gpio_chip *gc,unsigned long *mask, unsigned long *bits);
+    int (*set_rv)(struct gpio_chip *gc,unsigned int offset, int value);
+    int (*set_multiple_rv)(struct gpio_chip *gc,unsigned long *mask, unsigned long *bits);
     int (*set_config)(struct gpio_chip *gc,unsigned int offset, unsigned long config);
     int (*to_irq)(struct gpio_chip *gc, unsigned int offset);
     void (*dbg_show)(struct seq_file *s, struct gpio_chip *gc);
@@ -471,6 +473,7 @@ will allocate and map all IRQs during initialization.</p>
     void __iomem *reg_dir_out;
     void __iomem *reg_dir_in;
     bool bgpio_dir_unreadable;
+    bool bgpio_pinctrl;
     int bgpio_bits;
     raw_spinlock_t bgpio_lock;
     unsigned long bgpio_data;
@@ -479,16 +482,16 @@ will allocate and map all IRQs during initialization.</p>
 #ifdef CONFIG_GPIOLIB_IRQCHIP;
     struct gpio_irq_chip irq;
 #endif ;
-    unsigned long *valid_mask;
 #if defined(CONFIG_OF_GPIO);
     unsigned int of_gpio_n_cells;
+    bool (*of_node_instance_match)(struct gpio_chip *gc, unsigned int i);
     int (*of_xlate)(struct gpio_chip *gc, const struct of_phandle_args *gpiospec, u32 *flags);
 #endif ;
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
-<dl class="simple">
+<dl>
 <dt><code class="docutils literal notranslate"><span class="pre">label</span></code></dt><dd><p>a functional name for the GPIO device, such as a part
 number or the name of the SoC IP-block implementing it.</p>
 </dd>
@@ -501,7 +504,8 @@ number or the name of the SoC IP-block implementing it.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">owner</span></code></dt><dd><p>helps prevent removal of modules exporting active GPIOs</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">request</span></code></dt><dd><p>optional hook for chip-specific activation, such as
-enabling module power and clock; may sleep</p>
+enabling module power and clock; may sleep; must return 0 on success
+or negative error number on failure</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">free</span></code></dt><dd><p>optional hook for chip-specific deactivation, such as
 disabling module power and clock; may sleep</p>
@@ -524,12 +528,19 @@ or output-only gpio chips.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">get_multiple</span></code></dt><dd><p>reads values for multiple signals defined by “mask” and
 stores them in “bits”, returns 0 on success or negative error</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">set</span></code></dt><dd><p>assigns output value for signal “offset”</p>
+<dt><code class="docutils literal notranslate"><span class="pre">set</span></code></dt><dd><p><strong>DEPRECATED</strong> - please use set_rv() instead</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">set_multiple</span></code></dt><dd><p>assigns output values for multiple signals defined by “mask”</p>
+<dt><code class="docutils literal notranslate"><span class="pre">set_multiple</span></code></dt><dd><p><strong>DEPRECATED</strong> - please use set_multiple_rv() instead</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">set_rv</span></code></dt><dd><p>assigns output value for signal “offset”, returns 0 on success or
+negative error value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">set_multiple_rv</span></code></dt><dd><p>assigns output values for multiple signals defined by
+“mask”, returns 0 on success or negative error value</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_config</span></code></dt><dd><p>optional hook for all kinds of settings. Uses the same
-packed config format as generic pinconf.</p>
+packed config format as generic pinconf. Must return 0 on success and
+a negative error number on failure.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">to_irq</span></code></dt><dd><p>optional hook supporting non-static <a class="reference internal" href="#c.gpiod_to_irq" title="gpiod_to_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">gpiod_to_irq()</span></code></a> mappings;
 implementation may not sleep</p>
@@ -597,6 +608,8 @@ generic GPIO core. It is for internal housekeeping only.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">bgpio_dir_unreadable</span></code></dt><dd><p>indicates that the direction register(s) cannot
 be read and we need to rely on out internal state tracking.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bgpio_pinctrl</span></code></dt><dd><p>the generic GPIO uses a pin control backend.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bgpio_bits</span></code></dt><dd><p>number of register bits used for a generic GPIO i.e.
 &lt;register width&gt; * 8</p>
 </dd>
@@ -613,10 +626,19 @@ output.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">irq</span></code></dt><dd><p>Integrates interrupt chip functionality with the GPIO chip. Can be
 used to handle IRQs for most practical cases.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">valid_mask</span></code></dt><dd><p>If not <code class="docutils literal notranslate"><span class="pre">NULL</span></code>, holds bitmask of GPIOs which are valid to be used
-from the chip.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">of_gpio_n_cells</span></code></dt><dd><p>Number of cells used to form the GPIO specifier. The standard is 2
+cells:</p>
+<p>gpios = &lt;<code class="xref c c-type docutils literal notranslate"><span class="pre">gpio</span></code> offset flags&gt;;</p>
+<p>some complex GPIO controllers instantiate more than one chip per
+device tree node and have 3 cells:</p>
+<p>gpios = &lt;<code class="xref c c-type docutils literal notranslate"><span class="pre">gpio</span></code> instance offset flags&gt;;</p>
+<p>Legacy GPIO controllers may even have 1 cell:</p>
+<p>gpios = &lt;<code class="xref c c-type docutils literal notranslate"><span class="pre">gpio</span></code> offset&gt;;</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">of_gpio_n_cells</span></code></dt><dd><p>Number of cells used to form the GPIO specifier.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">of_node_instance_match</span></code></dt><dd><p>Determine if a chip is the right instance. Must be implemented by
+any driver using more than one gpio_chip per device tree node.
+Returns true if gc is the instance indicated by i (which is the
+first cell in the phandles for GPIO lines and gpio-ranges).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">of_xlate</span></code></dt><dd><p>Callback to translate a device tree GPIO specifier into a chip-
 relative GPIO number and flags.</p>
@@ -632,6 +654,31 @@ chips, dedicated GPIO expanders, and so on.</p>
 by “offset” values in the range 0..(<strong>ngpio</strong> - 1).  When those signals
 are referenced through calls like gpio_get_value(gpio), the offset
 is calculated by subtracting <strong>base</strong> from the gpio number.</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.for_each_hwgpio_in_range">
+<span class="sig-name descname"><span class="n"><span class="pre">for_each_hwgpio_in_range</span></span></span><a class="headerlink" href="#c.for_each_hwgpio_in_range" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">for_each_hwgpio_in_range</span> <span class="pre">(_chip,</span> <span class="pre">_i,</span> <span class="pre">_base,</span> <span class="pre">_size,</span> <span class="pre">_label)</span></code></p>
+<blockquote>
+<div><p>Iterates over all GPIOs in a given range</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">_chip</span></code></dt><dd><p>Chip to iterate over.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_i</span></code></dt><dd><p>Loop counter.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_base</span></code></dt><dd><p>First GPIO in the ranger.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_size</span></code></dt><dd><p>Amount of GPIOs to check starting from <strong>base</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">_label</span></code></dt><dd><p>Place to store the address of the label if the GPIO is requested.
+Set to NULL for unused GPIOs.</p>
+</dd>
+</dl>
+</div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.for_each_hwgpio">
 <span class="sig-name descname"><span class="n"><span class="pre">for_each_hwgpio</span></span></span><a class="headerlink" href="#c.for_each_hwgpio" title="Link to this definition">¶</a><br /></dt>
@@ -902,6 +949,25 @@ gpio_device).</p>
 <p>0 for output, 1 for input, or an error code in case of error.</p>
 <p><strong>Description</strong></p>
 <p>This function may sleep if <a class="reference internal" href="#c.gpiod_cansleep" title="gpiod_cansleep"><code class="xref c c-func docutils literal notranslate"><span class="pre">gpiod_cansleep()</span></code></a> is true.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpiochip_query_valid_mask">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">gpiochip_query_valid_mask</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.gpio_chip" title="gpio_chip"><span class="n"><span class="pre">gpio_chip</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">gc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiochip_query_valid_mask" title="Link to this definition">¶</a><br /></dt>
+<dd><p>return the GPIO validity information</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">gpio_chip</span> <span class="pre">*gc</span></code></dt><dd><p>gpio chip which validity information is queried</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>bitmap representing valid GPIOs or NULL if all GPIOs are valid</p>
+<p><strong>Description</strong></p>
+<p>Some GPIO chips may support configurations where some of the pins aren’t
+available. These chips can have valid_mask set to represent the valid
+GPIOs. This function can be used to retrieve this information.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiochip_get_data">
@@ -1498,7 +1564,7 @@ and it will complain if the GPIO chip functions potentially sleep.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_raw_value">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_raw_value</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_raw_value" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_raw_value</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_raw_value" title="Link to this definition">¶</a><br /></dt>
 <dd><p>assign a gpio’s raw value</p>
 </dd></dl>
 
@@ -1515,10 +1581,12 @@ and it will complain if the GPIO chip functions potentially sleep.</p>
 regard for its ACTIVE_LOW status.</p>
 <p>This function can be called from contexts where we cannot sleep, and will
 complain if the GPIO chip functions potentially sleep.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error number on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_value">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_value</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_value" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_value</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_value" title="Link to this definition">¶</a><br /></dt>
 <dd><p>assign a gpio’s value</p>
 </dd></dl>
 
@@ -1535,6 +1603,8 @@ complain if the GPIO chip functions potentially sleep.</p>
 OPEN_DRAIN and OPEN_SOURCE flags into account.</p>
 <p>This function can be called from contexts where we cannot sleep, and will
 complain if the GPIO chip functions potentially sleep.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error number on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_raw_array_value">
@@ -1761,7 +1831,7 @@ into account.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_raw_value_cansleep">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_raw_value_cansleep</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_raw_value_cansleep" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_raw_value_cansleep</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_raw_value_cansleep" title="Link to this definition">¶</a><br /></dt>
 <dd><p>assign a gpio’s raw value</p>
 </dd></dl>
 
@@ -1777,10 +1847,12 @@ into account.</p>
 <p>Set the raw value of the GPIO, i.e. the value of its physical line without
 regard for its ACTIVE_LOW status.</p>
 <p>This function is to be called from contexts that can sleep.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error number on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_value_cansleep">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_value_cansleep</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_value_cansleep" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpiod_set_value_cansleep</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">gpio_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpiod_set_value_cansleep" title="Link to this definition">¶</a><br /></dt>
 <dd><p>assign a gpio’s value</p>
 </dd></dl>
 
@@ -1796,6 +1868,8 @@ regard for its ACTIVE_LOW status.</p>
 <p>Set the logical value of the GPIO, i.e. taking its ACTIVE_LOW status into
 account</p>
 <p>This function is to be called from contexts that can sleep.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error number on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.gpiod_set_raw_array_value_cansleep">
@@ -2494,6 +2568,10 @@ will be disposed of by the resource management code.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
+<p><em>DEPRECATED</em>
+This function should not be used. It’s been provided as a workaround for
+resource ownership issues in the regulator framework and should be replaced
+with a better solution.</p>
 <p>Remove resource management from a GPIO descriptor. This is needed when
 you want to hand over lifecycle management of a descriptor to another
 mechanism.</p>

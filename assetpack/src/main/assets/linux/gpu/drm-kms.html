@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -1026,7 +1026,7 @@ multiple times to different objects using <a class="reference internal" href="#c
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">properties</span></code></dt><dd><p>properties attached to this object, including values</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">refcount</span></code></dt><dd><p>reference count for objects which with dynamic lifetime</p>
+<dt><code class="docutils literal notranslate"><span class="pre">refcount</span></code></dt><dd><p>reference count for objects with dynamic lifetime</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">free_cb</span></code></dt><dd><p>free function callback, only set for objects with dynamic lifetime</p>
 </dd>
@@ -1325,7 +1325,7 @@ structure of <a class="reference internal" href="#c.drm_private_state" title="dr
 iterated using <a class="reference internal" href="#c.for_each_oldnew_private_obj_in_state" title="for_each_oldnew_private_obj_in_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">for_each_oldnew_private_obj_in_state()</span></code></a>,
 <a class="reference internal" href="#c.for_each_new_private_obj_in_state" title="for_each_new_private_obj_in_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">for_each_new_private_obj_in_state()</span></code></a> and <a class="reference internal" href="#c.for_each_old_private_obj_in_state" title="for_each_old_private_obj_in_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">for_each_old_private_obj_in_state()</span></code></a>.
 Drivers are recommended to wrap these for each type of driver private state
-object they have, filtering on <a class="reference internal" href="#c.drm_private_obj" title="drm_private_obj"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_private_obj.funcs</span></code></a> using <a class="reference internal" href="drm-internals.html#c.for_each_if" title="for_each_if"><code class="xref c c-func docutils literal notranslate"><span class="pre">for_each_if()</span></code></a>, at
+object they have, filtering on <a class="reference internal" href="#c.drm_private_obj" title="drm_private_obj"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_private_obj.funcs</span></code></a> using for_each_if(), at
 least if they want to iterate over all objects of a given type.</p>
 <p>An earlier way to handle driver private state was by subclassing struct
 <a class="reference internal" href="#c.drm_atomic_state" title="drm_atomic_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_atomic_state</span></code></a>. But since that encourages non-standard ways to implement
@@ -1619,8 +1619,25 @@ synchronization information similar to e.g. <a class="reference internal" href="
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">allow_modeset</span></code></dt><dd><p>Allow full modeset. This is used by the ATOMIC IOCTL handler to
 implement the DRM_MODE_ATOMIC_ALLOW_MODESET flag. Drivers should
-never consult this flag, instead looking at the output of
-<a class="reference internal" href="#c.drm_atomic_crtc_needs_modeset" title="drm_atomic_crtc_needs_modeset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_crtc_needs_modeset()</span></code></a>.</p>
+generally not consult this flag, but instead look at the output of
+<a class="reference internal" href="#c.drm_atomic_crtc_needs_modeset" title="drm_atomic_crtc_needs_modeset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_crtc_needs_modeset()</span></code></a>. The detailed rules are:</p>
+<ul class="simple">
+<li><p>Drivers must not consult <strong>allow_modeset</strong> in the atomic commit path.
+Use <a class="reference internal" href="#c.drm_atomic_crtc_needs_modeset" title="drm_atomic_crtc_needs_modeset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_crtc_needs_modeset()</span></code></a> instead.</p></li>
+<li><p>Drivers must consult <strong>allow_modeset</strong> before adding unrelated <a class="reference internal" href="#c.drm_crtc_state" title="drm_crtc_state"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_crtc_state</span></code></a> to this commit by calling
+<a class="reference internal" href="#c.drm_atomic_get_crtc_state" title="drm_atomic_get_crtc_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_crtc_state()</span></code></a>. See also the warning in the
+documentation for that function.</p></li>
+<li><p>Drivers must never change this flag, it is under the exclusive
+control of userspace.</p></li>
+<li><p>Drivers may consult <strong>allow_modeset</strong> in the atomic check path, if
+they have the choice between an optimal hardware configuration
+which requires a modeset, and a less optimal configuration which
+can be committed without a modeset. An example would be suboptimal
+scanout FIFO allocation resulting in increased idle power
+consumption. This allows userspace to avoid flickering and delays
+for the normal composition loop at reasonable cost.</p></li>
+</ul>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">legacy_cursor_update</span></code></dt><dd><p>Hint to enforce legacy cursor IOCTL semantics.</p>
 <p>WARNING: This is thoroughly broken and pretty much impossible to
@@ -1674,6 +1691,33 @@ these.</p>
 <p>States are added to an atomic update by calling <a class="reference internal" href="#c.drm_atomic_get_crtc_state" title="drm_atomic_get_crtc_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_crtc_state()</span></code></a>,
 <a class="reference internal" href="#c.drm_atomic_get_plane_state" title="drm_atomic_get_plane_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_plane_state()</span></code></a>, <a class="reference internal" href="#c.drm_atomic_get_connector_state" title="drm_atomic_get_connector_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_connector_state()</span></code></a>, or for
 private state structures, <a class="reference internal" href="#c.drm_atomic_get_private_obj_state" title="drm_atomic_get_private_obj_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_private_obj_state()</span></code></a>.</p>
+<p>At atomic_check time, you could get the state about to be committed
+from drm_atomic_state, and the one currently running from the
+entities state pointer (drm_crtc.state, for example). After the call
+to <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_swap_state" title="drm_atomic_helper_swap_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_swap_state()</span></code></a>, the entities state pointer would
+contain the state previously checked, and the drm_atomic_state
+structure the old state.</p>
+<p>Over time, and in order to avoid confusion, drm_atomic_state has
+grown to have both the old state (ie, the state we replace) and the
+new state (ie, the state we want to apply). Those names are stable
+during the commit process, which makes it easier to reason about.</p>
+<p>You can still find some traces of that evolution through some hooks
+or callbacks taking a drm_atomic_state parameter called names like
+“old_state”. This doesn’t necessarily mean that the previous
+drm_atomic_state is passed, but rather that this used to be the state
+collection we were replacing after <a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_swap_state" title="drm_atomic_helper_swap_state"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_swap_state()</span></code></a>,
+but the variable name was never updated.</p>
+<p>Some atomic operations implementations followed a similar process. We
+first started to pass the entity state only. However, it was pretty
+cumbersome for drivers, and especially CRTCs, to retrieve the states
+of other components. Thus, we switched to passing the whole
+drm_atomic_state as a parameter to those operations. Similarly, the
+transition isn’t complete yet, and one might still find atomic
+operations taking a drm_atomic_state pointer, or a component state
+pointer. The former is the preferred form.</p>
+<p><strong>NOTE</strong></p>
+<p><a class="reference internal" href="#c.drm_atomic_state" title="drm_atomic_state"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span></code></a> first started as a single collection of
+entities state pointers (drm_plane_state, drm_crtc_state, etc.).</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_crtc_commit_get">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_crtc_commit" title="drm_crtc_commit"><span class="n"><span class="pre">drm_crtc_commit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_crtc_commit_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_crtc_commit" title="drm_crtc_commit"><span class="n"><span class="pre">drm_crtc_commit</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">commit</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_crtc_commit_get" title="Link to this definition">¶</a><br /></dt>
@@ -4311,6 +4355,24 @@ CRTC.</p>
 <p><strong>Return</strong></p>
 <p>Zero for success or -errno</p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_crtc_in_clone_mode">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_crtc_in_clone_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_crtc_state" title="drm_crtc_state"><span class="n"><span class="pre">drm_crtc_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">crtc_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_crtc_in_clone_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>check if the given CRTC state is in clone mode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_crtc_state</span> <span class="pre">*crtc_state</span></code></dt><dd><p>CRTC state to check</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function determines if the given CRTC state is being cloned by multiple
+encoders.</p>
+<p><strong>Return</strong></p>
+<p>True if the CRTC state is in clone mode. False otherwise</p>
+</div>
 </section>
 <section id="color-management-functions-reference">
 <h3>Color Management Functions Reference<a class="headerlink" href="#color-management-functions-reference" title="Link to this heading">¶</a></h3>
@@ -6728,7 +6790,7 @@ update the plane.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_damage_merged">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_damage_merged</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms-helpers.html#c.drm_rect" title="drm_rect"><span class="n"><span class="pre">drm_rect</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">rect</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_damage_merged" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_damage_merged</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><span class="n"><span class="pre">drm_plane_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms-helpers.html#c.drm_rect" title="drm_rect"><span class="n"><span class="pre">drm_rect</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">rect</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_damage_merged" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Merged plane damage</p>
 </dd></dl>
 
@@ -6737,7 +6799,7 @@ update the plane.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_plane_state</span> <span class="pre">*old_state</span></code></dt><dd><p>Old plane state for validation.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_plane_state</span> <span class="pre">*state</span></code></dt><dd><p>Plane state from which to iterate the damage clips.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_plane_state</span> <span class="pre">*state</span></code></dt><dd><p>Plane state from which to iterate the damage clips.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_rect</span> <span class="pre">*rect</span></code></dt><dd><p>Returns the merged damage rectangle</p>
 </dd>
@@ -8575,22 +8637,16 @@ as calculated using data from EDID’s static hdr metadata.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Constants</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_DISABLED</span></code></p>
-<blockquote>
-<div><p>The privacy-screen on the panel is disabled</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_ENABLED</span></code></p>
-<blockquote>
-<div><p>The privacy-screen on the panel is enabled</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_DISABLED_LOCKED</span></code></p>
-<blockquote>
-<div><p>The privacy-screen on the panel is disabled and locked (cannot be changed)</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_ENABLED_LOCKED</span></code></p>
-<blockquote>
-<div><p>The privacy-screen on the panel is enabled and locked (cannot be changed)</p>
-</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_DISABLED</span></code></dt><dd><p>The privacy-screen on the panel is disabled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_ENABLED</span></code></dt><dd><p>The privacy-screen on the panel is enabled</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_DISABLED_LOCKED</span></code></dt><dd><p>The privacy-screen on the panel is disabled and locked (cannot be changed)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">PRIVACY_SCREEN_ENABLED_LOCKED</span></code></dt><dd><p>The privacy-screen on the panel is enabled and locked (cannot be changed)</p>
+</dd>
+</dl>
 </div>
 <p><strong>Description</strong></p>
 <p>This enum is used to track and control the state of the integrated privacy
@@ -8605,96 +8661,62 @@ are only valid for the “privacy-screen hw-state” property.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Constants</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DEFAULT</span></code></p>
-<blockquote>
-<div><p>Driver specific behavior.</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_NO_DATA</span></code></p>
-<blockquote>
-<div><p>Driver specific behavior.</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_SMPTE_170M_YCC</span></code></p>
-<blockquote>
-<div><p>(HDMI)
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DEFAULT</span></code></dt><dd><p>Driver specific behavior.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_NO_DATA</span></code></dt><dd><p>Driver specific behavior.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_SMPTE_170M_YCC</span></code></dt><dd><p>(HDMI)
 SMPTE ST 170M colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT709_YCC</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT709_YCC</span></code></dt><dd><p>(HDMI, DP)
 ITU-R BT.709 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_XVYCC_601</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_XVYCC_601</span></code></dt><dd><p>(HDMI, DP)
 xvYCC601 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_XVYCC_709</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_XVYCC_709</span></code></dt><dd><p>(HDMI, DP)
 xvYCC709 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_SYCC_601</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_SYCC_601</span></code></dt><dd><p>(HDMI, DP)
 sYCC601 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_OPYCC_601</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_OPYCC_601</span></code></dt><dd><p>(HDMI, DP)
 opYCC601 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_OPRGB</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_OPRGB</span></code></dt><dd><p>(HDMI, DP)
 opRGB colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_CYCC</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_CYCC</span></code></dt><dd><p>(HDMI, DP)
 ITU-R BT.2020 Y’c C’bc C’rc (constant luminance) colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_RGB</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_RGB</span></code></dt><dd><p>(HDMI, DP)
 ITU-R BT.2020 R’ G’ B’ colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_YCC</span></code></p>
-<blockquote>
-<div><p>(HDMI, DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT2020_YCC</span></code></dt><dd><p>(HDMI, DP)
 ITU-R BT.2020 Y’ C’b C’r colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65</span></code></p>
-<blockquote>
-<div><p>(HDMI)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DCI_P3_RGB_D65</span></code></dt><dd><p>(HDMI)
 SMPTE ST 2113 P3D65 colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER</span></code></p>
-<blockquote>
-<div><p>(HDMI)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_DCI_P3_RGB_THEATER</span></code></dt><dd><p>(HDMI)
 SMPTE ST 2113 P3DCI colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED</span></code></p>
-<blockquote>
-<div><p>(DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_RGB_WIDE_FIXED</span></code></dt><dd><p>(DP)
 RGB wide gamut fixed point colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT</span></code></p>
-<blockquote>
-<div><p>(DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_RGB_WIDE_FLOAT</span></code></dt><dd><p>(DP)
 RGB wide gamut floating point
 (scRGB (IEC 61966-2-2)) colorimetry format</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT601_YCC</span></code></p>
-<blockquote>
-<div><p>(DP)
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_BT601_YCC</span></code></dt><dd><p>(DP)
 ITU-R BT.601 colorimetry format
 The DP spec does not say whether this is the 525 or the 625
 line version.</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_COUNT</span></code></p>
-<blockquote>
-<div><p>Not a valid value; merely used four counting</p>
-</div></blockquote>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_MODE_COLORIMETRY_COUNT</span></code></dt><dd><p>Not a valid value; merely used four counting</p>
+</dd>
+</dl>
 </div>
 <p><strong>Description</strong></p>
 <p>This enum is a consolidated colorimetry list supported by HDMI and
@@ -11367,6 +11389,37 @@ specific operation.</p>
 <p>Drivers should always use this function instead of <a class="reference internal" href="#c.drm_connector_init" title="drm_connector_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_connector_init()</span></code></a> to
 set up writeback connectors if they want to manage themselves the lifetime of the
 associated encoder.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, or a negative error code</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drmm_writeback_connector_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drmm_writeback_connector_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_writeback_connector" title="drm_writeback_connector"><span class="n"><span class="pre">drm_writeback_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wb_connector</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector_funcs" title="drm_connector_funcs"><span class="n"><span class="pre">drm_connector_funcs</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">con_funcs</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_encoder" title="drm_encoder"><span class="n"><span class="pre">drm_encoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">enc</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">formats</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">n_formats</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drmm_writeback_connector_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Initialize a writeback connector with a custom encoder</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_writeback_connector</span> <span class="pre">*wb_connector</span></code></dt><dd><p>Writeback connector to initialize</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_connector_funcs</span> <span class="pre">*con_funcs</span></code></dt><dd><p>Connector funcs vtable</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_encoder</span> <span class="pre">*enc</span></code></dt><dd><p>Encoder to connect this writeback connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u32</span> <span class="pre">*formats</span></code></dt><dd><p>Array of supported pixel formats for the writeback engine</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">n_formats</span></code></dt><dd><p>Length of the formats array</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function initialize a writeback connector and register its cleanup.</p>
+<p>This function creates the writeback-connector-specific properties if they
+have not been already created, initializes the connector as
+type DRM_MODE_CONNECTOR_WRITEBACK, and correctly initializes the property
+values.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, or a negative error code</p>
 </div>
@@ -15235,18 +15288,14 @@ On return contains true maximum error of timestamp</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ktime_t</span> <span class="pre">*vblank_time</span></code></dt><dd><p>Pointer to time which should receive the timestamp</p>
 </dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">in_vblank_irq</span></code></p>
-<blockquote>
-<div><p>True when called from <a class="reference internal" href="#c.drm_crtc_handle_vblank" title="drm_crtc_handle_vblank"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_handle_vblank()</span></code></a>.  Some drivers
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">in_vblank_irq</span></code></dt><dd><p>True when called from <a class="reference internal" href="#c.drm_crtc_handle_vblank" title="drm_crtc_handle_vblank"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_handle_vblank()</span></code></a>.  Some drivers
 need to apply some workarounds for gpu-specific vblank irq quirks
 if flag is set.</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">drm_vblank_get_scanout_position_func</span> <span class="pre">get_scanout_position</span></code></p>
-<blockquote>
-<div><p>Callback function to retrieve the scanout position. See
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">drm_vblank_get_scanout_position_func</span> <span class="pre">get_scanout_position</span></code></dt><dd><p>Callback function to retrieve the scanout position. See
 <strong>struct</strong> drm_crtc_helper_funcs.get_scanout_position.</p>
-</div></blockquote>
+</dd>
+</dl>
 <p><strong>Description</strong></p>
 <p>Implements calculation of exact vblank timestamps from given drm_display_mode
 timings and current video scanout position of a CRTC.</p>
@@ -15277,13 +15326,11 @@ On return contains true maximum error of timestamp</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ktime_t</span> <span class="pre">*vblank_time</span></code></dt><dd><p>Pointer to time which should receive the timestamp</p>
 </dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">in_vblank_irq</span></code></p>
-<blockquote>
-<div><p>True when called from <a class="reference internal" href="#c.drm_crtc_handle_vblank" title="drm_crtc_handle_vblank"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_handle_vblank()</span></code></a>.  Some drivers
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">in_vblank_irq</span></code></dt><dd><p>True when called from <a class="reference internal" href="#c.drm_crtc_handle_vblank" title="drm_crtc_handle_vblank"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_handle_vblank()</span></code></a>.  Some drivers
 need to apply some workarounds for gpu-specific vblank irq quirks
 if flag is set.</p>
-</div></blockquote>
+</dd>
+</dl>
 <p><strong>Description</strong></p>
 <p>Implements calculation of exact vblank timestamps from given drm_display_mode
 timings and current video scanout position of a CRTC. This can be directly

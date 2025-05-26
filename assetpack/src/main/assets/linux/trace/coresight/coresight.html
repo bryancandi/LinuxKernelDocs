@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -117,6 +117,7 @@
 <li class="toctree-l3"><a class="reference internal" href="coresight-tpda.html">The trace performance monitoring and diagnostics aggregator(TPDA)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="coresight-tpdm.html">Trace performance monitoring and diagnostics monitor(TPDM)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="coresight-trbe.html">Trace Buffer Extension (TRBE).</a></li>
+<li class="toctree-l3"><a class="reference internal" href="panic.html">Using Coresight for Kernel panic and Watchdog reset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ultrasoc-smb.html">UltraSoc - HW Assisted Tracing on SoC</a></li>
 </ul>
 </li>
@@ -628,47 +629,39 @@ queried by the perf command line tool:</p>
 <div><p>List of pre-defined events (to be used in -e):</p>
 <p>cs_etm//                                    [Kernel PMU event]</p>
 </div></blockquote>
-<p><a class="reference external" href="mailto:linaro&#37;&#52;&#48;linaro-nano">linaro<span>&#64;</span>linaro-nano</a>:~$</p>
 </div></blockquote>
 <p>Regardless of the number of tracers available in a system (usually equal to the
 amount of processor cores), the “cs_etm” PMU will be listed only once.</p>
 <p>A Coresight PMU works the same way as any other PMU, i.e the name of the PMU is
-listed along with configuration options within forward slashes ‘/’.  Since a
-Coresight system will typically have more than one sink, the name of the sink to
-work with needs to be specified as an event option.
-On newer kernels the available sinks are listed in sysFS under
+provided along with configuration options within forward slashes ‘/’ (see
+<a class="reference internal" href="#config-option-formats">Config option formats</a>).</p>
+</section>
+</section>
+<section id="advanced-perf-framework-usage">
+<h2>Advanced Perf framework usage<a class="headerlink" href="#advanced-perf-framework-usage" title="Link to this heading">¶</a></h2>
+<section id="sink-selection">
+<h3>Sink selection<a class="headerlink" href="#sink-selection" title="Link to this heading">¶</a></h3>
+<p>An appropriate sink will be selected automatically for use with Perf, but since
+there will typically be more than one sink, the name of the sink to use may be
+specified as a special config option prefixed with ‘&#64;’.</p>
+<p>The available sinks are listed in sysFS under
 ($SYSFS)/bus/event_source/devices/cs_etm/sinks/:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>root@localhost:/sys/bus/event_source/devices/cs_etm/sinks# ls
 tmc_etf0  tmc_etr0  tpiu0
-</pre></div>
-</div>
-<p>On older kernels, this may need to be found from the list of coresight devices,
-available under ($SYSFS)/bus/coresight/devices/:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>root:~# ls /sys/bus/coresight/devices/
- etm0     etm1     etm2         etm3  etm4      etm5      funnel0
- funnel1  funnel2  replicator0  stm0  tmc_etf0  tmc_etr0  tpiu0
+
 root@linaro-nano:~# perf record -e cs_etm/@tmc_etr0/u --per-thread program
 </pre></div>
 </div>
-<p>As mentioned above in section “Device Naming scheme”, the names of the devices could
-look different from what is used in the example above. One must use the device names
-as it appears under the sysFS.</p>
-<p>The syntax within the forward slashes ‘/’ is important.  The ‘&#64;’ character
-tells the parser that a sink is about to be specified and that this is the sink
-to use for the trace session.</p>
 <p>More information on the above and other example on how to use Coresight with
 the perf tools can be found in the “HOWTO.md” file of the openCSD gitHub
 repository <a class="footnote-reference brackets" href="#third" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>.</p>
 </section>
-</section>
-<section id="advanced-perf-framework-usage">
-<h2>Advanced perf framework usage<a class="headerlink" href="#advanced-perf-framework-usage" title="Link to this heading">¶</a></h2>
 <section id="autofdo-analysis-using-the-perf-tools">
 <h3>AutoFDO analysis using the perf tools<a class="headerlink" href="#autofdo-analysis-using-the-perf-tools" title="Link to this heading">¶</a></h3>
 <p>perf can be used to record and analyze trace of programs.</p>
 <p>Execution can be recorded using ‘perf record’ with the cs_etm event,
 specifying the name of the sink to record to, e.g:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>perf record -e cs_etm/@tmc_etr0/u --per-thread
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>perf record -e cs_etm//u --per-thread
 </pre></div>
 </div>
 <p>The ‘perf report’ and ‘perf script’ commands can be used to analyze execution,
@@ -726,7 +719,7 @@ $ taskset -c 2 ./sort
 Bubble sorting array of 30000 elements
 5910 ms
 
-$ perf record -e cs_etm/@tmc_etr0/u --per-thread taskset -c 2 ./sort
+$ perf record -e cs_etm//u --per-thread taskset -c 2 ./sort
 Bubble sorting array of 30000 elements
 12543 ms
 [ perf record: Woken up 35 times to write data ]
@@ -845,7 +838,7 @@ configurations to be selected and used easily from perf and sysfs.</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="first" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">1</a><span class="fn-bracket">]</span></span>
-<p>Documentation/ABI/testing/sysfs-bus-coresight-devices-stm</p>
+<p><a class="reference internal" href="../../admin-guide/abi-testing-files.html#abi-file-testing-sysfs-bus-coresight-devices-stm"><span class="std std-ref">ABI file testing/sysfs-bus-coresight-devices-stm</span></a></p>
 </aside>
 <aside class="footnote brackets" id="second" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id4">2</a><span class="fn-bracket">]</span></span>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -92,7 +92,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../index.html#security-related-interfaces">Security-related interfaces</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../index.html#devices-and-i-o">Devices and I/O</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../../accelerators/ocxl.html">OpenCAPI (Open Coherent Accelerator Processor Interface)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../dma-buf-heaps.html">Allocating dma-buf using heaps</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../dma-buf-alloc-exchange.html">Exchanging pixel buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../fwctl/index.html">Firmware Control (FWCTL) Userspace API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../gpio/index.html">GPIO</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../iommufd.html">IOMMUFD</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="../index.html">Linux Media Infrastructure userspace API</a></li>
@@ -298,6 +300,7 @@ UVC_CTRL_DATA_TYPE_UNSIGNED     Unsigned integer
 UVC_CTRL_DATA_TYPE_BOOLEAN      Boolean
 UVC_CTRL_DATA_TYPE_ENUM         Enumeration
 UVC_CTRL_DATA_TYPE_BITMASK      Bitmask
+UVC_CTRL_DATA_TYPE_RECT         Rectangular area
 </pre></div>
 </div>
 </section>
@@ -372,6 +375,69 @@ __u8    *data           Control value
 </div>
 </section>
 </section>
+</section>
+<section id="driver-specific-v4l2-controls">
+<h2><span class="section-number">11.2. </span>Driver-specific V4L2 controls<a class="headerlink" href="#driver-specific-v4l2-controls" title="Link to this heading">¶</a></h2>
+<p>The uvcvideo driver implements the following UVC-specific controls:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">V4L2_CID_UVC_REGION_OF_INTEREST_RECT</span> <span class="pre">(struct)</span></code></dt><dd><p>This control determines the region of interest (ROI). ROI is a
+rectangular area represented by a struct <a class="reference internal" href="../v4l/dev-overlay.html#c.v4l2_rect" title="v4l2_rect"><code class="xref c c-type docutils literal notranslate"><span class="pre">v4l2_rect</span></code></a>. The
+rectangle is in global sensor coordinates using pixel units. It is
+independent of the field of view, not impacted by any cropping or
+scaling.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">V4L2_CTRL_WHICH_MIN_VAL</span></code> and <code class="docutils literal notranslate"><span class="pre">V4L2_CTRL_WHICH_MAX_VAL</span></code> to query
+the range of rectangle sizes.</p>
+<p>Setting a ROI allows the camera to optimize the capture for the region.
+The value of <code class="docutils literal notranslate"><span class="pre">V4L2_CID_REGION_OF_INTEREST_AUTO</span></code> control determines
+the detailed behavior.</p>
+<p>An example of use of this control, can be found in the:
+<cite>Chrome OS USB camera HAL.
+&lt;https://chromium.googlesource.com/chromiumos/platform2/+/refs/heads/release-R121-15699.B/camera/hal/usb/&gt;</cite></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">V4L2_CID_UVC_REGION_OF_INTEREST_AUTO</span> <span class="pre">(bitmask)</span></code></dt><dd><p>This determines which, if any, on-board features should track to the
+Region of Interest specified by the current value of
+<code class="docutils literal notranslate"><span class="pre">V4L2_CID_UVD__REGION_OF_INTEREST_RECT</span></code>.</p>
+<p>Max value is a mask indicating all supported Auto Controls.</p>
+</dd>
+</dl>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_EXPOSURE</span></code></p></td>
+<td><p>Setting this bit causes automatic exposure to track the region of
+interest instead of the whole image.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_IRIS</span></code></p></td>
+<td><p>Setting this bit causes automatic iris to track the region of interest
+instead of the whole image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_WHITE_BALANCE</span></code></p></td>
+<td><p>Setting this bit causes automatic white balance to track the region
+of interest instead of the whole image.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_FOCUS</span></code></p></td>
+<td><p>Setting this bit causes automatic focus adjustment to track the region
+of interest instead of the whole image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_FACE_DETECT</span></code></p></td>
+<td><p>Setting this bit causes automatic face detection to track the region of
+interest instead of the whole image.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_DETECT_AND_TRACK</span></code></p></td>
+<td><p>Setting this bit enables automatic face detection and tracking. The
+current value of <code class="docutils literal notranslate"><span class="pre">V4L2_CID_REGION_OF_INTEREST_RECT</span></code> may be updated by
+the driver.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_IMAGE_STABILIZATION</span></code></p></td>
+<td><p>Setting this bit enables automatic image stabilization. The
+current value of <code class="docutils literal notranslate"><span class="pre">V4L2_CID_REGION_OF_INTEREST_RECT</span></code> may be updated by
+the driver.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">V4L2_UVC_REGION_OF_INTEREST_AUTO_HIGHER_QUALITY</span></code></p></td>
+<td><p>Setting this bit enables automatically capture the specified region
+with higher quality if possible.</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 

@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Surface System Aggregator Module (SSAM)" href="surface_aggregator/index.html" />
-    <link rel="prev" title="SoundWire Locking" href="soundwire/locking.html" />
+    <link rel="prev" title="Cadence IP BRA support" href="soundwire/bra_cadence.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -289,13 +289,9 @@ on 32-bit systems</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">spi_sync</span></code></dt><dd><p>number of times spi_sync is used</p>
 </dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">spi_sync_immediate</span></code></p>
-<blockquote>
-<div><p>number of times spi_sync is executed immediately
+<dt><code class="docutils literal notranslate"><span class="pre">spi_sync_immediate</span></code></dt><dd><p>number of times spi_sync is executed immediately
 in calling context without queuing and scheduling</p>
-</div></blockquote>
-<dl class="simple">
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">spi_async</span></code></dt><dd><p>number of times spi_async is used</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bytes</span></code></dt><dd><p>number of bytes transferred to/from device</p>
@@ -304,16 +300,12 @@ in calling context without queuing and scheduling</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bytes_tx</span></code></dt><dd><p>number of bytes sent to device</p>
 </dd>
-</dl>
-<p><code class="docutils literal notranslate"><span class="pre">transfer_bytes_histo</span></code></p>
-<blockquote>
-<div><p>transfer bytes histogram</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">transfers_split_maxsize</span></code></p>
-<blockquote>
-<div><p>number of transfers that have been split because of
+<dt><code class="docutils literal notranslate"><span class="pre">transfer_bytes_histo</span></code></dt><dd><p>transfer bytes histogram</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">transfers_split_maxsize</span></code></dt><dd><p>number of transfers that have been split because of
 maxsize limit</p>
-</div></blockquote>
+</dd>
+</dl>
 </div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.spi_delay">
@@ -343,7 +335,7 @@ maxsize limit</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.spi_device">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">spi_device</span></span></span><a class="headerlink" href="#c.spi_device" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Controller side proxy for an SPI slave device</p>
+<dd><p>Controller side proxy for an SPI target device</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -441,7 +433,7 @@ two delays will be added up.</p>
 </dl>
 </div>
 <p><strong>Description</strong></p>
-<p>A <strong>spi_device</strong> is used to interchange data between an SPI slave
+<p>A <strong>spi_device</strong> is used to interchange data between an SPI target device
 (usually a discrete chip) and CPU memory.</p>
 <p>In <strong>dev</strong>, the platform_data is used to hold information about this
 device that’s meaningful to the device’s protocol driver, but not
@@ -533,7 +525,7 @@ use this macro once, and calling it replaces <a class="reference internal" href=
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.spi_controller">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">spi_controller</span></span></span><a class="headerlink" href="#c.spi_controller" title="Link to this definition">¶</a><br /></dt>
-<dd><p>interface to SPI master or slave controller</p>
+<dd><p>interface to SPI host or target controller</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -612,6 +604,8 @@ use this macro once, and calling it replaces <a class="reference internal" href=
     void (*handle_err)(struct spi_controller *ctlr, struct spi_message *message);
     const struct spi_controller_mem_ops *mem_ops;
     const struct spi_controller_mem_caps *mem_caps;
+    struct spi_offload *(*get_offload)(struct spi_device *spi, const struct spi_offload_config *config);
+    void (*put_offload)(struct spi_offload *offload);
     struct gpio_desc        **cs_gpiods;
     bool use_gpio_descriptors;
     s8 unused_native_cs;
@@ -640,9 +634,9 @@ use this macro once, and calling it replaces <a class="reference internal" href=
 given SPI controller.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">num_chipselect</span></code></dt><dd><p>chipselects are used to distinguish individual
-SPI slaves, and are numbered from zero to num_chipselects.
-each slave has a chipselect signal, but it’s common that not
-every chipselect is connected to a slave.</p>
+SPI targets, and are numbered from zero to num_chipselects.
+each target has a chipselect signal, but it’s common that not
+every chipselect is connected to a target.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dma_alignment</span></code></dt><dd><p>SPI controller constraint on DMA buffers alignment.</p>
 </dd>
@@ -692,9 +686,9 @@ must fail if an unrecognized or unsupported mode is requested.
 It’s always safe to call this unless transfers are pending on
 the device whose settings are being modified.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">set_cs_timing</span></code></dt><dd><p>optional hook for SPI devices to request SPI master
+<dt><code class="docutils literal notranslate"><span class="pre">set_cs_timing</span></code></dt><dd><p>optional hook for SPI devices to request SPI
 controller for configuring specific CS setup time, hold time and inactive
-delay interms of clock counts</p>
+delay in terms of clock counts</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">transfer</span></code></dt><dd><p>adds a message to the controller’s transfer queue.</p>
 </dd>
@@ -804,6 +798,12 @@ controller has native support for memory like operations.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mem_caps</span></code></dt><dd><p>controller capabilities for the handling of memory operations.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">get_offload</span></code></dt><dd><p>callback for controllers with offload support to get matching
+offload instance. Implementations should return -ENODEV if no match is
+found.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">put_offload</span></code></dt><dd><p>release the offload instance acquired by <strong>get_offload</strong>.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cs_gpiods</span></code></dt><dd><p>Array of GPIO descriptors to use as chip select lines; one per CS
 number. Any individual value may be NULL for CS lines that
 are not GPIOs (driven by the SPI controller itself).</p>
@@ -868,7 +868,7 @@ different clock rate, since those shared signals are ignored unless
 the chip is selected.</p>
 <p>The driver for an SPI controller manages access to those devices through
 a queue of spi_message transactions, copying data between CPU memory and
-an SPI slave device.  For each such message it queues, it calls the
+an SPI target device.  For each such message it queues, it calls the
 message’s completion function when the transaction completes.</p>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.spi_res">
@@ -935,6 +935,7 @@ management during spi_message processing.</p>
     struct spi_delay        word_delay;
     u32 speed_hz;
     u32 effective_speed_hz;
+    unsigned int    offload_flags;
     unsigned int    ptp_sts_word_pre;
     unsigned int    ptp_sts_word_post;
     struct ptp_system_timestamp *ptp_sts;
@@ -998,6 +999,9 @@ transfer. If 0 the default (from <strong>spi_device</strong>) is used.</p>
 transfer this transfer. Set to 0 if the SPI bus driver does
 not support it.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offload_flags</span></code></dt><dd><p>Flags that are only applicable to specialized SPI offload
+transfers. See <code class="docutils literal notranslate"><span class="pre">SPI_OFFLOAD_XFER_*</span></code> in spi-offload.h.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">ptp_sts_word_pre</span></code></dt><dd><p>The word (subject to bits_per_word semantics) offset
 within <strong>tx_buf</strong> for which the SPI device is requesting that the time
 snapshot for this transfer begins. Upon completing the SPI transfer,
@@ -1014,12 +1018,12 @@ purposefully (instead of setting to spi_transfer-&gt;len - 1) to denote
 that a transfer-level snapshot taken from within the driver may still
 be of higher quality.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ptp_sts</span></code></dt><dd><p>Pointer to a memory location held by the SPI slave device where a
+<dt><code class="docutils literal notranslate"><span class="pre">ptp_sts</span></code></dt><dd><p>Pointer to a memory location held by the SPI target device where a
 PTP system timestamp structure may lie. If drivers use PIO or their
 hardware has some sort of assist for retrieving exact transfer timing,
 they can (and should) assert <strong>ptp_sts_supported</strong> and populate this
 structure using the ptp_read_system_*ts helper functions.
-The timestamp must represent the time at which the SPI slave device has
+The timestamp must represent the time at which the SPI target device has
 processed the word, i.e. the “pre” timestamp should be taken before
 transmitting the “pre” word, and the “post” timestamp after receiving
 transmit confirmation from the controller for the “post” word.</p>
@@ -1096,6 +1100,7 @@ and its transfers, ignore them until its completion callback.</p>
     struct list_head        queue;
     void *state;
     void *opt_state;
+    struct spi_offload      *offload;
     struct list_head        resources;
 };
 </pre></div>
@@ -1128,6 +1133,8 @@ successful segments</p>
 <dt><code class="docutils literal notranslate"><span class="pre">state</span></code></dt><dd><p>for use by whichever driver currently owns the message</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">opt_state</span></code></dt><dd><p>for use by whichever driver currently owns the message</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offload</span></code></dt><dd><p>(optional) offload instance used by this message</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">resources</span></code></dt><dd><p>for resource management when the SPI message is processed</p>
 </dd>
@@ -1760,7 +1767,7 @@ If index is set to -1, index is not used.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.spi_target_abort">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">spi_target_abort</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_device" title="spi_device"><span class="n"><span class="pre">spi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">spi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.spi_target_abort" title="Link to this definition">¶</a><br /></dt>
-<dd><p>abort the ongoing transfer request on an SPI slave controller</p>
+<dd><p>abort the ongoing transfer request on an SPI target controller</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1772,8 +1779,8 @@ If index is set to -1, index is not used.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__spi_alloc_controller">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_controller" title="spi_controller"><span class="n"><span class="pre">spi_controller</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__spi_alloc_controller</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">slave</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__spi_alloc_controller" title="Link to this definition">¶</a><br /></dt>
-<dd><p>allocate an SPI master or slave controller</p>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_controller" title="spi_controller"><span class="n"><span class="pre">spi_controller</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__spi_alloc_controller</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">target</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__spi_alloc_controller" title="Link to this definition">¶</a><br /></dt>
+<dd><p>allocate an SPI host or target controller</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1787,8 +1794,8 @@ with spi_controller_get_devdata(); the memory is cacheline aligned;
 drivers granting DMA access to portions of their private data need to
 round up <strong>size</strong> using ALIGN(size, dma_get_cache_alignment()).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">slave</span></code></dt><dd><p>flag indicating whether to allocate an SPI master (false) or SPI
-slave (true) controller</p>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">target</span></code></dt><dd><p>flag indicating whether to allocate an SPI host (false) or SPI target (true)
+controller</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>
@@ -1807,7 +1814,7 @@ leak.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__devm_spi_alloc_controller">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_controller" title="spi_controller"><span class="n"><span class="pre">spi_controller</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__devm_spi_alloc_controller</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">slave</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__devm_spi_alloc_controller" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_controller" title="spi_controller"><span class="n"><span class="pre">spi_controller</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__devm_spi_alloc_controller</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">target</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__devm_spi_alloc_controller" title="Link to this definition">¶</a><br /></dt>
 <dd><p>resource-managed <a class="reference internal" href="#c.__spi_alloc_controller" title="__spi_alloc_controller"><code class="xref c c-func docutils literal notranslate"><span class="pre">__spi_alloc_controller()</span></code></a></p>
 </dd></dl>
 
@@ -1818,7 +1825,7 @@ leak.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">size</span></code></dt><dd><p>how much zeroed driver-private data to allocate</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">slave</span></code></dt><dd><p>whether to allocate an SPI master (false) or SPI slave (true)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">target</span></code></dt><dd><p>whether to allocate an SPI host (false) or SPI target (true) controller</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>
@@ -1888,7 +1895,7 @@ automatically be unregistered and freed.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.spi_unregister_controller">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">spi_unregister_controller</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.spi_controller" title="spi_controller"><span class="n"><span class="pre">spi_controller</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctlr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.spi_unregister_controller" title="Link to this definition">¶</a><br /></dt>
-<dd><p>unregister SPI master or slave controller</p>
+<dd><p>unregister SPI host or target controller</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -2152,7 +2159,7 @@ be released by a spi_bus_unlock call when the exclusive access is over.</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_controller</span> <span class="pre">*ctlr</span></code></dt><dd><p>SPI bus master that should be locked for exclusive bus access</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_controller</span> <span class="pre">*ctlr</span></code></dt><dd><p>SPI bus controller that should be locked for exclusive bus access</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>
@@ -2176,7 +2183,7 @@ and spi_async_locked calls when the SPI bus lock is held.</p>
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_controller</span> <span class="pre">*ctlr</span></code></dt><dd><p>SPI bus master that was locked for exclusive bus access</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_controller</span> <span class="pre">*ctlr</span></code></dt><dd><p>SPI bus controller that was locked for exclusive bus access</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>

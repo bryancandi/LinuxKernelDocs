@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../../subsystem-apis.html#other-subsystems">Other subsystems</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../../accounting/index.html">Accounting</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../cpu-freq/index.html">CPUFreq - CPU frequency and voltage scaling code in the Linux(TM) kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../edac/index.html">EDAC Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../iio/index.html">Industrial I/O</a></li>
@@ -610,7 +611,7 @@ register.</p>
 <tr class="row-even"><td><p>SDIV</p></td>
 <td><p>0x3</p></td>
 <td><p>1</p></td>
-<td><p>dst = (src != 0) ? (dst s/ src) : 0</p></td>
+<td><p>dst = (src == 0) ? 0 : ((src == -1 &amp;&amp; dst == LLONG_MIN) ? LLONG_MIN : (dst s/ src))</p></td>
 </tr>
 <tr class="row-odd"><td><p>OR</p></td>
 <td><p>0x4</p></td>
@@ -645,7 +646,7 @@ register.</p>
 <tr class="row-odd"><td><p>SMOD</p></td>
 <td><p>0x9</p></td>
 <td><p>1</p></td>
-<td><p>dst = (src != 0) ? (dst s% src) : dst</p></td>
+<td><p>dst = (src == 0) ? dst : ((src == -1 &amp;&amp; dst == LLONG_MIN) ? 0: (dst s% src))</p></td>
 </tr>
 <tr class="row-even"><td><p>XOR</p></td>
 <td><p>0xa</p></td>
@@ -677,9 +678,16 @@ register.</p>
 <p>Underflow and overflow are allowed during arithmetic operations, meaning
 the 64-bit or 32-bit value will wrap. If BPF program execution would
 result in division by zero, the destination register is instead set to zero.
-If execution would result in modulo by zero, for <code class="docutils literal notranslate"><span class="pre">ALU64</span></code> the value of
+Otherwise, for <code class="docutils literal notranslate"><span class="pre">ALU64</span></code>, if execution would result in <code class="docutils literal notranslate"><span class="pre">LLONG_MIN</span></code>
+dividing -1, the desination register is instead set to <code class="docutils literal notranslate"><span class="pre">LLONG_MIN</span></code>. For
+<code class="docutils literal notranslate"><span class="pre">ALU</span></code>, if execution would result in <code class="docutils literal notranslate"><span class="pre">INT_MIN</span></code> dividing -1, the
+desination register is instead set to <code class="docutils literal notranslate"><span class="pre">INT_MIN</span></code>.</p>
+<p>If execution would result in modulo by zero, for <code class="docutils literal notranslate"><span class="pre">ALU64</span></code> the value of
 the destination register is unchanged whereas for <code class="docutils literal notranslate"><span class="pre">ALU</span></code> the upper
-32 bits of the destination register are zeroed.</p>
+32 bits of the destination register are zeroed. Otherwise, for <code class="docutils literal notranslate"><span class="pre">ALU64</span></code>,
+if execution would resuslt in <code class="docutils literal notranslate"><span class="pre">LLONG_MIN</span></code> modulo -1, the destination
+register is instead set to 0. For <code class="docutils literal notranslate"><span class="pre">ALU</span></code>, if execution would result in
+<code class="docutils literal notranslate"><span class="pre">INT_MIN</span></code> modulo -1, the destination register is instead set to 0.</p>
 <p><code class="docutils literal notranslate"><span class="pre">{ADD,</span> <span class="pre">X,</span> <span class="pre">ALU}</span></code>, where ‘code’ = <code class="docutils literal notranslate"><span class="pre">ADD</span></code>, ‘source’ = <code class="docutils literal notranslate"><span class="pre">X</span></code>, and ‘class’ = <code class="docutils literal notranslate"><span class="pre">ALU</span></code>, means:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>dst = (u32) ((u32) dst + (u32) src)
 </pre></div>

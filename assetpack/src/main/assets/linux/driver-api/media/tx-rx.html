@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -244,6 +244,11 @@ bus. These are common for both busses.</p>
 <h3><span class="section-number">7.2.2. </span>Link frequency<a class="headerlink" href="#link-frequency" title="Link to this heading">¶</a></h3>
 <p>The <a class="reference internal" href="../../userspace-api/media/v4l/ext-ctrls-image-process.html#v4l2-cid-link-freq"><span class="std std-ref">V4L2_CID_LINK_FREQ</span></a> control is used to tell the
 receiver the frequency of the bus (i.e. it is not the same as the symbol rate).</p>
+<p>Drivers that do not have user-configurable link frequency should report it
+through the <code class="docutils literal notranslate"><span class="pre">.get_mbus_config()</span></code> subdev pad operation, in the <code class="docutils literal notranslate"><span class="pre">link_freq</span></code>
+field of <a class="reference internal" href="v4l2-mediabus.html#c.v4l2_mbus_config" title="v4l2_mbus_config"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_mbus_config</span></code></a>, instead of through controls.</p>
+<p>Receiver drivers should use <a class="reference internal" href="v4l2-common.html#c.v4l2_get_link_freq" title="v4l2_get_link_freq"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_get_link_freq()</span></code></a> helper to obtain the
+link frequency from the transmitter sub-device.</p>
 </section>
 <section id="enable-streams-and-disable-streams-callbacks">
 <h3><span class="section-number">7.2.3. </span><code class="docutils literal notranslate"><span class="pre">.enable_streams()</span></code> and <code class="docutils literal notranslate"><span class="pre">.disable_streams()</span></code> callbacks<a class="headerlink" href="#enable-streams-and-disable-streams-callbacks" title="Link to this heading">¶</a></h3>
@@ -252,6 +257,15 @@ receiver the frequency of the bus (i.e. it is not the same as the symbol rate).<
 to control the transmitter driver’s streaming state. These callbacks may not be
 called directly, but by using <code class="docutils literal notranslate"><span class="pre">v4l2_subdev_enable_streams()</span></code> and
 <code class="docutils literal notranslate"><span class="pre">v4l2_subdev_disable_streams()</span></code>.</p>
+</section>
+<section id="stopping-the-transmitter">
+<h3><span class="section-number">7.2.4. </span>Stopping the transmitter<a class="headerlink" href="#stopping-the-transmitter" title="Link to this heading">¶</a></h3>
+<p>A transmitter stops sending the stream of images as a result of
+calling the <code class="docutils literal notranslate"><span class="pre">.disable_streams()</span></code> callback. Some transmitters may stop the
+stream at a frame boundary whereas others stop immediately,
+effectively leaving the current frame unfinished. The receiver driver
+should not make assumptions either way, but function properly in both
+cases.</p>
 </section>
 </section>
 <section id="csi-2-transmitter-drivers">
@@ -321,15 +335,6 @@ the transmitter to the LP-11 or LP-111 state. This also requires powering on the
 device, so this should be only done when it is needed.</p>
 <p>Receiver drivers that do not need explicit LP-11 or LP-111 state setup are
 waived from calling the two callbacks.</p>
-</section>
-<section id="stopping-the-transmitter">
-<h3><span class="section-number">7.3.3. </span>Stopping the transmitter<a class="headerlink" href="#stopping-the-transmitter" title="Link to this heading">¶</a></h3>
-<p>A transmitter stops sending the stream of images as a result of
-calling the <code class="docutils literal notranslate"><span class="pre">.disable_streams()</span></code> callback. Some transmitters may stop the
-stream at a frame boundary whereas others stop immediately,
-effectively leaving the current frame unfinished. The receiver driver
-should not make assumptions either way, but function properly in both
-cases.</p>
 </section>
 </section>
 </section>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -2592,10 +2592,10 @@ discarded.</p>
 <p><strong>Description</strong></p>
 <p>mod_timer(timer, expires) is equivalent to:</p>
 <blockquote>
-<div><p>del_timer(timer); timer-&gt;expires = expires; add_timer(timer);</p>
+<div><p>timer_delete(timer); timer-&gt;expires = expires; add_timer(timer);</p>
 </div></blockquote>
 <p><a class="reference internal" href="#c.mod_timer" title="mod_timer"><code class="xref c c-func docutils literal notranslate"><span class="pre">mod_timer()</span></code></a> is more efficient than the above open coded sequence. In
-case that the timer is inactive, the del_timer() part is a NOP. The
+case that the timer is inactive, the <a class="reference internal" href="#c.timer_delete" title="timer_delete"><code class="xref c c-func docutils literal notranslate"><span class="pre">timer_delete()</span></code></a> part is a NOP. The
 timer is in any case activated with the new expiry time <strong>expires</strong>.</p>
 <p>Note that if there are multiple unserialized concurrent users of the
 same timer, then <a class="reference internal" href="#c.mod_timer" title="mod_timer"><code class="xref c c-func docutils literal notranslate"><span class="pre">mod_timer()</span></code></a> is the only safe way to modify the timeout,
@@ -3203,28 +3203,6 @@ cannot be stopped</p></li>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">hrtimer</span> <span class="pre">*timer</span></code></dt><dd><p>the timer to read</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">adjust</span></code></dt><dd><p>adjust relative timers when CONFIG_TIME_LOW_RES=y</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.hrtimer_init">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hrtimer_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timer</span></span>, <span class="n"><span class="pre">clockid_t</span></span><span class="w"> </span><span class="n"><span class="pre">clock_id</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">hrtimer_mode</span></span><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.hrtimer_init" title="Link to this definition">¶</a><br /></dt>
-<dd><p>initialize a timer to the given clock</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hrtimer</span> <span class="pre">*timer</span></code></dt><dd><p>the timer to be initialized</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">clockid_t</span> <span class="pre">clock_id</span></code></dt><dd><p>the clock to be used</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">hrtimer_mode</span> <span class="pre">mode</span></code></dt><dd><p>The modes which are relevant for initialization:
-HRTIMER_MODE_ABS, HRTIMER_MODE_REL, HRTIMER_MODE_ABS_SOFT,
-HRTIMER_MODE_REL_SOFT</p>
-<p>The PINNED variants of the above can be handed in,
-but the PINNED bit is ignored as pinning happens
-when the hrtimer is started</p>
 </dd>
 </dl>
 </div>
@@ -5506,6 +5484,34 @@ retrieval.</p>
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.refcount_set_release">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_set_release</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">n</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_set_release" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set a refcount’s value with release ordering</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">refcount_t</span> <span class="pre">*r</span></code></dt><dd><p>the refcount</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">n</span></code></dt><dd><p>value to which the refcount will be set</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function should be used when memory occupied by the object might be
+reused to store another object -- consider SLAB_TYPESAFE_BY_RCU.</p>
+<p>Provides release memory ordering which will order previous memory operations
+against this store. This ensures all updates to this object are visible
+once the refcount is set and stale values from the object previously
+occupying this memory are overwritten with new ones.</p>
+<p>This function should be called only after new object is fully initialized.
+After this call the object should be considered visible to other tasks even
+if it was not yet added into an object collection normally used to discover
+it. This is because other tasks might have discovered the object previously
+occupying the same memory and after memory reuse they can succeed in taking
+refcount to the new object and start using it.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.refcount_read">
 <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_read" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get a refcount’s value</p>
@@ -5543,6 +5549,34 @@ and thereby orders future stores. See the comment on top.</p>
 use case in which references are taken and released one at a time.  In these
 cases, <a class="reference internal" href="#c.refcount_inc" title="refcount_inc"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_inc()</span></code></a>, or one of its variants, should instead be used to
 increment a reference count.</p>
+<p><strong>Return</strong></p>
+<p>false if the passed refcount is 0, true otherwise</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.refcount_add_not_zero_acquire">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_add_not_zero_acquire</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">i</span></span>, <span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_add_not_zero_acquire" title="Link to this definition">¶</a><br /></dt>
+<dd><p>add a value to a refcount with acquire ordering unless it is 0</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">i</span></code></dt><dd><p>the value to add to the refcount</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">refcount_t</span> <span class="pre">*r</span></code></dt><dd><p>the refcount</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Will saturate at REFCOUNT_SATURATED and WARN.</p>
+<p>This function should be used when memory occupied by the object might be
+reused to store another object -- consider SLAB_TYPESAFE_BY_RCU.</p>
+<p>Provides acquire memory ordering on success, it is assumed the caller has
+guaranteed the object memory to be stable (RCU, etc.). It does provide a
+control dependency and thereby orders future stores. See the comment on top.</p>
+<p>Use of this function is not recommended for the normal reference counting
+use case in which references are taken and released one at a time.  In these
+cases, <a class="reference internal" href="#c.refcount_inc_not_zero_acquire" title="refcount_inc_not_zero_acquire"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_inc_not_zero_acquire()</span></code></a> should instead be used to increment a
+reference count.</p>
 <p><strong>Return</strong></p>
 <p>false if the passed refcount is 0, true otherwise</p>
 </div>
@@ -5588,6 +5622,29 @@ and WARN.</p>
 <p>Provides no memory ordering, it is assumed the caller has guaranteed the
 object memory to be stable (RCU, etc.). It does provide a control dependency
 and thereby orders future stores. See the comment on top.</p>
+<p><strong>Return</strong></p>
+<p>true if the increment was successful, false otherwise</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.refcount_inc_not_zero_acquire">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">refcount_inc_not_zero_acquire</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">refcount_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">r</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.refcount_inc_not_zero_acquire" title="Link to this definition">¶</a><br /></dt>
+<dd><p>increment a refcount with acquire ordering unless it is 0</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">refcount_t</span> <span class="pre">*r</span></code></dt><dd><p>the refcount to increment</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Similar to <a class="reference internal" href="#c.refcount_inc_not_zero" title="refcount_inc_not_zero"><code class="xref c c-func docutils literal notranslate"><span class="pre">refcount_inc_not_zero()</span></code></a>, but provides acquire memory ordering on
+success.</p>
+<p>This function should be used when memory occupied by the object might be
+reused to store another object -- consider SLAB_TYPESAFE_BY_RCU.</p>
+<p>Provides acquire memory ordering on success, it is assumed the caller has
+guaranteed the object memory to be stable (RCU, etc.). It does provide a
+control dependency and thereby orders future stores. See the comment on top.</p>
 <p><strong>Return</strong></p>
 <p>true if the increment was successful, false otherwise</p>
 </div>

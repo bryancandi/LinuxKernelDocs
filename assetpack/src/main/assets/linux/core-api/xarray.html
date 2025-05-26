@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -615,7 +615,19 @@ reveal sibling entries; these should be skipped over by the caller.</p>
 entry at every index to <code class="docutils literal notranslate"><span class="pre">NULL</span></code> and dissolve the tie.  A multi-index
 entry can be split into entries occupying smaller ranges by calling
 <a class="reference internal" href="#c.xas_split_alloc" title="xas_split_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split_alloc()</span></code></a> without the xa_lock held, followed by taking the lock
-and calling <a class="reference internal" href="#c.xas_split" title="xas_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split()</span></code></a>.</p>
+and calling <a class="reference internal" href="#c.xas_split" title="xas_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split()</span></code></a> or calling <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> with xa_lock. The
+difference between <a class="reference internal" href="#c.xas_split_alloc" title="xas_split_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split_alloc()</span></code></a>+<a class="reference internal" href="#c.xas_split" title="xas_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split()</span></code></a> and xas_try_alloc() is
+that <a class="reference internal" href="#c.xas_split_alloc" title="xas_split_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split_alloc()</span></code></a> + <a class="reference internal" href="#c.xas_split" title="xas_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split()</span></code></a> split the entry from the original
+order to the new order in one shot uniformly, whereas <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a>
+iteratively splits the entry containing the index non-uniformly.
+For example, to split an order-9 entry, which takes 2^(9-6)=8 slots,
+assuming <code class="docutils literal notranslate"><span class="pre">XA_CHUNK_SHIFT</span></code> is 6, <a class="reference internal" href="#c.xas_split_alloc" title="xas_split_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split_alloc()</span></code></a> + <a class="reference internal" href="#c.xas_split" title="xas_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_split()</span></code></a> need
+8 xa_node. <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> splits the order-9 entry into
+2 order-8 entries, then split one order-8 entry, based on the given index,
+to 2 order-7 entries, ..., and split one order-1 entry to 2 order-0 entries.
+When splitting the order-6 entry and a new xa_node is needed, <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a>
+will try to allocate one if possible. As a result, <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> would only
+need 1 xa_node instead of 8.</p>
 </section>
 </section>
 <section id="functions-and-structures">
@@ -2478,6 +2490,54 @@ entries of the order stored in the <strong>xas</strong>.</p>
 <p><strong>Description</strong></p>
 <p>The size of the new entries is set in <strong>xas</strong>.  The value in <strong>entry</strong> is
 copied to all the replacement entries.</p>
+<p><strong>Context</strong></p>
+<p>Any context.  The caller should hold the xa_lock.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xas_try_split_min_order">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xas_try_split_min_order</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xas_try_split_min_order" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Minimal split order <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> can accept</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">order</span></code></dt><dd><p>Current entry order.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p><a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> can split a multi-index entry to smaller than <strong>order</strong> - 1 if
+no new xa_node is needed. This function provides the minimal order
+<a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> supports.</p>
+<p><strong>Return</strong></p>
+<p>the minimal order <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> supports</p>
+<p><strong>Context</strong></p>
+<p>Any context.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xas_try_split">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xas_try_split</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xa_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xas</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">entry</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xas_try_split" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Try to split a multi-index entry.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">xa_state</span> <span class="pre">*xas</span></code></dt><dd><p>XArray operation state.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*entry</span></code></dt><dd><p>New entry to store in the array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">order</span></code></dt><dd><p>Current entry order.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The size of the new entries is set in <strong>xas</strong>.  The value in <strong>entry</strong> is
+copied to all the replacement entries. If and only if one new xa_node is
+needed, the function will use GFP_NOWAIT to get one if xas-&gt;xa_alloc is
+NULL. If more new xa_node are needed, the function gives EINVAL error.</p>
+<p><strong>NOTE</strong></p>
+<p>use <a class="reference internal" href="#c.xas_try_split_min_order" title="xas_try_split_min_order"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split_min_order()</span></code></a> to get next split order instead of
+<strong>order</strong> - 1 if you want to minmize <a class="reference internal" href="#c.xas_try_split" title="xas_try_split"><code class="xref c c-func docutils literal notranslate"><span class="pre">xas_try_split()</span></code></a> calls.</p>
 <p><strong>Context</strong></p>
 <p>Any context.  The caller should hold the xa_lock.</p>
 </div>

@@ -1863,6 +1863,7 @@ videodev2.h
                     \_\_s32 \_\_user \*p\_s32;
                     \_\_s64 \_\_user \*p\_s64;
                     struct v4l2_area \_\_user \*p\_area;
+                    struct v4l2_rect \_\_user \*p\_rect;
                     struct v4l2\_ctrl\_h264\_sps \_\_user \*p\_h264\_sps;
                     struct v4l2\_ctrl\_h264\_pps \_\_user \*p\_h264\_pps;
                     struct v4l2\_ctrl\_h264\_scaling\_matrix \_\_user \*p\_h264\_scaling\_matrix;
@@ -1915,6 +1916,8 @@ videodev2.h
     \#define V4L2\_CTRL\_WHICH\_CUR\_VAL   0
     \#define V4L2\_CTRL\_WHICH\_DEF\_VAL   0x0f000000
     \#define V4L2\_CTRL\_WHICH\_REQUEST\_VAL 0x0f010000
+    \#define V4L2\_CTRL\_WHICH\_MIN\_VAL   0x0f020000
+    \#define V4L2\_CTRL\_WHICH\_MAX\_VAL   0x0f030000
 
     enum :c:type:`v4l2_ctrl_type` \{
             :c:type:`V4L2_CTRL_TYPE_INTEGER <v4l2_ctrl_type>`       = 1,
@@ -1933,6 +1936,7 @@ videodev2.h
             :c:type:`V4L2_CTRL_TYPE_U16 <v4l2_ctrl_type>`           = 0x0101,
             :c:type:`V4L2_CTRL_TYPE_U32 <v4l2_ctrl_type>`           = 0x0102,
             :c:type:`V4L2_CTRL_TYPE_AREA <v4l2_ctrl_type>`          = 0x0106,
+            :c:type:`V4L2_CTRL_TYPE_RECT <v4l2_ctrl_type>`          = 0x0107,
 
             :c:type:`V4L2_CTRL_TYPE_HDR10_CLL_INFO <v4l2_ctrl_type>`           = 0x0110,
             :c:type:`V4L2_CTRL_TYPE_HDR10_MASTERING_DISPLAY <v4l2_ctrl_type>`  = 0x0111,
@@ -2021,6 +2025,7 @@ videodev2.h
     \#define :ref:`V4L2_CTRL_FLAG_EXECUTE_ON_WRITE <control-flags>` 0x0200
     \#define :ref:`V4L2_CTRL_FLAG_MODIFY_LAYOUT <control-flags>`    0x0400
     \#define :ref:`V4L2_CTRL_FLAG_DYNAMIC_ARRAY <control-flags>`    0x0800
+    \#define :ref:`V4L2_CTRL_FLAG_HAS_WHICH_MIN_MAX <control-flags>` 0x1000
 
     \/\*  Query flags, to be ORed with the control ID \*\/
     \#define :ref:`V4L2_CTRL_FLAG_NEXT_CTRL <control>`        0x80000000

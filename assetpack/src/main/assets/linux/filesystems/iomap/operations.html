@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -317,6 +317,7 @@ validation failed.</p>
 <blockquote>
 <div><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">IOCB_NOWAIT</span></code>: Turns on <code class="docutils literal notranslate"><span class="pre">IOMAP_NOWAIT</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IOCB_DONTCACHE</span></code>: Turns on <code class="docutils literal notranslate"><span class="pre">IOMAP_DONTCACHE</span></code>.</p></li>
 </ul>
 </div></blockquote>
 </section>
@@ -450,7 +451,7 @@ This is to prevent dirty folio clots when storage devices fail; an
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">iomap_writeback_ops</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">map_blocks</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">iomap_writepage_ctx</span><span class="w"> </span><span class="o">*</span><span class="n">wpc</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">inode</span><span class="w"> </span><span class="o">*</span><span class="n">inode</span><span class="p">,</span>
 <span class="w">                      </span><span class="n">loff_t</span><span class="w"> </span><span class="n">offset</span><span class="p">,</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="n">len</span><span class="p">);</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">prepare_ioend</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">iomap_ioend</span><span class="w"> </span><span class="o">*</span><span class="n">ioend</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">status</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">submit_ioend</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">iomap_writepage_ctx</span><span class="w"> </span><span class="o">*</span><span class="n">wpc</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">status</span><span class="p">);</span>
 <span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">discard_folio</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">folio</span><span class="w"> </span><span class="o">*</span><span class="n">folio</span><span class="p">,</span><span class="w"> </span><span class="n">loff_t</span><span class="w"> </span><span class="n">pos</span><span class="p">);</span>
 <span class="p">};</span>
 </pre></div>
@@ -473,13 +474,12 @@ This revalidation must be open-coded by the filesystem; it is
 unclear if <code class="docutils literal notranslate"><span class="pre">iomap::validity_cookie</span></code> can be reused for this
 purpose.
 This function must be supplied by the filesystem.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">prepare_ioend</span></code>: Enables filesystems to transform the writeback
-ioend or perform any other preparatory work before the writeback I/O
-is submitted.
+<li><p><code class="docutils literal notranslate"><span class="pre">submit_ioend</span></code>: Allows the file systems to hook into writeback bio
+submission.
 This might include pre-write space accounting updates, or installing
 a custom <code class="docutils literal notranslate"><span class="pre">-&gt;bi_end_io</span></code> function for internal purposes, such as
 deferring the ioend completion to a workqueue to run metadata update
-transactions from process context.
+transactions from process context before submitting the bio.
 This function is optional.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">discard_folio</span></code>: iomap calls this function after <code class="docutils literal notranslate"><span class="pre">-&gt;map_blocks</span></code>
 fails to schedule I/O for any part of a dirty folio.
@@ -506,7 +506,7 @@ the address space.
 This can happen in interrupt or process context, depending on the
 storage device.</p>
 <p>Filesystems that need to update internal bookkeeping (e.g. unwritten
-extent conversions) should provide a <code class="docutils literal notranslate"><span class="pre">-&gt;prepare_ioend</span></code> function to
+extent conversions) should provide a <code class="docutils literal notranslate"><span class="pre">-&gt;submit_ioend</span></code> function to
 set <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iomap_end::bio::bi_end_io</span></code> to its own function.
 This function should call <code class="docutils literal notranslate"><span class="pre">iomap_finish_ioends</span></code> after finishing its
 own work (e.g. unwritten extent conversion).</p>
@@ -656,7 +656,7 @@ The pagecache is invalidated both before and after the write io.
 The <code class="docutils literal notranslate"><span class="pre">flags</span></code> value for <code class="docutils literal notranslate"><span class="pre">-&gt;iomap_begin</span></code> will be <code class="docutils literal notranslate"><span class="pre">IOMAP_DIRECT</span> <span class="pre">|</span>
 <span class="pre">IOMAP_WRITE</span></code> with any combination of the following enhancements:</p>
 <blockquote>
-<div><ul class="simple">
+<div><ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">IOMAP_NOWAIT</span></code>, as defined previously.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">IOMAP_OVERWRITE_ONLY</span></code>: Allocating blocks and zeroing partial
 blocks is not allowed.
@@ -667,18 +667,32 @@ if the mapping is unwritten and the filesystem cannot handle zeroing
 the unaligned regions without exposing stale contents.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">IOMAP_ATOMIC</span></code>: This write is being issued with torn-write
 protection.
-Only a single bio can be created for the write, and the write must
-not be split into multiple I/O requests, i.e. flag REQ_ATOMIC must be
-set.
+Torn-write protection may be provided based on HW-offload or by a
+software mechanism provided by the filesystem.</p>
+<p>For HW-offload based support, only a single bio can be created for the
+write, and the write must not be split into multiple I/O requests, i.e.
+flag REQ_ATOMIC must be set.
 The file range to write must be aligned to satisfy the requirements
 of both the filesystem and the underlying block device’s atomic
 commit capabilities.
 If filesystem metadata updates are required (e.g. unwritten extent
-conversion or copy on write), all updates for the entire file range
+conversion or copy-on-write), all updates for the entire file range
 must be committed atomically as well.
-Only one space mapping is allowed per untorn write.
-Untorn writes must be aligned to, and must not be longer than, a
-single file block.</p></li>
+Untorn-writes may be longer than a single file block. In all cases,
+the mapping start disk block must have at least the same alignment as
+the write offset.
+The filesystems must set IOMAP_F_ATOMIC_BIO to inform iomap core of an
+untorn-write based on HW-offload.</p>
+<p>For untorn-writes based on a software mechanism provided by the
+filesystem, all the disk block alignment and single bio restrictions
+which apply for HW-offload based untorn-writes do not apply.
+The mechanism would typically be used as a fallback for when
+HW-offload based untorn-writes may not be issued, e.g. the range of the
+write covers multiple extents, meaning that it is not possible to issue
+a single bio.
+All filesystem metadata updates for the entire file range must be
+committed atomically as well.</p>
+</li>
 </ul>
 </div></blockquote>
 <p>Callers commonly hold <code class="docutils literal notranslate"><span class="pre">i_rwsem</span></code> in shared or exclusive mode before

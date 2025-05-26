@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -268,19 +268,21 @@ PCM3 &lt;------------&gt; *           * &lt;----DAI3-----&gt; BT
 </div>
 <p>For the example above we have to define 4 FE DAI links and 6 BE DAI links. The
 FE DAI links are defined as follows :-</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct snd_soc_dai_link machine_dais[] = {
-      {
-              .name = &quot;PCM0 System&quot;,
-              .stream_name = &quot;System Playback&quot;,
-              .cpu_dai_name = &quot;System Pin&quot;,
-              .platform_name = &quot;dsp-audio&quot;,
-              .codec_name = &quot;snd-soc-dummy&quot;,
-              .codec_dai_name = &quot;snd-soc-dummy-dai&quot;,
-              .dynamic = 1,
-              .trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-      },
-      .....&lt; other FE and BE DAI links here &gt;
-};
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>SND_SOC_DAILINK_DEFS(pcm0,
+       DAILINK_COMP_ARRAY(COMP_CPU(&quot;System Pin&quot;)),
+       DAILINK_COMP_ARRAY(COMP_DUMMY()),
+       DAILINK_COMP_ARRAY(COMP_PLATFORM(&quot;dsp-audio&quot;)));
+
+ static struct snd_soc_dai_link machine_dais[] = {
+       {
+               .name = &quot;PCM0 System&quot;,
+               .stream_name = &quot;System Playback&quot;,
+               SND_SOC_DAILINK_REG(pcm0),
+               .dynamic = 1,
+               .trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
+       },
+       .....&lt; other FE and BE DAI links here &gt;
+ };
 </pre></div>
 </div>
 <p>This FE DAI link is pretty similar to a regular DAI link except that we also
@@ -292,22 +294,23 @@ start and stop sequences).</p>
 <p>The FE DAI above sets the codec and code DAIs to dummy devices since the BE is
 dynamic and will change depending on runtime config.</p>
 <p>The BE DAIs are configured as follows :-</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static struct snd_soc_dai_link machine_dais[] = {
-      .....&lt; FE DAI links here &gt;
-      {
-              .name = &quot;Codec Headset&quot;,
-              .cpu_dai_name = &quot;ssp-dai.0&quot;,
-              .platform_name = &quot;snd-soc-dummy&quot;,
-              .no_pcm = 1,
-              .codec_name = &quot;rt5640.0-001c&quot;,
-              .codec_dai_name = &quot;rt5640-aif1&quot;,
-              .ignore_suspend = 1,
-              .ignore_pmdown_time = 1,
-              .be_hw_params_fixup = hswult_ssp0_fixup,
-              .ops = &amp;haswell_ops,
-      },
-      .....&lt; other BE DAI links here &gt;
-};
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>SND_SOC_DAILINK_DEFS(headset,
+       DAILINK_COMP_ARRAY(COMP_CPU(&quot;ssp-dai.0&quot;)),
+       DAILINK_COMP_ARRAY(COMP_CODEC(&quot;rt5640.0-001c&quot;, &quot;rt5640-aif1&quot;)));
+
+ static struct snd_soc_dai_link machine_dais[] = {
+       .....&lt; FE DAI links here &gt;
+       {
+               .name = &quot;Codec Headset&quot;,
+               SND_SOC_DAILINK_REG(headset),
+               .no_pcm = 1,
+               .ignore_suspend = 1,
+               .ignore_pmdown_time = 1,
+               .be_hw_params_fixup = hswult_ssp0_fixup,
+               .ops = &amp;haswell_ops,
+       },
+       .....&lt; other BE DAI links here &gt;
+ };
 </pre></div>
 </div>
 <p>This BE DAI link connects DAI0 to the codec (in this case RT5460 AIF1). It sets
@@ -457,7 +460,7 @@ static struct snd_soc_dai_link dais[] = {
               .codec_dai_name = &quot;modem-aif1&quot;,
               .codec_name = &quot;modem&quot;,
               .dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
-                              | SND_SOC_DAIFMT_CBM_CFM,
+                              | SND_SOC_DAIFMT_CBP_CFP,
               .c2c_params = &amp;dai_params,
               .num_c2c_params = 1,
       }

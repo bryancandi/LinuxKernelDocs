@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -407,12 +407,50 @@ appropriate enough to provide a resolution of the monitoring results that
 sufficient for the given purpose, it shouldn’t be unnecessarily further
 lowered.  It is recommended to be set proportional to <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code>.
 By default, the ratio is set as <code class="docutils literal notranslate"><span class="pre">1/20</span></code>, and it is still recommended.</p>
+<p>Based on the manual tuning guide, DAMON provides more intuitive knob-based
+intervals auto tuning mechanism.  Please refer to <a class="reference internal" href="#damon-design-monitoring-intervals-autotuning"><span class="std std-ref">the design document of
+the feature</span></a> for detail.</p>
 <p>Refer to below documents for an example tuning based on the above guide.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="monitoring_intervals_tuning_example.html">DAMON Moniting Interval Parameters Tuning Example</a></li>
 </ul>
 </div>
+</section>
+<section id="monitoring-intervals-auto-tuning">
+<span id="damon-design-monitoring-intervals-autotuning"></span><h4>Monitoring Intervals Auto-tuning<a class="headerlink" href="#monitoring-intervals-auto-tuning" title="Link to this heading">¶</a></h4>
+<p>DAMON provides automatic tuning of the <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code> and <code class="docutils literal notranslate"><span class="pre">aggregation</span>
+<span class="pre">interval</span></code> based on the <a class="reference internal" href="#damon-design-monitoring-params-tuning-guide"><span class="std std-ref">the tuning guide idea</span></a>.  The tuning mechanism allows
+users to set the aimed amount of access events to observe via DAMON within
+given time interval.  The target can be specified by the user as a ratio of
+DAMON-observed access events to the theoretical maximum amount of the events
+(<code class="docutils literal notranslate"><span class="pre">access_bp</span></code>) that measured within a given number of aggregations
+(<code class="docutils literal notranslate"><span class="pre">aggrs</span></code>).</p>
+<p>The DAMON-observed access events are calculated in byte granularity based on
+DAMON <a class="reference internal" href="#damon-design-region-based-sampling"><span class="std std-ref">region assumption</span></a>.  For
+example, if a region of size <code class="docutils literal notranslate"><span class="pre">X</span></code> bytes of <code class="docutils literal notranslate"><span class="pre">Y</span></code> <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code> is found, it
+means <code class="docutils literal notranslate"><span class="pre">X</span> <span class="pre">*</span> <span class="pre">Y</span></code> access events are observed by DAMON.  Theoretical maximum
+access events for the region is calculated in same way, but replacing <code class="docutils literal notranslate"><span class="pre">Y</span></code>
+with theoretical maximum <code class="docutils literal notranslate"><span class="pre">nr_accesses</span></code>, which can be calculated as
+<code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span> <span class="pre">/</span> <span class="pre">sampling</span> <span class="pre">interval</span></code>.</p>
+<p>The mechanism calculates the ratio of access events for <code class="docutils literal notranslate"><span class="pre">aggrs</span></code> aggregations,
+and increases or decrease the <code class="docutils literal notranslate"><span class="pre">sampleing</span> <span class="pre">interval</span></code> and <code class="docutils literal notranslate"><span class="pre">aggregation</span>
+<span class="pre">interval</span></code> in same ratio, if the observed access ratio is lower or higher than
+the target, respectively.  The ratio of the intervals change is decided in
+proportion to the distance between current samples ratio and the target ratio.</p>
+<p>The user can further set the minimum and maximum <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code> that can
+be set by the tuning mechanism using two parameters (<code class="docutils literal notranslate"><span class="pre">min_sample_us</span></code> and
+<code class="docutils literal notranslate"><span class="pre">max_sample_us</span></code>).  Because the tuning mechanism changes <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">interval</span></code>
+and <code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code> in same ratio always, the minimum and maximum
+<code class="docutils literal notranslate"><span class="pre">aggregation</span> <span class="pre">interval</span></code> after each of the tuning changes can automatically set
+together.</p>
+<p>The tuning is turned off by default, and need to be set explicitly by the user.
+As a rule of thumbs and the Parreto principle, 4% access samples ratio target
+is recommended.  Note that Parreto principle (80/20 rule) has applied twice.
+That is, assumes 4% (20% of 20%) DAMON-observed access events ratio (source)
+to capture 64% (80% multipled by 80%) real access events (outcomes).</p>
+<p>To know how user-space can use this feature via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-scheme"><span class="std std-ref">intervals_goal</span></a> part of
+the documentation.</p>
 </section>
 </section>
 <section id="operation-schemes">
@@ -613,11 +651,21 @@ number of filters for each scheme.  Each filter specifies</p>
 <li><p>whether it is to allow (include) or reject (exclude) applying
 the scheme’s action to the memory (<code class="docutils literal notranslate"><span class="pre">allow</span></code>).</p></li>
 </ul>
-<p>When multiple filters are installed, each filter is evaluated in the installed
-order.  If a part of memory is matched to one of the filter, next filters are
-ignored.  If the memory passes through the filters evaluation stage because it
-is not matched to any of the filters, applying the scheme’s action to it is
-allowed, same to the behavior when no filter exists.</p>
+<p>For efficient handling of filters, some types of filters are handled by the
+core layer, while others are handled by operations set.  In the latter case,
+hence, support of the filter types depends on the DAMON operations set.  In
+case of the core layer-handled filters, the memory regions that excluded by the
+filter are not counted as the scheme has tried to the region.  In contrast, if
+a memory regions is filtered by an operations set layer-handled filter, it is
+counted as the scheme has tried.  This difference affects the statistics.</p>
+<p>When multiple filters are installed, the group of filters that handled by the
+core layer are evaluated first.  After that, the group of filters that handled
+by the operations layer are evaluated.  Filters in each of the groups are
+evaluated in the installed order.  If a part of memory is matched to one of the
+filter, next filters are ignored.  If the part passes through the filters
+evaluation stage because it is not matched to any of the filters, applying the
+scheme’s action to it depends on the last filter’s allowance type.  If the last
+filter was for allowing, the part of memory will be rejected, and vice versa.</p>
 <p>For example, let’s assume 1) a filter for allowing anonymous pages and 2)
 another filter for rejecting young pages are installed in the order.  If a page
 of a region that eligible to apply the scheme’s action is an anonymous page,
@@ -627,62 +675,79 @@ not anonymous but young, the scheme’s action will not be applied, since the
 second reject-filter blocks it.  If the page is neither anonymous nor young,
 the page will pass through the filters evaluation stage since there is no
 matching filter, and the action will be applied to the page.</p>
-<p>Note that the action can equally be applied to memory that either explicitly
-filter-allowed or filters evaluation stage passed.  It means that installing
-allow-filters at the end of the list makes no practical change but only
-filters-checking overhead.</p>
-<p>For efficient handling of filters, some types of filters are handled by the
-core layer, while others are handled by operations set.  In the latter case,
-hence, support of the filter types depends on the DAMON operations set.  In
-case of the core layer-handled filters, the memory regions that excluded by the
-filter are not counted as the scheme has tried to the region.  In contrast, if
-a memory regions is filtered by an operations set layer-handled filter, it is
-counted as the scheme has tried.  This difference affects the statistics.</p>
 <p>Below <code class="docutils literal notranslate"><span class="pre">type</span></code> of filters are currently supported.</p>
 <ul class="simple">
 <li><dl class="simple">
-<dt>anonymous page</dt><dd><ul>
+<dt>Core layer handled</dt><dd><ul>
+<li><dl class="simple">
+<dt>addr</dt><dd><ul>
+<li><p>Applied to pages that belonging to a given address range.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>target</dt><dd><ul>
+<li><p>Applied to pages that belonging to a given DAMON monitoring target.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Operations layer handled, supported by only <code class="docutils literal notranslate"><span class="pre">paddr</span></code> operations set.</dt><dd><ul>
+<li><dl class="simple">
+<dt>anon</dt><dd><ul>
 <li><p>Applied to pages that containing data that not stored in files.</p></li>
-<li><p>Handled by operations set layer.  Supported by only <code class="docutils literal notranslate"><span class="pre">paddr</span></code> set.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>memory cgroup</dt><dd><ul>
+<dt>active</dt><dd><ul>
+<li><p>Applied to active pages.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>memcg</dt><dd><ul>
 <li><p>Applied to pages that belonging to a given cgroup.</p></li>
-<li><p>Handled by operations set layer.  Supported by only <code class="docutils literal notranslate"><span class="pre">paddr</span></code> set.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>young page</dt><dd><ul>
+<dt>young</dt><dd><ul>
 <li><p>Applied to pages that are accessed after the last access check from the
 scheme.</p></li>
-<li><p>Handled by operations set layer.  Supported by only <code class="docutils literal notranslate"><span class="pre">paddr</span></code> set.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>address range</dt><dd><ul>
-<li><p>Applied to pages that belonging to a given address range.</p></li>
-<li><p>Handled by the core logic.</p></li>
+<dt>hugepage_size</dt><dd><ul>
+<li><p>Applied to pages that managed in a given size range.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>DAMON monitoring target</dt><dd><ul>
-<li><p>Applied to pages that belonging to a given DAMON monitoring target.</p></li>
-<li><p>Handled by the core logic.</p></li>
+<dt>unmapped</dt><dd><ul>
+<li><p>Applied to pages that unmapped.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 </ul>
-<p>To know how user-space can set the watermarks via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-filters"><span class="std std-ref">filters</span></a> part of the
+</dd>
+</dl>
+</li>
+</ul>
+<p>To know how user-space can set the filters via <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-interface"><span class="std std-ref">DAMON sysfs interface</span></a>, refer to <a class="reference internal" href="../../admin-guide/mm/damon/usage.html#sysfs-filters"><span class="std std-ref">filters</span></a> part of the
 documentation.</p>
 </section>
 <section id="statistics">

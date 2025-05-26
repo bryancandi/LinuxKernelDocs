@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -1011,15 +1011,19 @@ The (optional) utilization clamping support allows to hint the schedutil
 cpufreq governor about the minimum desired frequency which should always be
 provided by a CPU, as well as the maximum desired frequency, which should not
 be exceeded by a CPU.</p>
-<p>WARNING: cgroup2 doesn’t yet support control of realtime processes. For
-a kernel built with the CONFIG_RT_GROUP_SCHED option enabled for group
-scheduling of realtime processes, the cpu controller can only be enabled
-when all RT processes are in the root cgroup.  This limitation does
-not apply if CONFIG_RT_GROUP_SCHED is disabled.  Be aware that system
-management software may already have placed RT processes into nonroot
-cgroups during the system boot process, and these processes may need
-to be moved to the root cgroup before the cpu controller can be enabled
-with a CONFIG_RT_GROUP_SCHED enabled kernel.</p>
+<p>WARNING: cgroup2 cpu controller doesn’t yet fully support the control of
+realtime processes. For a kernel built with the CONFIG_RT_GROUP_SCHED option
+enabled for group scheduling of realtime processes, the cpu controller can only
+be enabled when all RT processes are in the root cgroup. Be aware that system
+management software may already have placed RT processes into non-root cgroups
+during the system boot process, and these processes may need to be moved to the
+root cgroup before the cpu controller can be enabled with a
+CONFIG_RT_GROUP_SCHED enabled kernel.</p>
+<p>With CONFIG_RT_GROUP_SCHED disabled, this limitation does not apply and some of
+the interface files either affect realtime processes or account for them. See
+the following section for details. Only the cpu controller is affected by
+CONFIG_RT_GROUP_SCHED. Other controllers can be used for the resource control of
+realtime processes irrespective of CONFIG_RT_GROUP_SCHED.</p>
 <section id="cpu-interface-files">
 <h4>CPU Interface Files<a class="headerlink" href="#cpu-interface-files" title="Link to this heading">¶</a></h4>
 <p>All time durations are in microseconds.</p>
@@ -1316,7 +1320,10 @@ to indicate that it will not show in the memory.numa_stat.</p>
 <blockquote>
 <div><dl>
 <dt>anon</dt><dd><p>Amount of memory used in anonymous mappings such as
-brk(), sbrk(), and mmap(MAP_ANONYMOUS)</p>
+brk(), sbrk(), and mmap(MAP_ANONYMOUS). Note that
+some kernel configurations might account complete larger
+allocations (e.g., THP) if only some, but not all the
+memory of such an allocation is mapped anymore.</p>
 </dd>
 <dt>file</dt><dd><p>Amount of memory used to cache filesystem data,
 including tmpfs and shared memory.</p>
@@ -1347,7 +1354,10 @@ such as tmpfs, shm segments, shared anonymous mmap()s</p>
 </dd>
 <dt>zswapped</dt><dd><p>Amount of application memory swapped out to zswap.</p>
 </dd>
-<dt>file_mapped</dt><dd><p>Amount of cached filesystem data mapped with mmap()</p>
+<dt>file_mapped</dt><dd><p>Amount of cached filesystem data mapped with mmap(). Note
+that some kernel configurations might account complete
+larger allocations (e.g., THP) if only some, but not
+not all the memory of such an allocation is mapped.</p>
 </dd>
 <dt>file_dirty</dt><dd><p>Amount of cached filesystem data that was modified but
 not yet written back to disk</p>
@@ -1401,6 +1411,10 @@ active workingset before they got reclaimed.</p>
 </dd>
 <dt>workingset_nodereclaim</dt><dd><p>Number of times a shadow node has been reclaimed</p>
 </dd>
+<dt>pswpin (npn)</dt><dd><p>Number of pages swapped into memory</p>
+</dd>
+<dt>pswpout (npn)</dt><dd><p>Number of pages swapped out of memory</p>
+</dd>
 <dt>pgscan (npn)</dt><dd><p>Amount of scanned pages (in an inactive LRU list)</p>
 </dd>
 <dt>pgsteal (npn)</dt><dd><p>Amount of reclaimed pages</p>
@@ -1411,11 +1425,15 @@ active workingset before they got reclaimed.</p>
 </dd>
 <dt>pgscan_khugepaged (npn)</dt><dd><p>Amount of scanned pages by khugepaged  (in an inactive LRU list)</p>
 </dd>
+<dt>pgscan_proactive (npn)</dt><dd><p>Amount of scanned pages proactively (in an inactive LRU list)</p>
+</dd>
 <dt>pgsteal_kswapd (npn)</dt><dd><p>Amount of reclaimed pages by kswapd</p>
 </dd>
 <dt>pgsteal_direct (npn)</dt><dd><p>Amount of reclaimed pages directly</p>
 </dd>
 <dt>pgsteal_khugepaged (npn)</dt><dd><p>Amount of reclaimed pages by khugepaged</p>
+</dd>
+<dt>pgsteal_proactive (npn)</dt><dd><p>Amount of reclaimed pages proactively</p>
 </dd>
 <dt>pgfault (npn)</dt><dd><p>Total number of page faults incurred</p>
 </dd>
@@ -1471,6 +1489,8 @@ NUMA balancing to produce NUMA hinting faults on access.</p>
 <dt>pgdemote_direct</dt><dd><p>Number of pages demoted directly.</p>
 </dd>
 <dt>pgdemote_khugepaged</dt><dd><p>Number of pages demoted by khugepaged.</p>
+</dd>
+<dt>pgdemote_proactive</dt><dd><p>Number of pages demoted by proactively.</p>
 </dd>
 <dt>hugetlb</dt><dd><p>Amount of memory used by hugetlb pages. This metric only shows
 up if hugetlb usage is accounted for in memory.current (i.e.

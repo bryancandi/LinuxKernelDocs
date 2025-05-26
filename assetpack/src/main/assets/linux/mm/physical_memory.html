@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -442,27 +442,253 @@ Determined by <code class="docutils literal notranslate"><span class="pre">vm.mi
 </section>
 <section id="zones">
 <span id="id2"></span><h2>Zones<a class="headerlink" href="#zones" title="Link to this heading">¶</a></h2>
-<div class="admonition-stub admonition">
-<p class="admonition-title">Stub</p>
-<p>This section is incomplete. Please list and describe the appropriate fields.</p>
-</div>
+<p>As we have mentioned, each zone in memory is described by a <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zone</span></code>
+which is an element of the <code class="docutils literal notranslate"><span class="pre">node_zones</span></code> array of the node it belongs to.
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zone</span></code> is the core data structure of the page allocator. A zone
+represents a range of physical memory and may have holes.</p>
+<p>The page allocator uses the GFP flags, see <a class="reference internal" href="../core-api/mm-api.html#mm-api-gfp-flags"><span class="std std-ref">Memory Allocation Controls</span></a>, specified by
+a memory allocation to determine the highest zone in a node from which the
+memory allocation can allocate memory. The page allocator first allocates memory
+from that zone, if the page allocator can’t allocate the requested amount of
+memory from the zone, it will allocate memory from the next lower zone in the
+node, the process continues up to and including the lowest zone. For example, if
+a node contains <code class="docutils literal notranslate"><span class="pre">ZONE_DMA32</span></code>, <code class="docutils literal notranslate"><span class="pre">ZONE_NORMAL</span></code> and <code class="docutils literal notranslate"><span class="pre">ZONE_MOVABLE</span></code> and the
+highest zone of a memory allocation is <code class="docutils literal notranslate"><span class="pre">ZONE_MOVABLE</span></code>, the order of the zones
+from which the page allocator allocates memory is <code class="docutils literal notranslate"><span class="pre">ZONE_MOVABLE</span></code> &gt;
+<code class="docutils literal notranslate"><span class="pre">ZONE_NORMAL</span></code> &gt; <code class="docutils literal notranslate"><span class="pre">ZONE_DMA32</span></code>.</p>
+<p>At runtime, free pages in a zone are in the Per-CPU Pagesets (PCP) or free areas
+of the zone. The Per-CPU Pagesets are a vital mechanism in the kernel’s memory
+management system. By handling most frequent allocations and frees locally on
+each CPU, the Per-CPU Pagesets improve performance and scalability, especially
+on systems with many cores. The page allocator in the kernel employs a two-step
+strategy for memory allocation, starting with the Per-CPU Pagesets before
+falling back to the buddy allocator. Pages are transferred between the Per-CPU
+Pagesets and the global free areas (managed by the buddy allocator) in batches.
+This minimizes the overhead of frequent interactions with the global buddy
+allocator.</p>
+<p>Architecture specific code calls free_area_init() to initializes zones.</p>
+<section id="zone-structure">
+<h3>Zone structure<a class="headerlink" href="#zone-structure" title="Link to this heading">¶</a></h3>
+<p>The zones structure <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zone</span></code> is defined in <code class="docutils literal notranslate"><span class="pre">include/linux/mmzone.h</span></code>.
+Here we briefly describe fields of this structure:</p>
+<section id="id3">
+<h4>General<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">_watermark</span></code></dt><dd><p>The watermarks for this zone. When the amount of free pages in a zone is below
+the min watermark, boosting is ignored, an allocation may trigger direct
+reclaim and direct compaction, it is also used to throttle direct reclaim.
+When the amount of free pages in a zone is below the low watermark, kswapd is
+woken up. When the amount of free pages in a zone is above the high watermark,
+kswapd stops reclaiming (a zone is balanced) when the
+<code class="docutils literal notranslate"><span class="pre">NUMA_BALANCING_MEMORY_TIERING</span></code> bit of <code class="docutils literal notranslate"><span class="pre">sysctl_numa_balancing_mode</span></code> is not
+set. The promo watermark is used for memory tiering and NUMA balancing. When
+the amount of free pages in a zone is above the promo watermark, kswapd stops
+reclaiming when the <code class="docutils literal notranslate"><span class="pre">NUMA_BALANCING_MEMORY_TIERING</span></code> bit of
+<code class="docutils literal notranslate"><span class="pre">sysctl_numa_balancing_mode</span></code> is set. The watermarks are set by
+<code class="docutils literal notranslate"><span class="pre">__setup_per_zone_wmarks()</span></code>. The min watermark is calculated according to
+<code class="docutils literal notranslate"><span class="pre">vm.min_free_kbytes</span></code> sysctl. The other three watermarks are set according
+to the distance between two watermarks. The distance itself is calculated
+taking <code class="docutils literal notranslate"><span class="pre">vm.watermark_scale_factor</span></code> sysctl into account.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">watermark_boost</span></code></dt><dd><p>The number of pages which are used to boost watermarks to increase reclaim
+pressure to reduce the likelihood of future fallbacks and wake kswapd now
+as the node may be balanced overall and kswapd will not wake naturally.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nr_reserved_highatomic</span></code></dt><dd><p>The number of pages which are reserved for high-order atomic allocations.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nr_free_highatomic</span></code></dt><dd><p>The number of free pages in reserved highatomic pageblocks</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lowmem_reserve</span></code></dt><dd><p>The array of the amounts of the memory reserved in this zone for memory
+allocations. For example, if the highest zone a memory allocation can
+allocate memory from is <code class="docutils literal notranslate"><span class="pre">ZONE_MOVABLE</span></code>, the amount of memory reserved in
+this zone for this allocation is <code class="docutils literal notranslate"><span class="pre">lowmem_reserve[ZONE_MOVABLE]</span></code> when
+attempting to allocate memory from this zone. This is a mechanism the page
+allocator uses to prevent allocations which could use <code class="docutils literal notranslate"><span class="pre">highmem</span></code> from using
+too much <code class="docutils literal notranslate"><span class="pre">lowmem</span></code>. For some specialised workloads on <code class="docutils literal notranslate"><span class="pre">highmem</span></code> machines,
+it is dangerous for the kernel to allow process memory to be allocated from
+the <code class="docutils literal notranslate"><span class="pre">lowmem</span></code> zone. This is because that memory could then be pinned via the
+<code class="docutils literal notranslate"><span class="pre">mlock()</span></code> system call, or by unavailability of swapspace.
+<code class="docutils literal notranslate"><span class="pre">vm.lowmem_reserve_ratio</span></code> sysctl determines how aggressive the kernel is in
+defending these lower zones. This array is recalculated by
+<code class="docutils literal notranslate"><span class="pre">setup_per_zone_lowmem_reserve()</span></code> at runtime if <code class="docutils literal notranslate"><span class="pre">vm.lowmem_reserve_ratio</span></code>
+sysctl changes.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">node</span></code></dt><dd><p>The index of the node this zone belongs to. Available only when
+<code class="docutils literal notranslate"><span class="pre">CONFIG_NUMA</span></code> is enabled because there is only one zone in a UMA system.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">zone_pgdat</span></code></dt><dd><p>Pointer to the <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">pglist_data</span></code> of the node this zone belongs to.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">per_cpu_pageset</span></code></dt><dd><p>Pointer to the Per-CPU Pagesets (PCP) allocated and initialized by
+<code class="docutils literal notranslate"><span class="pre">setup_zone_pageset()</span></code>. By handling most frequent allocations and frees
+locally on each CPU, PCP improves performance and scalability on systems with
+many cores.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pageset_high_min</span></code></dt><dd><p>Copied to the <code class="docutils literal notranslate"><span class="pre">high_min</span></code> of the Per-CPU Pagesets for faster access.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pageset_high_max</span></code></dt><dd><p>Copied to the <code class="docutils literal notranslate"><span class="pre">high_max</span></code> of the Per-CPU Pagesets for faster access.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pageset_batch</span></code></dt><dd><p>Copied to the <code class="docutils literal notranslate"><span class="pre">batch</span></code> of the Per-CPU Pagesets for faster access. The
+<code class="docutils literal notranslate"><span class="pre">batch</span></code>, <code class="docutils literal notranslate"><span class="pre">high_min</span></code> and <code class="docutils literal notranslate"><span class="pre">high_max</span></code> of the Per-CPU Pagesets are used to
+calculate the number of elements the Per-CPU Pagesets obtain from the buddy
+allocator under a single hold of the lock for efficiency. They are also used
+to decide if the Per-CPU Pagesets return pages to the buddy allocator in page
+free process.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pageblock_flags</span></code></dt><dd><p>The pointer to the flags for the pageblocks in the zone (see
+<code class="docutils literal notranslate"><span class="pre">include/linux/pageblock-flags.h</span></code> for flags list). The memory is allocated
+in <code class="docutils literal notranslate"><span class="pre">setup_usemap()</span></code>. Each pageblock occupies <code class="docutils literal notranslate"><span class="pre">NR_PAGEBLOCK_BITS</span></code> bits.
+Defined only when <code class="docutils literal notranslate"><span class="pre">CONFIG_FLATMEM</span></code> is enabled. The flags is stored in
+<code class="docutils literal notranslate"><span class="pre">mem_section</span></code> when <code class="docutils literal notranslate"><span class="pre">CONFIG_SPARSEMEM</span></code> is enabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">zone_start_pfn</span></code></dt><dd><p>The start pfn of the zone. It is initialized by
+<code class="docutils literal notranslate"><span class="pre">calculate_node_totalpages()</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">managed_pages</span></code></dt><dd><p>The present pages managed by the buddy system, which is calculated as:
+<code class="docutils literal notranslate"><span class="pre">managed_pages</span></code> = <code class="docutils literal notranslate"><span class="pre">present_pages</span></code> - <code class="docutils literal notranslate"><span class="pre">reserved_pages</span></code>, <code class="docutils literal notranslate"><span class="pre">reserved_pages</span></code>
+includes pages allocated by the memblock allocator. It should be used by page
+allocator and vm scanner to calculate all kinds of watermarks and thresholds.
+It is accessed using <code class="docutils literal notranslate"><span class="pre">atomic_long_xxx()</span></code> functions. It is initialized in
+<code class="docutils literal notranslate"><span class="pre">free_area_init_core()</span></code> and then is reinitialized when memblock allocator
+frees pages into buddy system.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">spanned_pages</span></code></dt><dd><p>The total pages spanned by the zone, including holes, which is calculated as:
+<code class="docutils literal notranslate"><span class="pre">spanned_pages</span></code> = <code class="docutils literal notranslate"><span class="pre">zone_end_pfn</span></code> - <code class="docutils literal notranslate"><span class="pre">zone_start_pfn</span></code>. It is initialized
+by <code class="docutils literal notranslate"><span class="pre">calculate_node_totalpages()</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">present_pages</span></code></dt><dd><p>The physical pages existing within the zone, which is calculated as:
+<code class="docutils literal notranslate"><span class="pre">present_pages</span></code> = <code class="docutils literal notranslate"><span class="pre">spanned_pages</span></code> - <code class="docutils literal notranslate"><span class="pre">absent_pages</span></code> (pages in holes). It
+may be used by memory hotplug or memory power management logic to figure out
+unmanaged pages by checking (<code class="docutils literal notranslate"><span class="pre">present_pages</span></code> - <code class="docutils literal notranslate"><span class="pre">managed_pages</span></code>). Write
+access to <code class="docutils literal notranslate"><span class="pre">present_pages</span></code> at runtime should be protected by
+<code class="docutils literal notranslate"><span class="pre">mem_hotplug_begin/done()</span></code>. Any reader who can’t tolerant drift of
+<code class="docutils literal notranslate"><span class="pre">present_pages</span></code> should use <code class="docutils literal notranslate"><span class="pre">get_online_mems()</span></code> to get a stable value. It
+is initialized by <code class="docutils literal notranslate"><span class="pre">calculate_node_totalpages()</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">present_early_pages</span></code></dt><dd><p>The present pages existing within the zone located on memory available since
+early boot, excluding hotplugged memory. Defined only when
+<code class="docutils literal notranslate"><span class="pre">CONFIG_MEMORY_HOTPLUG</span></code> is enabled and initialized by
+<code class="docutils literal notranslate"><span class="pre">calculate_node_totalpages()</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cma_pages</span></code></dt><dd><p>The pages reserved for CMA use. These pages behave like <code class="docutils literal notranslate"><span class="pre">ZONE_MOVABLE</span></code> when
+they are not used for CMA. Defined only when <code class="docutils literal notranslate"><span class="pre">CONFIG_CMA</span></code> is enabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code></dt><dd><p>The name of the zone. It is a pointer to the corresponding element of
+the <code class="docutils literal notranslate"><span class="pre">zone_names</span></code> array.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">nr_isolate_pageblock</span></code></dt><dd><p>Number of isolated pageblocks. It is used to solve incorrect freepage counting
+problem due to racy retrieving migratetype of pageblock. Protected by
+<code class="docutils literal notranslate"><span class="pre">zone-&gt;lock</span></code>. Defined only when <code class="docutils literal notranslate"><span class="pre">CONFIG_MEMORY_ISOLATION</span></code> is enabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">span_seqlock</span></code></dt><dd><p>The seqlock to protect <code class="docutils literal notranslate"><span class="pre">zone_start_pfn</span></code> and <code class="docutils literal notranslate"><span class="pre">spanned_pages</span></code>. It is a
+seqlock because it has to be read outside of <code class="docutils literal notranslate"><span class="pre">zone-&gt;lock</span></code>, and it is done in
+the main allocator path. However, the seqlock is written quite infrequently.
+Defined only when <code class="docutils literal notranslate"><span class="pre">CONFIG_MEMORY_HOTPLUG</span></code> is enabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">initialized</span></code></dt><dd><p>The flag indicating if the zone is initialized. Set by
+<code class="docutils literal notranslate"><span class="pre">init_currently_empty_zone()</span></code> during boot.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">free_area</span></code></dt><dd><p>The array of free areas, where each element corresponds to a specific order
+which is a power of two. The buddy allocator uses this structure to manage
+free memory efficiently. When allocating, it tries to find the smallest
+sufficient block, if the smallest sufficient block is larger than the
+requested size, it will be recursively split into the next smaller blocks
+until the required size is reached. When a page is freed, it may be merged
+with its buddy to form a larger block. It is initialized by
+<code class="docutils literal notranslate"><span class="pre">zone_init_free_lists()</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unaccepted_pages</span></code></dt><dd><p>The list of pages to be accepted. All pages on the list are <code class="docutils literal notranslate"><span class="pre">MAX_PAGE_ORDER</span></code>.
+Defined only when <code class="docutils literal notranslate"><span class="pre">CONFIG_UNACCEPTED_MEMORY</span></code> is enabled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>The zone flags. The least three bits are used and defined by
+<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">zone_flags</span></code>. <code class="docutils literal notranslate"><span class="pre">ZONE_BOOSTED_WATERMARK</span></code> (bit 0): zone recently boosted
+watermarks. Cleared when kswapd is woken. <code class="docutils literal notranslate"><span class="pre">ZONE_RECLAIM_ACTIVE</span></code> (bit 1):
+kswapd may be scanning the zone. <code class="docutils literal notranslate"><span class="pre">ZONE_BELOW_HIGH</span></code> (bit 2): zone is below
+high watermark.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">lock</span></code></dt><dd><p>The main lock that protects the internal data structures of the page allocator
+specific to the zone, especially protects <code class="docutils literal notranslate"><span class="pre">free_area</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">percpu_drift_mark</span></code></dt><dd><p>When free pages are below this point, additional steps are taken when reading
+the number of free pages to avoid per-cpu counter drift allowing watermarks
+to be breached. It is updated in <code class="docutils literal notranslate"><span class="pre">refresh_zone_stat_thresholds()</span></code>.</p>
+</dd>
+</dl>
+</section>
+<section id="id4">
+<h4>Compaction control<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">compact_cached_free_pfn</span></code></dt><dd><p>The PFN where compaction free scanner should start in the next scan.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_cached_migrate_pfn</span></code></dt><dd><p>The PFNs where compaction migration scanner should start in the next scan.
+This array has two elements: the first one is used in <code class="docutils literal notranslate"><span class="pre">MIGRATE_ASYNC</span></code> mode,
+and the other one is used in <code class="docutils literal notranslate"><span class="pre">MIGRATE_SYNC</span></code> mode.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_init_migrate_pfn</span></code></dt><dd><p>The initial migration PFN which is initialized to 0 at boot time, and to the
+first pageblock with migratable pages in the zone after a full compaction
+finishes. It is used to check if a scan is a whole zone scan or not.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_init_free_pfn</span></code></dt><dd><p>The initial free PFN which is initialized to 0 at boot time and to the last
+pageblock with free <code class="docutils literal notranslate"><span class="pre">MIGRATE_MOVABLE</span></code> pages in the zone. It is used to check
+if it is the start of a scan.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_considered</span></code></dt><dd><p>The number of compactions attempted since last failure. It is reset in
+<code class="docutils literal notranslate"><span class="pre">defer_compaction()</span></code> when a compaction fails to result in a page allocation
+success. It is increased by 1 in <code class="docutils literal notranslate"><span class="pre">compaction_deferred()</span></code> when a compaction
+should be skipped. <code class="docutils literal notranslate"><span class="pre">compaction_deferred()</span></code> is called before
+<code class="docutils literal notranslate"><span class="pre">compact_zone()</span></code> is called, <code class="docutils literal notranslate"><span class="pre">compaction_defer_reset()</span></code> is called when
+<code class="docutils literal notranslate"><span class="pre">compact_zone()</span></code> returns <code class="docutils literal notranslate"><span class="pre">COMPACT_SUCCESS</span></code>, <code class="docutils literal notranslate"><span class="pre">defer_compaction()</span></code> is
+called when <code class="docutils literal notranslate"><span class="pre">compact_zone()</span></code> returns <code class="docutils literal notranslate"><span class="pre">COMPACT_PARTIAL_SKIPPED</span></code> or
+<code class="docutils literal notranslate"><span class="pre">COMPACT_COMPLETE</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_defer_shift</span></code></dt><dd><p>The number of compactions skipped before trying again is
+<code class="docutils literal notranslate"><span class="pre">1&lt;&lt;compact_defer_shift</span></code>. It is increased by 1 in <code class="docutils literal notranslate"><span class="pre">defer_compaction()</span></code>.
+It is reset in <code class="docutils literal notranslate"><span class="pre">compaction_defer_reset()</span></code> when a direct compaction results
+in a page allocation success. Its maximum value is <code class="docutils literal notranslate"><span class="pre">COMPACT_MAX_DEFER_SHIFT</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_order_failed</span></code></dt><dd><p>The minimum compaction failed order. It is set in <code class="docutils literal notranslate"><span class="pre">compaction_defer_reset()</span></code>
+when a compaction succeeds and in <code class="docutils literal notranslate"><span class="pre">defer_compaction()</span></code> when a compaction
+fails to result in a page allocation success.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">compact_blockskip_flush</span></code></dt><dd><p>Set to true when compaction migration scanner and free scanner meet, which
+means the <code class="docutils literal notranslate"><span class="pre">PB_migrate_skip</span></code> bits should be cleared.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">contiguous</span></code></dt><dd><p>Set to true when the zone is contiguous (in other words, no hole).</p>
+</dd>
+</dl>
+</section>
+<section id="id5">
+<h4>Statistics<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vm_stat</span></code></dt><dd><p>VM statistics for the zone. The items tracked are defined by
+<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">zone_stat_item</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_numa_event</span></code></dt><dd><p>VM NUMA event statistics for the zone. The items tracked are defined by
+<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">numa_stat_item</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">per_cpu_zonestats</span></code></dt><dd><p>Per-CPU VM statistics for the zone. It records VM statistics and VM NUMA event
+statistics on a per-CPU basis. It reduces updates to the global <code class="docutils literal notranslate"><span class="pre">vm_stat</span></code>
+and <code class="docutils literal notranslate"><span class="pre">vm_numa_event</span></code> fields of the zone to improve performance.</p>
+</dd>
+</dl>
+</section>
+</section>
 </section>
 <section id="pages">
-<span id="id3"></span><h2>Pages<a class="headerlink" href="#pages" title="Link to this heading">¶</a></h2>
+<span id="id6"></span><h2>Pages<a class="headerlink" href="#pages" title="Link to this heading">¶</a></h2>
 <div class="admonition-stub admonition">
 <p class="admonition-title">Stub</p>
 <p>This section is incomplete. Please list and describe the appropriate fields.</p>
 </div>
 </section>
 <section id="folios">
-<span id="id4"></span><h2>Folios<a class="headerlink" href="#folios" title="Link to this heading">¶</a></h2>
+<span id="id7"></span><h2>Folios<a class="headerlink" href="#folios" title="Link to this heading">¶</a></h2>
 <div class="admonition-stub admonition">
 <p class="admonition-title">Stub</p>
 <p>This section is incomplete. Please list and describe the appropriate fields.</p>
 </div>
 </section>
 <section id="initialization">
-<span id="id5"></span><h2>Initialization<a class="headerlink" href="#initialization" title="Link to this heading">¶</a></h2>
+<span id="id8"></span><h2>Initialization<a class="headerlink" href="#initialization" title="Link to this heading">¶</a></h2>
 <div class="admonition-stub admonition">
 <p class="admonition-title">Stub</p>
 <p>This section is incomplete. Please list and describe the appropriate fields.</p>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../accounting/index.html">Accounting</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cpu-freq/index.html">CPUFreq - CPU frequency and voltage scaling code in the Linux(TM) kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../edac/index.html">EDAC Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../iio/index.html">Industrial I/O</a></li>
@@ -178,7 +179,7 @@ English
 <dd class="field-odd"><p>Mickaël Salaün</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>December 2022</p>
+<dd class="field-even"><p>March 2025</p>
 </dd>
 </dl>
 <p>Landlock’s goal is to create scoped access-control (i.e. sandboxing).  To
@@ -213,6 +214,10 @@ only impact the processes requesting them.</p></li>
 sandboxed process shall retain their scoped accesses (at the time of resource
 acquisition) whatever process uses them.
 Cf. <a class="reference internal" href="#file-descriptor-access-rights">File descriptor access rights</a>.</p></li>
+<li><p>Access denials shall be logged according to system and Landlock domain
+configurations.  Log entries must contain information about the cause of the
+denial and the owner of the related security policy.  Such log generation
+should have a negligible performance and memory impact on allowed requests.</p></li>
 </ul>
 </section>
 <section id="design-choices">
@@ -376,7 +381,11 @@ underlying object).</p>
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_file_security {
     access_mask_t allowed_access;
-    struct landlock_ruleset *fown_domain;
+#ifdef CONFIG_AUDIT;
+    deny_masks_t deny_masks;
+    u8 fown_layer;
+#endif ;
+    struct landlock_cred_security fown_subject;
 };
 </pre></div>
 </div>
@@ -387,10 +396,17 @@ opening the file. This is not necessarily the full set of access
 rights available at that time, but it’s the necessary subset as
 needed to authorize later operations on the open file.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">fown_domain</span></code></dt><dd><p>Domain of the task that set the PID that may receive a
-signal e.g., SIGURG when writing MSG_OOB to the related socket.
-This pointer is protected by the related file-&gt;f_owner-&gt;lock, as for
-fown_struct’s members: pid, uid, and euid.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">deny_masks</span></code></dt><dd><p>Domain layer levels that deny an optional access (see
+_LANDLOCK_ACCESS_FS_OPTIONAL).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fown_layer</span></code></dt><dd><p>Layer level of <strong>fown_subject-&gt;domain</strong> with
+LANDLOCK_SCOPE_SIGNAL.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fown_subject</span></code></dt><dd><p>Landlock credential of the task that set the PID that
+may receive a signal e.g., SIGURG when writing MSG_OOB to the
+related socket.  This pointer is protected by the related
+file-&gt;f_owner-&gt;lock, as for fown_struct’s members: pid, uid, and
+euid.</p>
 </dd>
 </dl>
 </div>
@@ -555,30 +571,6 @@ as a flexible array member (FAM).</p>
 </dl>
 </div>
 <dl class="c struct">
-<dt class="sig sig-object c" id="c.landlock_hierarchy">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_hierarchy</span></span></span><a class="headerlink" href="#c.landlock_hierarchy" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Node in a ruleset hierarchy</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct landlock_hierarchy {
-    struct landlock_hierarchy *parent;
-    refcount_t usage;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">parent</span></code></dt><dd><p>Pointer to the parent node, or NULL if it is a root
-Landlock domain.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">usage</span></code></dt><dd><p>Number of potential children domains plus their parent
-domain.</p>
-</dd>
-</dl>
-</div>
-<dl class="c struct">
 <dt class="sig sig-object c" id="c.landlock_ruleset">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">landlock_ruleset</span></span></span><a class="headerlink" href="#c.landlock_ruleset" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Landlock ruleset</p>
@@ -675,25 +667,15 @@ match an object.</p>
 <p><strong>Return</strong></p>
 <p>an access_masks result of the OR of all the domain’s access masks.</p>
 </div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.landlock_get_applicable_domain">
-<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><span class="n"><span class="pre">landlock_ruleset</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">landlock_get_applicable_domain</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.landlock_ruleset" title="landlock_ruleset"><span class="n"><span class="pre">landlock_ruleset</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">domain</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">access_masks</span></span><span class="w"> </span><span class="n"><span class="pre">masks</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.landlock_get_applicable_domain" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Return <strong>domain</strong> if it applies to (handles) at least one of the access rights specified in <strong>masks</strong></p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">landlock_ruleset</span> <span class="pre">*const</span> <span class="pre">domain</span></code></dt><dd><p>Landlock ruleset (used as a domain)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">access_masks</span> <span class="pre">masks</span></code></dt><dd><p>access masks</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p><strong>domain</strong> if any access rights specified in <strong>masks</strong> is handled, or
-NULL otherwise.</p>
-</div>
 </section>
+</section>
+<section id="additional-documentation">
+<h2>Additional documentation<a class="headerlink" href="#additional-documentation" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../userspace-api/landlock.html"><span class="doc">Landlock: unprivileged access control</span></a></p></li>
+<li><p><a class="reference internal" href="../admin-guide/LSM/landlock.html"><span class="doc">Landlock: system-wide management</span></a></p></li>
+<li><p><a class="reference external" href="https://landlock.io">https://landlock.io</a></p></li>
+</ul>
 </section>
 </section>
 

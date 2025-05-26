@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -281,12 +281,36 @@ a channel as an IRQ/NAPI which services queues of a given type. For example,
 a configuration of 1 <code class="docutils literal notranslate"><span class="pre">rx</span></code>, 1 <code class="docutils literal notranslate"><span class="pre">tx</span></code> and 1 <code class="docutils literal notranslate"><span class="pre">combined</span></code> channel is expected
 to utilize 3 interrupts, 2 Rx and 2 Tx queues.</p>
 </section>
+<section id="persistent-napi-config">
+<h3>Persistent NAPI config<a class="headerlink" href="#persistent-napi-config" title="Link to this heading">¶</a></h3>
+<p>Drivers often allocate and free NAPI instances dynamically. This leads to loss
+of NAPI-related user configuration each time NAPI instances are reallocated.
+The <a class="reference internal" href="kapi.html#c.netif_napi_add_config" title="netif_napi_add_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">netif_napi_add_config()</span></code></a> API prevents this loss of configuration by
+associating each NAPI instance with a persistent NAPI configuration based on
+a driver defined index value, like a queue number.</p>
+<p>Using this API allows for persistent NAPI IDs (among other settings), which can
+be beneficial to userspace programs using <code class="docutils literal notranslate"><span class="pre">SO_INCOMING_NAPI_ID</span></code>. See the
+sections below for other NAPI configuration settings.</p>
+<p>Drivers should try to use <a class="reference internal" href="kapi.html#c.netif_napi_add_config" title="netif_napi_add_config"><code class="xref c c-func docutils literal notranslate"><span class="pre">netif_napi_add_config()</span></code></a> whenever possible.</p>
+</section>
 </section>
 <section id="user-api">
 <h2>User API<a class="headerlink" href="#user-api" title="Link to this heading">¶</a></h2>
 <p>User interactions with NAPI depend on NAPI instance ID. The instance IDs
-are only visible to the user thru the <code class="docutils literal notranslate"><span class="pre">SO_INCOMING_NAPI_ID</span></code> socket option.
-It’s not currently possible to query IDs used by a given device.</p>
+are only visible to the user thru the <code class="docutils literal notranslate"><span class="pre">SO_INCOMING_NAPI_ID</span></code> socket option.</p>
+<p>Users can query NAPI IDs for a device or device queue using netlink. This can
+be done programmatically in a user application or by using a script included in
+the kernel source tree: <code class="docutils literal notranslate"><span class="pre">tools/net/ynl/pyynl/cli.py</span></code>.</p>
+<p>For example, using the script to dump all of the queues for a device (which
+will reveal each queue’s NAPI ID):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>kernel-source/tools/net/ynl/pyynl/cli.py<span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--spec<span class="w"> </span>Documentation/netlink/specs/netdev.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--dump<span class="w"> </span>queue-get<span class="w"> </span><span class="se">\</span>
+<span class="w">          </span>--json<span class="o">=</span><span class="s1">&#39;{&quot;ifindex&quot;: 2}&#39;</span>
+</pre></div>
+</div>
+<p>See <code class="docutils literal notranslate"><span class="pre">Documentation/netlink/specs/netdev.yaml</span></code> for more details on
+available operations and attributes.</p>
 <section id="software-irq-coalescing">
 <h3>Software IRQ coalescing<a class="headerlink" href="#software-irq-coalescing" title="Link to this heading">¶</a></h3>
 <p>NAPI does not perform any explicit event coalescing by default.

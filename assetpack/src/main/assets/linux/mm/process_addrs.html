@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -966,17 +966,21 @@ write has started, then we do not obtain a read lock.</p>
 calls <code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_lock()</span></code> to ensure that the VMA is looked up in an RCU
 critical section, then attempts to VMA lock it via <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_read()</span></code>,
 before releasing the RCU lock via <code class="xref c c-func docutils literal notranslate"><span class="pre">rcu_read_unlock()</span></code>.</p>
-<p>VMA read locks hold the read lock on the <code class="xref c c-member docutils literal notranslate"><span class="pre">vma-&gt;vm_lock</span></code> semaphore for
-their duration and the caller of <code class="xref c c-func docutils literal notranslate"><span class="pre">lock_vma_under_rcu()</span></code> must release it
-via <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_end_read()</span></code>.</p>
+<p>In cases when the user already holds mmap read lock, <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_read_locked()</span></code>
+and <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_read_locked_nested()</span></code> can be used. These functions do not
+fail due to lock contention but the caller should still check their return values
+in case they fail for other reasons.</p>
+<p>VMA read locks increment <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code> reference counter for their
+duration and the caller of <code class="xref c c-func docutils literal notranslate"><span class="pre">lock_vma_under_rcu()</span></code> must drop it via
+<code class="xref c c-func docutils literal notranslate"><span class="pre">vma_end_read()</span></code>.</p>
 <p>VMA <strong>write</strong> locks are acquired via <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_write()</span></code> in instances where a
 VMA is about to be modified, unlike <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_read()</span></code> the lock is always
 acquired. An mmap write lock <strong>must</strong> be held for the duration of the VMA write
 lock, releasing or downgrading the mmap write lock also releases the VMA write
 lock so there is no <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_end_write()</span></code> function.</p>
-<p>Note that a semaphore write lock is not held across a VMA lock. Rather, a
-sequence number is used for serialisation, and the write semaphore is only
-acquired at the point of write lock to update this.</p>
+<p>Note that when write-locking a VMA lock, the <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code> is temporarily
+modified so that readers can detect the presense of a writer. The reference counter is
+restored once the vma sequence number used for serialisation is updated.</p>
 <p>This ensures the semantics we require - VMA write locks provide exclusive write
 access to the VMA.</p>
 </section>
@@ -984,7 +988,7 @@ access to the VMA.</p>
 <h4>Implementation details<a class="headerlink" href="#implementation-details" title="Link to this heading">¶</a></h4>
 <p>The VMA lock mechanism is designed to be a lightweight means of avoiding the use
 of the heavily contended mmap lock. It is implemented using a combination of a
-read/write semaphore and sequence numbers belonging to the containing
+reference counter and sequence numbers belonging to the containing
 <code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mm_struct</span></code> and the VMA.</p>
 <p>Read locks are acquired via <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_read()</span></code>, which is an optimistic
 operation, i.e. it tries to acquire a read lock but returns false if it is
@@ -1016,22 +1020,25 @@ same time.</p>
 release of any VMA locks on its release makes sense, as you would never want to
 keep VMAs locked across entirely separate write operations. It also maintains
 correct lock ordering.</p>
-<p>Each time a VMA read lock is acquired, we acquire a read lock on the
-<code class="xref c c-member docutils literal notranslate"><span class="pre">vma-&gt;vm_lock</span></code> read/write semaphore and hold it, while checking that
-the sequence count of the VMA does not match that of the mm.</p>
-<p>If it does, the read lock fails. If it does not, we hold the lock, excluding
-writers, but permitting other readers, who will also obtain this lock under RCU.</p>
+<p>Each time a VMA read lock is acquired, we increment <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code>
+reference counter and check that the sequence count of the VMA does not match
+that of the mm.</p>
+<p>If it does, the read lock fails and <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code> is dropped.
+If it does not, we keep the reference counter raised, excluding writers, but
+permitting other readers, who can also obtain this lock under RCU.</p>
 <p>Importantly, maple tree operations performed in <code class="xref c c-func docutils literal notranslate"><span class="pre">lock_vma_under_rcu()</span></code>
 are also RCU safe, so the whole read lock operation is guaranteed to function
 correctly.</p>
-<p>On the write side, we acquire a write lock on the <code class="xref c c-member docutils literal notranslate"><span class="pre">vma-&gt;vm_lock</span></code>
-read/write semaphore, before setting the VMA’s sequence number under this lock,
-also simultaneously holding the mmap write lock.</p>
+<p>On the write side, we set a bit in <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code> which can’t be
+modified by readers and wait for all readers to drop their reference count.
+Once there are no readers, the VMA’s sequence number is set to match that of
+the mm. During this entire operation mmap write lock is held.</p>
 <p>This way, if any read locks are in effect, <code class="xref c c-func docutils literal notranslate"><span class="pre">vma_start_write()</span></code> will sleep
 until these are finished and mutual exclusion is achieved.</p>
-<p>After setting the VMA’s sequence number, the lock is released, avoiding
-complexity with a long-term held write lock.</p>
-<p>This clever combination of a read/write semaphore and sequence count allows for
+<p>After setting the VMA’s sequence number, the bit in <code class="xref c c-member docutils literal notranslate"><span class="pre">vma.vm_refcnt</span></code>
+indicating a writer is cleared. From this point on, VMA’s sequence number will
+indicate VMA’s write-locked state until mmap write lock is dropped or downgraded.</p>
+<p>This clever combination of a reference counter and sequence count allows for
 fast RCU-based per-VMA lock acquisition (especially on page fault, though
 utilised elsewhere) with minimal complexity around lock ordering.</p>
 </section>

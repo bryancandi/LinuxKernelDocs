@@ -13,8 +13,8 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="AD7380 driver" href="ad7380.html" />
-    <link rel="prev" title="AD4000 driver" href="ad4000.html" />
+    <link rel="next" title="AD7191 driver" href="ad7191.html" />
+    <link rel="prev" title="AD4030 driver" href="ad4030.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../accounting/index.html">Accounting</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cpu-freq/index.html">CPUFreq - CPU frequency and voltage scaling code in the Linux(TM) kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../edac/index.html">EDAC Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">Industrial I/O</a></li>
@@ -197,6 +198,35 @@ is <code class="docutils literal notranslate"><span class="pre">ad4695</span></c
 <p>To use this mode, in the device tree, omit the <code class="docutils literal notranslate"><span class="pre">cnv-gpios</span></code> and
 <code class="docutils literal notranslate"><span class="pre">spi-rx-bus-width</span></code> properties.</p>
 </section>
+<section id="spi-offload-wiring">
+<h4>SPI offload wiring<a class="headerlink" href="#spi-offload-wiring" title="Link to this heading">¶</a></h4>
+<p>When used with a SPI offload, the supported wiring configuration is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+-------------+         +-------------+
+|    GP0/BUSY |--------&gt;| TRIGGER     |
+|          CS |&lt;--------| CS          |
+|             |         |             |
+|     ADC     |         |     SPI     |
+|             |         |             |
+|         SDI |&lt;--------| SDO         |
+|         SDO |--------&gt;| SDI         |
+|        SCLK |&lt;--------| SCLK        |
+|             |         |             |
+|             |         +-------------+
+|         CNV |&lt;-----+--| PWM         |
+|             |      +--| GPIO        |
++-------------+         +-------------+
+</pre></div>
+</div>
+<p>In this case, both the <code class="docutils literal notranslate"><span class="pre">cnv-gpios</span></code> and  <code class="docutils literal notranslate"><span class="pre">pwms</span></code> properties are required.
+The <code class="docutils literal notranslate"><span class="pre">#trigger-source-cells</span> <span class="pre">=</span> <span class="pre">&lt;2&gt;</span></code> property is also required to connect back
+to the SPI offload. The SPI offload will have <code class="docutils literal notranslate"><span class="pre">trigger-sources</span></code> property
+with cells to indicate the busy signal and which GPx pin is used, e.g
+<code class="docutils literal notranslate"><span class="pre">&lt;&amp;ad4695</span> <span class="pre">AD4695_TRIGGER_EVENT_BUSY</span> <span class="pre">AD4695_TRIGGER_PIN_GP0&gt;</span></code>.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#spi-offload-support">SPI offload support</a></p>
+</div>
+</section>
 </section>
 <section id="channel-configuration">
 <h3>Channel configuration<a class="headerlink" href="#channel-configuration" title="Link to this heading">¶</a></h3>
@@ -282,22 +312,87 @@ voltage is used.</p>
 <p>System calibration is supported using the channel gain and offset registers via
 the <code class="docutils literal notranslate"><span class="pre">calibscale</span></code> and <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> attributes respectively.</p>
 </section>
+<section id="oversampling">
+<h3>Oversampling<a class="headerlink" href="#oversampling" title="Link to this heading">¶</a></h3>
+<p>The chip supports per-channel oversampling when SPI offload is being used, with
+available oversampling ratios (OSR) of 1 (default), 4, 16, and 64.  Enabling
+oversampling on a channel raises the effective number of bits of sampled data to
+17 (OSR == 4), 18 (16), or 19 (64), respectively. This can be set via the
+<code class="docutils literal notranslate"><span class="pre">oversampling_ratio</span></code> attribute.</p>
+<p>Setting the oversampling ratio for a channel also changes the sample rate for
+that channel, since it requires multiple conversions per 1 sample. Specifically,
+the new sampling frequency is the PWM sampling frequency divided by the
+particular OSR. This is set automatically by the driver when setting the
+<code class="docutils literal notranslate"><span class="pre">oversampling_ratio</span></code> attribute. For example, if the device’s current
+<code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> is 10000 and an OSR of 4 is set on channel <code class="docutils literal notranslate"><span class="pre">voltage0</span></code>,
+the new reported sampling rate for that channel will be 2500 (ignoring PWM API
+rounding), while all others will remain at 10000.  Subsequently setting the
+sampling frequency to a higher value on that channel will adjust the CNV trigger
+period for all channels, e.g. if <code class="docutils literal notranslate"><span class="pre">voltage0</span></code>’s sampling frequency is adjusted
+from 2500 (with an OSR of 4) to 10000, the value reported by
+<code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code> will be 10000, but all other channels will
+now report 40000.</p>
+<p>For simplicity, the sampling frequency of the device should be set (considering
+the highest desired OSR value to be used) first, before configuring oversampling
+for specific channels.</p>
+</section>
 <section id="unimplemented-features">
 <h3>Unimplemented features<a class="headerlink" href="#unimplemented-features" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Additional wiring modes</p></li>
 <li><p>Threshold events</p></li>
-<li><p>Oversampling</p></li>
 <li><p>GPIO support</p></li>
 <li><p>CRC support</p></li>
 </ul>
 </section>
+</section>
+<section id="spi-offload-support">
+<h2>SPI offload support<a class="headerlink" href="#spi-offload-support" title="Link to this heading">¶</a></h2>
+<p>To be able to achieve the maximum sample rate, the driver can be used with the
+<a class="reference external" href="http://analogdevicesinc.github.io/hdl/projects/ad469x_fmc/index.html">AXI SPI Engine</a> to provide SPI offload support.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#spi-offload-wiring">SPI offload wiring</a></p>
+</div>
+<p>When SPI offload is being used, some attributes will be different.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger</span></code> directory is removed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code> attributes are added for setting the sample
+rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency_available</span></code> attributes are added for querying
+the max sample rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> channel is removed.</p></li>
+<li><p>Buffer data format may be different compared to when offload is not used,
+e.g. the <code class="docutils literal notranslate"><span class="pre">buffer0/in_voltage0_type</span></code> attribute.</p></li>
+</ul>
 </section>
 <section id="device-buffers">
 <h2>Device buffers<a class="headerlink" href="#device-buffers" title="Link to this heading">¶</a></h2>
 <p>This driver supports hardware triggered buffers. This uses the “advanced
 sequencer” feature of the chip to trigger a burst of conversions.</p>
 <p>Also see <a class="reference internal" href="iio_devbuf.html"><span class="doc">Industrial IIO device buffers</span></a> for more general information.</p>
+<section id="effective-sample-rate-for-buffered-reads">
+<h3>Effective sample rate for buffered reads<a class="headerlink" href="#effective-sample-rate-for-buffered-reads" title="Link to this heading">¶</a></h3>
+<p>When SPI offload is not used, the sample rate is determined by the trigger that
+is manually configured in userspace. All enabled channels will be read in a
+burst when the trigger is received.</p>
+<p>When SPI offload is used, the sample rate is configured per channel. All
+channels will have the same rate, so only one <code class="docutils literal notranslate"><span class="pre">in_voltageY_sampling_frequency</span></code>
+attribute needs to be set. Since this rate determines the delay between each
+individual conversion, the effective sample rate for each sample is actually
+the sum of the periods of each enabled channel in a buffered read. In other
+words, it is the value of the <code class="docutils literal notranslate"><span class="pre">in_voltageY_sampling_frequency</span></code> attribute
+divided by the number of enabled channels. So if 4 channels are enabled, with
+the <code class="docutils literal notranslate"><span class="pre">in_voltageY_sampling_frequency</span></code> attributes set to 1 MHz, the effective
+sample rate is 250 kHz.</p>
+<p>With oversampling enabled, the effective sample rate also depends on the OSR
+assigned to each channel. For example, if one of the 4 channels mentioned in the
+previous case is configured with an OSR of 4, the effective sample rate for that
+channel becomes (1 MHz / 4 ) = 250 kHz. The effective sample rate for all
+four channels is then 1 / ( (3 / 1 MHz) + ( 1 / 250 kHz) ) ~= 142.9 kHz. Note
+that in this case “sample” refers to one read of all enabled channels (i.e. one
+full cycle through the auto-sequencer).</p>
+</section>
 </section>
 </section>
 

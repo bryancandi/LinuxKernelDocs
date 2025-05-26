@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -210,10 +210,10 @@ sense for device-mapper devices to have keyslots themselves.</p></li>
 <section id="basic-design">
 <h2>Basic design<a class="headerlink" href="#basic-design" title="Link to this heading">¶</a></h2>
 <p>We introduce <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_key</span></code> to represent an inline encryption key and
-how it will be used.  This includes the actual bytes of the key; the size of the
-key; the algorithm and data unit size the key will be used with; and the number
-of bytes needed to represent the maximum data unit number the key will be used
-with.</p>
+how it will be used.  This includes the type of the key (raw or
+hardware-wrapped); the actual bytes of the key; the size of the key; the
+algorithm and data unit size the key will be used with; and the number of bytes
+needed to represent the maximum data unit number the key will be used with.</p>
 <p>We introduce <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">bio_crypt_ctx</span></code> to represent an encryption context.  It
 contains a data unit number and a pointer to a blk_crypto_key.  We add pointers
 to a bio_crypt_ctx to <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">bio</span></code> and <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">request</span></code>; this allows users
@@ -404,6 +404,222 @@ kernel will pretend that the device does not support hardware inline encryption
 When the crypto API fallback is enabled, this means that all bios with and
 encryption context will use the fallback, and IO will complete as usual.  When
 the fallback is disabled, a bio with an encryption context will be failed.</p>
+</section>
+<section id="hardware-wrapped-keys">
+<span id="id2"></span><h2>Hardware-wrapped keys<a class="headerlink" href="#hardware-wrapped-keys" title="Link to this heading">¶</a></h2>
+<section id="motivation-and-threat-model">
+<h3>Motivation and threat model<a class="headerlink" href="#motivation-and-threat-model" title="Link to this heading">¶</a></h3>
+<p>Linux storage encryption (dm-crypt, fscrypt, eCryptfs, etc.) traditionally
+relies on the raw encryption key(s) being present in kernel memory so that the
+encryption can be performed.  This traditionally isn’t seen as a problem because
+the key(s) won’t be present during an offline attack, which is the main type of
+attack that storage encryption is intended to protect from.</p>
+<p>However, there is an increasing desire to also protect users’ data from other
+types of attacks (to the extent possible), including:</p>
+<ul class="simple">
+<li><p>Cold boot attacks, where an attacker with physical access to a system suddenly
+powers it off, then immediately dumps the system memory to extract recently
+in-use encryption keys, then uses these keys to decrypt user data on-disk.</p></li>
+<li><p>Online attacks where the attacker is able to read kernel memory without fully
+compromising the system, followed by an offline attack where any extracted
+keys can be used to decrypt user data on-disk.  An example of such an online
+attack would be if the attacker is able to run some code on the system that
+exploits a Meltdown-like vulnerability but is unable to escalate privileges.</p></li>
+<li><p>Online attacks where the attacker fully compromises the system, but their data
+exfiltration is significantly time-limited and/or bandwidth-limited, so in
+order to completely exfiltrate the data they need to extract the encryption
+keys to use in a later offline attack.</p></li>
+</ul>
+<p>Hardware-wrapped keys are a feature of inline encryption hardware that is
+designed to protect users’ data from the above attacks (to the extent possible),
+without introducing limitations such as a maximum number of keys.</p>
+<p>Note that it is impossible to <strong>fully</strong> protect users’ data from these attacks.
+Even in the attacks where the attacker “just” gets read access to kernel memory,
+they can still extract any user data that is present in memory, including
+plaintext pagecache pages of encrypted files.  The focus here is just on
+protecting the encryption keys, as those instantly give access to <strong>all</strong> user
+data in any following offline attack, rather than just some of it (where which
+data is included in that “some” might not be controlled by the attacker).</p>
+</section>
+<section id="solution-overview">
+<h3>Solution overview<a class="headerlink" href="#solution-overview" title="Link to this heading">¶</a></h3>
+<p>Inline encryption hardware typically has “keyslots” into which software can
+program keys for the hardware to use; the contents of keyslots typically can’t
+be read back by software.  As such, the above security goals could be achieved
+if the kernel simply erased its copy of the key(s) after programming them into
+keyslot(s) and thereafter only referred to them via keyslot number.</p>
+<p>However, that naive approach runs into a couple problems:</p>
+<ul class="simple">
+<li><p>It limits the number of unlocked keys to the number of keyslots, which
+typically is a small number.  In cases where there is only one encryption key
+system-wide (e.g., a full-disk encryption key), that can be tolerable.
+However, in general there can be many logged-in users with many different
+keys, and/or many running applications with application-specific encrypted
+storage areas.  This is especially true if file-based encryption (e.g.
+fscrypt) is being used.</p></li>
+<li><p>Inline crypto engines typically lose the contents of their keyslots if the
+storage controller (usually UFS or eMMC) is reset.  Resetting the storage
+controller is a standard error recovery procedure that is executed if certain
+types of storage errors occur, and such errors can occur at any time.
+Therefore, when inline crypto is being used, the operating system must always
+be ready to reprogram the keyslots without user intervention.</p></li>
+</ul>
+<p>Thus, it is important for the kernel to still have a way to “remind” the
+hardware about a key, without actually having the raw key itself.</p>
+<p>Somewhat less importantly, it is also desirable that the raw keys are never
+visible to software at all, even while being initially unlocked.  This would
+ensure that a read-only compromise of system memory will never allow a key to be
+extracted to be used off-system, even if it occurs when a key is being unlocked.</p>
+<p>To solve all these problems, some vendors of inline encryption hardware have
+made their hardware support <em>hardware-wrapped keys</em>.  Hardware-wrapped keys
+are encrypted keys that can only be unwrapped (decrypted) and used by hardware
+-- either by the inline encryption hardware itself, or by a dedicated hardware
+block that can directly provision keys to the inline encryption hardware.</p>
+<p>(We refer to them as “hardware-wrapped keys” rather than simply “wrapped keys”
+to add some clarity in cases where there could be other types of wrapped keys,
+such as in file-based encryption.  Key wrapping is a commonly used technique.)</p>
+<p>The key which wraps (encrypts) hardware-wrapped keys is a hardware-internal key
+that is never exposed to software; it is either a persistent key (a “long-term
+wrapping key”) or a per-boot key (an “ephemeral wrapping key”).  The long-term
+wrapped form of the key is what is initially unlocked, but it is erased from
+memory as soon as it is converted into an ephemerally-wrapped key.  In-use
+hardware-wrapped keys are always ephemerally-wrapped, not long-term wrapped.</p>
+<p>As inline encryption hardware can only be used to encrypt/decrypt data on-disk,
+the hardware also includes a level of indirection; it doesn’t use the unwrapped
+key directly for inline encryption, but rather derives both an inline encryption
+key and a “software secret” from it.  Software can use the “software secret” for
+tasks that can’t use the inline encryption hardware, such as filenames
+encryption.  The software secret is not protected from memory compromise.</p>
+</section>
+<section id="key-hierarchy">
+<h3>Key hierarchy<a class="headerlink" href="#key-hierarchy" title="Link to this heading">¶</a></h3>
+<p>Here is the key hierarchy for a hardware-wrapped key:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>               Hardware-wrapped key
+                        |
+                        |
+                  &lt;Hardware KDF&gt;
+                        |
+          -----------------------------
+          |                           |
+Inline encryption key           Software secret
+</pre></div>
+</div>
+<p>The components are:</p>
+<ul class="simple">
+<li><p><em>Hardware-wrapped key</em>: a key for the hardware’s KDF (Key Derivation
+Function), in ephemerally-wrapped form.  The key wrapping algorithm is a
+hardware implementation detail that doesn’t impact kernel operation, but a
+strong authenticated encryption algorithm such as AES-256-GCM is recommended.</p></li>
+<li><p><em>Hardware KDF</em>: a KDF (Key Derivation Function) which the hardware uses to
+derive subkeys after unwrapping the wrapped key.  The hardware’s choice of KDF
+doesn’t impact kernel operation, but it does need to be known for testing
+purposes, and it’s also assumed to have at least a 256-bit security strength.
+All known hardware uses the SP800-108 KDF in Counter Mode with AES-256-CMAC,
+with a particular choice of labels and contexts; new hardware should use this
+already-vetted KDF.</p></li>
+<li><p><em>Inline encryption key</em>: a derived key which the hardware directly provisions
+to a keyslot of the inline encryption hardware, without exposing it to
+software.  In all known hardware, this will always be an AES-256-XTS key.
+However, in principle other encryption algorithms could be supported too.
+Hardware must derive distinct subkeys for each supported encryption algorithm.</p></li>
+<li><p><em>Software secret</em>: a derived key which the hardware returns to software so
+that software can use it for cryptographic tasks that can’t use inline
+encryption.  This value is cryptographically isolated from the inline
+encryption key, i.e. knowing one doesn’t reveal the other.  (The KDF ensures
+this.)  Currently, the software secret is always 32 bytes and thus is suitable
+for cryptographic applications that require up to a 256-bit security strength.
+Some use cases (e.g. full-disk encryption) won’t require the software secret.</p></li>
+</ul>
+<p>Example: in the case of fscrypt, the fscrypt master key (the key that protects a
+particular set of encrypted directories) is made hardware-wrapped.  The inline
+encryption key is used as the file contents encryption key, while the software
+secret (rather than the master key directly) is used to key fscrypt’s KDF
+(HKDF-SHA512) to derive other subkeys such as filenames encryption keys.</p>
+<p>Note that currently this design assumes a single inline encryption key per
+hardware-wrapped key, without any further key derivation.  Thus, in the case of
+fscrypt, currently hardware-wrapped keys are only compatible with the “inline
+encryption optimized” settings, which use one file contents encryption key per
+encryption policy rather than one per file.  This design could be extended to
+make the hardware derive per-file keys using per-file nonces passed down the
+storage stack, and in fact some hardware already supports this; future work is
+planned to remove this limitation by adding the corresponding kernel support.</p>
+</section>
+<section id="kernel-support">
+<h3>Kernel support<a class="headerlink" href="#kernel-support" title="Link to this heading">¶</a></h3>
+<p>The inline encryption support of the kernel’s block layer (“blk-crypto”) has
+been extended to support hardware-wrapped keys as an alternative to raw keys,
+when hardware support is available.  This works in the following way:</p>
+<ul class="simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">key_types_supported</span></code> field is added to the crypto capabilities in
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_profile</span></code>.  This allows device drivers to declare that
+they support raw keys, hardware-wrapped keys, or both.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_key</span></code> can now contain a hardware-wrapped key as an
+alternative to a raw key; a <code class="docutils literal notranslate"><span class="pre">key_type</span></code> field is added to
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_config</span></code> to distinguish between the different key types.
+This allows users of blk-crypto to en/decrypt data using a hardware-wrapped
+key in a way very similar to using a raw key.</p></li>
+<li><p>A new method <code class="docutils literal notranslate"><span class="pre">blk_crypto_ll_ops::derive_sw_secret</span></code> is added.  Device drivers
+that support hardware-wrapped keys must implement this method.  Users of
+blk-crypto can call <code class="docutils literal notranslate"><span class="pre">blk_crypto_derive_sw_secret()</span></code> to access this method.</p></li>
+<li><p>The programming and eviction of hardware-wrapped keys happens via
+<code class="docutils literal notranslate"><span class="pre">blk_crypto_ll_ops::keyslot_program</span></code> and
+<code class="docutils literal notranslate"><span class="pre">blk_crypto_ll_ops::keyslot_evict</span></code>, just like it does for raw keys.  If a
+driver supports hardware-wrapped keys, then it must handle hardware-wrapped
+keys being passed to these methods.</p></li>
+</ul>
+<p>blk-crypto-fallback doesn’t support hardware-wrapped keys.  Therefore,
+hardware-wrapped keys can only be used with actual inline encryption hardware.</p>
+<p>All the above deals with hardware-wrapped keys in ephemerally-wrapped form only.
+To get such keys in the first place, new block device ioctls have been added to
+provide a generic interface to creating and preparing such keys:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BLKCRYPTOIMPORTKEY</span></code> converts a raw key to long-term wrapped form.  It takes
+in a pointer to a <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_import_key_arg</span></code>.  The caller must set
+<code class="docutils literal notranslate"><span class="pre">raw_key_ptr</span></code> and <code class="docutils literal notranslate"><span class="pre">raw_key_size</span></code> to the pointer and size (in bytes) of the
+raw key to import.  On success, <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOIMPORTKEY</span></code> returns 0 and writes
+the resulting long-term wrapped key blob to the buffer pointed to by
+<code class="docutils literal notranslate"><span class="pre">lt_key_ptr</span></code>, which is of maximum size <code class="docutils literal notranslate"><span class="pre">lt_key_size</span></code>.  It also updates
+<code class="docutils literal notranslate"><span class="pre">lt_key_size</span></code> to be the actual size of the key.  On failure, it returns -1
+and sets errno.  An errno of <code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code> indicates that the block device
+does not support hardware-wrapped keys.  An errno of <code class="docutils literal notranslate"><span class="pre">EOVERFLOW</span></code> indicates
+that the output buffer did not have enough space for the key blob.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BLKCRYPTOGENERATEKEY</span></code> is like <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOIMPORTKEY</span></code>, but it has the
+hardware generate the key instead of importing one.  It takes in a pointer to
+a <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">blk_crypto_generate_key_arg</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BLKCRYPTOPREPAREKEY</span></code> converts a key from long-term wrapped form to
+ephemerally-wrapped form.  It takes in a pointer to a <code class="docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">blk_crypto_prepare_key_arg</span></code>.  The caller must set <code class="docutils literal notranslate"><span class="pre">lt_key_ptr</span></code> and
+<code class="docutils literal notranslate"><span class="pre">lt_key_size</span></code> to the pointer and size (in bytes) of the long-term wrapped
+key blob to convert.  On success, <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOPREPAREKEY</span></code> returns 0 and writes
+the resulting ephemerally-wrapped key blob to the buffer pointed to by
+<code class="docutils literal notranslate"><span class="pre">eph_key_ptr</span></code>, which is of maximum size <code class="docutils literal notranslate"><span class="pre">eph_key_size</span></code>.  It also updates
+<code class="docutils literal notranslate"><span class="pre">eph_key_size</span></code> to be the actual size of the key.  On failure, it returns -1
+and sets errno.  Errno values of <code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code> and <code class="docutils literal notranslate"><span class="pre">EOVERFLOW</span></code> mean the
+same as they do for <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOIMPORTKEY</span></code>.  An errno of <code class="docutils literal notranslate"><span class="pre">EBADMSG</span></code> indicates
+that the long-term wrapped key is invalid.</p></li>
+</ul>
+<p>Userspace needs to use either <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOIMPORTKEY</span></code> or <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOGENERATEKEY</span></code>
+once to create a key, and then <code class="docutils literal notranslate"><span class="pre">BLKCRYPTOPREPAREKEY</span></code> each time the key is
+unlocked and added to the kernel.  Note that these ioctls have no relevance for
+raw keys; they are only for hardware-wrapped keys.</p>
+</section>
+<section id="testability">
+<h3>Testability<a class="headerlink" href="#testability" title="Link to this heading">¶</a></h3>
+<p>Both the hardware KDF and the inline encryption itself are well-defined
+algorithms that don’t depend on any secrets other than the unwrapped key.
+Therefore, if the unwrapped key is known to software, these algorithms can be
+reproduced in software in order to verify the ciphertext that is written to disk
+by the inline encryption hardware.</p>
+<p>However, the unwrapped key will only be known to software for testing if the
+“import” functionality is used.  Proper testing is not possible in the
+“generate” case where the hardware generates the key itself.  The correct
+operation of the “generate” mode thus relies on the security and correctness of
+the hardware RNG and its use to generate the key, as well as the testing of the
+“import” mode as that should cover all parts other than the key generation.</p>
+<p>For an example of a test that verifies the ciphertext written to disk in the
+“import” mode, see the fscrypt hardware-wrapped key tests in xfstests, or
+<a class="reference external" href="https://android.googlesource.com/platform/test/vts-testcase/kernel/+/refs/heads/main/encryption/">Android’s vts_kernel_encryption_test</a>.</p>
+</section>
 </section>
 </section>
 

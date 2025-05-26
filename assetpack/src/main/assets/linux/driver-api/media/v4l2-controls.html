@@ -34,7 +34,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -911,6 +911,7 @@ to set another notify function will cause a WARN_ON.</p>
     struct v4l2_ctrl_av1_tile_group_entry *p_av1_tile_group_entry;
     struct v4l2_ctrl_av1_frame *p_av1_frame;
     struct v4l2_ctrl_av1_film_grain *p_av1_film_grain;
+    struct v4l2_rect *p_rect;
     void *p;
     const void *p_const;
 };
@@ -976,6 +977,8 @@ to set another notify function will cause a WARN_ON.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p_av1_film_grain</span></code></dt><dd><p>Pointer to an AV1 film grain structure.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_rect</span></code></dt><dd><p>Pointer to a rectangle.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p</span></code></dt><dd><p>Pointer to a compound value.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p_const</span></code></dt><dd><p>Pointer to a constant compound value.</p>
@@ -1038,6 +1041,8 @@ one else can access controls owned by that handler.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct v4l2_ctrl_type_ops {
     bool (*equal)(const struct v4l2_ctrl *ctrl, union v4l2_ctrl_ptr ptr1, union v4l2_ctrl_ptr ptr2);
     void (*init)(const struct v4l2_ctrl *ctrl, u32 from_idx, union v4l2_ctrl_ptr ptr);
+    void (*minimum)(const struct v4l2_ctrl *ctrl, u32 idx, union v4l2_ctrl_ptr ptr);
+    void (*maximum)(const struct v4l2_ctrl *ctrl, u32 idx, union v4l2_ctrl_ptr ptr);
     void (*log)(const struct v4l2_ctrl *ctrl);
     int (*validate)(const struct v4l2_ctrl *ctrl, union v4l2_ctrl_ptr ptr);
 };
@@ -1048,6 +1053,10 @@ one else can access controls owned by that handler.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">equal</span></code></dt><dd><p>return true if all ctrl-&gt;elems array elements are equal.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">init</span></code></dt><dd><p>initialize the value for array elements from from_idx to ctrl-&gt;elems.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">minimum</span></code></dt><dd><p>set the value to the minimum value of the control.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">maximum</span></code></dt><dd><p>set the value to the maximum value of the control.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">log</span></code></dt><dd><p>log the value.</p>
 </dd>
@@ -1133,6 +1142,8 @@ and as an argument at struct <a class="reference internal" href="#c.v4l2_ctrl_ha
         s32 val;
     } cur;
     union v4l2_ctrl_ptr p_def;
+    union v4l2_ctrl_ptr p_min;
+    union v4l2_ctrl_ptr p_max;
     union v4l2_ctrl_ptr p_new;
     union v4l2_ctrl_ptr p_cur;
 };
@@ -1270,6 +1281,14 @@ sized for 2 * <strong>p_array_alloc_elems</strong> * <strong>elem_size</strong>.
 a u32 integer (see <code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">v4l2_ctrl_type</span></code>).</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p_def</span></code></dt><dd><p>The control’s default value represented via a union which
+provides a standard way of accessing control types
+through a pointer (for compound controls only).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_min</span></code></dt><dd><p>The control’s minimum value represented via a union which
+provides a standard way of accessing control types
+through a pointer (for compound controls only).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_max</span></code></dt><dd><p>The control’s maximum value represented via a union which
 provides a standard way of accessing control types
 through a pointer (for compound controls only).</p>
 </dd>
@@ -1445,6 +1464,8 @@ completed it is removed from this list.</p>
     u64 step;
     s64 def;
     union v4l2_ctrl_ptr p_def;
+    union v4l2_ctrl_ptr p_min;
+    union v4l2_ctrl_ptr p_max;
     u32 dims[V4L2_CTRL_MAX_DIMS];
     u32 elem_size;
     u32 flags;
@@ -1476,6 +1497,10 @@ completed it is removed from this list.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">def</span></code></dt><dd><p>The control’s default value.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">p_def</span></code></dt><dd><p>The control’s default value for compound controls.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_min</span></code></dt><dd><p>The control’s minimum value for compound controls.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">p_max</span></code></dt><dd><p>The control’s maximum value for compound controls.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dims</span></code></dt><dd><p>The size of each dimension.</p>
 </dd>
@@ -1818,7 +1843,7 @@ menu of this control.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_ctrl_new_std_compound">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl" title="v4l2_ctrl"><span class="n"><span class="pre">v4l2_ctrl</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_ctrl_new_std_compound</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_handler" title="v4l2_ctrl_handler"><span class="n"><span class="pre">v4l2_ctrl_handler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hdl</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ops" title="v4l2_ctrl_ops"><span class="n"><span class="pre">v4l2_ctrl_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ptr" title="v4l2_ctrl_ptr"><span class="n"><span class="pre">v4l2_ctrl_ptr</span></span></a><span class="w"> </span><span class="n"><span class="pre">p_def</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_ctrl_new_std_compound" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl" title="v4l2_ctrl"><span class="n"><span class="pre">v4l2_ctrl</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_ctrl_new_std_compound</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_handler" title="v4l2_ctrl_handler"><span class="n"><span class="pre">v4l2_ctrl_handler</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hdl</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ops" title="v4l2_ctrl_ops"><span class="n"><span class="pre">v4l2_ctrl_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ptr" title="v4l2_ctrl_ptr"><span class="n"><span class="pre">v4l2_ctrl_ptr</span></span></a><span class="w"> </span><span class="n"><span class="pre">p_def</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ptr" title="v4l2_ctrl_ptr"><span class="n"><span class="pre">v4l2_ctrl_ptr</span></span></a><span class="w"> </span><span class="n"><span class="pre">p_min</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">union</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_ctrl_ptr" title="v4l2_ctrl_ptr"><span class="n"><span class="pre">v4l2_ctrl_ptr</span></span></a><span class="w"> </span><span class="n"><span class="pre">p_max</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_ctrl_new_std_compound" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate and initialize a new standard V4L2 compound control.</p>
 </dd></dl>
 
@@ -1833,12 +1858,20 @@ menu of this control.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">union</span> <span class="pre">v4l2_ctrl_ptr</span> <span class="pre">p_def</span></code></dt><dd><p>The control’s default value.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">union</span> <span class="pre">v4l2_ctrl_ptr</span> <span class="pre">p_min</span></code></dt><dd><p>The control’s minimum value.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">union</span> <span class="pre">v4l2_ctrl_ptr</span> <span class="pre">p_max</span></code></dt><dd><p>The control’s maximum value.</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Sames as <a class="reference internal" href="#c.v4l2_ctrl_new_std" title="v4l2_ctrl_new_std"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_ctrl_new_std()</span></code></a>, but with support to compound controls, thanks
-to the <strong>p_def</strong> field. Use <a class="reference internal" href="#c.v4l2_ctrl_ptr_create" title="v4l2_ctrl_ptr_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_ctrl_ptr_create()</span></code></a> to create <strong>p_def</strong> from a
-pointer. Use v4l2_ctrl_ptr_create(NULL) if the default value of the
-compound control should be all zeroes.</p>
+<p>Same as <a class="reference internal" href="#c.v4l2_ctrl_new_std" title="v4l2_ctrl_new_std"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_ctrl_new_std()</span></code></a>, but with support for compound controls.
+To fill in the <strong>p_def</strong>, <strong>p_min</strong> and <strong>p_max</strong> fields, use <a class="reference internal" href="#c.v4l2_ctrl_ptr_create" title="v4l2_ctrl_ptr_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">v4l2_ctrl_ptr_create()</span></code></a>
+to convert a pointer to a const <a class="reference internal" href="#c.v4l2_ctrl_ptr" title="v4l2_ctrl_ptr"><code class="xref c c-union docutils literal notranslate"><span class="pre">union</span> <span class="pre">v4l2_ctrl_ptr</span></code></a>.
+Use v4l2_ctrl_ptr_create(NULL) if you want the default, minimum or maximum
+value of the compound control to be all zeroes.
+If the compound control does not set the <code class="docutils literal notranslate"><span class="pre">V4L2_CTRL_FLAG_HAS_WHICH_MIN_MAX</span></code>
+flag, then it does not has minimum and maximum values. In that case just use
+v4l2_ctrl_ptr_create(NULL) for the <strong>p_min</strong> and <strong>p_max</strong> arguments.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_ctrl_new_int_menu">
@@ -2651,6 +2684,24 @@ part of the request or NULL otherwise.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>If hdl == NULL then they will all return -EINVAL.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.v4l2_query_ext_ctrl_to_v4l2_queryctrl">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">v4l2_query_ext_ctrl_to_v4l2_queryctrl</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_queryctrl" title="v4l2_queryctrl"><span class="n"><span class="pre">v4l2_queryctrl</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.v4l2_query_ext_ctrl" title="v4l2_query_ext_ctrl"><span class="n"><span class="pre">v4l2_query_ext_ctrl</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">from</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.v4l2_query_ext_ctrl_to_v4l2_queryctrl" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Convert a qec to qe.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">v4l2_queryctrl</span> <span class="pre">*to</span></code></dt><dd><p>The v4l2_queryctrl to write to.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">v4l2_query_ext_ctrl</span> <span class="pre">*from</span></code></dt><dd><p>The v4l2_query_ext_ctrl to read from.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is a helper to convert a v4l2_query_ext_ctrl into a
+v4l2_queryctrl.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.v4l2_query_ext_ctrl">

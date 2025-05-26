@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -424,16 +424,30 @@ the server buffer (pages) read to the IO request pages.</p>
 </li>
 </ul>
 </section>
-</section>
-<section id="future-development">
-<h2>Future development<a class="headerlink" href="#future-development" title="Link to this heading">¶</a></h2>
 <section id="zero-copy">
 <h3>Zero copy<a class="headerlink" href="#zero-copy" title="Link to this heading">¶</a></h3>
-<p>Zero copy is a generic requirement for nbd, fuse or similar drivers. A
-problem <a class="footnote-reference brackets" href="#xiaoguang" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a> Xiaoguang mentioned is that pages mapped to userspace
-can’t be remapped any more in kernel with existing mm interfaces. This can
-occurs when destining direct IO to <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code>. Also, he reported that
-big requests (IO size &gt;= 256 KB) may benefit a lot from zero copy.</p>
+<p>ublk zero copy relies on io_uring’s fixed kernel buffer, which provides
+two APIs: <cite>io_buffer_register_bvec()</cite> and <cite>io_buffer_unregister_bvec</cite>.</p>
+<p>ublk adds IO command of <cite>UBLK_IO_REGISTER_IO_BUF</cite> to call
+<cite>io_buffer_register_bvec()</cite> for ublk server to register client request
+buffer into io_uring buffer table, then ublk server can submit io_uring
+IOs with the registered buffer index. IO command of <cite>UBLK_IO_UNREGISTER_IO_BUF</cite>
+calls <cite>io_buffer_unregister_bvec()</cite> to unregister the buffer, which is
+guaranteed to be live between calling <cite>io_buffer_register_bvec()</cite> and
+<cite>io_buffer_unregister_bvec()</cite>. Any io_uring operation which supports this
+kind of kernel buffer will grab one reference of the buffer until the
+operation is completed.</p>
+<p>ublk server implementing zero copy or user copy has to be CAP_SYS_ADMIN and
+be trusted, because it is ublk server’s responsibility to make sure IO buffer
+filled with data for handling read command, and ublk server has to return
+correct result to ublk driver when handling READ command, and the result
+has to match with how many bytes filled to the IO buffer. Otherwise,
+uninitialized kernel IO buffer will be exposed to client application.</p>
+<p>ublk server needs to align the parameter of <cite>struct ublk_param_dma_align</cite>
+with backend for zero copy to work correctly.</p>
+<p>For reaching best IO performance, ublk server should align its segment
+parameter of <cite>struct ublk_param_segment</cite> with backend for avoiding
+unnecessary IO split, which usually hurts io_uring performance.</p>
 </section>
 </section>
 <section id="references">
@@ -455,10 +469,6 @@ big requests (IO size &gt;= 256 KB) may benefit a lot from zero copy.</p>
 <aside class="footnote brackets" id="userspace-readme" role="doc-footnote">
 <span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">4</a><span class="fn-bracket">]</span></span>
 <p><a class="reference external" href="https://github.com/ming1/ubdsrv/blob/master/README">https://github.com/ming1/ubdsrv/blob/master/README</a></p>
-</aside>
-<aside class="footnote brackets" id="xiaoguang" role="doc-footnote">
-<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id6">5</a><span class="fn-bracket">]</span></span>
-<p><a class="reference external" href="https://lore.kernel.org/linux-block/YoOr6jBfgVm8GvWg&#64;stefanha-x1.localdomain/">https://lore.kernel.org/linux-block/YoOr6jBfgVm8GvWg&#64;stefanha-x1.localdomain/</a></p>
 </aside>
 </aside>
 </section>

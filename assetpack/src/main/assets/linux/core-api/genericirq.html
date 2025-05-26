@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -291,7 +291,7 @@ primitives referenced by the assigned chip descriptor structure.</p>
 <li><p><a class="reference internal" href="#c.handle_fasteoi_irq" title="handle_fasteoi_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">handle_fasteoi_irq()</span></code></a></p></li>
 <li><p><a class="reference internal" href="#c.handle_simple_irq" title="handle_simple_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">handle_simple_irq()</span></code></a></p></li>
 <li><p><a class="reference internal" href="#c.handle_percpu_irq" title="handle_percpu_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">handle_percpu_irq()</span></code></a></p></li>
-<li><p><a class="reference internal" href="#c.handle_edge_eoi_irq" title="handle_edge_eoi_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">handle_edge_eoi_irq()</span></code></a></p></li>
+<li><p>handle_edge_eoi_irq()</p></li>
 <li><p><a class="reference internal" href="#c.handle_bad_irq" title="handle_bad_irq"><code class="xref c c-func docutils literal notranslate"><span class="pre">handle_bad_irq()</span></code></a></p></li>
 </ul>
 <p>The interrupt flow handlers (either pre-defined or architecture
@@ -924,6 +924,7 @@ methods, to allow shared chip implementations</p>
     void (*ipi_send_mask)(struct irq_data *data, const struct cpumask *dest);
     int (*irq_nmi_setup)(struct irq_data *data);
     void (*irq_nmi_teardown)(struct irq_data *data);
+    void (*irq_force_complete_move)(struct irq_data *data);
     unsigned long   flags;
 };
 </pre></div>
@@ -1006,6 +1007,8 @@ irq_request_resources</p>
 <dt><code class="docutils literal notranslate"><span class="pre">irq_nmi_setup</span></code></dt><dd><p>function called from core code before enabling an NMI</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">irq_nmi_teardown</span></code></dt><dd><p>function called from core code after disabling an NMI</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">irq_force_complete_move</span></code></dt><dd><p>optional function to force complete pending irq move</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>chip specific flags</p>
 </dd>
@@ -1501,7 +1504,7 @@ pass a device-specific description of an interrupt.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">match</span></code></dt><dd><p>Match an interrupt controller device node to a host, returns
+<dt><code class="docutils literal notranslate"><span class="pre">match</span></code></dt><dd><p>Match an interrupt controller device node to a domain, returns
 1 on a match</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">select</span></code></dt><dd><p>Match an interrupt controller fw specification. It is more generic
@@ -3226,22 +3229,6 @@ calling ‘irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY)’. This can
 be used for devices which cannot disable the interrupt at the
 device level under certain circumstances and have to use
 disable_irq[_nosync] instead.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.handle_edge_eoi_irq">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">handle_edge_eoi_irq</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">irq_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.handle_edge_eoi_irq" title="Link to this definition">¶</a><br /></dt>
-<dd><p>edge eoi type IRQ handler</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">irq_desc</span> <span class="pre">*desc</span></code></dt><dd><p>the interrupt description structure for this irq</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Similar as the above handle_edge_irq, but using eoi and w/o the
-mask/unmask logic.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.handle_percpu_irq">

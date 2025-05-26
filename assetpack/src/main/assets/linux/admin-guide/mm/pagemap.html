@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -177,7 +177,8 @@ value for each virtual page, containing the following data (from
 <li><p>Bit  56    page exclusively mapped (since 4.2)</p></li>
 <li><p>Bit  57    pte is uffd-wp write-protected (since 5.13) (see
 <a class="reference internal" href="userfaultfd.html"><span class="doc">Userfaultfd</span></a>)</p></li>
-<li><p>Bits 58-60 zero</p></li>
+<li><p>Bit  58    pte is a guard region (since 6.15) (see madvise (2) man page)</p></li>
+<li><p>Bits 59-60 zero</p></li>
 <li><p>Bit  61    page is file-page or shared-anon (since 3.5)</p></li>
 <li><p>Bit  62    page swapped</p></li>
 <li><p>Bit  63    page present</p></li>
@@ -192,12 +193,27 @@ encoding of the swap file number and the page’s offset into the
 swap. Unmapped pages return a null PFN. This allows determining
 precisely which pages are mapped (or in swap) and comparing mapped
 pages between processes.</p>
+<p>Traditionally, bit 56 indicates that a page is mapped exactly once and bit
+56 is clear when a page is mapped multiple times, even when mapped in the
+same process multiple times. In some kernel configurations, the semantics
+for pages part of a larger allocation (e.g., THP) can differ: bit 56 is set
+if all pages part of the corresponding large allocation are <em>certainly</em>
+mapped in the same process, even if the page is mapped multiple times in that
+process. Bit 56 is clear when any page page of the larger allocation
+is <em>maybe</em> mapped in a different process. In some cases, a large allocation
+might be treated as “maybe mapped by multiple processes” even though this
+is no longer the case.</p>
 <p>Efficient users of this interface will use <code class="docutils literal notranslate"><span class="pre">/proc/pid/maps</span></code> to
 determine which areas of memory are actually mapped and llseek to
 skip over unmapped regions.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">/proc/kpagecount</span></code>.  This file contains a 64-bit count of the number of
-times each page is mapped, indexed by PFN.</p></li>
+times each page is mapped, indexed by PFN. Some kernel configurations do
+not track the precise number of times a page part of a larger allocation
+(e.g., THP) is mapped. In these configurations, the average number of
+mappings per page in this larger allocation is returned instead. However,
+if any page of the large allocation is mapped, the returned value will
+be at least 1.</p></li>
 </ul>
 </div></blockquote>
 <p>The page-types tool in the tools/mm directory can be used to query the

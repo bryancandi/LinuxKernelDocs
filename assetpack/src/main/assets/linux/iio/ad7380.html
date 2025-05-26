@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="AD7606 driver" href="ad7606.html" />
-    <link rel="prev" title="AD4695 driver" href="ad4695.html" />
+    <link rel="prev" title="AD7191 driver" href="ad7191.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../subsystem-apis.html#other-subsystems">Other subsystems</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../accounting/index.html">Accounting</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../cpu-freq/index.html">CPUFreq - CPU frequency and voltage scaling code in the Linux(TM) kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../edac/index.html">EDAC Subsystem</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fpga/index.html">FPGA</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../i2c/index.html">I2C/SMBus Subsystem</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="index.html">Industrial I/O</a></li>
@@ -185,6 +186,7 @@ is <code class="docutils literal notranslate"><span class="pre">ad7380</span></c
 <li><p><a class="reference external" href="https://www.analog.com/en/products/ad7388-4.html">AD7388-4</a></p></li>
 <li><p><a class="reference external" href="https://www.analog.com/en/products/adaq4370-4.html">ADAQ4370-4</a></p></li>
 <li><p><a class="reference external" href="https://www.analog.com/en/products/adaq4380-4.html">ADAQ4380-4</a></p></li>
+<li><p><a class="reference external" href="https://www.analog.com/en/products/adaq4381-4.html">ADAQ4381-4</a></p></li>
 </ul>
 </section>
 <section id="supported-features">
@@ -203,8 +205,8 @@ declared in the device tree as <code class="docutils literal notranslate"><span 
 </section>
 <section id="adaq-devices">
 <h4>ADAQ devices<a class="headerlink" href="#adaq-devices" title="Link to this heading">¶</a></h4>
-<p>adaq4370-4 and adaq4380-4 don’t have an external reference, but use a 3.3V
-internal reference derived from one of its supplies (<code class="docutils literal notranslate"><span class="pre">refin-supply</span></code>)</p>
+<p>ADAQ devices don’t have an external reference, but use a 3.3V internal reference
+derived from one of its supplies (<code class="docutils literal notranslate"><span class="pre">refin-supply</span></code>)</p>
 </section>
 <section id="all-other-devices-from-ad738x-family">
 <h4>All other devices from ad738x family<a class="headerlink" href="#all-other-devices-from-ad738x-family" title="Link to this heading">¶</a></h4>
@@ -238,6 +240,30 @@ must restart iiod using the following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>root:~#<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>iiod
 </pre></div>
 </div>
+</section>
+<section id="alert">
+<h3>Alert<a class="headerlink" href="#alert" title="Link to this heading">¶</a></h3>
+<p>2 channels variants of the ad738x family, can use the SDOB line as an alert pin
+when configured in 1 SDO line mode. 4 channels variants, can use SDOD as an
+alert pin when configured in 1 or 2 SDO line(s) mode, although only 1 SDO line
+mode is currently supported by the driver (see <a class="reference internal" href="#spi-wiring-modes">SPI wiring modes</a>).</p>
+<p>At the end of a conversion the active-low alert pin gets asserted if the
+conversion result exceeds the alert high limit or falls below the alert low
+limit. It is cleared, on a falling edge of CS. The alert pin is common to all
+channels.</p>
+<p>User can enable alert using the regular iio events attribute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>events/thresh_either_en
+</pre></div>
+</div>
+<p>The high and low thresholds are common to all channels and can also be set using
+regular iio events attributes:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>events/in_thresh_falling_value
+events/in_thresh_rising_value
+</pre></div>
+</div>
+<p>If debugfs is available, user can read the ALERT register to determine the
+faulty channel and direction.</p>
+<p>In most use cases, user will hardwire the alert pin to trigger a shutdown.</p>
 </section>
 <section id="channel-selection-and-sequencer-single-end-chips-only">
 <h3>Channel selection and sequencer (single-end chips only)<a class="headerlink" href="#channel-selection-and-sequencer-single-end-chips-only" title="Link to this heading">¶</a></h3>
@@ -284,9 +310,24 @@ wiring.</p>
 <li><p>Rolling average oversampling</p></li>
 <li><p>Power down mode</p></li>
 <li><p>CRC indication</p></li>
-<li><p>Alert</p></li>
 </ul>
 </section>
+</section>
+<section id="spi-offload-support">
+<h2>SPI offload support<a class="headerlink" href="#spi-offload-support" title="Link to this heading">¶</a></h2>
+<p>To be able to achieve the maximum sample rate, the driver can be used with the
+<a class="reference external" href="http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html">AXI SPI Engine</a> to provide SPI offload support.</p>
+<p>When SPI offload is being used, some attributes will be different.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger</span></code> directory is removed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code> attribute is added for setting the sample
+rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency_available</span></code> attribute is added for querying
+the max sample rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> channel is removed.</p></li>
+<li><p>Buffer data format may be different compared to when offload is not used,
+e.g. the <code class="docutils literal notranslate"><span class="pre">in_voltage0_type</span></code> attribute.</p></li>
+</ul>
 </section>
 <section id="device-buffers">
 <h2>Device buffers<a class="headerlink" href="#device-buffers" title="Link to this heading">¶</a></h2>

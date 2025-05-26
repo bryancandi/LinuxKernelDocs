@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -170,7 +170,7 @@ VM_FLAGS_PERMANENT flag [1] and on OpenBSD with the mimmutable syscall [2].</p>
 <section id="mseal-syscall-signature">
 <h3>mseal syscall signature<a class="headerlink" href="#mseal-syscall-signature" title="Link to this heading">¶</a></h3>
 <blockquote>
-<div><p><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">mseal(void</span> <span class="pre">\*</span> <span class="pre">addr,</span> <span class="pre">size_t</span> <span class="pre">len,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">flags)</span></code></p>
+<div><p><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">mseal(void</span> <span class="pre">*addr,</span> <span class="pre">size_t</span> <span class="pre">len,</span> <span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">flags)</span></code></p>
 <dl>
 <dt><strong>addr</strong>/<strong>len</strong>: virtual memory address range.</dt><dd><dl class="simple">
 <dt>The address range set by <strong>addr</strong>/<strong>len</strong> must meet:</dt><dd><ul class="simple">
@@ -291,11 +291,28 @@ VMAs before reaching the sealed VMA and return -EPERM.</p></li>
 </section>
 <section id="use-cases">
 <h2>Use cases<a class="headerlink" href="#use-cases" title="Link to this heading">¶</a></h2>
-<ul class="simple">
+<ul>
 <li><p>glibc:
 The dynamic linker, during loading ELF executables, can apply sealing to
 mapping segments.</p></li>
 <li><p>Chrome browser: protect some security sensitive data structures.</p></li>
+<li><p>System mappings:
+The system mappings are created by the kernel and includes vdso, vvar,
+vvar_vclock, vectors (arm compat-mode), sigpage (arm compat-mode), uprobes.</p>
+<p>Those system mappings are readonly only or execute only, memory sealing can
+protect them from ever changing to writable or unmmap/remapped as different
+attributes. This is useful to mitigate memory corruption issues where a
+corrupted pointer is passed to a memory management system.</p>
+<p>If supported by an architecture (CONFIG_ARCH_SUPPORTS_MSEAL_SYSTEM_MAPPINGS),
+the CONFIG_MSEAL_SYSTEM_MAPPINGS seals all system mappings of this
+architecture.</p>
+<p>The following architectures currently support this feature: x86-64, arm64,
+and s390.</p>
+<p>WARNING: This feature breaks programs which rely on relocating
+or unmapping system mappings. Known broken software at the time
+of writing includes CHECKPOINT_RESTORE, UML, gVisor, rr. Therefore
+this config can’t be enabled universally.</p>
+</li>
 </ul>
 </section>
 <section id="when-not-to-use-mseal">

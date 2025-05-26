@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Power Management" href="../power/index.html" />
-    <link rel="prev" title="z3fold" href="z3fold.html" />
+    <link rel="prev" title="A vmemmap diet for HugeTLB and Device DAX" href="vmemmap_dedup.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -181,9 +181,8 @@ Instead, it returns an opaque handle (unsigned long) which encodes actual
 location of the allocated object. The reason for this indirection is that
 zsmalloc does not keep zspages permanently mapped since that would cause
 issues on 32-bit systems where the VA region for kernel space mappings
-is very small. So, before using the allocating memory, the object has to
-be mapped using <a class="reference internal" href="#c.zs_map_object" title="zs_map_object"><code class="xref c c-func docutils literal notranslate"><span class="pre">zs_map_object()</span></code></a> to get a usable pointer and subsequently
-unmapped using zs_unmap_object().</p>
+is very small. So, using the allocated memory should be done through the
+proper handle-based APIs.</p>
 <section id="stat">
 <h2>stat<a class="headerlink" href="#stat" title="Link to this heading">¶</a></h2>
 <p>With CONFIG_ZSMALLOC_STAT, we could see zsmalloc internal information via
@@ -457,30 +456,6 @@ CONFIG_ZSMALLOC_CHAIN_SIZE option).</p>
 <p><strong>Return</strong></p>
 <p>the index of the zsmalloc <code class="xref c c-type docutils literal notranslate"><span class="pre">size_class</span></code> that hold objects of the
 provided size.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.zs_map_object">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">zs_map_object</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">zs_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pool</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">handle</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">zs_mapmode</span></span><span class="w"> </span><span class="n"><span class="pre">mm</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zs_map_object" title="Link to this definition">¶</a><br /></dt>
-<dd><p>get address of allocated object from handle.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">zs_pool</span> <span class="pre">*pool</span></code></dt><dd><p>pool from which the object was allocated</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">handle</span></code></dt><dd><p>handle returned from zs_malloc</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">zs_mapmode</span> <span class="pre">mm</span></code></dt><dd><p>mapping mode to use</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Before using an object allocated from zs_malloc, it must be mapped using
-this function. When done with the object, it must be unmapped using
-zs_unmap_object.</p>
-<p>Only one object can be mapped per cpu at a time. There is no protection
-against nested mappings.</p>
-<p>This function returns with preemption and page faults disabled.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.zs_huge_class_size">

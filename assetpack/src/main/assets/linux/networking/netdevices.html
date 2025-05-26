@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -331,38 +331,44 @@ packets is preferred.</p>
 <section id="struct-net-device-synchronization-rules">
 <h2>struct net_device synchronization rules<a class="headerlink" href="#struct-net-device-synchronization-rules" title="Link to this heading">¶</a></h2>
 <dl>
-<dt>ndo_open:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_open:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process</p>
 </dd>
-<dt>ndo_stop:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_stop:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process
 Note: <a class="reference internal" href="kapi.html#c.netif_running" title="netif_running"><code class="xref c c-func docutils literal notranslate"><span class="pre">netif_running()</span></code></a> is guaranteed false</p>
 </dd>
-<dt>ndo_do_ioctl:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
-Context: process</p>
+<dt>ndo_do_ioctl:</dt><dd><p>Synchronization: rtnl_lock() semaphore.</p>
 <p>This is only called by network subsystems internally,
 not by user space calling ioctl as it was in before
 linux-5.14.</p>
 </dd>
-<dt>ndo_siocbond:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_siocbond:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process</p>
 <p>Used by the bonding driver for the SIOCBOND family of
 ioctl commands.</p>
 </dd>
-<dt>ndo_siocwandev:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_siocwandev:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process</p>
 <p>Used by the drivers/net/wan framework to handle
 the SIOCWANDEV ioctl with the if_settings structure.</p>
 </dd>
-<dt>ndo_siocdevprivate:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_siocdevprivate:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process</p>
 <p>This is used to implement SIOCDEVPRIVATE ioctl helpers.
 These should not be added to new drivers, so don’t use.</p>
 </dd>
-<dt>ndo_eth_ioctl:</dt><dd><p>Synchronization: rtnl_lock() semaphore.
+<dt>ndo_eth_ioctl:</dt><dd><p>Synchronization: rtnl_lock() semaphore. In addition, netdev instance
+lock if the driver implements queue management or shaper API.
 Context: process</p>
 </dd>
-<dt>ndo_get_stats:</dt><dd><p>Synchronization: rtnl_lock() semaphore, or RCU.
+<dt>ndo_get_stats:</dt><dd><p>Synchronization: RCU (can be called concurrently with the stats
+update path).
 Context: atomic (can’t sleep under RCU)</p>
 </dd>
 <dt>ndo_start_xmit:</dt><dd><p>Synchronization: __netif_tx_lock spinlock.</p>
@@ -391,7 +397,15 @@ Notes: <a class="reference internal" href="kapi.html#c.netif_queue_stopped" titl
 <dt>ndo_set_rx_mode:</dt><dd><p>Synchronization: netif_addr_lock spinlock.
 Context: BHs disabled</p>
 </dd>
+<dt>ndo_setup_tc:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">TC_SETUP_BLOCK</span></code> and <code class="docutils literal notranslate"><span class="pre">TC_SETUP_FT</span></code> are running under NFT locks
+(i.e. no <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code> and no device instance lock). The rest of
+<code class="docutils literal notranslate"><span class="pre">tc_setup_type</span></code> types run under netdev instance lock if the driver
+implements queue management or shaper API.</p>
+</dd>
 </dl>
+<p>Most ndo callbacks not specified in the list above are running
+under <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code>. In addition, netdev instance lock is taken as well if
+the driver implements queue management or shaper API.</p>
 </section>
 <section id="struct-napi-struct-synchronization-rules">
 <h2>struct napi_struct synchronization rules<a class="headerlink" href="#struct-napi-struct-synchronization-rules" title="Link to this heading">¶</a></h2>
@@ -409,6 +423,51 @@ will be called with interrupts disabled by netconsole.</p>
 </dl>
 </dd>
 </dl>
+</section>
+<section id="struct-netdev-queue-mgmt-ops-synchronization-rules">
+<h2>struct netdev_queue_mgmt_ops synchronization rules<a class="headerlink" href="#struct-netdev-queue-mgmt-ops-synchronization-rules" title="Link to this heading">¶</a></h2>
+<p>All queue management ndo callbacks are holding netdev instance lock.</p>
+</section>
+<section id="rtnl-and-netdev-instance-lock">
+<h2>RTNL and netdev instance lock<a class="headerlink" href="#rtnl-and-netdev-instance-lock" title="Link to this heading">¶</a></h2>
+<p>Historically, all networking control operations were protected by a single
+global lock known as <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code>. There is an ongoing effort to replace this
+global lock with separate locks for each network namespace. Additionally,
+properties of individual netdev are increasingly protected by per-netdev locks.</p>
+<p>For device drivers that implement shaping or queue management APIs, all control
+operations will be performed under the netdev instance lock. Currently, this
+instance lock is acquired within the context of <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code>. The drivers
+can also explicitly request instance lock to be acquired via
+<code class="docutils literal notranslate"><span class="pre">request_ops_lock</span></code>. In the future, there will be an option for individual
+drivers to opt out of using <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code> and instead perform their control
+operations directly under the netdev instance lock.</p>
+<p>Devices drivers are encouraged to rely on the instance lock where possible.</p>
+<p>For the (mostly software) drivers that need to interact with the core stack,
+there are two sets of interfaces: <code class="docutils literal notranslate"><span class="pre">dev_xxx</span></code>/<code class="docutils literal notranslate"><span class="pre">netdev_xxx</span></code> and <code class="docutils literal notranslate"><span class="pre">netif_xxx</span></code>
+(e.g., <code class="docutils literal notranslate"><span class="pre">dev_set_mtu</span></code> and <code class="docutils literal notranslate"><span class="pre">netif_set_mtu</span></code>). The <code class="docutils literal notranslate"><span class="pre">dev_xxx</span></code>/<code class="docutils literal notranslate"><span class="pre">netdev_xxx</span></code>
+functions handle acquiring the instance lock themselves, while the
+<code class="docutils literal notranslate"><span class="pre">netif_xxx</span></code> functions assume that the driver has already acquired
+the instance lock.</p>
+</section>
+<section id="notifiers-and-netdev-instance-lock">
+<h2>Notifiers and netdev instance lock<a class="headerlink" href="#notifiers-and-netdev-instance-lock" title="Link to this heading">¶</a></h2>
+<p>For device drivers that implement shaping or queue management APIs,
+some of the notifiers (<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">netdev_cmd</span></code>) are running under the netdev
+instance lock.</p>
+<p>For devices with locked ops, currently only the following notifiers are
+running under the lock:
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_REGISTER</span></code>
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_UP</span></code>
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_CHANGE</span></code></p>
+<p>The following notifiers are running without the lock:
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_UNREGISTER</span></code></p>
+<p>There are no clear expectations for the remaining notifiers. Notifiers not on
+the list may run with or without the instance lock, potentially even invoking
+the same notifier type with and without the lock from different code paths.
+The goal is to eventually ensure that all (or most, with a few documented
+exceptions) notifiers run under the instance lock. Please extend this
+documentation whenever you make explicit assumption about lock being held
+from a notifier.</p>
 </section>
 <section id="netdev-internal-symbol-namespace">
 <h2>NETDEV_INTERNAL symbol namespace<a class="headerlink" href="#netdev-internal-symbol-namespace" title="Link to this heading">¶</a></h2>

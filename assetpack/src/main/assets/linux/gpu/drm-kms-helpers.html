@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -779,8 +779,8 @@ modesetting helpers.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_connector_helper_funcs {
     int (*get_modes)(struct drm_connector *connector);
     int (*detect_ctx)(struct drm_connector *connector,struct drm_modeset_acquire_ctx *ctx, bool force);
-    enum drm_mode_status (*mode_valid)(struct drm_connector *connector, struct drm_display_mode *mode);
-    int (*mode_valid_ctx)(struct drm_connector *connector,struct drm_display_mode *mode,struct drm_modeset_acquire_ctx *ctx, enum drm_mode_status *status);
+    enum drm_mode_status (*mode_valid)(struct drm_connector *connector, const struct drm_display_mode *mode);
+    int (*mode_valid_ctx)(struct drm_connector *connector,const struct drm_display_mode *mode,struct drm_modeset_acquire_ctx *ctx, enum drm_mode_status *status);
     struct drm_encoder *(*best_encoder)(struct drm_connector *connector);
     struct drm_encoder *(*atomic_best_encoder)(struct drm_connector *connector, struct drm_atomic_state *state);
     int (*atomic_check)(struct drm_connector *connector, struct drm_atomic_state *state);
@@ -1025,7 +1025,7 @@ probe helpers.</p>
     void (*atomic_update)(struct drm_plane *plane, struct drm_atomic_state *state);
     void (*atomic_enable)(struct drm_plane *plane, struct drm_atomic_state *state);
     void (*atomic_disable)(struct drm_plane *plane, struct drm_atomic_state *state);
-    int (*atomic_async_check)(struct drm_plane *plane, struct drm_atomic_state *state);
+    int (*atomic_async_check)(struct drm_plane *plane, struct drm_atomic_state *state, bool flip);
     void (*atomic_async_update)(struct drm_plane *plane, struct drm_atomic_state *state);
     int (*get_scanout_buffer)(struct drm_plane *plane, struct drm_scanout_buffer *sb);
     void (*panic_flush)(struct drm_plane *plane);
@@ -1161,6 +1161,10 @@ atomic state can be updated in a async fashion. Here async means
 <p>This hook is called by drm_atomic_async_check() to establish if a
 given update can be committed asynchronously, that is, if it can
 jump ahead of the state currently queued for update.</p>
+<p>This function is also used by drm_atomic_set_property() to determine
+if the plane can be flipped in async. The flip flag is used to
+distinguish if the function is used for just the plane state or for a
+flip.</p>
 <p>RETURNS:</p>
 <p>Return 0 on success and any error returned indicates that the update
 can not be applied in asynchronous manner.</p>
@@ -1669,12 +1673,19 @@ watermarks.</p>
 might not desired for some drivers.
 For example enable/disable of a cursor plane which have fixed zpos value
 would trigger all other enabled planes to be forced to the state change.</p>
+<p>IMPORTANT:</p>
+<p>As this function calls <a class="reference internal" href="#c.drm_atomic_helper_check_modeset" title="drm_atomic_helper_check_modeset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_check_modeset()</span></code></a> internally, its
+restrictions also apply:
+Drivers which set <a class="reference internal" href="drm-kms.html#c.drm_crtc_state" title="drm_crtc_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_state.mode_changed</span></code></a> (e.g. in their
+<a class="reference internal" href="#c.drm_plane_helper_funcs" title="drm_plane_helper_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_helper_funcs.atomic_check</span></code></a> hooks if a plane update can’t be done
+without a full modeset) _must_ call <a class="reference internal" href="#c.drm_atomic_helper_check_modeset" title="drm_atomic_helper_check_modeset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_check_modeset()</span></code></a>
+function again after that change.</p>
 <p><strong>Return</strong></p>
 <p>Zero for success or -errno</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_update_legacy_modeset_state">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_update_legacy_modeset_state</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_update_legacy_modeset_state" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_update_legacy_modeset_state</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_update_legacy_modeset_state" title="Link to this definition">¶</a><br /></dt>
 <dd><p>update legacy modeset state</p>
 </dd></dl>
 
@@ -1683,7 +1694,7 @@ would trigger all other enabled planes to be forced to the state change.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1715,7 +1726,7 @@ by calling <a class="reference internal" href="drm-kms.html#c.drm_calc_timestamp
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_modeset_disables">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_modeset_disables</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_modeset_disables" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_modeset_disables</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_modeset_disables" title="Link to this definition">¶</a><br /></dt>
 <dd><p>modeset commit to disable outputs</p>
 </dd></dl>
 
@@ -1724,7 +1735,7 @@ by calling <a class="reference internal" href="drm-kms.html#c.drm_calc_timestamp
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1738,7 +1749,7 @@ PM since planes updates then only happen when the CRTC is actually enabled.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_modeset_enables">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_modeset_enables</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_modeset_enables" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_modeset_enables</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_modeset_enables" title="Link to this definition">¶</a><br /></dt>
 <dd><p>modeset commit to enable outputs</p>
 </dd></dl>
 
@@ -1747,7 +1758,7 @@ PM since planes updates then only happen when the CRTC is actually enabled.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1791,7 +1802,7 @@ before we call <a class="reference internal" href="#c.drm_atomic_helper_swap_sta
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_wait_for_vblanks">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_vblanks</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_vblanks" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_vblanks</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_vblanks" title="Link to this definition">¶</a><br /></dt>
 <dd><p>wait for vblank on CRTCs</p>
 </dd></dl>
 
@@ -1800,7 +1811,7 @@ before we call <a class="reference internal" href="#c.drm_atomic_helper_swap_sta
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1815,7 +1826,7 @@ plane update use-case.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_wait_for_flip_done">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_flip_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_flip_done" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_flip_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_flip_done" title="Link to this definition">¶</a><br /></dt>
 <dd><p>wait for all page flips to be done</p>
 </dd></dl>
 
@@ -1824,7 +1835,7 @@ plane update use-case.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1839,14 +1850,14 @@ initialized using <a class="reference internal" href="#c.drm_atomic_helper_setup
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_tail">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_tail</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_tail" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_tail</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_tail" title="Link to this definition">¶</a><br /></dt>
 <dd><p>commit atomic update to hardware</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1860,14 +1871,14 @@ match the legacy modeset helper library closest.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_tail_rpm">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_tail_rpm</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_tail_rpm" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_tail_rpm</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_tail_rpm" title="Link to this definition">¶</a><br /></dt>
 <dd><p>commit atomic update to hardware</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>new modeset state to be committed</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>new modeset state to be committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -1997,19 +2008,19 @@ automatically.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_wait_for_dependencies">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_dependencies</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_dependencies" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_wait_for_dependencies</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_wait_for_dependencies" title="Link to this definition">¶</a><br /></dt>
 <dd><p>wait for required preceding commits</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function waits for all preceding commits that touch the same CRTC as
-<strong>old_state</strong> to both be committed to the hardware (as signalled by
+<strong>state</strong> to both be committed to the hardware (as signalled by
 <a class="reference internal" href="#c.drm_atomic_helper_commit_hw_done" title="drm_atomic_helper_commit_hw_done"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_commit_hw_done()</span></code></a>) and executed by the hardware (as signalled
 by calling <a class="reference internal" href="drm-kms.html#c.drm_crtc_send_vblank_event" title="drm_crtc_send_vblank_event"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_crtc_send_vblank_event()</span></code></a> on the <a class="reference internal" href="drm-kms.html#c.drm_crtc_state" title="drm_crtc_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_state.event</span></code></a>).</p>
 <p>This is part of the atomic helper support for nonblocking commits, see
@@ -2017,14 +2028,14 @@ by calling <a class="reference internal" href="drm-kms.html#c.drm_crtc_send_vbla
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_fake_vblank">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_fake_vblank</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_fake_vblank" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_fake_vblank</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_fake_vblank" title="Link to this definition">¶</a><br /></dt>
 <dd><p>fake VBLANK events if needed</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -2043,14 +2054,14 @@ VBLANK interrupt.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_hw_done">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_hw_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_hw_done" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_hw_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_hw_done" title="Link to this definition">¶</a><br /></dt>
 <dd><p>setup possible nonblocking commit</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -2065,18 +2076,18 @@ this function is called.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_cleanup_done">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_cleanup_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_cleanup_done" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_cleanup_done</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_cleanup_done" title="Link to this definition">¶</a><br /></dt>
 <dd><p>signal completion of commit</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This signals completion of the atomic update <strong>old_state</strong>, including any
+<p>This signals completion of the atomic update <strong>state</strong>, including any
 cleanup work. If used, it must be called right before calling
 <a class="reference internal" href="drm-kms.html#c.drm_atomic_state_put" title="drm_atomic_state_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_state_put()</span></code></a>.</p>
 <p>This is part of the atomic helper support for nonblocking commits, see
@@ -2126,7 +2137,7 @@ use <a class="reference internal" href="#c.drm_atomic_helper_cleanup_planes" tit
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_commit_planes">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_planes" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_commit_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_commit_planes" title="Link to this definition">¶</a><br /></dt>
 <dd><p>commit plane state</p>
 </dd></dl>
 
@@ -2135,7 +2146,7 @@ use <a class="reference internal" href="#c.drm_atomic_helper_cleanup_planes" tit
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">flags</span></code></dt><dd><p>flags for committing plane state</p>
 </dd>
@@ -2145,7 +2156,7 @@ use <a class="reference internal" href="#c.drm_atomic_helper_cleanup_planes" tit
 functions for planes and CRTCs. It assumes that the atomic state has already
 been pushed into the relevant object state pointers, since this step can no
 longer fail.</p>
-<p>It still requires the global state object <strong>old_state</strong> to know which planes and
+<p>It still requires the global state object <strong>state</strong> to know which planes and
 crtcs need to be updated though.</p>
 <p>Note that this function does all plane updates across all CRTCs in one step.
 If the hardware can’t support this approach look at
@@ -2220,7 +2231,7 @@ planes.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_helper_cleanup_planes">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_cleanup_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_cleanup_planes" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_cleanup_planes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_cleanup_planes" title="Link to this definition">¶</a><br /></dt>
 <dd><p>cleanup plane resources after commit</p>
 </dd></dl>
 
@@ -2229,12 +2240,12 @@ planes.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>atomic state object with old state structures</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state object being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This function cleans up plane state, specifically framebuffers, from the old
-configuration. Hence the old configuration must be perserved in <strong>old_state</strong> to
+configuration. Hence the old configuration must be perserved in <strong>state</strong> to
 be able to call this function.</p>
 <p>This function may not be called on the new state when the atomic update
 fails at any point after calling <a class="reference internal" href="#c.drm_atomic_helper_prepare_planes" title="drm_atomic_helper_prepare_planes"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_prepare_planes()</span></code></a>. Use
@@ -2386,6 +2397,31 @@ return -EDEADLK, which must be handled by calling <a class="reference internal" 
 <p>See also:
 <a class="reference internal" href="#c.drm_atomic_helper_suspend" title="drm_atomic_helper_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_suspend()</span></code></a>, <a class="reference internal" href="#c.drm_atomic_helper_resume" title="drm_atomic_helper_resume"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_resume()</span></code></a> and
 <a class="reference internal" href="#c.drm_atomic_helper_shutdown" title="drm_atomic_helper_shutdown"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_shutdown()</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_reset_crtc">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_reset_crtc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_crtc" title="drm_crtc"><span class="n"><span class="pre">drm_crtc</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">crtc</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_modeset_acquire_ctx" title="drm_modeset_acquire_ctx"><span class="n"><span class="pre">drm_modeset_acquire_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_reset_crtc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>reset the active outputs of a CRTC</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_crtc</span> <span class="pre">*crtc</span></code></dt><dd><p>DRM CRTC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_modeset_acquire_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>lock acquisition context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Reset the active outputs by indicating that connectors have changed.
+This implies a reset of all active components available between the CRTC and
+connectors.</p>
+<p><strong>NOTE</strong></p>
+<p>This relies on resetting <a class="reference internal" href="drm-kms.html#c.drm_crtc_state" title="drm_crtc_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_state.connectors_changed</span></code></a>.
+For drivers which optimize out unnecessary modesets this will result in
+a no-op commit, achieving nothing.</p>
 <p><strong>Return</strong></p>
 <p>0 on success or a negative error code on failure.</p>
 </div>
@@ -4040,27 +4076,33 @@ of the attached displays. fb_width/fb_height is used by
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_fb_helper_funcs {
-    int (*fb_probe)(struct drm_fb_helper *helper, struct drm_fb_helper_surface_size *sizes);
     int (*fb_dirty)(struct drm_fb_helper *helper, struct drm_clip_rect *clip);
+    void (*fb_restore)(struct drm_fb_helper *helper);
+    void (*fb_set_suspend)(struct drm_fb_helper *helper, bool suspend);
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">fb_probe</span></code></dt><dd><p>Driver callback to allocate and initialize the fbdev info structure.
-Furthermore it also needs to allocate the DRM framebuffer used to
-back the fbdev.</p>
-<p>This callback is mandatory.</p>
-<p>RETURNS:</p>
-<p>The driver should return 0 on success and a negative error code on
-failure.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">fb_dirty</span></code></dt><dd><p>Driver callback to update the framebuffer memory. If set, fbdev
 emulation will invoke this callback in regular intervals after
 the framebuffer has been written.</p>
 <p>This callback is optional.</p>
 <p>Returns:
 0 on success, or an error code otherwise.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fb_restore</span></code></dt><dd><p>Driver callback to restore internal fbdev state. If set, fbdev
+emulation will invoke this callback after restoring the display
+mode.</p>
+<p>Only for i915. Do not use in new code.</p>
+<p>TODO: Fix i915 to not require this callback.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fb_set_suspend</span></code></dt><dd><p>Driver callback to suspend or resume, if set, fbdev emulation will
+invoke this callback during suspend and resume. Driver should call
+<a class="reference internal" href="../driver-api/frame-buffer.html#c.fb_set_suspend" title="fb_set_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">fb_set_suspend()</span></code></a> from their implementation. If not set, fbdev
+emulation will invoke <a class="reference internal" href="../driver-api/frame-buffer.html#c.fb_set_suspend" title="fb_set_suspend"><code class="xref c c-func docutils literal notranslate"><span class="pre">fb_set_suspend()</span></code></a> directly.</p>
+<p>Only for i915. Do not use in new code.</p>
+<p>TODO: Fix i915 to not require this callback.</p>
 </dd>
 </dl>
 </div>
@@ -4978,6 +5020,40 @@ top-left corner).</p>
 support XRGB8888.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fb_xrgb8888_to_bgr888">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fb_xrgb8888_to_bgr888</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst_pitch</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">src</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_framebuffer" title="drm_framebuffer"><span class="n"><span class="pre">drm_framebuffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fb</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_rect" title="drm_rect"><span class="n"><span class="pre">drm_rect</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">clip</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_format_conv_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fb_xrgb8888_to_bgr888" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Convert XRGB8888 to BGR888 clip buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iosys_map</span> <span class="pre">*dst</span></code></dt><dd><p>Array of BGR888 destination buffers</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*dst_pitch</span></code></dt><dd><p>Array of numbers of bytes between the start of two consecutive scanlines
+within <strong>dst</strong>; can be NULL if scanlines are stored next to each other.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">iosys_map</span> <span class="pre">*src</span></code></dt><dd><p>Array of XRGB8888 source buffers</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_framebuffer</span> <span class="pre">*fb</span></code></dt><dd><p>DRM framebuffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_rect</span> <span class="pre">*clip</span></code></dt><dd><p>Clip rectangle area to copy</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_format_conv_state</span> <span class="pre">*state</span></code></dt><dd><p>Transform and conversion state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function copies parts of a framebuffer to display memory and converts the
+color format during the process. Destination and framebuffer formats must match. The
+parameters <strong>dst</strong>, <strong>dst_pitch</strong> and <strong>src</strong> refer to arrays. Each array must have at
+least as many entries as there are planes in <strong>fb</strong>’s format. Each entry stores the
+value for the format’s respective color plane at the same index.</p>
+<p>This function does not apply clipping on <strong>dst</strong> (i.e. the destination is at the
+top-left corner).</p>
+<p>Drivers can use this function for BGR888 devices that don’t natively
+support XRGB8888.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_fb_xrgb8888_to_argb8888">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fb_xrgb8888_to_argb8888</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst_pitch</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">src</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_framebuffer" title="drm_framebuffer"><span class="n"><span class="pre">drm_framebuffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fb</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_rect" title="drm_rect"><span class="n"><span class="pre">drm_rect</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">clip</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_format_conv_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fb_xrgb8888_to_argb8888" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Convert XRGB8888 to ARGB8888 clip buffer</p>
@@ -5116,6 +5192,40 @@ drivers can announce the commonly supported XR24 format to userspace and use
 this function to convert to the native format. Monochrome drivers will use the
 most significant bit, where 1 means foreground color and 0 background color.
 ITU BT.601 is being used for the RGB -&gt; luma (brightness) conversion.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_fb_argb8888_to_argb4444">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_fb_argb8888_to_argb4444</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dst_pitch</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/device-io.html#c.iosys_map" title="iosys_map"><span class="n"><span class="pre">iosys_map</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">src</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_framebuffer" title="drm_framebuffer"><span class="n"><span class="pre">drm_framebuffer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fb</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_rect" title="drm_rect"><span class="n"><span class="pre">drm_rect</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">clip</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_format_conv_state</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_fb_argb8888_to_argb4444" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Convert ARGB8888 to ARGB4444 clip buffer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iosys_map</span> <span class="pre">*dst</span></code></dt><dd><p>Array of ARGB4444 destination buffers</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">*dst_pitch</span></code></dt><dd><p>Array of numbers of bytes between the start of two consecutive scanlines
+within <strong>dst</strong>; can be NULL if scanlines are stored next to each other.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">iosys_map</span> <span class="pre">*src</span></code></dt><dd><p>Array of ARGB8888 source buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_framebuffer</span> <span class="pre">*fb</span></code></dt><dd><p>DRM framebuffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_rect</span> <span class="pre">*clip</span></code></dt><dd><p>Clip rectangle area to copy</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_format_conv_state</span> <span class="pre">*state</span></code></dt><dd><p>Transform and conversion state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function copies parts of a framebuffer to display memory and converts
+the color format during the process. The parameters <strong>dst</strong>, <strong>dst_pitch</strong> and
+<strong>src</strong> refer to arrays. Each array must have at least as many entries as
+there are planes in <strong>fb</strong>’s format. Each entry stores the value for the
+format’s respective color plane at the same index.</p>
+<p>This function does not apply clipping on <strong>dst</strong> (i.e. the destination is at the
+top-left corner).</p>
+<p>Drivers can use this function for ARGB4444 devices that don’t support
+ARGB8888 natively.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_fb_blit">
@@ -5868,10 +5978,10 @@ shall not create a drm_connector.</p>
     void (*mode_set)(struct drm_bridge *bridge,const struct drm_display_mode *mode, const struct drm_display_mode *adjusted_mode);
     void (*pre_enable)(struct drm_bridge *bridge);
     void (*enable)(struct drm_bridge *bridge);
-    void (*atomic_pre_enable)(struct drm_bridge *bridge, struct drm_bridge_state *old_bridge_state);
-    void (*atomic_enable)(struct drm_bridge *bridge, struct drm_bridge_state *old_bridge_state);
-    void (*atomic_disable)(struct drm_bridge *bridge, struct drm_bridge_state *old_bridge_state);
-    void (*atomic_post_disable)(struct drm_bridge *bridge, struct drm_bridge_state *old_bridge_state);
+    void (*atomic_pre_enable)(struct drm_bridge *bridge, struct drm_atomic_state *state);
+    void (*atomic_enable)(struct drm_bridge *bridge, struct drm_atomic_state *state);
+    void (*atomic_disable)(struct drm_bridge *bridge, struct drm_atomic_state *state);
+    void (*atomic_post_disable)(struct drm_bridge *bridge, struct drm_atomic_state *state);
     struct drm_bridge_state *(*atomic_duplicate_state)(struct drm_bridge *bridge);
     void (*atomic_destroy_state)(struct drm_bridge *bridge, struct drm_bridge_state *state);
     u32 *(*atomic_get_output_bus_fmts)(struct drm_bridge *bridge,struct drm_bridge_state *bridge_state,struct drm_crtc_state *crtc_state,struct drm_connector_state *conn_state, unsigned int *num_output_fmts);
@@ -6664,7 +6774,7 @@ encoder chain, starting from the first bridge to the last.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_bridge_chain_disable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_disable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_disable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>disables all bridges in the encoder chain</p>
 </dd></dl>
 
@@ -6673,7 +6783,7 @@ encoder chain, starting from the first bridge to the last.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>old atomic state</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -6686,7 +6796,7 @@ starting from the last bridge to the first. These are called before calling
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_bridge_chain_post_disable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_post_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_post_disable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_post_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_post_disable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>cleans up after disabling all bridges in the encoder chain</p>
 </dd></dl>
 
@@ -6695,7 +6805,7 @@ starting from the last bridge to the first. These are called before calling
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>old atomic state</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -6716,7 +6826,7 @@ Bridge B, Bridge A, Bridge E, Bridge D, Bridge C.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_bridge_chain_pre_enable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_pre_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_pre_enable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_pre_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_pre_enable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>prepares for enabling all bridges in the encoder chain</p>
 </dd></dl>
 
@@ -6725,7 +6835,7 @@ Bridge B, Bridge A, Bridge E, Bridge D, Bridge C.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>old atomic state</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -6745,7 +6855,7 @@ Bridge C, Bridge D, Bridge E, Bridge A, Bridge B.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_bridge_chain_enable">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_enable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_bridge_chain_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_bridge_chain_enable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>enables all bridges in the encoder chain</p>
 </dd></dl>
 
@@ -6754,7 +6864,7 @@ Bridge C, Bridge D, Bridge E, Bridge A, Bridge B.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*old_state</span></code></dt><dd><p>old atomic state</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>atomic state being committed</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -7372,7 +7482,7 @@ the panel is powered up.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_panel_funcs</span> <span class="pre">*funcs</span></code></dt><dd><p>panel operations</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">connector_type</span></code></dt><dd><p>the connector type (DRM_MODE_CONNECTOR_*) corresponding to
-the panel interface</p>
+the panel interface (must NOT be DRM_MODE_CONNECTOR_Unknown)</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -8655,6 +8765,27 @@ non-NULL and valid.</p>
 <p>Name of the DP PHY.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_lttpr_wake_timeout_setup">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_lttpr_wake_timeout_setup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">transparent_mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_lttpr_wake_timeout_setup" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Grant extended time for sink to wake up</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>The DP AUX channel to use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">transparent_mode</span></code></dt><dd><p>This is true if lttpr is in transparent mode</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function checks if the sink needs any extended wake time, if it does
+it grants this request. Post this setup the source device can keep trying
+the Aux transaction till the granted wake timeout.
+If this function is not called all Aux transactions are expected to take
+a default of 1ms before they throw an error.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_probe">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_probe</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_probe" title="Link to this definition">¶</a><br /></dt>
 <dd><p>probe a given DPCD address with a 1-byte read access</p>
@@ -9562,6 +9693,42 @@ otherwise the number of detected LTTPRs</p>
 <p>Returns the maximum link rate supported by all detected LTTPRs.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_lttpr_set_transparent_mode">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_lttpr_set_transparent_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">enable</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_lttpr_set_transparent_mode" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set the LTTPR in transparent mode</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">enable</span></code></dt><dd><p>Enable or disable transparent mode</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_lttpr_init">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_lttpr_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">lttpr_count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_lttpr_init" title="Link to this definition">¶</a><br /></dt>
+<dd><p>init LTTPR transparency mode according to DP standard</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">lttpr_count</span></code></dt><dd><p>Number of LTTPRs. Between 0 and 8, according to DP standard.
+Negative error code for any non-valid number.
+See <a class="reference internal" href="#c.drm_dp_lttpr_count" title="drm_dp_lttpr_count"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_lttpr_count()</span></code></a>.</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_lttpr_max_lane_count">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_lttpr_max_lane_count</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">caps</span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">DP_LTTPR_COMMON_CAP_SIZE</span></span><span class="p"><span class="pre">]</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_lttpr_max_lane_count" title="Link to this definition">¶</a><br /></dt>
 <dd><p>get the maximum lane count supported by all LTTPRs</p>
@@ -10419,7 +10586,7 @@ Type1 adaptors do not support any register writes.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_lspcon_set_mode">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_lspcon_set_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adapter</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_lspcon_mode" title="drm_lspcon_mode"><span class="n"><span class="pre">drm_lspcon_mode</span></span></a><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_lspcon_set_mode" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_lspcon_set_mode</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adapter</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_lspcon_mode" title="drm_lspcon_mode"><span class="n"><span class="pre">drm_lspcon_mode</span></span></a><span class="w"> </span><span class="n"><span class="pre">mode</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">time_out</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_lspcon_set_mode" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Change LSPCON’s mode of operation by writing offset (0x80, 0x40)</p>
 </dd></dl>
 
@@ -10431,6 +10598,8 @@ Type1 adaptors do not support any register writes.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_adapter</span> <span class="pre">*adapter</span></code></dt><dd><p>I2C-over-aux adapter</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_lspcon_mode</span> <span class="pre">mode</span></code></dt><dd><p>required mode of operation</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">time_out</span></code></dt><dd><p>LSPCON mode change settle timeout</p>
 </dd>
 </dl>
 <p><strong>Return</strong></p>
@@ -10676,7 +10845,11 @@ reference/dereference. See CONFIG_DRM_DEBUG_DP_MST_TOPOLOGY_REFS.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">destroy_next</span></code></dt><dd><p>linked-list entry used by
 drm_dp_delayed_destroy_work()</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rad</span></code></dt><dd><p>Relative Address to talk to this branch device.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">rad</span></code></dt><dd><p>Relative Address of the MST branch.
+For <a class="reference internal" href="#c.drm_dp_mst_topology_mgr" title="drm_dp_mst_topology_mgr"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_dp_mst_topology_mgr.mst_primary</span></code></a>, it’s rad[8] are all 0,
+unset and unused. For MST branches connected after mst_primary,
+in each element of rad[] the nibbles are ordered by the most
+signifcant 4 bits first and the least significant 4 bits second.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">lct</span></code></dt><dd><p>Link count total to talk to this branch device.</p>
 </dd>
@@ -13919,21 +14092,6 @@ instead.</p>
 <p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_tear_off">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_tear_off</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_tear_off" title="Link to this definition">¶</a><br /></dt>
-<dd><p>turn off the display module’s Tearing Effect output signal on the TE signal line</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_device</span> <span class="pre">*dsi</span></code></dt><dd><p>DSI peripheral device</p>
-</dd>
-</dl>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_tear_on">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_tear_on</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_device" title="mipi_dsi_device"><span class="n"><span class="pre">mipi_dsi_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dsi</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_dcs_tear_mode" title="mipi_dsi_dcs_tear_mode"><span class="n"><span class="pre">mipi_dsi_dcs_tear_mode</span></span></a><span class="w"> </span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_tear_on" title="Link to this definition">¶</a><br /></dt>
 <dd><p>turn on the display module’s Tearing Effect output signal on the TE signal line.</p>
@@ -14234,6 +14392,19 @@ makes it convenient to make several calls in a row.</p>
 <p><strong>Description</strong></p>
 <p>Like <a class="reference internal" href="#c.mipi_dsi_turn_on_peripheral" title="mipi_dsi_turn_on_peripheral"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_turn_on_peripheral()</span></code></a> but deals with errors in a way that
 makes it convenient to make several calls in a row.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.mipi_dsi_dcs_set_tear_off_multi">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_set_tear_off_multi</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mipi_dsi_multi_context" title="mipi_dsi_multi_context"><span class="n"><span class="pre">mipi_dsi_multi_context</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mipi_dsi_dcs_set_tear_off_multi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>turn off the display module’s Tearing Effect output signal on the TE signal line</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mipi_dsi_multi_context</span> <span class="pre">*ctx</span></code></dt><dd><p>Context for multiple DSI transactions</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_soft_reset_multi">
@@ -14868,16 +15039,14 @@ This function populates the SDP header defined in
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_picture_parameter_set</span> <span class="pre">*pps_payload</span></code></p>
-<blockquote>
-<div><p>Bitwise struct for DSC Picture Parameter Set. This is defined
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_picture_parameter_set</span> <span class="pre">*pps_payload</span></code></dt><dd><p>Bitwise struct for DSC Picture Parameter Set. This is defined
 by <a class="reference internal" href="#c.drm_dsc_picture_parameter_set" title="drm_dsc_picture_parameter_set"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_picture_parameter_set</span></code></a></p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*dsc_cfg</span></code></p>
-<blockquote>
-<div><p>DSC Configuration data filled by driver as defined by
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*dsc_cfg</span></code></dt><dd><p>DSC Configuration data filled by driver as defined by
 <a class="reference internal" href="#c.drm_dsc_config" title="drm_dsc_config"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_config</span></code></a></p>
-</div></blockquote>
+</dd>
+</dl>
 <p><strong>Description</strong></p>
 <p>DSC source device sends a picture parameter set (PPS) containing the
 information required by the sink to decode the compressed frame. Driver
@@ -14894,10 +15063,10 @@ that span more than 1 byte.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*vdsc_cfg</span></code></p>
-<blockquote>
-<div><p>DSC Configuration data partially filled by driver</p>
-</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*vdsc_cfg</span></code></dt><dd><p>DSC Configuration data partially filled by driver</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dsc_set_rc_buf_thresh">
@@ -14937,10 +15106,10 @@ that span more than 1 byte.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*vdsc_cfg</span></code></p>
-<blockquote>
-<div><p>DSC Configuration data partially filled by driver</p>
-</div></blockquote>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dsc_config</span> <span class="pre">*vdsc_cfg</span></code></dt><dd><p>DSC Configuration data partially filled by driver</p>
+</dd>
+</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dsc_get_bpp_int">

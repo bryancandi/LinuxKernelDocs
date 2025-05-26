@@ -87,11 +87,11 @@ Get / dump information about Page Pools.
         :attributes: [``id``]
 
     **reply**
-        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``]
+        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``, ``io-uring``]
 
 :dump:
     **reply**
-        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``]
+        :attributes: [``id``, ``ifindex``, ``napi-id``, ``inflight``, ``inflight-mem``, ``detach-time``, ``dmabuf``, ``io-uring``]
 
 
 
@@ -161,14 +161,14 @@ Get queue information from the kernel. Only configured queues will be reported (
         :attributes: [``ifindex``, ``type``, ``id``]
 
     **reply**
-        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``]
+        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``, ``io-uring``, ``xsk``]
 
 :dump:
     **request**
         :attributes: [``ifindex``]
 
     **reply**
-        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``]
+        :attributes: [``id``, ``type``, ``napi-id``, ``ifindex``, ``dmabuf``, ``io-uring``, ``xsk``]
 
 
 
@@ -299,6 +299,7 @@ xsk-flags
 :entries:
     :tx-timestamp: HW timestamping egress packets is supported by the driver.
     :tx-checksum: L3 checksum HW offload is supported by the driver.
+    :tx-launch-time-fifo: Launch time HW offload is supported by the driver.
 
 
 .. _netdev-definition-queue-type:
@@ -366,6 +367,10 @@ xsk-features (``u64``)
 :enum: :ref:`netdev-definition-xsk-flags`
 
 
+.. _netdev-attribute-set-io-uring-provider-info:
+
+io-uring-provider-info
+======================
 .. _netdev-attribute-set-page-pool:
 
 page-pool
@@ -403,6 +408,12 @@ detach-time (``uint``)
 dmabuf (``u32``)
 ~~~~~~~~~~~~~~~~
 :doc: ID of the dmabuf this page-pool is attached to.
+
+
+io-uring (``nest``)
+~~~~~~~~~~~~~~~~~~~
+:doc: io-uring memory provider information.
+:nested-attributes: :ref:`netdev-attribute-set-io-uring-provider-info`
 
 
 .. _netdev-attribute-set-page-pool-info:
@@ -511,6 +522,10 @@ irq-suspend-timeout (``uint``)
 :doc: The timeout, in nanoseconds, of how long to suspend irq processing, if event polling finds events
 
 
+.. _netdev-attribute-set-xsk-info:
+
+xsk-info
+========
 .. _netdev-attribute-set-queue:
 
 queue
@@ -527,7 +542,7 @@ ifindex (``u32``)
 
 type (``u32``)
 ~~~~~~~~~~~~~~
-:doc: Queue type as rx, tx. Each queue type defines a separate ID space.
+:doc: Queue type as rx, tx. Each queue type defines a separate ID space. XDP TX queues allocated in the kernel are not linked to NAPIs and thus not listed. AF_XDP queues will have more information set in the xsk attribute.
 :enum: :ref:`netdev-definition-queue-type`
 
 
@@ -539,6 +554,18 @@ napi-id (``u32``)
 dmabuf (``u32``)
 ~~~~~~~~~~~~~~~~
 :doc: ID of the dmabuf attached to this queue, if any.
+
+
+io-uring (``nest``)
+~~~~~~~~~~~~~~~~~~~
+:doc: io_uring memory provider information.
+:nested-attributes: :ref:`netdev-attribute-set-io-uring-provider-info`
+
+
+xsk (``nest``)
+~~~~~~~~~~~~~~
+:doc: XSK information for this queue, if any.
+:nested-attributes: :ref:`netdev-attribute-set-xsk-info`
 
 
 .. _netdev-attribute-set-qstats:
@@ -665,7 +692,7 @@ tx-csum-none (``uint``)
 
 tx-needs-csum (``uint``)
 ~~~~~~~~~~~~~~~~~~~~~~~~
-:doc: Number of packets that required the device to calculate the checksum.
+:doc: Number of packets that required the device to calculate the checksum. This counter includes the number of GSO wire packets for which device calculated the L4 checksum.
 
 
 tx-hw-gso-packets (``uint``)

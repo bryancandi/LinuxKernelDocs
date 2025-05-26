@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -257,6 +257,12 @@ on metadata intensive workloads. The <code class="docutils literal notranslate">
 controls the size of each buffer and so is also relevant to
 this case.</p>
 </dd>
+<dt>lifetime (default) or nolifetime</dt><dd><p>Enable data placement based on write life time hints provided
+by the user. This turns on co-allocation of data of similar
+life times when statistically favorable to reduce garbage
+collection cost.</p>
+<p>These options are only available for zoned rt file systems.</p>
+</dd>
 <dt>logbsize=value</dt><dd><p>Set the size of each in-memory log buffer.  The size may be
 specified in bytes, or in kilobytes with a “k” suffix.
 Valid sizes for version 1 and version 2 logs are 16384 (16k)
@@ -272,6 +278,12 @@ An XFS filesystem has up to three parts: a data section, a log
 section, and a real-time section.  The real-time section is
 optional, and the log section can be separate from the data
 section or contained within it.</p>
+</dd>
+<dt>max_open_zones=value</dt><dd><p>Specify the max number of zones to keep open for writing on a
+zoned rt device. Many open zones aids file data separation
+but may impact performance on HDDs.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">max_open_zones</span></code> is not specified, the value is determined
+by the capabilities and the size of the zoned rt device.</p>
 </dd>
 <dt>noalign</dt><dd><p>Data allocations will not be aligned at stripe unit
 boundaries. This is only relevant to filesystems created
@@ -699,6 +711,27 @@ same nice levels that can be applied to userspace processes.</p></td>
 </tr>
 </tbody>
 </table>
+</section>
+<section id="zoned-filesystems">
+<h2>Zoned Filesystems<a class="headerlink" href="#zoned-filesystems" title="Link to this heading">¶</a></h2>
+<p>For zoned file systems, the following attributes are exposed in:</p>
+<blockquote>
+<div><p>/sys/fs/xfs/&lt;dev&gt;/zoned/</p>
+<dl class="simple">
+<dt>max_open_zones                (Min:  1  Default:  Varies  Max:  UINTMAX)</dt><dd><p>This read-only attribute exposes the maximum number of open zones
+available for data placement. The value is determined at mount time and
+is limited by the capabilities of the backing zoned device, file system
+size and the max_open_zones mount option.</p>
+</dd>
+<dt>zonegc_low_space              (Min:  0  Default:  0  Max:  100)</dt><dd><p>Define a percentage for how much of the unused space that GC should keep
+available for writing. A high value will reclaim more of the space
+occupied by unused blocks, creating a larger buffer against write
+bursts at the cost of increased write amplification.  Regardless
+of this value, garbage collection will always aim to free a minimum
+amount of blocks to keep max_open_zones open for data placement purposes.</p>
+</dd>
+</dl>
+</div></blockquote>
 </section>
 </section>
 

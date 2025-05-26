@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -154,7 +154,7 @@
 <dd class="field-odd"><p>Mickaël Salaün</p>
 </dd>
 <dt class="field-even">Date<span class="colon">:</span></dt>
-<dd class="field-even"><p>January 2025</p>
+<dd class="field-even"><p>March 2025</p>
 </dd>
 </dl>
 <p>The goal of Landlock is to enable restriction of ambient rights (e.g. global
@@ -428,29 +428,28 @@ access rights, which means the tracee must be in a sub-domain of the tracer.</p>
 <section id="ipc-scoping">
 <h3>IPC scoping<a class="headerlink" href="#ipc-scoping" title="Link to this heading">¶</a></h3>
 <p>Similar to the implicit <a class="reference internal" href="#ptrace-restrictions">Ptrace restrictions</a>, we may want to further restrict
-interactions between sandboxes. Each Landlock domain can be explicitly scoped
-for a set of actions by specifying it on a ruleset.  For example, if a
-sandboxed process should not be able to <em class="manpage">connect(2)</em> to a
-non-sandboxed process through abstract <em class="manpage">unix(7)</em> sockets, we can
-specify such a restriction with <code class="docutils literal notranslate"><span class="pre">LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET</span></code>.
-Moreover, if a sandboxed process should not be able to send a signal to a
-non-sandboxed process, we can specify this restriction with
-<code class="docutils literal notranslate"><span class="pre">LANDLOCK_SCOPE_SIGNAL</span></code>.</p>
-<p>A sandboxed process can connect to a non-sandboxed process when its domain is
-not scoped. If a process’s domain is scoped, it can only connect to sockets
-created by processes in the same scope.
-Moreover, if a process is scoped to send signal to a non-scoped process, it can
-only send signals to processes in the same scope.</p>
-<p>A connected datagram socket behaves like a stream socket when its domain is
-scoped, meaning if the domain is scoped after the socket is connected, it can
-still <em class="manpage">send(2)</em> data just like a stream socket.  However, in the same
-scenario, a non-connected datagram socket cannot send data (with
-<em class="manpage">sendto(2)</em>) outside its scope.</p>
-<p>A process with a scoped domain can inherit a socket created by a non-scoped
-process. The process cannot connect to this socket since it has a scoped
-domain.</p>
-<p>IPC scoping does not support exceptions, so if a domain is scoped, no rules can
-be added to allow access to resources or processes outside of the scope.</p>
+interactions between sandboxes.  Therefore, at ruleset creation time, each
+Landlock domain can restrict the scope for certain operations, so that these
+operations can only reach out to processes within the same Landlock domain or in
+a nested Landlock domain (the “scope”).</p>
+<p>The operations which can be scoped are:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_SCOPE_SIGNAL</span></code></dt><dd><p>This limits the sending of signals to target processes which run within the
+same or a nested Landlock domain.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET</span></code></dt><dd><p>This limits the set of abstract <em class="manpage">unix(7)</em> sockets to which we can
+<em class="manpage">connect(2)</em> to socket addresses which were created by a process in
+the same or a nested Landlock domain.</p>
+<p>A <em class="manpage">sendto(2)</em> on a non-connected datagram socket is treated as if
+it were doing an implicit <em class="manpage">connect(2)</em> and will be blocked if the
+remote end does not stem from the same or a nested Landlock domain.</p>
+<p>A <em class="manpage">sendto(2)</em> on a socket which was previously connected will not
+be restricted.  This works for both datagram and stream sockets.</p>
+</dd>
+</dl>
+<p>IPC scoping does not support exceptions via <em class="manpage">landlock_add_rule(2)</em>.
+If an operation is scoped within a domain, no rules can be added to allow access
+to resources or processes outside of the scope.</p>
 </section>
 <section id="truncating-files">
 <h3>Truncating files<a class="headerlink" href="#truncating-files" title="Link to this heading">¶</a></h3>
@@ -681,15 +680,18 @@ the new ruleset.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>Size of the pointed <a class="reference internal" href="#c.landlock_ruleset_attr" title="landlock_ruleset_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">landlock_ruleset_attr</span></code></a> (needed for
 backward and forward compatibility).</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>Supported value: <code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_VERSION</span></code>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>Supported values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_VERSION</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_ERRATA</span></code></p></li>
+</ul>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This system call enables to create a new Landlock ruleset, and returns the
 related file descriptor on success.</p>
-<p>If <strong>flags</strong> is <code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_VERSION</span></code> and <strong>attr</strong> is NULL and <strong>size</strong> is
-0, then the returned value is the highest supported Landlock ABI version
-(starting at 1).</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_VERSION</span></code> or <code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_ERRATA</span></code> is
+set, then <strong>attr</strong> must be NULL and <strong>size</strong> must be 0.</p>
 <p>Possible returned errors are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code>: Landlock is supported by the kernel but disabled at boot time;</p></li>
@@ -698,6 +700,13 @@ related file descriptor on success.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">EFAULT</span></code>: <strong>attr</strong> or <strong>size</strong> inconsistencies;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ENOMSG</span></code>: empty <a class="reference internal" href="#c.landlock_ruleset_attr" title="landlock_ruleset_attr"><code class="xref c c-type docutils literal notranslate"><span class="pre">landlock_ruleset_attr.handled_access_fs</span></code></a>.</p></li>
 </ul>
+<p><strong>Flags</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_VERSION</span></code></dt><dd><p>Get the highest supported Landlock ABI version (starting at 1).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_CREATE_RULESET_ERRATA</span></code></dt><dd><p>Get a bitmask of fixed issues for the current Landlock ABI version.</p>
+</dd>
+</dl>
 </div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.landlock_ruleset_attr">
@@ -882,7 +891,12 @@ automatically translate to binding on the related port range.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">int</span> <span class="pre">ruleset_fd</span></code></dt><dd><p>File descriptor tied to the ruleset to merge with the target.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>Must be 0.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">__u32</span> <span class="pre">flags</span></code></dt><dd><p>Supported values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF</span></code></p></li>
+</ul>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -893,7 +907,7 @@ unprivileged tasks can affect the behavior of privileged children.</p>
 <p>Possible returned errors are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">EOPNOTSUPP</span></code>: Landlock is supported by the kernel but disabled at boot time;</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <strong>flags</strong> is not 0.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>: <strong>flags</strong> contains an unknown bit.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EBADF</span></code>: <strong>ruleset_fd</strong> is not a file descriptor for the current thread;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EBADFD</span></code>: <strong>ruleset_fd</strong> is not a ruleset file descriptor;</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">EPERM</span></code>: <strong>ruleset_fd</strong> has no read access to the underlying ruleset, or the
@@ -902,6 +916,48 @@ current thread is not running with no_new_privs, or it doesn’t have
 <li><p><code class="docutils literal notranslate"><span class="pre">E2BIG</span></code>: The maximum number of stacked rulesets is reached for the current
 thread.</p></li>
 </ul>
+<p><strong>Flags</strong></p>
+<p>By default, denied accesses originating from programs that sandbox themselves
+are logged via the audit subsystem. Such events typically indicate unexpected
+behavior, such as bugs or exploitation attempts. However, to avoid excessive
+logging, access requests denied by a domain not created by the originating
+program are not logged by default. The rationale is that programs should know
+their own behavior, but not necessarily the behavior of other programs.  This
+default configuration is suitable for most programs that sandbox themselves.
+For specific use cases, the following flags allow programs to modify this
+default logging behavior.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF</span></code> and
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON</span></code> flags apply to the newly created
+Landlock domain.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF</span></code></dt><dd><p>Disables logging of denied accesses originating from the thread creating
+the Landlock domain, as well as its children, as long as they continue
+running the same executable code (i.e., without an intervening
+<em class="manpage">execve(2)</em> call). This is intended for programs that execute
+unknown code without invoking <em class="manpage">execve(2)</em>, such as script
+interpreters. Programs that only sandbox themselves should not set this
+flag, so users can be notified of unauthorized access attempts via system
+logs.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON</span></code></dt><dd><p>Enables logging of denied accesses after an <em class="manpage">execve(2)</em> call,
+providing visibility into unauthorized access attempts by newly executed
+programs within the created Landlock domain. This flag is recommended
+only when all potential executables in the domain are expected to comply
+with the access restrictions, as excessive audit log entries could make
+it more difficult to identify critical events.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF</span></code></dt><dd><p>Disables logging of denied accesses originating from nested Landlock
+domains created by the caller or its descendants. This flag should be set
+according to runtime configuration, not hardcoded, to avoid suppressing
+important security events. It is useful for container runtimes or
+sandboxing tools that may launch programs which themselves create
+Landlock domains and could otherwise generate excessive logs. Unlike
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF</span></code>, this flag only affects
+future nested domains, not the one being created. It can also be used
+with a <strong>ruleset_fd</strong> value of -1 to mute subdomain logs without creating a
+domain.</p>
+</dd>
+</dl>
 </div>
 </section>
 </section>
@@ -1013,6 +1069,15 @@ connections to an abstract <em class="manpage">unix(7)</em> socket by setting
 <em class="manpage">signal(7)</em> sending by setting <code class="docutils literal notranslate"><span class="pre">LANDLOCK_SCOPE_SIGNAL</span></code> to the
 <code class="docutils literal notranslate"><span class="pre">scoped</span></code> ruleset attribute.</p>
 </section>
+<section id="logging-abi-7">
+<h3>Logging (ABI &lt; 7)<a class="headerlink" href="#logging-abi-7" title="Link to this heading">¶</a></h3>
+<p>Starting with the Landlock ABI version 7, it is possible to control logging of
+Landlock audit events with the <code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF</span></code>,
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF</span></code> flags passed to
+<a class="reference internal" href="#c.sys_landlock_restrict_self" title="sys_landlock_restrict_self"><code class="xref c c-func docutils literal notranslate"><span class="pre">sys_landlock_restrict_self()</span></code></a>.  See <a class="reference internal" href="../admin-guide/LSM/landlock.html"><span class="doc">Landlock: system-wide management</span></a>
+for more details on audit.</p>
+</section>
 </section>
 <section id="kernel-support">
 <span id="id2"></span><h2>Kernel support<a class="headerlink" href="#kernel-support" title="Link to this heading">¶</a></h2>
@@ -1086,10 +1151,16 @@ fine-grained restrictions).  Moreover, their complexity can lead to security
 issues, especially when untrusted processes can manipulate them (cf.
 <a class="reference external" href="https://lwn.net/Articles/673597/">Controlling access to user namespaces</a>).</p>
 </section>
+<section id="how-to-disable-landlock-audit-records">
+<h3>How to disable Landlock audit records?<a class="headerlink" href="#how-to-disable-landlock-audit-records" title="Link to this heading">¶</a></h3>
+<p>You might want to put in place filters as explained here:
+<a class="reference internal" href="../admin-guide/LSM/landlock.html"><span class="doc">Landlock: system-wide management</span></a></p>
+</section>
 </section>
 <section id="additional-documentation">
 <h2>Additional documentation<a class="headerlink" href="#additional-documentation" title="Link to this heading">¶</a></h2>
 <ul class="simple">
+<li><p><a class="reference internal" href="../admin-guide/LSM/landlock.html"><span class="doc">Landlock: system-wide management</span></a></p></li>
 <li><p><a class="reference internal" href="../security/landlock.html"><span class="doc">Landlock LSM: kernel documentation</span></a></p></li>
 <li><p><a class="reference external" href="https://landlock.io">https://landlock.io</a></p></li>
 </ul>

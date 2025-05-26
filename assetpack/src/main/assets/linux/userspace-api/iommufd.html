@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -92,7 +92,9 @@
 <li class="toctree-l2"><a class="reference internal" href="index.html#security-related-interfaces">Security-related interfaces</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#devices-and-i-o">Devices and I/O</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="accelerators/ocxl.html">OpenCAPI (Open Coherent Accelerator Processor Interface)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-buf-heaps.html">Allocating dma-buf using heaps</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dma-buf-alloc-exchange.html">Exchanging pixel buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fwctl/index.html">Firmware Control (FWCTL) Userspace API</a></li>
 <li class="toctree-l3"><a class="reference internal" href="gpio/index.html">GPIO</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">IOMMUFD</a></li>
 <li class="toctree-l3"><a class="reference internal" href="media/index.html">Linux Media Infrastructure userspace API</a></li>
@@ -204,6 +206,12 @@ feature.) As such, it must be created with a given nesting parent stage-2
 domain to associate to. This nested stage-1 page table managed by the user
 space usually has mappings from guest-level I/O virtual addresses to guest-
 level physical addresses.</p></li>
+<li><p>IOMMUFD_FAULT, representing a software queue for an HWPT reporting IO page
+faults using the IOMMU HW’s PRI (Page Request Interface). This queue object
+provides user space an FD to poll the page fault events and also to respond
+to those events. A FAULT object must be created first to get a fault_id that
+could be then used to allocate a fault-enabled HWPT via the IOMMU_HWPT_ALLOC
+command by setting the IOMMU_HWPT_FAULT_ID_VALID bit in its flags field.</p></li>
 <li><p>IOMMUFD_OBJ_VIOMMU, representing a slice of the physical IOMMU instance,
 passed to or shared with a VM. It may be some HW-accelerated virtualization
 features and some SW resources used by the VM. For examples:</p>
@@ -249,6 +257,13 @@ in a Confidential Compute Architecture. A VMM should create a vDEVICE object
 to forward all the device information in a VM, when it connects a device to a
 vIOMMU, which is a separate ioctl call from attaching the same device to an
 HWPT_PAGING that the vIOMMU holds.</p></li>
+<li><p>IOMMUFD_OBJ_VEVENTQ, representing a software queue for a vIOMMU to report its
+events such as translation faults occurred to a nested stage-1 (excluding I/O
+page faults that should go through IOMMUFD_OBJ_FAULT) and HW-specific events.
+This queue object provides user space an FD to poll/read the vIOMMU events. A
+vIOMMU object must be created first to get its viommu_id, which could be then
+used to allocate a vEVENTQ. Each vIOMMU can support multiple types of vEVENTS,
+but is confined to one vEVENTQ per vEVENTQ type.</p></li>
 </ul>
 <p>All user-visible objects are destroyed via the IOMMU_DESTROY uAPI.</p>
 <p>The diagrams below show relationships between user-visible objects and kernel
@@ -388,8 +403,10 @@ most one IOAS object (no support of PASID yet).</p>
 <li><p>iommufd_device for IOMMUFD_OBJ_DEVICE.</p></li>
 <li><p>iommufd_hwpt_paging for IOMMUFD_OBJ_HWPT_PAGING.</p></li>
 <li><p>iommufd_hwpt_nested for IOMMUFD_OBJ_HWPT_NESTED.</p></li>
+<li><p>iommufd_fault for IOMMUFD_OBJ_FAULT.</p></li>
 <li><p>iommufd_viommu for IOMMUFD_OBJ_VIOMMU.</p></li>
 <li><p>iommufd_vdevice for IOMMUFD_OBJ_VDEVICE.</p></li>
+<li><p>iommufd_veventq for IOMMUFD_OBJ_VEVENTQ.</p></li>
 </ul>
 <p>Several terminologies when looking at these datastructures:</p>
 <ul class="simple">
@@ -822,19 +839,17 @@ everything.</p>
 
 <div class="kernelindent docutils container">
 <p><strong>Constants</strong></p>
-<p><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_RLIMIT_MODE</span></code></p>
-<blockquote>
-<div><p>Change how RLIMIT_MEMLOCK accounting works. The caller must have privilege
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_RLIMIT_MODE</span></code></dt><dd><p>Change how RLIMIT_MEMLOCK accounting works. The caller must have privilege
 to invoke this. Value 0 (default) is user based accounting, 1 uses process
 based accounting. Global option, object_id must be 0</p>
-</div></blockquote>
-<p><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_HUGE_PAGES</span></code></p>
-<blockquote>
-<div><p>Value 1 (default) allows contiguous pages to be combined when generating
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_OPTION_HUGE_PAGES</span></code></dt><dd><p>Value 1 (default) allows contiguous pages to be combined when generating
 iommu mappings. Value 0 disables combining, everything is mapped to
 PAGE_SIZE. This can be useful for benchmarking.  This is a per-IOAS
 option, the object_id must be the IOAS ID.</p>
-</div></blockquote>
+</dd>
+</dl>
 </div>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.iommufd_option_ops">
@@ -965,6 +980,9 @@ domain can be attached to any PASID on the device.
 Any domain attached to the non-PASID part of the
 device must also be flagged, otherwise attaching a
 PASID will blocked.
+For the user that wants to attach PASID, ioas is
+not recommended for both the non-PASID part
+and PASID part of the device.
 If IOMMU does not support PASID it will return
 error (-EOPNOTSUPP).</p>
 </dd>
@@ -1264,6 +1282,14 @@ are supported:</p>
 IOMMU_HWPT_SET_DIRTY_TRACKING</p>
 </div></blockquote>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HW_CAP_PCI_PASID_EXEC</span></code></dt><dd><p>Execute Permission Supported, user ignores it
+when the <a class="reference internal" href="#c.iommu_hw_info" title="iommu_hw_info"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">iommu_hw_info</span></code></a>::out_max_pasid_log2 is zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_HW_CAP_PCI_PASID_PRIV</span></code></dt><dd><p>Privileged Mode Supported, user ignores it
+when the <a class="reference internal" href="#c.iommu_hw_info" title="iommu_hw_info"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">iommu_hw_info</span></code></a>::out_max_pasid_log2 is zero.</p>
+</dd>
 </dl>
 </div>
 <dl class="c struct">
@@ -1281,7 +1307,8 @@ IOMMU_HWPT_SET_DIRTY_TRACKING</p>
     __u32 data_len;
     __aligned_u64 data_uptr;
     __u32 out_data_type;
-    __u32 __reserved;
+    __u8 out_max_pasid_log2;
+    __u8 __reserved[3];
     __aligned_u64 out_capabilities;
 };
 </pre></div>
@@ -1302,6 +1329,10 @@ the iommu type specific hardware information data</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">out_data_type</span></code></dt><dd><p>Output the iommu hardware info type as defined in the <a class="reference internal" href="#c.iommu_hw_info_type" title="iommu_hw_info_type"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span>
 <span class="pre">iommu_hw_info_type</span></code></a>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_max_pasid_log2</span></code></dt><dd><p>Output the width of PASIDs. 0 means no PASID support.
+PCI devices turn to out_capabilities to check if the
+specific capabilities is supported or not.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">__reserved</span></code></dt><dd><p>Must be 0</p>
 </dd>
@@ -1851,6 +1882,192 @@ with IOMMU_IOAS_MAP_FILE, and returns EINVAL if other maps are present.
 If the ioctl returns a failure status, then nothing is changed.</p>
 <p>This API is useful for transferring operation of a device from one process
 to another, such as during userland live update.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.iommu_veventq_flag">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_veventq_flag</span></span></span><a class="headerlink" href="#c.iommu_veventq_flag" title="Link to this definition">¶</a><br /></dt>
+<dd><p>flag for <a class="reference internal" href="#c.iommufd_vevent_header" title="iommufd_vevent_header"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_vevent_header</span></code></a></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VEVENTQ_FLAG_LOST_EVENTS</span></code></dt><dd><p>vEVENTQ has lost vEVENTs</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommufd_vevent_header">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_vevent_header</span></span></span><a class="headerlink" href="#c.iommufd_vevent_header" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Virtual Event Header for a vEVENTQ Status</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommufd_vevent_header {
+    __u32 flags;
+    __u32 sequence;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of <a class="reference internal" href="#c.iommu_veventq_flag" title="iommu_veventq_flag"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">iommu_veventq_flag</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sequence</span></code></dt><dd><p>The sequence index of a vEVENT in the vEVENTQ, with a range of
+[0, INT_MAX] where the following index of INT_MAX is 0</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Each iommufd_vevent_header reports a sequence index of the following vEVENT:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>header0 {sequence=0}</p></td>
+<td><p>data0</p></td>
+<td><p>header1 {sequence=1}</p></td>
+<td><p>data1</p></td>
+<td><p>...</p></td>
+<td><p>dataN</p></td>
+</tr>
+</tbody>
+</table>
+<p>And this sequence index is expected to be monotonic to the sequence index of
+the previous vEVENT. If two adjacent sequence indexes has a delta larger than
+1, it means that delta - 1 number of vEVENTs has lost, e.g. two lost vEVENTs:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>...</p></td>
+<td><p>header3 {sequence=3}</p></td>
+<td><p>data3</p></td>
+<td><p>header6 {sequence=6}</p></td>
+<td><p>data6</p></td>
+<td><p>...</p></td>
+</tr>
+</tbody>
+</table>
+<p>If a vEVENT lost at the tail of the vEVENTQ and there is no following vEVENT
+providing the next sequence index, an IOMMU_VEVENTQ_FLAG_LOST_EVENTS header
+would be added to the tail, and no data would follow this header:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td><p>header3 {sequence=3}</p></td>
+<td><p>data3</p></td>
+<td><p>header4 {flags=LOST_EVENTS, sequence=4}</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.iommu_veventq_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_veventq_type</span></span></span><a class="headerlink" href="#c.iommu_veventq_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Virtual Event Queue Type</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VEVENTQ_TYPE_DEFAULT</span></code></dt><dd><p>Reserved for future use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">IOMMU_VEVENTQ_TYPE_ARM_SMMUV3</span></code></dt><dd><p>ARM SMMUv3 Virtual Event Queue</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_vevent_arm_smmuv3">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_vevent_arm_smmuv3</span></span></span><a class="headerlink" href="#c.iommu_vevent_arm_smmuv3" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ARM SMMUv3 Virtual Event (IOMMU_VEVENTQ_TYPE_ARM_SMMUV3)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_vevent_arm_smmuv3 {
+    __aligned_le64 evt[4];
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">evt</span></code></dt><dd><p>256-bit ARM SMMUv3 Event record, little-endian.
+Reported event records: (Refer to “7.3 Event records” in SMMUv3 HW Spec)
+- 0x04 C_BAD_STE
+- 0x06 F_STREAM_DISABLED
+- 0x08 C_BAD_SUBSTREAMID
+- 0x0a C_BAD_CD
+- 0x10 F_TRANSLATION
+- 0x11 F_ADDR_SIZE
+- 0x12 F_ACCESS
+- 0x13 F_PERMISSION</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>StreamID field reports a virtual device ID. To receive a virtual event for a
+device, a vDEVICE must be allocated via IOMMU_VDEVICE_ALLOC.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.iommu_veventq_alloc">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommu_veventq_alloc</span></span></span><a class="headerlink" href="#c.iommu_veventq_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>ioctl(IOMMU_VEVENTQ_ALLOC)</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct iommu_veventq_alloc {
+    __u32 size;
+    __u32 flags;
+    __u32 viommu_id;
+    __u32 type;
+    __u32 veventq_depth;
+    __u32 out_veventq_id;
+    __u32 out_veventq_fd;
+    __u32 __reserved;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>sizeof(<a class="reference internal" href="#c.iommu_veventq_alloc" title="iommu_veventq_alloc"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommu_veventq_alloc</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Must be 0</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">viommu_id</span></code></dt><dd><p>virtual IOMMU ID to associate the vEVENTQ with</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>Type of the vEVENTQ. Must be defined in <a class="reference internal" href="#c.iommu_veventq_type" title="iommu_veventq_type"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">iommu_veventq_type</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">veventq_depth</span></code></dt><dd><p>Maximum number of events in the vEVENTQ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_veventq_id</span></code></dt><dd><p>The ID of the new vEVENTQ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_veventq_fd</span></code></dt><dd><p>The fd of the new vEVENTQ. User space must close the
+successfully returned fd after using it</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__reserved</span></code></dt><dd><p>Must be 0</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Explicitly allocate a virtual event queue interface for a vIOMMU. A vIOMMU
+can have multiple FDs for different types, but is confined to one per <strong>type</strong>.
+User space should open the <strong>out_veventq_fd</strong> to read vEVENTs out of a vEVENTQ,
+if there are vEVENTs available. A vEVENTQ will lose events due to overflow,
+if the number of the vEVENTs hits <strong>veventq_depth</strong>.</p>
+<p>Each vEVENT in a vEVENTQ encloses a <a class="reference internal" href="#c.iommufd_vevent_header" title="iommufd_vevent_header"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_vevent_header</span></code></a> followed by
+a type-specific data structure, in a normal case:</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td><p>header0</p></td>
+<td><p>data0</p></td>
+<td><p>header1</p></td>
+<td><p>data1</p></td>
+<td><p>...</p></td>
+<td><p>headerN</p></td>
+<td><p>dataN</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>unless a tailing IOMMU_VEVENTQ_FLAG_LOST_EVENTS header is logged (refer to
+<a class="reference internal" href="#c.iommufd_vevent_header" title="iommufd_vevent_header"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_vevent_header</span></code></a>).</p>
 </section>
 <section id="iommufd-kernel-api">
 <h2>IOMMUFD Kernel API<a class="headerlink" href="#iommufd-kernel-api" title="Link to this heading">¶</a></h2>
@@ -1920,8 +2137,8 @@ concurrently.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.iommufd_device_attach">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pt_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_attach" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Connect a device to an iommu_domain</p>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_attach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span>, <span class="n"><span class="pre">ioasid_t</span></span><span class="w"> </span><span class="n"><span class="pre">pasid</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pt_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_attach" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Connect a device/pasid to an iommu_domain</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1929,26 +2146,31 @@ concurrently.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_device</span> <span class="pre">*idev</span></code></dt><dd><p>device to attach</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ioasid_t</span> <span class="pre">pasid</span></code></dt><dd><p>pasid to attach</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*pt_id</span></code></dt><dd><p>Input a IOMMUFD_OBJ_IOAS, or IOMMUFD_OBJ_HWPT_PAGING
 Output the IOMMUFD_OBJ_HWPT_PAGING ID</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>This connects the device to an iommu_domain, either automatically or manually
-selected. Once this completes the device could do DMA.</p>
+<p>This connects the device/pasid to an iommu_domain, either automatically
+or manually selected. Once this completes the device could do DMA with
+<strong>pasid</strong>. <strong>pasid</strong> is IOMMU_NO_PASID if this attach is for no pasid usage.</p>
 <p>The caller should return the resulting pt_id back to userspace.
 This function is undone by calling <a class="reference internal" href="#c.iommufd_device_detach" title="iommufd_device_detach"><code class="xref c c-func docutils literal notranslate"><span class="pre">iommufd_device_detach()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.iommufd_device_replace">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_replace</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pt_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_replace" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Change the device’s iommu_domain</p>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_replace</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span>, <span class="n"><span class="pre">ioasid_t</span></span><span class="w"> </span><span class="n"><span class="pre">pasid</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">pt_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_replace" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Change the device/pasid’s iommu_domain</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_device</span> <span class="pre">*idev</span></code></dt><dd><p>device to change</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ioasid_t</span> <span class="pre">pasid</span></code></dt><dd><p>pasid to change</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*pt_id</span></code></dt><dd><p>Input a IOMMUFD_OBJ_IOAS, or IOMMUFD_OBJ_HWPT_PAGING
 Output the IOMMUFD_OBJ_HWPT_PAGING ID</p>
@@ -1962,12 +2184,13 @@ iommufd_device_attach();
 </div>
 <p>If it fails then no change is made to the attachment. The iommu driver may
 implement this so there is no disruption in translation. This can only be
-called if <a class="reference internal" href="#c.iommufd_device_attach" title="iommufd_device_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">iommufd_device_attach()</span></code></a> has already succeeded.</p>
+called if <a class="reference internal" href="#c.iommufd_device_attach" title="iommufd_device_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">iommufd_device_attach()</span></code></a> has already succeeded. <strong>pasid</strong> is
+IOMMU_NO_PASID for no pasid usage.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.iommufd_device_detach">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_detach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_detach" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Disconnect a device to an iommu_domain</p>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iommufd_device_detach</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iommufd_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">idev</span></span>, <span class="n"><span class="pre">ioasid_t</span></span><span class="w"> </span><span class="n"><span class="pre">pasid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.iommufd_device_detach" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Disconnect a device/device to an iommu_domain</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1975,10 +2198,13 @@ called if <a class="reference internal" href="#c.iommufd_device_attach" title="i
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iommufd_device</span> <span class="pre">*idev</span></code></dt><dd><p>device to detach</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ioasid_t</span> <span class="pre">pasid</span></code></dt><dd><p>pasid to detach</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>Undo <a class="reference internal" href="#c.iommufd_device_attach" title="iommufd_device_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">iommufd_device_attach()</span></code></a>. This disconnects the idev from the previously
-attached pt_id. The device returns back to a blocked DMA translation.</p>
+attached pt_id. The device returns back to a blocked DMA translation.
+<strong>pasid</strong> is IOMMU_NO_PASID for no pasid usage.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.iommufd_access_create">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.14.0</p>
+<p class="blurb">6.15.0</p>
 
 
 
@@ -989,6 +989,31 @@ userspace operations. Entry-points can use <a class="reference internal" href="#
 <a class="reference internal" href="#c.drm_dev_exit" title="drm_dev_exit"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_exit()</span></code></a> to protect device resources in a race free manner. This
 essentially unregisters the device like <a class="reference internal" href="#c.drm_dev_unregister" title="drm_dev_unregister"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_unregister()</span></code></a>, but can be
 called while there are still open users of <strong>dev</strong>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dev_wedged_event">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dev_wedged_event</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">method</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dev_wedged_event" title="Link to this definition">¶</a><br /></dt>
+<dd><p>generate a device wedged uevent</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">method</span></code></dt><dd><p>method(s) to be used for recovery</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This generates a device wedged uevent for the DRM device specified by <strong>dev</strong>.
+Recovery <strong>method</strong>(s) of choice will be sent in the uevent environment as
+<code class="docutils literal notranslate"><span class="pre">WEDGED=&lt;method1&gt;[,..,&lt;methodN&gt;]</span></code> in order of less to more side-effects.
+If caller is unsure about recovery or <strong>method</strong> is unknown (0),
+<code class="docutils literal notranslate"><span class="pre">WEDGED=unknown</span></code> will be sent instead.</p>
+<p>Refer to “Device Wedging” chapter in <a class="reference internal" href="drm-uapi.html"><span class="doc">Userland interfaces</span></a> for more
+details.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, negative error code otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dev_alloc">
@@ -2695,31 +2720,6 @@ optionally with a prefix on each line. No separator is added after prefix.</p>
 <section id="utilities">
 <h3>Utilities<a class="headerlink" href="#utilities" title="Link to this heading">¶</a></h3>
 <p>Macros and inline functions that does not naturally belong in other places</p>
-<dl class="c macro">
-<dt class="sig sig-object c" id="c.for_each_if">
-<span class="sig-name descname"><span class="n"><span class="pre">for_each_if</span></span></span><a class="headerlink" href="#c.for_each_if" title="Link to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-<p><code class="docutils literal notranslate"><span class="pre">for_each_if</span> <span class="pre">(condition)</span></code></p>
-<blockquote>
-<div><p>helper for handling conditionals in various for_each macros</p>
-</div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">condition</span></code></dt><dd><p>The condition to check</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Typical use:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>#define for_each_foo_bar(x, y) \&#39;
-        list_for_each_entry(x, y-&gt;list, head) \&#39;
-                for_each_if(x-&gt;something == SOMETHING)
-</pre></div>
-</div>
-<p>The <a class="reference internal" href="#c.for_each_if" title="for_each_if"><code class="xref c c-func docutils literal notranslate"><span class="pre">for_each_if()</span></code></a> macro makes the use of for_each_foo_bar() less error
-prone.</p>
-</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_can_sleep">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_can_sleep</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_can_sleep" title="Link to this definition">¶</a><br /></dt>
@@ -2766,6 +2766,13 @@ possible.
 <code class="docutils literal notranslate"><span class="pre">CONFIG_VIRTIO_UML</span></code> and <code class="docutils literal notranslate"><span class="pre">CONFIG_UML_PCI_OVER_VIRTIO</span></code> are not
 included in it because they are only required for User Mode Linux.</p>
 </div>
+</section>
+<section id="kunit-coverage-rules">
+<h4>KUnit Coverage Rules<a class="headerlink" href="#kunit-coverage-rules" title="Link to this heading">¶</a></h4>
+<p>KUnit support is gradually added to the DRM framework and helpers. There’s no
+general requirement for the framework and helpers to have KUnit tests at the
+moment. However, patches that are affecting a function or helper already
+covered by KUnit tests must provide tests if the change calls for one.</p>
 </section>
 </section>
 </section>
