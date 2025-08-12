@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -431,6 +431,7 @@ ready event when we’re already handling mst message ready event</p>
     struct work_struct work;
     union hpd_irq_data data;
     struct hpd_rx_irq_offload_work_queue *offload_wq;
+    struct amdgpu_device *adev;
 };
 </pre></div>
 </div>
@@ -441,6 +442,8 @@ ready event when we’re already handling mst message ready event</p>
 <dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>reference irq data which is used while handling offload work</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">offload_wq</span></code></dt><dd><p>offload work queue that this work is queued to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">adev</span></code></dt><dd><p>amdgpu_device pointer</p>
 </dd>
 </dl>
 </div>
@@ -511,9 +514,14 @@ ready event when we’re already handling mst message ready event</p>
     u32 brightness[AMDGPU_DM_MAX_NUM_EDP];
     u32 actual_brightness[AMDGPU_DM_MAX_NUM_EDP];
     bool aux_hpd_discon_quirk;
+    bool edp0_on_dp1_quirk;
     struct mutex dpia_aux_lock;
     struct dml2_soc_bb *bb_from_dmub;
     struct amdgpu_i2c_adapter *oem_i2c;
+    struct fused_io_sync {
+        struct completion replied;
+        char reply_data[0x40];
+    } fused_io[8];
 };
 </pre></div>
 </div>
@@ -656,11 +664,15 @@ transfers are done</p>
 <dt><code class="docutils literal notranslate"><span class="pre">aux_hpd_discon_quirk</span></code></dt><dd><p>quirk for hpd discon while aux is on-going.
 occurred on certain intel platform</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">edp0_on_dp1_quirk</span></code></dt><dd><p>quirk for platforms that put edp0 on DP1.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dpia_aux_lock</span></code></dt><dd><p>Guards access to DPIA AUX</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bb_from_dmub</span></code></dt><dd><p>Bounding box data read from dmub during early initialization for DCN4+</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">oem_i2c</span></code></dt><dd><p>OEM i2c bus</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fused_io</span></code></dt><dd><p>dmub fused io interface</p>
 </dd>
 </dl>
 </div>
@@ -1641,86 +1653,15 @@ provides a set of subtests to verify plane alpha and blend mode properties.</p>
 <p>The DRM blend mode and its elements are then mapped by AMDGPU display manager
 (DM) to program the blending configuration of the Multiple Pipe/Plane Combined
 (MPC), as follows:</p>
-<dl class="c struct">
-<dt class="sig sig-object c" id="c.mpcc_blnd_cfg">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_blnd_cfg</span></span></span><a class="headerlink" href="#c.mpcc_blnd_cfg" title="Link to this definition">¶</a><br /></dt>
-<dd><p>MPCC blending configuration</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Definition</strong>:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct mpcc_blnd_cfg {
-    struct tg_color black_color;
-    enum mpcc_alpha_blend_mode alpha_mode;
-    bool pre_multiplied_alpha;
-    int global_gain;
-    int global_alpha;
-    bool overlap_only;
-    int bottom_gain_mode;
-    int background_color_bpc;
-    int top_gain;
-    int bottom_inside_gain;
-    int bottom_outside_gain;
-};
-</pre></div>
-</div>
-<p><strong>Members</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">black_color</span></code></dt><dd><p>background color.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">alpha_mode</span></code></dt><dd><p>alpha blend mode (MPCC_ALPHA_BLND_MODE).</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pre_multiplied_alpha</span></code></dt><dd><p>Whether pixel color values were pre-multiplied by the alpha channel
-(MPCC_ALPHA_MULTIPLIED_MODE).</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">global_gain</span></code></dt><dd><p>Used when blend mode considers both pixel alpha and plane.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">global_alpha</span></code></dt><dd><p>Plane alpha value.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">overlap_only</span></code></dt><dd><p>Whether overlapping of different planes is allowed.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bottom_gain_mode</span></code></dt><dd><p>Blend mode for bottom gain setting.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">background_color_bpc</span></code></dt><dd><p>Background color for bpc.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">top_gain</span></code></dt><dd><p>Top gain setting.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bottom_inside_gain</span></code></dt><dd><p>Blend mode for bottom inside.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">bottom_outside_gain</span></code></dt><dd><p>Blend mode for bottom outside.</p>
-</dd>
-</dl>
-</div>
 <p>Therefore, the blending configuration for a single MPCC instance on the MPC
-tree is defined by <a class="reference internal" href="#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_blnd_cfg</span></code></a>, where
+tree is defined by <code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_blnd_cfg</span></code>, where
 <code class="xref c c-type docutils literal notranslate"><span class="pre">pre_multiplied_alpha</span></code> is the alpha pre-multiplied mode flag used to
 set <code class="xref c c-type docutils literal notranslate"><span class="pre">MPCC_ALPHA_MULTIPLIED_MODE</span></code>. It controls whether alpha is
 multiplied (true/false), being only true for DRM pre-multiplied blend mode.
-<a class="reference internal" href="#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_alpha_blend_mode</span></code></a> defines the alpha blend mode regarding pixel
+<code class="xref c c-type docutils literal notranslate"><span class="pre">mpcc_alpha_blend_mode</span></code> defines the alpha blend mode regarding pixel
 alpha and plane alpha values. It sets one of the three modes for
 <code class="xref c c-type docutils literal notranslate"><span class="pre">MPCC_ALPHA_BLND_MODE</span></code>, as described below.</p>
-<dl class="c enum">
-<dt class="sig sig-object c" id="c.mpcc_alpha_blend_mode">
-<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mpcc_alpha_blend_mode</span></span></span><a class="headerlink" href="#c.mpcc_alpha_blend_mode" title="Link to this definition">¶</a><br /></dt>
-<dd><p>define the alpha blend mode regarding pixel alpha and plane alpha values</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Constants</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">MPCC_ALPHA_BLEND_MODE_PER_PIXEL_ALPHA</span></code></dt><dd><p>per pixel alpha using DPP
-alpha value</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">MPCC_ALPHA_BLEND_MODE_PER_PIXEL_ALPHA_COMBINED_GLOBAL_GAIN</span></code></dt><dd><p>per
-pixel alpha using DPP alpha value multiplied by a global gain (plane
-alpha)</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">MPCC_ALPHA_BLEND_MODE_GLOBAL_ALPHA</span></code></dt><dd><p>global alpha value, ignores
-pixel alpha and consider only plane alpha</p>
-</dd>
-</dl>
-</div>
-<p>DM then maps the elements of <cite><a class="reference internal" href="#c.mpcc_alpha_blend_mode" title="mpcc_alpha_blend_mode"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mpcc_alpha_blend_mode</span></code></a></cite> to those in the DRM
+<p>DM then maps the elements of <cite>enum mpcc_alpha_blend_mode</cite> to those in the DRM
 blend formula, as follows:</p>
 <ul class="simple">
 <li><p><em>MPC pixel alpha</em> matches <em>DRM fg.alpha</em> as the alpha component value
@@ -1746,7 +1687,7 @@ following path:</p>
 <a class="reference internal" href="../../drm-kms.html#c.drm_plane_state" title="drm_plane_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_state</span></code></a> attributes to
 <code class="xref c c-type docutils literal notranslate"><span class="pre">dc_plane_info</span></code> struct to be handled in the
 OS-agnostic component (DC).</p></li>
-<li><p>On DC interface, <a class="reference internal" href="#c.mpcc_blnd_cfg" title="mpcc_blnd_cfg"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mpcc_blnd_cfg</span></code></a> programs the
+<li><p>On DC interface, <code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mpcc_blnd_cfg</span></code> programs the
 MPCC blend configuration considering the <code class="xref c c-type docutils literal notranslate"><span class="pre">dc_plane_info</span></code> input from DPP.</p></li>
 </ol>
 </section>

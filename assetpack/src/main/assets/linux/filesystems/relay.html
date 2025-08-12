@@ -13,7 +13,7 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="ROMFS - ROM File System" href="romfs.html" />
+    <link rel="next" title="User Interface for Resource Control feature (resctrl)" href="resctrl.html" />
     <link rel="prev" title="Ramfs, rootfs and initramfs" href="ramfs-rootfs-initramfs.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -171,14 +171,14 @@ details of the function parameters are documented along with the
 functions in the relay interface code - please see that for details.</p>
 <section id="semantics">
 <h2>Semantics<a class="headerlink" href="#semantics" title="Link to this heading">¶</a></h2>
-<p>Each relay channel has one buffer per CPU, each buffer has one or more
+<p>Each relay channel has one buffer per CPU; each buffer has one or more
 sub-buffers.  Messages are written to the first sub-buffer until it is
 too full to contain a new message, in which case it is written to
 the next (if available).  Messages are never split across sub-buffers.
 At this point, userspace can be notified so it empties the first
 sub-buffer, while the kernel continues writing to the next.</p>
 <p>When notified that a sub-buffer is full, the kernel knows how many
-bytes of it are padding i.e. unused space occurring because a complete
+bytes of it are padding, i.e., unused space occurring because a complete
 message couldn’t fit into a sub-buffer.  Userspace can use this
 knowledge to copy only valid data.</p>
 <p>After copying it, userspace can notify the kernel that a sub-buffer
@@ -203,7 +203,7 @@ two approaches as small as possible.</p>
 <section id="klog-and-relay-apps-example-code">
 <h2>klog and relay-apps example code<a class="headerlink" href="#klog-and-relay-apps-example-code" title="Link to this heading">¶</a></h2>
 <p>The relay interface itself is ready to use, but to make things easier,
-a couple simple utility functions and a set of examples are provided.</p>
+a couple of simple utility functions and a set of examples are provided.</p>
 <p>The relay-apps example tarball, available on the relay sourceforge
 site, contains a set of self-contained examples, each consisting of a
 pair of .c files containing boilerplate code for each of the user and
@@ -220,7 +220,7 @@ in the kernel or kernel modules; only when there is a ‘klog handler’
 registered will data actually be logged (see the klog and kleak
 examples for details).</p>
 <p>It is of course possible to use the relay interface from scratch,
-i.e. without using any of the relay-apps example code or klog, but
+i.e., without using any of the relay-apps example code or klog, but
 you’ll have to implement communication between userspace and kernel,
 allowing both to convey the state of buffers (full, empty, amount of
 padding).  The read() interface both removes padding and internally
@@ -249,7 +249,7 @@ must map the entire file, which is NRBUF * SUBBUFSIZE.</p></td>
 </tr>
 <tr class="row-odd"><td><p>read()</p></td>
 <td><p>read the contents of a channel buffer.  The bytes read are
-‘consumed’ by the reader, i.e. they won’t be available
+‘consumed’ by the reader, i.e., they won’t be available
 again to subsequent reads.  If the channel is being used
 in no-overwrite mode (the default), it can be read at any
 time even if there’s an active kernel writer.  If the
@@ -271,7 +271,7 @@ notified when sub-buffer boundaries are crossed.</p></td>
 </tr>
 <tr class="row-even"><td><p>close()</p></td>
 <td><p>decrements the channel buffer’s refcount.  When the refcount
-reaches 0, i.e. when no process or kernel client has the
+reaches 0, i.e., when no process or kernel client has the
 buffer open, the channel buffer is freed.</p></td>
 </tr>
 </tbody>
@@ -283,7 +283,7 @@ host filesystem must be mounted.  For example:</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>the host filesystem doesn’t need to be mounted for kernel
+<p>The host filesystem doesn’t need to be mounted for kernel
 clients to create or use channels - it only needs to be
 mounted when user space applications need access to the buffer
 data.</p>
@@ -427,15 +427,6 @@ user-defined data with a channel, and is immediately available
 (including in create_buf_file()) via chan-&gt;private_data or
 buf-&gt;chan-&gt;private_data.</p>
 </section>
-<section id="buffer-only-channels">
-<h3>Buffer-only channels<a class="headerlink" href="#buffer-only-channels" title="Link to this heading">¶</a></h3>
-<p>These channels have no files associated and can be created with
-relay_open(NULL, NULL, ...). Such channels are useful in scenarios such
-as when doing early tracing in the kernel, before the VFS is up. In these
-cases, one may open a buffer-only channel and then call
-<a class="reference internal" href="../core-api/kernel-api.html#c.relay_late_setup_files" title="relay_late_setup_files"><code class="xref c c-func docutils literal notranslate"><span class="pre">relay_late_setup_files()</span></code></a> when the kernel is ready to handle files,
-to expose the buffered data to the userspace.</p>
-</section>
 <section id="channel-modes">
 <h3>Channel ‘modes’<a class="headerlink" href="#channel-modes" title="Link to this heading">¶</a></h3>
 <p>relay channels can be used in either of two modes - ‘overwrite’ or
@@ -448,7 +439,7 @@ section, as it pertains mainly to mmap() implementations.</p>
 <p>In ‘overwrite’ mode, also known as ‘flight recorder’ mode, writes
 continuously cycle around the buffer and will never fail, but will
 unconditionally overwrite old data regardless of whether it’s actually
-been consumed.  In no-overwrite mode, writes will fail, i.e. data will
+been consumed.  In no-overwrite mode, writes will fail, i.e., data will
 be lost, if the number of unconsumed sub-buffers equals the total
 number of sub-buffers in the channel.  It should be clear that if
 there is no consumer or if the consumer can’t consume sub-buffers fast
@@ -465,7 +456,7 @@ new sub-buffer is about to occur.  The client uses this callback to 1)
 initialize the next sub-buffer if appropriate 2) finalize the previous
 sub-buffer if appropriate and 3) return a boolean value indicating
 whether or not to actually move on to the next sub-buffer.</p>
-<p>To implement ‘no-overwrite’ mode, the userspace client would provide
+<p>To implement ‘no-overwrite’ mode, the userspace client provides
 an implementation of the subbuf_start() callback something like the
 following:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static int subbuf_start(struct rchan_buf *buf,
@@ -485,9 +476,9 @@ following:</p>
 }
 </pre></div>
 </div>
-<p>If the current buffer is full, i.e. all sub-buffers remain unconsumed,
+<p>If the current buffer is full, i.e., all sub-buffers remain unconsumed,
 the callback returns 0 to indicate that the buffer switch should not
-occur yet, i.e. until the consumer has had a chance to read the
+occur yet, i.e., until the consumer has had a chance to read the
 current set of ready sub-buffers.  For the <a class="reference internal" href="../core-api/kernel-api.html#c.relay_buf_full" title="relay_buf_full"><code class="xref c c-func docutils literal notranslate"><span class="pre">relay_buf_full()</span></code></a> function
 to make sense, the consumer is responsible for notifying the relay
 interface when sub-buffers have been consumed via
@@ -519,7 +510,7 @@ unconditionally.  It’s also meaningless for the client to use the
 consulted.</p>
 <p>The default subbuf_start() implementation, used if the client doesn’t
 define any callbacks, or doesn’t define the subbuf_start() callback,
-implements the simplest possible ‘no-overwrite’ mode, i.e. it does
+implements the simplest possible ‘no-overwrite’ mode, i.e., it does
 nothing but return 0.</p>
 <p>Header information can be reserved at the beginning of each sub-buffer
 by calling the subbuf_start_reserve() helper function from within the
@@ -581,7 +572,7 @@ rather than open and close a new channel for each use.  <a class="reference inte
 can be used for this purpose - it resets a channel to its initial
 state without reallocating channel buffer memory or destroying
 existing mappings.  It should however only be called when it’s safe to
-do so, i.e. when the channel isn’t currently being written to.</p>
+do so, i.e., when the channel isn’t currently being written to.</p>
 <p>Finally, there are a couple of utility callbacks that can be used for
 different purposes.  buf_mapped() is called whenever a channel buffer
 is mmapped from user space and buf_unmapped() is called when it’s

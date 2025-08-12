@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -150,7 +150,7 @@
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
 <p>The following is a random collection of documentation regarding
-network devices.</p>
+network devices. It is intended for driver developers.</p>
 </section>
 <section id="struct-net-device-lifetime-rules">
 <h2>struct net_device lifetime rules<a class="headerlink" href="#struct-net-device-lifetime-rules" title="Link to this heading">¶</a></h2>
@@ -424,21 +424,19 @@ will be called with interrupts disabled by netconsole.</p>
 </dd>
 </dl>
 </section>
-<section id="struct-netdev-queue-mgmt-ops-synchronization-rules">
-<h2>struct netdev_queue_mgmt_ops synchronization rules<a class="headerlink" href="#struct-netdev-queue-mgmt-ops-synchronization-rules" title="Link to this heading">¶</a></h2>
-<p>All queue management ndo callbacks are holding netdev instance lock.</p>
-</section>
-<section id="rtnl-and-netdev-instance-lock">
-<h2>RTNL and netdev instance lock<a class="headerlink" href="#rtnl-and-netdev-instance-lock" title="Link to this heading">¶</a></h2>
+<section id="netdev-instance-lock">
+<h2>netdev instance lock<a class="headerlink" href="#netdev-instance-lock" title="Link to this heading">¶</a></h2>
 <p>Historically, all networking control operations were protected by a single
 global lock known as <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code>. There is an ongoing effort to replace this
 global lock with separate locks for each network namespace. Additionally,
 properties of individual netdev are increasingly protected by per-netdev locks.</p>
 <p>For device drivers that implement shaping or queue management APIs, all control
-operations will be performed under the netdev instance lock. Currently, this
-instance lock is acquired within the context of <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code>. The drivers
-can also explicitly request instance lock to be acquired via
-<code class="docutils literal notranslate"><span class="pre">request_ops_lock</span></code>. In the future, there will be an option for individual
+operations will be performed under the netdev instance lock.
+Drivers can also explicitly request instance lock to be held during ops
+by setting <code class="docutils literal notranslate"><span class="pre">request_ops_lock</span></code> to true. Code comments and docs refer
+to drivers which have ops called under the instance lock as “ops locked”.
+See also the documentation of the <code class="docutils literal notranslate"><span class="pre">lock</span></code> member of <a class="reference internal" href="kapi.html#c.net_device" title="net_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">net_device</span></code></a>.</p>
+<p>In the future, there will be an option for individual
 drivers to opt out of using <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code> and instead perform their control
 operations directly under the netdev instance lock.</p>
 <p>Devices drivers are encouraged to rely on the instance lock where possible.</p>
@@ -448,17 +446,48 @@ there are two sets of interfaces: <code class="docutils literal notranslate"><sp
 functions handle acquiring the instance lock themselves, while the
 <code class="docutils literal notranslate"><span class="pre">netif_xxx</span></code> functions assume that the driver has already acquired
 the instance lock.</p>
+<section id="struct-net-device-ops">
+<h3>struct net_device_ops<a class="headerlink" href="#struct-net-device-ops" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ndos</span></code> are called without holding the instance lock for most drivers.</p>
+<p>“Ops locked” drivers will have most of the <code class="docutils literal notranslate"><span class="pre">ndos</span></code> invoked under
+the instance lock.</p>
+</section>
+<section id="struct-ethtool-ops">
+<h3>struct ethtool_ops<a class="headerlink" href="#struct-ethtool-ops" title="Link to this heading">¶</a></h3>
+<p>Similarly to <code class="docutils literal notranslate"><span class="pre">ndos</span></code> the instance lock is only held for select drivers.
+For “ops locked” drivers all ethtool ops without exceptions should
+be called under the instance lock.</p>
+</section>
+<section id="struct-netdev-stat-ops">
+<h3>struct netdev_stat_ops<a class="headerlink" href="#struct-netdev-stat-ops" title="Link to this heading">¶</a></h3>
+<p>“qstat” ops are invoked under the instance lock for “ops locked” drivers,
+and under rtnl_lock for all other drivers.</p>
+</section>
+<section id="struct-net-shaper-ops">
+<h3>struct net_shaper_ops<a class="headerlink" href="#struct-net-shaper-ops" title="Link to this heading">¶</a></h3>
+<p>All net shaper callbacks are invoked while holding the netdev instance
+lock. <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code> may or may not be held.</p>
+<p>Note that supporting net shapers automatically enables “ops locking”.</p>
+</section>
+<section id="struct-netdev-queue-mgmt-ops">
+<h3>struct netdev_queue_mgmt_ops<a class="headerlink" href="#struct-netdev-queue-mgmt-ops" title="Link to this heading">¶</a></h3>
+<p>All queue management callbacks are invoked while holding the netdev instance
+lock. <code class="docutils literal notranslate"><span class="pre">rtnl_lock</span></code> may or may not be held.</p>
+<p>Note that supporting struct netdev_queue_mgmt_ops automatically enables
+“ops locking”.</p>
 </section>
 <section id="notifiers-and-netdev-instance-lock">
-<h2>Notifiers and netdev instance lock<a class="headerlink" href="#notifiers-and-netdev-instance-lock" title="Link to this heading">¶</a></h2>
+<h3>Notifiers and netdev instance lock<a class="headerlink" href="#notifiers-and-netdev-instance-lock" title="Link to this heading">¶</a></h3>
 <p>For device drivers that implement shaping or queue management APIs,
 some of the notifiers (<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">netdev_cmd</span></code>) are running under the netdev
 instance lock.</p>
+<p>The following netdev notifiers are always run under the instance lock:
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_XDP_FEAT_CHANGE</span></code></p>
 <p>For devices with locked ops, currently only the following notifiers are
 running under the lock:
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_CHANGE</span></code>
 * <code class="docutils literal notranslate"><span class="pre">NETDEV_REGISTER</span></code>
-* <code class="docutils literal notranslate"><span class="pre">NETDEV_UP</span></code>
-* <code class="docutils literal notranslate"><span class="pre">NETDEV_CHANGE</span></code></p>
+* <code class="docutils literal notranslate"><span class="pre">NETDEV_UP</span></code></p>
 <p>The following notifiers are running without the lock:
 * <code class="docutils literal notranslate"><span class="pre">NETDEV_UNREGISTER</span></code></p>
 <p>There are no clear expectations for the remaining notifiers. Notifiers not on
@@ -468,6 +497,7 @@ The goal is to eventually ensure that all (or most, with a few documented
 exceptions) notifiers run under the instance lock. Please extend this
 documentation whenever you make explicit assumption about lock being held
 from a notifier.</p>
+</section>
 </section>
 <section id="netdev-internal-symbol-namespace">
 <h2>NETDEV_INTERNAL symbol namespace<a class="headerlink" href="#netdev-internal-symbol-namespace" title="Link to this heading">¶</a></h2>

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -773,23 +773,44 @@ with <code class="docutils literal notranslate"><span class="pre">kunit_remove_a
 </section>
 <section id="testing-static-functions">
 <h2>Testing Static Functions<a class="headerlink" href="#testing-static-functions" title="Link to this heading">¶</a></h2>
-<p>If we do not want to expose functions or variables for testing, one option is to
-conditionally export the used symbol. For example:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In my_file.c */</span>
+<p>If you want to test static functions without exposing those functions outside of
+testing, one option is conditionally export the symbol. When KUnit is enabled,
+the symbol is exposed but remains static otherwise. To use this method, follow
+the template below.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In the file containing functions to test &quot;my_file.c&quot; */</span>
 
-<span class="n">VISIBLE_IF_KUNIT</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">do_interesting_thing</span><span class="p">();</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;kunit/visibility.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;my_file.h&gt;</span>
+<span class="p">...</span>
+<span class="n">VISIBLE_IF_KUNIT</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">do_interesting_thing</span><span class="p">()</span>
+<span class="p">{</span>
+<span class="p">...</span>
+<span class="p">}</span>
 <span class="n">EXPORT_SYMBOL_IF_KUNIT</span><span class="p">(</span><span class="n">do_interesting_thing</span><span class="p">);</span>
 
-<span class="cm">/* In my_file.h */</span>
+<span class="cm">/* In the header file &quot;my_file.h&quot; */</span>
 
 <span class="cp">#if IS_ENABLED(CONFIG_KUNIT)</span>
 <span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="nf">do_interesting_thing</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
 <span class="cp">#endif</span>
+
+<span class="cm">/* In the KUnit test file &quot;my_file_test.c&quot; */</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;kunit/visibility.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;my_file.h&gt;</span>
+<span class="p">...</span>
+<span class="n">MODULE_IMPORT_NS</span><span class="p">(</span><span class="n">EXPORTED_FOR_KUNIT_TESTING</span><span class="p">);</span>
+<span class="p">...</span>
+<span class="c1">// Use do_interesting_thing() in tests</span>
 </pre></div>
 </div>
-<p>Alternatively, you could conditionally <code class="docutils literal notranslate"><span class="pre">#include</span></code> the test file at the end of
-your .c file. For example:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In my_file.c */</span>
+<p>For a full example, see this <a class="reference external" href="https://lore.kernel.org/all/20221207014024.340230-3-rmoar&#64;google.com/">patch</a>
+where a test is modified to conditionally expose static functions for testing
+using the macros above.</p>
+<p>As an <strong>alternative</strong> to the method above, you could conditionally <code class="docutils literal notranslate"><span class="pre">#include</span></code>
+the test file at the end of your .c file. This is not recommended but works
+if needed. For example:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* In &quot;my_file.c&quot; */</span>
 
 <span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">do_interesting_thing</span><span class="p">();</span>
 

@@ -160,9 +160,17 @@ videodev2.h
             :c:type:`V4L2_BUF_TYPE_SDR_OUTPUT <v4l2_buf_type>`           = 12,
             :c:type:`V4L2_BUF_TYPE_META_CAPTURE <v4l2_buf_type>`         = 13,
             :c:type:`V4L2_BUF_TYPE_META_OUTPUT <v4l2_buf_type>`          = 14,
+            \/\*
+             \* Note\: V4L2\_TYPE\_IS\_VALID and V4L2\_TYPE\_IS\_OUTPUT must
+             \* be updated if a new type is added.
+             \*\/
             \/\* Deprecated, do not use \*\/
             V4L2\_BUF\_TYPE\_PRIVATE              = 0x80,
     \};
+
+    \#define V4L2\_TYPE\_IS\_VALID(type)                 \\
+            ((type) \>= :c:type:`V4L2_BUF_TYPE_VIDEO_CAPTURE <v4l2_buf_type>` \&\&\\
+             (type) \<= :c:type:`V4L2_BUF_TYPE_META_OUTPUT <v4l2_buf_type>`)
 
     \#define V4L2\_TYPE\_IS\_MULTIPLANAR(type)                  \\
             ((type) == :c:type:`V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE <v4l2_buf_type>`   \\
@@ -171,14 +179,14 @@ videodev2.h
     \#define V4L2\_TYPE\_IS\_OUTPUT(type)                               \\
             ((type) == :c:type:`V4L2_BUF_TYPE_VIDEO_OUTPUT <v4l2_buf_type>`                   \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE <v4l2_buf_type>`         \\
-             \|\| (type) == :c:type:`V4L2_BUF_TYPE_VIDEO_OVERLAY <v4l2_buf_type>`               \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_VIDEO_OUTPUT_OVERLAY <v4l2_buf_type>`        \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_VBI_OUTPUT <v4l2_buf_type>`                  \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_SLICED_VBI_OUTPUT <v4l2_buf_type>`           \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_SDR_OUTPUT <v4l2_buf_type>`                  \\
              \|\| (type) == :c:type:`V4L2_BUF_TYPE_META_OUTPUT <v4l2_buf_type>`)
 
-    \#define V4L2\_TYPE\_IS\_CAPTURE(type) (!V4L2\_TYPE\_IS\_OUTPUT(type))
+    \#define V4L2\_TYPE\_IS\_CAPTURE(type)      \\
+            (V4L2\_TYPE\_IS\_VALID(type) \&\& !V4L2\_TYPE\_IS\_OUTPUT(type))
 
     enum :c:type:`v4l2_tuner_type` \{
             :c:type:`V4L2_TUNER_RADIO <v4l2_tuner_type>`             = 1,
@@ -650,8 +658,10 @@ videodev2.h
     \/\* two planes -- one Y, one Cr + Cb interleaved  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV12 <v4l2-pix-fmt-nv12>`    v4l2\_fourcc('N', 'V', '1', '2') \/\* 12  Y\/CbCr 4\:2\:0  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV21 <v4l2-pix-fmt-nv21>`    v4l2\_fourcc('N', 'V', '2', '1') \/\* 12  Y\/CrCb 4\:2\:0  \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_NV15 <v4l2-pix-fmt-nv15>`    v4l2\_fourcc('N', 'V', '1', '5') \/\* 15  Y\/CbCr 4\:2\:0 10-bit packed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV16 <v4l2-pix-fmt-nv16>`    v4l2\_fourcc('N', 'V', '1', '6') \/\* 16  Y\/CbCr 4\:2\:2  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV61 <v4l2-pix-fmt-nv61>`    v4l2\_fourcc('N', 'V', '6', '1') \/\* 16  Y\/CrCb 4\:2\:2  \*\/
+    \#define \ :ref:`V4L2_PIX_FMT_NV20 <v4l2-pix-fmt-nv20>`    v4l2\_fourcc('N', 'V', '2', '0') \/\* 20  Y\/CbCr 4\:2\:2 10-bit packed \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV24 <v4l2-pix-fmt-nv24>`    v4l2\_fourcc('N', 'V', '2', '4') \/\* 24  Y\/CbCr 4\:4\:4  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_NV42 <v4l2-pix-fmt-nv42>`    v4l2\_fourcc('N', 'V', '4', '2') \/\* 24  Y\/CrCb 4\:4\:4  \*\/
     \#define \ :ref:`V4L2_PIX_FMT_P010 <v4l2-pix-fmt-p010>`    v4l2\_fourcc('P', '0', '1', '0') \/\* 24  Y\/CbCr 4\:2\:0 10-bit per component \*\/
@@ -864,6 +874,10 @@ videodev2.h
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_PARAMS <v4l2-meta-fmt-rk-isp1-params>`    v4l2\_fourcc('R', 'K', '1', 'P') \/\* Rockchip ISP1 3A Parameters \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_STAT_3A <v4l2-meta-fmt-rk-isp1-stat-3a>`   v4l2\_fourcc('R', 'K', '1', 'S') \/\* Rockchip ISP1 3A Statistics \*\/
     \#define \ :ref:`V4L2_META_FMT_RK_ISP1_EXT_PARAMS <v4l2-meta-fmt-rk-isp1-ext-params>`        v4l2\_fourcc('R', 'K', '1', 'E') \/\* Rockchip ISP1 3a Extensible Parameters \*\/
+
+    \/\* Vendor specific - used for C3\_ISP \*\/
+    \#define \ :ref:`V4L2_META_FMT_C3ISP_PARAMS <v4l2-meta-fmt-c3isp-params>`      v4l2\_fourcc('C', '3', 'P', 'M') \/\* Amlogic C3 ISP Parameters \*\/
+    \#define \ :ref:`V4L2_META_FMT_C3ISP_STATS <v4l2-meta-fmt-c3isp-stats>`       v4l2\_fourcc('C', '3', 'S', 'T') \/\* Amlogic C3 ISP Statistics \*\/
 
     \/\* Vendor specific - used for RaspberryPi PiSP \*\/
     \#define \ :ref:`V4L2_META_FMT_RPI_BE_CFG <v4l2-meta-fmt-rpi-be-cfg>`        v4l2\_fourcc('R', 'P', 'B', 'C') \/\* PiSP BE configuration \*\/

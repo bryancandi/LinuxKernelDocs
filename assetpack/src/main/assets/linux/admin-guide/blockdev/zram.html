@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Distributed Replicated Block Device - DRBD" href="drbd/index.html" />
-    <link rel="prev" title="Using the RAM disk block device with Linux" href="ramdisk.html" />
+    <link rel="prev" title="Zoned Loop Block Device" href="zoned_loop.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -536,6 +536,25 @@ before reusing the device.</p>
 </section>
 <section id="optional-feature">
 <h2>Optional Feature<a class="headerlink" href="#optional-feature" title="Link to this heading">¶</a></h2>
+<section id="idle-pages-tracking">
+<h3>IDLE pages tracking<a class="headerlink" href="#idle-pages-tracking" title="Link to this heading">¶</a></h3>
+<p>zram has built-in support for idle pages tracking (that is, allocated but
+not used pages). This feature is useful for e.g. zram writeback and
+recompression. In order to mark pages as idle, execute the following command:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo all &gt; /sys/block/zramX/idle
+</pre></div>
+</div>
+<p>This will mark all allocated zram pages as idle. The idle mark will be
+removed only when the page (block) is accessed (e.g. overwritten or freed).
+Additionally, when CONFIG_ZRAM_TRACK_ENTRY_ACTIME is enabled, pages can be
+marked as idle based on how many seconds have passed since the last access to
+a particular zram page:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 86400 &gt; /sys/block/zramX/idle
+</pre></div>
+</div>
+<p>In this example, all pages which haven’t been accessed in more than 86400
+seconds (one day) will be marked idle.</p>
+</section>
 <section id="writeback">
 <h3>writeback<a class="headerlink" href="#writeback" title="Link to this heading">¶</a></h3>
 <p>With CONFIG_ZRAM_WRITEBACK, zram can write idle/incompressible page
@@ -549,23 +568,7 @@ If admin wants to use incompressible page writeback, they could do it via:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo huge &gt; /sys/block/zramX/writeback
 </pre></div>
 </div>
-<p>To use idle page writeback, first, user need to declare zram pages
-as idle:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo all &gt; /sys/block/zramX/idle
-</pre></div>
-</div>
-<p>From now on, any pages on zram are idle pages. The idle mark
-will be removed until someone requests access of the block.
-IOW, unless there is access request, those pages are still idle pages.
-Additionally, when CONFIG_ZRAM_TRACK_ENTRY_ACTIME is enabled pages can be
-marked as idle based on how long (in seconds) it’s been since they were
-last accessed:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo 86400 &gt; /sys/block/zramX/idle
-</pre></div>
-</div>
-<p>In this example all pages which haven’t been accessed in more than 86400
-seconds (one day) will be marked idle.</p>
-<p>Admin can request writeback of those idle pages at right timing via:</p>
+<p>Admin can request writeback of idle pages at right timing via:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo idle &gt; /sys/block/zramX/writeback
 </pre></div>
 </div>
@@ -583,6 +586,23 @@ algorithms can compress) this can be accomplished with:</p>
 <p>If an admin wants to write a specific page in zram device to the backing device,
 they could write a page index into the interface:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;page_index=1251&quot; &gt; /sys/block/zramX/writeback
+</pre></div>
+</div>
+<p>In Linux 6.16 this interface underwent some rework.  First, the interface
+now supports <cite>key=value</cite> format for all of its parameters (<cite>type=huge_idle</cite>,
+etc.)  Second, the support for <cite>page_indexes</cite> was introduced, which specify
+<cite>LOW-HIGH</cite> range (or ranges) of pages to be written-back.  This reduces the
+number of syscalls, but more importantly this enables optimal post-processing
+target selection strategy. Usage example:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;type=idle&quot; &gt; /sys/block/zramX/writeback
+echo &quot;page_indexes=1-100 page_indexes=200-300&quot; &gt; \
+        /sys/block/zramX/writeback
+</pre></div>
+</div>
+<p>We also now permit multiple page_index params per call and a mix of
+single pages and page ranges:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo page_index=42 page_index=99 page_indexes=100-200 \
+        page_indexes=500-700 &gt; /sys/block/zramX/writeback
 </pre></div>
 </div>
 <p>If there are lots of write IO with flash device, potentially, it has
@@ -690,7 +710,6 @@ attempt to recompress::</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>echo &quot;type=huge_idle max_pages=42&quot; &gt; /sys/block/zramX/recompress
 </pre></div>
 </div>
-<p>Recompression of idle pages requires memory tracking.</p>
 <p>During re-compression for every page, that matches re-compression criteria,
 ZRAM iterates the list of registered alternative compression algorithms in
 order of their priorities. ZRAM stops either when re-compression was

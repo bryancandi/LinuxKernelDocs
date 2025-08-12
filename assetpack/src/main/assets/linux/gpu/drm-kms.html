@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -470,8 +470,8 @@ involve drivers.</p>
     struct list_head crtc_list;
     struct list_head property_list;
     struct list_head privobj_list;
-    int min_width, min_height;
-    int max_width, max_height;
+    unsigned int min_width, min_height;
+    unsigned int max_width, max_height;
     const struct drm_mode_config_funcs *funcs;
     bool poll_enabled;
     bool poll_running;
@@ -543,6 +543,7 @@ involve drivers.</p>
     bool fb_modifiers_not_supported;
     bool normalize_zpos;
     struct drm_property *modifiers_property;
+    struct drm_property *async_modifiers_property;
     struct drm_property *size_hints_property;
     uint32_t cursor_width, cursor_height;
     struct drm_atomic_state *suspend_state;
@@ -877,6 +878,9 @@ atomic mode checking from <a class="reference internal" href="drm-kms-helpers.ht
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">modifiers_property</span></code></dt><dd><p>Plane property to list support modifier/format
 combination.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">async_modifiers_property</span></code></dt><dd><p>Plane property to list support modifier/format
+combination for asynchronous flips.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">size_hints_property</span></code></dt><dd><p>Plane SIZE_HINTS property.</p>
 </dd>
@@ -1980,7 +1984,6 @@ read-lock on all planes connected to that CRTC. But if planes can be
 reassigned things get more tricky. In that case it’s better to use
 drm_atomic_get_plane_state and wire up full error handling.</p>
 <p>Read-only pointer to the current plane state.</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.for_each_oldnew_connector_in_state">
@@ -2754,6 +2757,8 @@ case, it is sometimes useful to differentiate commits which had no prior
 connectors attached to <strong>encoder</strong> vs ones that did (and to inspect their
 state). This is especially true in enable hooks because the pipeline has
 changed.</p>
+<p>If you don’t have access to the atomic state, see
+<a class="reference internal" href="#c.drm_atomic_get_connector_for_encoder" title="drm_atomic_get_connector_for_encoder"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_connector_for_encoder()</span></code></a>.</p>
 <p><strong>Return</strong></p>
 <p>The old connector connected to <strong>encoder</strong>, or NULL if the encoder is
 not connected.</p>
@@ -2780,9 +2785,40 @@ this function will return NULL. While this may seem like an invalid use case,
 it is sometimes useful to differentiate commits which have no connectors
 attached to <strong>encoder</strong> vs ones that do (and to inspect their state). This is
 especially true in disable hooks because the pipeline will change.</p>
+<p>If you don’t have access to the atomic state, see
+<a class="reference internal" href="#c.drm_atomic_get_connector_for_encoder" title="drm_atomic_get_connector_for_encoder"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_connector_for_encoder()</span></code></a>.</p>
 <p><strong>Return</strong></p>
 <p>The new connector connected to <strong>encoder</strong>, or NULL if the encoder is
 not connected.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_get_connector_for_encoder">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_get_connector_for_encoder</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_encoder" title="drm_encoder"><span class="n"><span class="pre">drm_encoder</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">encoder</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_modeset_acquire_ctx" title="drm_modeset_acquire_ctx"><span class="n"><span class="pre">drm_modeset_acquire_ctx</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_get_connector_for_encoder" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get connector currently assigned to an encoder</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_encoder</span> <span class="pre">*encoder</span></code></dt><dd><p>The encoder to find the connector of</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_modeset_acquire_ctx</span> <span class="pre">*ctx</span></code></dt><dd><p>Modeset locking context</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function finds and returns the connector currently assigned to
+an <strong>encoder</strong>.</p>
+<p>It is similar to the <a class="reference internal" href="#c.drm_atomic_get_old_connector_for_encoder" title="drm_atomic_get_old_connector_for_encoder"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_old_connector_for_encoder()</span></code></a> and
+<a class="reference internal" href="#c.drm_atomic_get_new_connector_for_encoder" title="drm_atomic_get_new_connector_for_encoder"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_get_new_connector_for_encoder()</span></code></a> helpers, but doesn’t
+require access to the atomic state. If you have access to it, prefer
+using these. This helper is typically useful in situations where you
+don’t have access to the atomic state, like detect, link repair,
+threaded interrupt handlers, or hooks from other frameworks (ALSA,
+CEC, etc.).</p>
+<p><strong>Return</strong></p>
+<p>The connector connected to <strong>encoder</strong>, or an error pointer otherwise.
+When the error is EDEADLK, a deadlock has been detected and the
+sequence must be restarted.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_atomic_get_old_crtc_for_encoder">
@@ -4662,6 +4698,7 @@ this hook.</p>
     unsigned int width;
     unsigned int height;
     int flags;
+    unsigned int internal_flags;
     struct list_head filp_head;
     struct drm_gem_object *obj[DRM_FORMAT_MAX_PLANES];
 };
@@ -4712,6 +4749,8 @@ pixels.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Framebuffer flags like DRM_MODE_FB_INTERLACED or
 DRM_MODE_FB_MODIFIERS.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">internal_flags</span></code></dt><dd><p>Framebuffer flags like DRM_FRAMEBUFFER_HAS_HANDLE_REF.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">filp_head</span></code></dt><dd><p>Placed on <a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_file.fbs</span></code></a>, protected by <a class="reference internal" href="drm-internals.html#c.drm_file" title="drm_file"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_file.fbs_lock</span></code></a>.</p>
 </dd>
@@ -5666,6 +5705,7 @@ raw coordinates provided by userspace. Drivers should use
     void (*early_unregister)(struct drm_plane *plane);
     void (*atomic_print_state)(struct drm_printer *p, const struct drm_plane_state *state);
     bool (*format_mod_supported)(struct drm_plane *plane, uint32_t format, uint64_t modifier);
+    bool (*format_mod_supported_async)(struct drm_plane *plane, u32 format, u64 modifier);
 };
 </pre></div>
 </div>
@@ -5808,6 +5848,15 @@ DRM to generate the correct format bitmask (which formats apply to
 which modifier), and to validate modifiers at atomic_check time.</p>
 <p>If not present, then any modifier in the plane’s modifier
 list is allowed with any of the plane’s formats.</p>
+<p>Returns:</p>
+<p>True if the given modifier is valid for that format on the plane.
+False otherwise.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">format_mod_supported_async</span></code></dt><dd><p>This optional hook is used for the DRM to determine if for
+asynchronous flip the given format/modifier combination is valid for
+the plane. This allows the DRM to generate the correct format
+bitmask (which formats apply to which modifier), and to validate
+modifiers at atomic_check time.</p>
 <p>Returns:</p>
 <p>True if the given modifier is valid for that format on the plane.
 False otherwise.</p>
@@ -6877,6 +6926,7 @@ hardware to make the scanout buffer visible.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_scanout_buffer {
     const struct drm_format_info *format;
     struct iosys_map map[DRM_FORMAT_MAX_PLANES];
+    struct page **pages;
     unsigned int width;
     unsigned int height;
     unsigned int pitch[DRM_FORMAT_MAX_PLANES];
@@ -6893,6 +6943,13 @@ The scanout buffer should be in linear format, and can be directly
 sent to the display hardware. Tearing is not an issue for the panic
 screen.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pages</span></code></dt><dd><p>Optional, if the scanout buffer is not mapped, set this field
+to the array of pages of the scanout buffer. The panic code will use
+kmap_local_page_try_from_panic() to map one page at a time to write
+all the pixels. This array shouldn’t be allocated from the
+get_scanoutbuffer() callback.
+The scanout buffer should be in linear format.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">width</span></code></dt><dd><p>Width of the scanout buffer, in pixels.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of the scanout buffer, in pixels.</p>
@@ -6901,7 +6958,7 @@ screen.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_pixel</span></code></dt><dd><p>Optional function, to set a pixel color on the
 framebuffer. It allows to handle special tiling format inside the
-driver.</p>
+driver. It takes precedence over the <strong>map</strong> and <strong>pages</strong> fields.</p>
 </dd>
 </dl>
 </div>
@@ -9130,7 +9187,7 @@ Properties</span></a></p>
 <dt><code class="docutils literal notranslate"><span class="pre">hdr_output_metadata</span></code></dt><dd><p>DRM blob property for HDR output metadata</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdmi</span></code></dt><dd><p>HDMI-related variable and properties. Filled by
-<strong>drm_atomic_helper_connector_hdmi_check()</strong>.</p>
+<strong><a class="reference internal" href="drm-kms-helpers.html#c.drm_atomic_helper_connector_hdmi_check" title="drm_atomic_helper_connector_hdmi_check"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_connector_hdmi_check()</span></code></a></strong>.</p>
 </dd>
 </dl>
 </div>
@@ -13620,6 +13677,13 @@ DRM_FORMAT_MOD_LINEAR. Before linux kernel release v5.1 there have been
 various bugs in this area with inconsistencies between the capability
 flag and per-plane properties.</p>
 </dd>
+<dt>IN_FORMATS_ASYNC:</dt><dd><p>Blob property which contains the set of buffer format and modifier
+pairs supported by this plane for asynchronous flips. The blob is a struct
+drm_format_modifier_blob. Userspace cannot change this property. This is an
+optional property and if not present then user should expect a failure in
+atomic ioctl when the modifier/format is not supported by that plane under
+asynchronous flip.</p>
+</dd>
 <dt>SIZE_HINTS:</dt><dd><p>Blob property which contains the set of recommended plane size
 which can used for simple “cursor like” use cases (eg. no scaling).
 Using these hints frees userspace from extensive probing of
@@ -13648,7 +13712,7 @@ and <strong>vdisplay</strong>) of the requested mode (stored in <a class="refere
 two rectangles are both stored in the <a class="reference internal" href="#c.drm_plane_state" title="drm_plane_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_plane_state</span></code></a>.</p>
 <p>For the atomic ioctl the following standard (atomic) properties on the plane object
 encode the basic plane composition model:</p>
-<dl class="simple">
+<dl>
 <dt>SRC_X:</dt><dd><p>X coordinate offset for the source rectangle within the
 <a class="reference internal" href="#c.drm_framebuffer" title="drm_framebuffer"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_framebuffer</span></code></a>, in 16.16 fixed point. Must be positive.</p>
 </dd>
@@ -13674,6 +13738,11 @@ the currently visible horizontal area of the <a class="reference internal" href=
 the currently visible vertical area of the <a class="reference internal" href="#c.drm_crtc" title="drm_crtc"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc</span></code></a>.</p>
 </dd>
 <dt>FB_ID:</dt><dd><p>Mode object ID of the <a class="reference internal" href="#c.drm_framebuffer" title="drm_framebuffer"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_framebuffer</span></code></a> this plane should scan out.</p>
+<p>When a KMS client is performing front-buffer rendering, it should set
+FB_ID to the same front-buffer FB on each atomic commit. This implies
+to the driver that it needs to re-read the same FB again. Otherwise
+drivers which do not employ continuously repeated scanout cycles might
+not update the screen.</p>
 </dd>
 <dt>CRTC_ID:</dt><dd><p>Mode object ID of the <a class="reference internal" href="#c.drm_crtc" title="drm_crtc"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc</span></code></a> this plane should be connected to.</p>
 </dd>

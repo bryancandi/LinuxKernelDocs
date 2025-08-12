@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -748,9 +748,8 @@ address-space can provide.  These include communicating memory pressure,
 page lookup by address, and keeping track of pages tagged as Dirty or
 Writeback.</p>
 <p>The first can be used independently to the others.  The VM can try to
-either write dirty pages in order to clean them, or release clean pages
-in order to reuse them.  To do this it can call the -&gt;writepage method
-on dirty pages, and -&gt;release_folio on clean folios with the private
+release clean pages in order to reuse them.  To do this it can call
+-&gt;release_folio on clean folios with the private
 flag set.  Clean pages without PagePrivate and with no external references
 will be released without notice being given to the address_space.</p>
 <p>To achieve this functionality, pages need to be placed on an LRU with
@@ -760,8 +759,8 @@ is used.</p>
 maintains information about the PG_Dirty and PG_Writeback status of each
 page, so that pages with either of these flags can be found quickly.</p>
 <p>The Dirty tag is primarily used by mpage_writepages - the default
--&gt;writepages method.  It uses the tag to find dirty pages to call
--&gt;writepage on.  If mpage_writepages is not used (i.e. the address
+-&gt;writepages method.  It uses the tag to find dirty pages to
+write back.  If mpage_writepages is not used (i.e. the address
 provides its own -&gt;writepages) , the PAGECACHE_TAG_DIRTY tag is almost
 unused.  write_inode_now and sync_inode do use it (through
 __sync_single_inode) to check if -&gt;writepages has been successful in
@@ -781,20 +780,20 @@ the application, and then written-back to storage typically in whole
 pages, however the address_space has finer control of write sizes.</p>
 <p>The read process essentially only requires ‘read_folio’.  The write
 process is more complicated and uses write_begin/write_end or
-dirty_folio to write data into the address_space, and writepage and
+dirty_folio to write data into the address_space, and
 writepages to writeback data to storage.</p>
 <p>Adding and removing pages to/from an address_space is protected by the
 inode’s i_mutex.</p>
 <p>When data is written to a page, the PG_Dirty flag should be set.  It
-typically remains set until writepage asks for it to be written.  This
+typically remains set until writepages asks for it to be written.  This
 should clear PG_Dirty and set PG_Writeback.  It can be actually written
 at any point after PG_Dirty is clear.  Once it is known to be safe,
 PG_Writeback is cleared.</p>
 <p>Writeback makes use of a writeback_control structure to direct the
-operations.  This gives the writepage and writepages operations some
+operations.  This gives the writepages operation some
 information about the nature of and reason for the writeback request,
 and the constraints under which it is being done.  It is also used to
-return information back to the caller about the result of a writepage or
+return information back to the caller about the result of a
 writepages request.</p>
 <section id="handling-errors-during-writeback">
 <h3>Handling errors during writeback<a class="headerlink" href="#handling-errors-during-writeback" title="Link to this heading">¶</a></h3>
@@ -830,7 +829,6 @@ point in the stream of errors emitted by the backing device(s).</p>
 <p>This describes how the VFS can manipulate mapping of a file to page
 cache in your filesystem.  The following members are defined:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space_operations</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">writepage</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">page</span><span class="w"> </span><span class="o">*</span><span class="n">page</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">writeback_control</span><span class="w"> </span><span class="o">*</span><span class="n">wbc</span><span class="p">);</span>
 <span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">read_folio</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">file</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">folio</span><span class="w"> </span><span class="o">*</span><span class="p">);</span>
 <span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">writepages</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">writeback_control</span><span class="w"> </span><span class="o">*</span><span class="p">);</span>
 <span class="w">        </span><span class="kt">bool</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">dirty_folio</span><span class="p">)(</span><span class="k">struct</span><span class="w"> </span><span class="nc">address_space</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">folio</span><span class="w"> </span><span class="o">*</span><span class="p">);</span>
@@ -861,22 +859,6 @@ cache in your filesystem.  The following members are defined:</p>
 </pre></div>
 </div>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">writepage</span></code></dt><dd><p>called by the VM to write a dirty page to backing store.  This
-may happen for data integrity reasons (i.e. ‘sync’), or to free
-up memory (flush).  The difference can be seen in
-wbc-&gt;sync_mode.  The PG_Dirty flag has been cleared and
-PageLocked is true.  writepage should start writeout, should set
-PG_Writeback, and should make sure the page is unlocked, either
-synchronously or asynchronously when the write operation
-completes.</p>
-<p>If wbc-&gt;sync_mode is WB_SYNC_NONE, -&gt;writepage doesn’t have to
-try too hard if there are problems, and may choose to write out
-other pages from the mapping if that is easier (e.g. due to
-internal dependencies).  If it chooses not to start writeout, it
-should return AOP_WRITEPAGE_ACTIVATE so that the VM will not
-keep calling -&gt;writepage on that page.</p>
-<p>See the file “Locking” for more details.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">read_folio</span></code></dt><dd><p>Called by the page cache to read a folio from the backing store.
 The ‘file’ argument supplies authentication information to network
 filesystems, and is generally not used by block based filesystems.
@@ -913,7 +895,7 @@ written out.  If it is WB_SYNC_NONE, then a nr_to_write is
 given and that many pages should be written if possible.  If no
 -&gt;writepages is given, then mpage_writepages is used instead.
 This will choose pages from the address space that are tagged as
-DIRTY and will pass them to -&gt;writepage.</p>
+DIRTY and will write them back.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dirty_folio</span></code></dt><dd><p>called by the VM to mark a folio as dirty.  This is particularly
 needed if an address space attaches private data to a folio, and
@@ -1342,9 +1324,7 @@ the directory will be treated as an ordinary directory and
 returned to pathwalk to continue walking.</p>
 <p>If a vfsmount is returned, the caller will attempt to mount it
 on the mountpoint and will remove the vfsmount from its
-expiration list in the case of failure.  The vfsmount should be
-returned with 2 refs on it to prevent automatic expiration - the
-caller will clean up the additional ref.</p>
+expiration list in the case of failure.</p>
 <p>This function is only used if DCACHE_NEED_AUTOMOUNT is set on
 the dentry.  This is set by __d_instantiate() if S_AUTOMOUNT is
 set on the inode being added.</p>

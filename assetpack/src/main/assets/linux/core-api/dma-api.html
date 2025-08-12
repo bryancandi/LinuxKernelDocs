@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -86,6 +86,7 @@
 <li class="toctree-l3"><a class="reference internal" href="pin_user_pages.html">pin_user_pages() and related calls</a></li>
 <li class="toctree-l3"><a class="reference internal" href="boot-time-mm.html">Boot time memory management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="gfp_mask-from-fs-io.html">GFP masks used from FS/IO context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kho/index.html">Kexec Handover Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#interfaces-for-kernel-debugging">Interfaces for kernel debugging</a></li>
@@ -231,7 +232,7 @@ dma_pool_create(const char *name, struct device *dev,
                 size_t size, size_t align, size_t alloc);
 </pre></div>
 </div>
-<p><a class="reference internal" href="mm-api.html#c.dma_pool_create" title="dma_pool_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_pool_create()</span></code></a> initializes a pool of DMA-coherent buffers
+<p>dma_pool_create() initializes a pool of DMA-coherent buffers
 for use with a given device.  It must be called in a context which
 can sleep.</p>
 <p>The “name” is for diagnostics (like a struct kmem_cache name); dev and size
@@ -612,6 +613,62 @@ routines, e.g.::</p>
 }
 </pre></div>
 </div>
+</section>
+<section id="part-ie-iova-based-dma-mappings">
+<h2>Part Ie - IOVA-based DMA mappings<a class="headerlink" href="#part-ie-iova-based-dma-mappings" title="Link to this heading">¶</a></h2>
+<p>These APIs allow a very efficient mapping when using an IOMMU.  They are an
+optional path that requires extra code and are only recommended for drivers
+where DMA mapping performance, or the space usage for storing the DMA addresses
+matter.  All the considerations from the previous section apply here as well.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>bool dma_iova_try_alloc(struct device *dev, struct dma_iova_state *state,
+            phys_addr_t phys, size_t size);
+</pre></div>
+</div>
+<p>Is used to try to allocate IOVA space for mapping operation.  If it returns
+false this API can’t be used for the given device and the normal streaming
+DMA mapping API should be used.  The <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_iova_state</span></code> is allocated
+by the driver and must be kept around until unmap time.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>static inline bool dma_use_iova(struct dma_iova_state *state)
+</pre></div>
+</div>
+<p>Can be used by the driver to check if the IOVA-based API is used after a
+call to dma_iova_try_alloc.  This can be useful in the unmap path.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int dma_iova_link(struct device *dev, struct dma_iova_state *state,
+            phys_addr_t phys, size_t offset, size_t size,
+            enum dma_data_direction dir, unsigned long attrs);
+</pre></div>
+</div>
+<p>Is used to link ranges to the IOVA previously allocated.  The start of all
+but the first call to dma_iova_link for a given state must be aligned
+to the DMA merge boundary returned by <code class="docutils literal notranslate"><span class="pre">dma_get_merge_boundary())</span></code>, and
+the size of all but the last range must be aligned to the DMA merge boundary
+as well.</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>int dma_iova_sync(struct device *dev, struct dma_iova_state *state,
+            size_t offset, size_t size);
+</pre></div>
+</div>
+<p>Must be called to sync the IOMMU page tables for IOVA-range mapped by one or
+more calls to <code class="docutils literal notranslate"><span class="pre">dma_iova_link()</span></code>.</p>
+<p>For drivers that use a one-shot mapping, all ranges can be unmapped and the
+IOVA freed by calling:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void dma_iova_destroy(struct device *dev, struct dma_iova_state *state,
+             size_t mapped_len, enum dma_data_direction dir,
+             unsigned long attrs);
+</pre></div>
+</div>
+<p>Alternatively drivers can dynamically manage the IOVA space by unmapping
+and mapping individual regions.  In that case</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void dma_iova_unlink(struct device *dev, struct dma_iova_state *state,
+            size_t offset, size_t size, enum dma_data_direction dir,
+            unsigned long attrs);
+</pre></div>
+</div>
+<p>is used to unmap a range previously mapped, and</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void dma_iova_free(struct device *dev, struct dma_iova_state *state);
+</pre></div>
+</div>
+<p>is used to free the IOVA space.  All regions must have been unmapped using
+<code class="docutils literal notranslate"><span class="pre">dma_iova_unlink()</span></code> before calling <code class="docutils literal notranslate"><span class="pre">dma_iova_free()</span></code>.</p>
 </section>
 <section id="part-ii-non-coherent-dma-allocations">
 <h2>Part II - Non-coherent DMA allocations<a class="headerlink" href="#part-ii-non-coherent-dma-allocations" title="Link to this heading">¶</a></h2>

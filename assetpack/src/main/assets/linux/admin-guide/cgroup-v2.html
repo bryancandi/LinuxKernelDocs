@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -1011,7 +1011,7 @@ The (optional) utilization clamping support allows to hint the schedutil
 cpufreq governor about the minimum desired frequency which should always be
 provided by a CPU, as well as the maximum desired frequency, which should not
 be exceeded by a CPU.</p>
-<p>WARNING: cgroup2 cpu controller doesn’t yet fully support the control of
+<p>WARNING: cgroup2 cpu controller doesn’t yet support the (bandwidth) control of
 realtime processes. For a kernel built with the CONFIG_RT_GROUP_SCHED option
 enabled for group scheduling of realtime processes, the cpu controller can only
 be enabled when all RT processes are in the root cgroup. Be aware that system
@@ -1026,18 +1026,32 @@ CONFIG_RT_GROUP_SCHED. Other controllers can be used for the resource control of
 realtime processes irrespective of CONFIG_RT_GROUP_SCHED.</p>
 <section id="cpu-interface-files">
 <h4>CPU Interface Files<a class="headerlink" href="#cpu-interface-files" title="Link to this heading">¶</a></h4>
-<p>All time durations are in microseconds.</p>
+<p>The interaction of a process with the cpu controller depends on its scheduling
+policy and the underlying scheduler. From the point of view of the cpu controller,
+processes can be categorized as follows:</p>
+<ul class="simple">
+<li><p>Processes under the fair-class scheduler</p></li>
+<li><p>Processes under a BPF scheduler with the <code class="docutils literal notranslate"><span class="pre">cgroup_set_weight</span></code> callback</p></li>
+<li><p>Everything else: <code class="docutils literal notranslate"><span class="pre">SCHED_{FIFO,RR,DEADLINE}</span></code> and processes under a BPF scheduler
+without the <code class="docutils literal notranslate"><span class="pre">cgroup_set_weight</span></code> callback</p></li>
+</ul>
+<p>For details on when a process is under the fair-class scheduler or a BPF scheduler,
+check out <a class="reference internal" href="../scheduler/sched-ext.html#sched-ext"><span class="std std-ref">Documentation/scheduler/sched-ext.rst</span></a>.</p>
+<p>For each of the following interface files, the above categories
+will be referred to. All time durations are in microseconds.</p>
 <blockquote>
 <div><dl>
 <dt>cpu.stat</dt><dd><p>A read-only flat-keyed file.
 This file exists whether the controller is enabled or not.</p>
-<p>It always reports the following three stats:</p>
+<p>It always reports the following three stats, which account for all the
+processes in the cgroup:</p>
 <ul class="simple">
 <li><p>usage_usec</p></li>
 <li><p>user_usec</p></li>
 <li><p>system_usec</p></li>
 </ul>
-<p>and the following five when the controller is enabled:</p>
+<p>and the following five when the controller is enabled, which account for
+only the processes under the fair-class scheduler:</p>
 <ul class="simple">
 <li><p>nr_periods</p></li>
 <li><p>nr_throttled</p></li>
@@ -1052,6 +1066,9 @@ cgroups.  The default is “100”.</p>
 range [1, 10000].</p>
 <p>If the cgroup has been configured to be SCHED_IDLE (cpu.idle = 1),
 then the weight will show as a 0.</p>
+<p>This file affects only processes under the fair-class scheduler and a BPF
+scheduler with the <code class="docutils literal notranslate"><span class="pre">cgroup_set_weight</span></code> callback depending on what the
+callback actually does.</p>
 </dd>
 <dt>cpu.weight.nice</dt><dd><p>A read-write single value file which exists on non-root
 cgroups.  The default is “0”.</p>
@@ -1061,6 +1078,9 @@ cgroups.  The default is “0”.</p>
 same values used by nice(2).  Because the range is smaller and
 granularity is coarser for the nice values, the read value is
 the closest approximation of the current weight.</p>
+<p>This file affects only processes under the fair-class scheduler and a BPF
+scheduler with the <code class="docutils literal notranslate"><span class="pre">cgroup_set_weight</span></code> callback depending on what the
+callback actually does.</p>
 </dd>
 <dt>cpu.max</dt><dd><p>A read-write two value file which exists on non-root cgroups.
 The default is “max 100000”.</p>
@@ -1071,14 +1091,17 @@ The default is “max 100000”.</p>
 <p>which indicates that the group may consume up to $MAX in each
 $PERIOD duration.  “max” for $MAX indicates no limit.  If only
 one number is written, $MAX is updated.</p>
+<p>This file affects only processes under the fair-class scheduler.</p>
 </dd>
 <dt>cpu.max.burst</dt><dd><p>A read-write single value file which exists on non-root
 cgroups.  The default is “0”.</p>
 <p>The burst in the range [0, $MAX].</p>
+<p>This file affects only processes under the fair-class scheduler.</p>
 </dd>
 <dt>cpu.pressure</dt><dd><p>A read-write nested-keyed file.</p>
 <p>Shows pressure stall information for CPU. See
 <a class="reference internal" href="../accounting/psi.html#psi"><span class="std std-ref">Documentation/accounting/psi.rst</span></a> for details.</p>
+<p>This file accounts for all the processes in the cgroup.</p>
 </dd>
 <dt>cpu.uclamp.min</dt><dd><p>A read-write single value file which exists on non-root cgroups.
 The default is “0”, i.e. no utilization boosting.</p>
@@ -1086,10 +1109,12 @@ The default is “0”, i.e. no utilization boosting.</p>
 rational number, e.g. 12.34 for 12.34%.</p>
 <p>This interface allows reading and setting minimum utilization clamp
 values similar to the sched_setattr(2). This minimum utilization
-value is used to clamp the task specific minimum utilization clamp.</p>
+value is used to clamp the task specific minimum utilization clamp,
+including those of realtime processes.</p>
 <p>The requested minimum utilization (protection) is always capped by
 the current value for the maximum utilization (limit), i.e.
 <cite>cpu.uclamp.max</cite>.</p>
+<p>This file affects all the processes in the cgroup.</p>
 </dd>
 <dt>cpu.uclamp.max</dt><dd><p>A read-write single value file which exists on non-root cgroups.
 The default is “max”. i.e. no utilization capping</p>
@@ -1097,7 +1122,9 @@ The default is “max”. i.e. no utilization capping</p>
 number, e.g. 98.76 for 98.76%.</p>
 <p>This interface allows reading and setting maximum utilization clamp
 values similar to the sched_setattr(2). This maximum utilization
-value is used to clamp the task specific maximum utilization clamp.</p>
+value is used to clamp the task specific maximum utilization clamp,
+including those of realtime processes.</p>
+<p>This file affects all the processes in the cgroup.</p>
 </dd>
 <dt>cpu.idle</dt><dd><p>A read-write single value file which exists on non-root cgroups.
 The default is 0.</p>
@@ -1106,6 +1133,7 @@ Setting this value to a 1 will make the scheduling policy of the
 cgroup SCHED_IDLE. The threads inside the cgroup will retain their
 own relative priorities, but the cgroup itself will be treated as
 very low priority relative to its peers.</p>
+<p>This file affects only processes under the fair-class scheduler.</p>
 </dd>
 </dl>
 </div></blockquote>
@@ -1190,6 +1218,16 @@ under extreme conditions the limit may be breached. The high
 limit should be used in scenarios where an external process
 monitors the limited cgroup to alleviate heavy reclaim
 pressure.</p>
+<p>If memory.high is opened with O_NONBLOCK then the synchronous
+reclaim is bypassed. This is useful for admin processes that
+need to dynamically adjust the job’s memory limits without
+expending their own CPU resources on memory reclamation. The
+job will trigger the reclaim and/or get throttled on its
+next charge request.</p>
+<p>Please note that with O_NONBLOCK, there is a chance that the
+target memory cgroup may take indefinite amount of time to
+reduce usage below the limit due to delayed charge request or
+busy-hitting its memory to slow down reclaim.</p>
 </dd>
 <dt>memory.max</dt><dd><p>A read-write single value file which exists on non-root
 cgroups.  The default is “max”.</p>
@@ -1203,6 +1241,16 @@ succeed unless OOM killer chooses current task as a victim.</p>
 <p>Some kinds of allocations don’t invoke the OOM killer.
 Caller could retry them differently, return into userspace
 as -ENOMEM or silently ignore in cases like disk readahead.</p>
+<p>If memory.max is opened with O_NONBLOCK, then the synchronous
+reclaim and oom-kill are bypassed. This is useful for admin
+processes that need to dynamically adjust the job’s memory limits
+without expending their own CPU resources on memory reclamation.
+The job will trigger the reclaim and/or oom-kill on its next
+charge request.</p>
+<p>Please note that with O_NONBLOCK, there is a chance that the
+target memory cgroup may take indefinite amount of time to
+reduce usage below the limit due to delayed charge request or
+busy-hitting its memory to slow down reclaim.</p>
 </dd>
 <dt>memory.reclaim</dt><dd><p>A write-only nested-keyed file which exists for all cgroups.</p>
 <p>This is a simple interface to trigger memory reclaim in the
@@ -1239,6 +1287,8 @@ reclaim induced by memory.reclaim.</p>
 the reclaim with that swappiness value. Note that this has the
 same semantics as vm.swappiness applied to memcg reclaim with
 all the existing limitations and potential future extensions.</p>
+<p>The valid range for swappiness is [0-200, max], setting
+swappiness=max exclusively reclaims anonymous memory.</p>
 </div></blockquote>
 <dl>
 <dt>memory.peak</dt><dd><p>A read-write single value file which exists on non-root cgroups.</p>
@@ -2781,7 +2831,7 @@ controllers are not covered.</p>
 <section id="filesystem-support-for-writeback">
 <h3>Filesystem Support for Writeback<a class="headerlink" href="#filesystem-support-for-writeback" title="Link to this heading">¶</a></h3>
 <p>A filesystem can support cgroup writeback by updating
-address_space_operations-&gt;writepage[s]() to annotate bio’s using the
+address_space_operations-&gt;writepages() to annotate bio’s using the
 following two functions.</p>
 <blockquote>
 <div><dl class="simple">

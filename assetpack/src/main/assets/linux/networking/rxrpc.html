@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -980,7 +980,7 @@ saving a copy.  The value may not be less than -1.</p>
 incoming data packets or remote aborts happen.</p>
 <p>upgrade should be set to true if a client operation should request that
 the server upgrade the service to a better one.  The resultant service ID
-is returned by rxrpc_kernel_recv_data().</p>
+is returned by <a class="reference internal" href="#c.rxrpc_kernel_recv_data" title="rxrpc_kernel_recv_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">rxrpc_kernel_recv_data()</span></code></a>.</p>
 <p>intr should be set to true if the call should be interruptible.  If this
 is not set, this function may not return until a channel has been
 allocated; if it is set, the function may return -ERESTARTSYS.</p>
@@ -1144,7 +1144,7 @@ rxrpc_kernel_accept_call(struct socket *sock,
 </pre></div>
 </div>
 <p>This is used to accept an incoming call and to assign it a call ID.  This
-function is similar to rxrpc_kernel_begin_call() and calls accepted must
+function is similar to <a class="reference internal" href="#c.rxrpc_kernel_begin_call" title="rxrpc_kernel_begin_call"><code class="xref c c-func docutils literal notranslate"><span class="pre">rxrpc_kernel_begin_call()</span></code></a> and calls accepted must
 be ended in the same way.</p>
 <p>If this function is successful, an opaque reference to the RxRPC call is
 returned.  The caller now holds a reference on this and it must be
@@ -1212,29 +1212,6 @@ process a client operation.</p>
 the peer into responding, which would then cause the value returned by the
 first function to change.  Note that this must be called in TASK_RUNNING
 state.</p>
-</li>
-<li><p>Get remote client epoch:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>u32 rxrpc_kernel_get_epoch(struct socket *sock,
-                           struct rxrpc_call *call)
-</pre></div>
-</div>
-<p>This allows the epoch that’s contained in packets of an incoming client
-call to be queried.  This value is returned.  The function always
-successful if the call is still in progress.  It shouldn’t be called once
-the call has expired.  Note that calling this on a local client call only
-returns the local epoch.</p>
-<p>This value can be used to determine if the remote client has been
-restarted as it shouldn’t change otherwise.</p>
-</li>
-<li><p>Set the maximum lifespan on a call:</p>
-<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>void rxrpc_kernel_set_max_life(struct socket *sock,
-                               struct rxrpc_call *call,
-                               unsigned long hard_timeout)
-</pre></div>
-</div>
-<p>This sets the maximum lifespan on a call to hard_timeout (which is in
-jiffies).  In the event of the timeout occurring, the call will be
-aborted and -ETIME or -ETIMEDOUT will be returned.</p>
 </li>
 <li><p>Apply the RXRPC_MIN_SECURITY_LEVEL sockopt to a socket from within in the
 kernel:</p>
@@ -1315,6 +1292,651 @@ may not exceed rxrpc_rx_mtu in size.</p>
 </li>
 </ol>
 </div></blockquote>
+</section>
+<section id="api-function-reference">
+<h2>API Function Reference<a class="headerlink" href="#api-function-reference" title="Link to this heading">¶</a></h2>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_lookup_peer">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_lookup_peer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">sockaddr_rxrpc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">srx</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_lookup_peer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Obtain remote transport endpoint for an address</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket through which it will be accessed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sockaddr_rxrpc</span> <span class="pre">*srx</span></code></dt><dd><p>The network address</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>Allocation flags</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Lookup or create a remote transport endpoint record for the specified
+address.</p>
+<p><strong>Return</strong></p>
+<p>The peer record found with a reference, <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if no record is found
+or a negative error code if the address is invalid or unsupported.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_get_peer">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_get_peer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_get_peer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a reference on a peer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to get a reference on (may be NULL).</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a reference for a remote peer record (if not NULL).</p>
+<p><strong>Return</strong></p>
+<p>The <strong>peer</strong> argument.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_put_peer">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_put_peer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_put_peer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel app to drop a peer reference</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to drop a ref on</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Drop a reference on a peer record.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_begin_call">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_begin_call</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.rxrpc_kernel_begin_call" title="key"><span class="n"><span class="pre">key</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">user_call_ID</span></span>, <span class="n"><span class="pre">s64</span></span><span class="w"> </span><span class="n"><span class="pre">tx_total_len</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">hard_timeout</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="n"><span class="pre">rxrpc_notify_rx_t</span></span><span class="w"> </span><span class="n"><span class="pre">notify_rx</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="n"><span class="pre">service_id</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">upgrade</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_interruptibility</span></span><span class="w"> </span><span class="n"><span class="pre">interruptibility</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">debug_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_begin_call" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to begin a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket on which to make the call</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to contact</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">key</span> <span class="pre">*key</span></code></dt><dd><p>The security context to use (defaults to socket setting)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">user_call_ID</span></code></dt><dd><p>The ID to use</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">s64</span> <span class="pre">tx_total_len</span></code></dt><dd><p>Total length of data to transmit during the call (or -1)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">hard_timeout</span></code></dt><dd><p>The maximum lifespan of the call in sec</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>The allocation constraints</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rxrpc_notify_rx_t</span> <span class="pre">notify_rx</span></code></dt><dd><p>Where to send notifications instead of socket queue</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">service_id</span></code></dt><dd><p>The ID of the service to contact</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">upgrade</span></code></dt><dd><p>Request service upgrade for call</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">rxrpc_interruptibility</span> <span class="pre">interruptibility</span></code></dt><dd><p>The call is interruptible, or can be canceled.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">debug_id</span></code></dt><dd><p>The debug ID for tracing to be assigned to the call</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to begin a call on the nominated socket.  This just
+sets up all the internal tracking structures and allocates connection and
+call IDs as appropriate.</p>
+<p>The default socket destination address and security may be overridden by
+supplying <strong>srx</strong> and <strong>key</strong>.</p>
+<p><strong>Return</strong></p>
+<p>The new call or an error code.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_shutdown_call">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_shutdown_call</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_shutdown_call" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to shut down a call it was using</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to end</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to shut down a call it was using.  The call must be
+complete before this is called (the call should be aborted if necessary).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_put_call">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_put_call</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_put_call" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Release a reference to a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to put</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Drop the application’s ref on an rxrpc call.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_check_life">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_check_life</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_check_life" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check to see whether a call is still alive</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to check</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to find out whether a call is still alive - whether
+it has completed successfully and all received data has been consumed.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">true</span></code> if the call is still ongoing and <code class="docutils literal notranslate"><span class="pre">false</span></code> if it has completed.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_set_notifications">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_set_notifications</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_kernel_ops</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">app_ops</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_set_notifications" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set table of callback operations</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket to install table upon</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_kernel_ops</span> <span class="pre">*app_ops</span></code></dt><dd><p>Callback operation table to set</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to set a table of event notifications on a socket.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_query_call_security">
+<span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_query_call_security</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_service_id</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_enctype</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_query_call_security" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query call’s security parameters</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to query</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">*_service_id</span></code></dt><dd><p>Where to return the service ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*_enctype</span></code></dt><dd><p>Where to return the “encoding type”</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This queries the security parameters of a call, setting <strong>*_service_id</strong> and
+<strong>*_enctype</strong> and returning the security class.</p>
+<p><strong>Return</strong></p>
+<p>The security class protocol number.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_get_null_key">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_get_null_key</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">keyname</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_get_null_key" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Generate a null RxRPC key</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*keyname</span></code></dt><dd><p>The name to give the key.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Generate a null RxRPC key that can be used to indicate anonymous security is
+required for a particular domain.</p>
+<p><strong>Return</strong></p>
+<p>The new key or a negative error code.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_query_oob">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_oob_type</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_query_oob</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">oob</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_peer</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_peer_appdata</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_query_oob" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query the parameters of an out-of-band message</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*oob</span></code></dt><dd><p>The message to query</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">**_peer</span></code></dt><dd><p>Where to return the peer record</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*_peer_appdata</span></code></dt><dd><p>The application data attached to a peer record</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Extract useful parameters from an out-of-band message.  The source peer
+parameters are returned through the argument list and the message type is
+returned.</p>
+<p><strong>Return</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">RXRPC_OOB_CHALLENGE</span></code> - Challenge wanting a response.</p></li>
+</ul>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_dequeue_oob">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_dequeue_oob</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_oob_type</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_type</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_dequeue_oob" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Dequeue and return the front OOB message</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket to query</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">rxrpc_oob_type</span> <span class="pre">*_type</span></code></dt><dd><p>Where to return the message type</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Dequeue the front OOB message, if there is one, and return it and
+its type.</p>
+<p><strong>Return</strong></p>
+<p>The sk_buff representing the OOB message or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if the queue was
+empty.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_free_oob">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_free_oob</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">oob</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_free_oob" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Free an out-of-band message</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*oob</span></code></dt><dd><p>The OOB message to free</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Free an OOB message along with any resources it holds.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_query_challenge">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_query_challenge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">challenge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_peer</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_peer_appdata</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_service_id</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_security_index</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_query_challenge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query the parameters of a challenge</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*challenge</span></code></dt><dd><p>The challenge to query</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">**_peer</span></code></dt><dd><p>Where to return the peer record</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*_peer_appdata</span></code></dt><dd><p>The application data attached to a peer record</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">*_service_id</span></code></dt><dd><p>Where to return the connection service ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*_security_index</span></code></dt><dd><p>Where to return the connection security index</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Extract useful parameters from a CHALLENGE message.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_reject_challenge">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_reject_challenge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">challenge</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">abort_code</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">error</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_abort_reason</span></span><span class="w"> </span><span class="n"><span class="pre">why</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_reject_challenge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to reject a challenge</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*challenge</span></code></dt><dd><p>The challenge to be rejected</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">abort_code</span></code></dt><dd><p>The abort code to stick into the ABORT packet</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">error</span></code></dt><dd><p>Local error value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">rxrpc_abort_reason</span> <span class="pre">why</span></code></dt><dd><p>Indication as to why.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to reject a challenge by aborting the connection if
+it’s still in an abortable state.  The error is returned so this function
+can be used with a return statement.</p>
+<p><strong>Return</strong></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">error</span></code> parameter.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_get_call_peer">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_get_call_peer</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_get_call_peer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the peer address of a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket on which the call is in progress.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to query</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a record for the remote peer in a call.</p>
+<p><strong>Return</strong></p>
+<p>The call’s peer record.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_get_srtt">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_get_srtt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_get_srtt" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get a call’s peer smoothed RTT</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to query</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get the call’s peer smoothed RTT.</p>
+<p><strong>Return</strong></p>
+<p>The RTT in uS or <code class="docutils literal notranslate"><span class="pre">UINT_MAX</span></code> if we have no samples.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_remote_srx">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">sockaddr_rxrpc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_remote_srx</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_remote_srx" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the address of a peer</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to query</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a pointer to the address from a peer record.  The caller is responsible
+for making sure that the address is not deallocated.  A fake address will be
+substituted if <code class="docutils literal notranslate"><span class="pre">peer</span></code> in NULL.</p>
+<p><strong>Return</strong></p>
+<p>The rxrpc address record or a fake record.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_remote_addr">
+<span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">sockaddr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_remote_addr</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_remote_addr" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the peer transport address of a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to query</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Get a pointer to the transport address from a peer record.  The caller is
+responsible for making sure that the address is not deallocated.  A fake
+address will be substituted if <code class="docutils literal notranslate"><span class="pre">peer</span></code> in NULL.</p>
+<p><strong>Return</strong></p>
+<p>The transport address record or a fake record.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_set_peer_data">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_set_peer_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">app_data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_set_peer_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set app-specific data on a peer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to alter</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">app_data</span></code></dt><dd><p>The data to set</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Set the app-specific data on a peer.  AF_RXRPC makes no effort to retain
+anything the data might refer to.</p>
+<p><strong>Return</strong></p>
+<p>The previous app_data.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_get_peer_data">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_get_peer_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_peer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">peer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_get_peer_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get app-specific data from a peer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">rxrpc_peer</span> <span class="pre">*peer</span></code></dt><dd><p>The peer to query</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Retrieve the app-specific data from a peer.</p>
+<p><strong>Return</strong></p>
+<p>The peer’s app data.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_recv_data">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_recv_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iov_iter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iter</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_len</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">want_more</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_abort</span></span>, <span class="n"><span class="pre">u16</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">_service</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_recv_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to receive data/info</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket that the call exists on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to send data through</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">iov_iter</span> <span class="pre">*iter</span></code></dt><dd><p>The buffer to receive into</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">*_len</span></code></dt><dd><p>The amount of data we want to receive (decreased on return)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">want_more</span></code></dt><dd><p>True if more data is expected to be read</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*_abort</span></code></dt><dd><p>Where the abort code is stored if -ECONNABORTED is returned</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u16</span> <span class="pre">*_service</span></code></dt><dd><p>Where to store the actual service ID (may be upgraded)</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to receive data and pick up information about the
+state of a call.  Note that <strong>*_abort</strong> should also be initialised to <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+<p>Note that we may return <code class="docutils literal notranslate"><span class="pre">-EAGAIN</span></code> to drain empty packets at the end
+of the data, even if we’ve already copied over the requested data.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> if got what was asked for and there’s more available, <code class="docutils literal notranslate"><span class="pre">1</span></code>
+if we got what was asked for and we’re at the end of the data and
+<code class="docutils literal notranslate"><span class="pre">-EAGAIN</span></code> if we need more data.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxgk_kernel_query_challenge">
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxgk_kernel_query_challenge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">challenge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxgk_kernel_query_challenge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query RxGK-specific challenge parameters</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*challenge</span></code></dt><dd><p>The challenge packet to query</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>The Kerberos 5 encoding type for the challenged connection.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxgk_kernel_respond_to_challenge">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxgk_kernel_respond_to_challenge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">challenge</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">krb5_buffer</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">appdata</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxgk_kernel_respond_to_challenge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Respond to a challenge with appdata</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*challenge</span></code></dt><dd><p>The challenge to respond to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">krb5_buffer</span> <span class="pre">*appdata</span></code></dt><dd><p>The application data to include in the RESPONSE authenticator</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel application to respond to a CHALLENGE with application data
+to be included in the RxGK RESPONSE Authenticator.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> if successful and a negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxkad_kernel_respond_to_challenge">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxkad_kernel_respond_to_challenge</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">challenge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxkad_kernel_respond_to_challenge" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Respond to a challenge with appdata</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">*challenge</span></code></dt><dd><p>The challenge to respond to</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel application to respond to a CHALLENGE.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> if successful and a negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_send_data">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_send_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">msghdr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">msg</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span>, <span class="n"><span class="pre">rxrpc_notify_end_tx_t</span></span><span class="w"> </span><span class="n"><span class="pre">notify_end_tx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_send_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to send data on a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to send data through</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">msghdr</span> <span class="pre">*msg</span></code></dt><dd><p>The data to send</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">len</span></code></dt><dd><p>The amount of data to send</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rxrpc_notify_end_tx_t</span> <span class="pre">notify_end_tx</span></code></dt><dd><p>Notification that the last packet is queued.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to send data on a call.  The call must be in an state
+appropriate to sending data.  No control data should be supplied in <strong>msg</strong>,
+nor should an address be supplied.  MSG_MORE should be flagged if there’s
+more data to come, otherwise this data will end the transmission phase.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> if successful and a negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_abort_call">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_abort_call</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">abort_code</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">error</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_abort_reason</span></span><span class="w"> </span><span class="n"><span class="pre">why</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_abort_call" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allow a kernel service to abort a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to be aborted</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">abort_code</span></code></dt><dd><p>The abort code to stick into the ABORT packet</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">error</span></code></dt><dd><p>Local error value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">rxrpc_abort_reason</span> <span class="pre">why</span></code></dt><dd><p>Indication as to why.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to abort a call if it’s still in an abortable state.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">true</span></code> if the call was aborted, <code class="docutils literal notranslate"><span class="pre">false</span></code> if it was already complete.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_kernel_set_tx_length">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_kernel_set_tx_length</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.socket" title="socket"><span class="n"><span class="pre">socket</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sock</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">rxrpc_call</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">call</span></span>, <span class="n"><span class="pre">s64</span></span><span class="w"> </span><span class="n"><span class="pre">tx_total_len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_kernel_set_tx_length" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set the total Tx length on a call</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">socket</span> <span class="pre">*sock</span></code></dt><dd><p>The socket the call is on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">rxrpc_call</span> <span class="pre">*call</span></code></dt><dd><p>The call to be informed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">s64</span> <span class="pre">tx_total_len</span></code></dt><dd><p>The amount of data to be transmitted for this call</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Allow a kernel service to set the total transmit length on a call.  This
+allows buffer-to-packet encrypt-and-copy to be performed.</p>
+<p>This function is primarily for use for setting the reply length since the
+request length can be set when beginning the call.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_sock_set_security_keyring">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_sock_set_security_keyring</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sock" title="sock"><span class="n"><span class="pre">sock</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sk</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">keyring</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_sock_set_security_keyring" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set the security keyring for a kernel service</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sock</span> <span class="pre">*sk</span></code></dt><dd><p>The socket to set the keyring on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">key</span> <span class="pre">*keyring</span></code></dt><dd><p>The keyring to set</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Set the server security keyring on an rxrpc socket.  This is used to provide
+the encryption keys for a kernel service.</p>
+<p><strong>Return</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">0</span></code> if successful and a negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.rxrpc_sock_set_manage_response">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxrpc_sock_set_manage_response</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="kapi.html#c.sock" title="sock"><span class="n"><span class="pre">sock</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">sk</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">set</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.rxrpc_sock_set_manage_response" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Set the manage-response flag for a kernel service</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sock</span> <span class="pre">*sk</span></code></dt><dd><p>The socket to set the keyring on</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">set</span></code></dt><dd><p>True to set, false to clear the flag</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Set the flag on an rxrpc socket to say that the caller wants to manage the
+RESPONSE packet and the user-defined data it may contain.  Setting this
+means that recvmsg() will return messages with RXRPC_CHALLENGED in the
+control message buffer containing information about the challenge.</p>
+<p>The user should respond to the challenge by passing RXRPC_RESPOND or
+RXRPC_RESPOND_ABORT control messages with sendmsg() to the same call.
+Supplementary control messages, such as RXRPC_RESP_RXGK_APPDATA, may be
+included to indicate the parts the user wants to supply.</p>
+<p>The server will be passed the response data with a RXRPC_RESPONDED control
+message when it gets the first data from each call.</p>
+<p>Note that this is only honoured by security classes that need auxiliary data
+(e.g. RxGK).  Those that don’t offer the facility (e.g. RxKAD) respond
+without consulting userspace.</p>
+<p><strong>Return</strong></p>
+<p>The previous setting.</p>
+</div>
 </section>
 </section>
 

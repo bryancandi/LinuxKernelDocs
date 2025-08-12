@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -2418,6 +2418,8 @@ return -EDEADLK, which must be handled by calling <a class="reference internal" 
 <p>Reset the active outputs by indicating that connectors have changed.
 This implies a reset of all active components available between the CRTC and
 connectors.</p>
+<p>A variant of this function exists with
+drm_bridge_helper_reset_crtc(), dedicated to bridges.</p>
 <p><strong>NOTE</strong></p>
 <p>This relies on resetting <a class="reference internal" href="drm-kms.html#c.drm_crtc_state" title="drm_crtc_state"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_crtc_state.connectors_changed</span></code></a>.
 For drivers which optimize out unnecessary modesets this will result in
@@ -5969,7 +5971,7 @@ shall not create a drm_connector.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_bridge_funcs {
-    int (*attach)(struct drm_bridge *bridge, enum drm_bridge_attach_flags flags);
+    int (*attach)(struct drm_bridge *bridge, struct drm_encoder *encoder, enum drm_bridge_attach_flags flags);
     void (*detach)(struct drm_bridge *bridge);
     enum drm_mode_status (*mode_valid)(struct drm_bridge *bridge,const struct drm_display_info *info, const struct drm_display_mode *mode);
     bool (*mode_fixup)(struct drm_bridge *bridge,const struct drm_display_mode *mode, struct drm_display_mode *adjusted_mode);
@@ -6001,6 +6003,10 @@ shall not create a drm_connector.</p>
     int (*hdmi_audio_prepare)(struct drm_connector *connector,struct drm_bridge *bridge,struct hdmi_codec_daifmt *fmt, struct hdmi_codec_params *hparms);
     void (*hdmi_audio_shutdown)(struct drm_connector *connector, struct drm_bridge *bridge);
     int (*hdmi_audio_mute_stream)(struct drm_connector *connector,struct drm_bridge *bridge, bool enable, int direction);
+    int (*dp_audio_startup)(struct drm_connector *connector, struct drm_bridge *bridge);
+    int (*dp_audio_prepare)(struct drm_connector *connector,struct drm_bridge *bridge,struct hdmi_codec_daifmt *fmt, struct hdmi_codec_params *hparms);
+    void (*dp_audio_shutdown)(struct drm_connector *connector, struct drm_bridge *bridge);
+    int (*dp_audio_mute_stream)(struct drm_connector *connector,struct drm_bridge *bridge, bool enable, int direction);
     void (*debugfs_init)(struct drm_bridge *bridge, struct dentry *root);
 };
 </pre></div>
@@ -6375,24 +6381,53 @@ times, once for every updated infoframe type.</p>
 <p>This callback is optional but it must be implemented by bridges that
 set the DRM_BRIDGE_OP_HDMI flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_startup</span></code></dt><dd><p>Called when ASoC starts an audio stream setup. The
-<strong>hdmi_audio_startup()</strong> is optional.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_startup</span></code></dt><dd><p>Called when ASoC starts an audio stream setup.</p>
+<p>This callback is optional, it can be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 <p>Returns:
 0 on success, a negative error code otherwise</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_prepare</span></code></dt><dd><p>Configures HDMI-encoder for audio stream. Can be called multiple
-times for each setup. Mandatory if HDMI audio is enabled in the
-bridge’s configuration.</p>
+times for each setup.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 <p>Returns:
 0 on success, a negative error code otherwise</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_shutdown</span></code></dt><dd><p>Shut down the audio stream. Mandatory if HDMI audio is enabled in
-the bridge’s configuration.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_shutdown</span></code></dt><dd><p>Shut down the audio stream.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 <p>Returns:
 0 on success, a negative error code otherwise</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_mute_stream</span></code></dt><dd><p>Mute/unmute HDMI audio stream. The <strong>hdmi_audio_mute_stream</strong> callback
-is optional.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_mute_stream</span></code></dt><dd><p>Mute/unmute HDMI audio stream.</p>
+<p>This callback is optional, it can be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dp_audio_startup</span></code></dt><dd><p>Called when ASoC starts a DisplayPort audio stream setup.</p>
+<p>This callback is optional, it can be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dp_audio_prepare</span></code></dt><dd><p>Configures DisplayPort audio stream. Can be called multiple
+times for each setup.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dp_audio_shutdown</span></code></dt><dd><p>Shut down the DisplayPort audio stream.</p>
+<p>This callback is optional but it must be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
+<p>Returns:
+0 on success, a negative error code otherwise</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dp_audio_mute_stream</span></code></dt><dd><p>Mute/unmute DisplayPort audio stream.</p>
+<p>This callback is optional, it can be implemented by bridges that
+set the <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> flag in their <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge-&gt;ops</span></code></a>.</p>
 <p>Returns:
 0 on success, a negative error code otherwise</p>
 </dd>
@@ -6469,6 +6504,26 @@ implement the <a class="reference internal" href="#c.drm_bridge_funcs" title="dr
 this bit. This is to simplify corresponding glue code in connector
 drivers.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_BRIDGE_OP_HDMI_AUDIO</span></code></dt><dd><p>The bridge provides HDMI audio operations.
+Bridges that set this flag must implement the
+<a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;hdmi_audio_prepare</span></code></a> and
+<a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;hdmi_audio_shutdown</span></code></a> callbacks.</p>
+<p>Note: currently there can be at most one bridge in a chain that sets
+this bit. This is to simplify corresponding glue code in connector
+drivers. Also it is not possible to have a bridge in the chain that
+sets <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> if there is a bridge that sets this
+flag.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_BRIDGE_OP_DP_AUDIO</span></code></dt><dd><p>The bridge provides DisplayPort audio operations.
+Bridges that set this flag must implement the
+<a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;dp_audio_prepare</span></code></a> and
+<a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs-&gt;dp_audio_shutdown</span></code></a> callbacks.</p>
+<p>Note: currently there can be at most one bridge in a chain that sets
+this bit. This is to simplify corresponding glue code in connector
+drivers. Also it is not possible to have a bridge in the chain that
+sets <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> if there is a bridge that sets this
+flag.</p>
+</dd>
 </dl>
 </div>
 <dl class="c struct">
@@ -6488,6 +6543,8 @@ drivers.</p>
     struct list_head list;
     const struct drm_bridge_timings *timings;
     const struct drm_bridge_funcs *funcs;
+    void *container;
+    struct kref refcount;
     void *driver_private;
     enum drm_bridge_ops ops;
     int type;
@@ -6526,6 +6583,11 @@ drivers.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">timings</span></code></dt><dd><p>the timing specification for the bridge, if any (may be NULL)</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>control functions</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">container</span></code></dt><dd><p>Pointer to the private driver struct embedding this
+<strong>struct</strong> drm_bridge.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">refcount</span></code></dt><dd><p>reference count of users referencing this bridge.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">driver_private</span></code></dt><dd><p>pointer to the bridge driver’s internal context</p>
 </dd>
@@ -6570,16 +6632,65 @@ output formats. This is only relevant if <strong>DRM_BRIDGE_OP_HDMI</strong> is 
 values are 8, 10 and 12. This is only relevant if
 <strong>DRM_BRIDGE_OP_HDMI</strong> is set.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dev</span></code></dt><dd><p>device to be used as a parent for the HDMI Codec</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dev</span></code></dt><dd><p>device to be used as a parent for the HDMI Codec if
+either of <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> or <strong>DRM_BRIDGE_OP_DP_AUDIO</strong> is set.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_max_i2s_playback_channels</span></code></dt><dd><p>maximum number of playback
-I2S channels for the HDMI codec</p>
+I2S channels for the <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> or
+<strong>DRM_BRIDGE_OP_DP_AUDIO</strong>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_spdif_playback</span></code></dt><dd><p>set if HDMI codec has S/PDIF playback port</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_spdif_playback</span></code></dt><dd><p>set if this bridge has S/PDIF playback
+port for <strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> or <strong>DRM_BRIDGE_OP_DP_AUDIO</strong>.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dai_port</span></code></dt><dd><p>sound DAI port, -1 if it is not enabled</p>
+<dt><code class="docutils literal notranslate"><span class="pre">hdmi_audio_dai_port</span></code></dt><dd><p>sound DAI port for either of
+<strong>DRM_BRIDGE_OP_HDMI_AUDIO</strong> and <strong>DRM_BRIDGE_OP_DP_AUDIO</strong>, -1 if it is
+not used.</p>
 </dd>
 </dl>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.devm_drm_bridge_alloc">
+<span class="sig-name descname"><span class="n"><span class="pre">devm_drm_bridge_alloc</span></span></span><a class="headerlink" href="#c.devm_drm_bridge_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">devm_drm_bridge_alloc</span> <span class="pre">(dev,</span> <span class="pre">type,</span> <span class="pre">member,</span> <span class="pre">funcs)</span></code></p>
+<blockquote>
+<div><p>Allocate and initialize a bridge</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> of the bridge device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>the type of the struct which contains struct <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">member</span></code></dt><dd><p>the name of the <a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge</span></code></a> within <strong>type</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>callbacks for this bridge</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The reference count of the returned bridge is initialized to 1. This
+reference will be automatically dropped via devm (by calling
+<a class="reference internal" href="#c.drm_bridge_put" title="drm_bridge_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_bridge_put()</span></code></a>) when <strong>dev</strong> is removed.</p>
+<p><strong>Return</strong></p>
+<p>Pointer to new bridge, or ERR_PTR on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_bridge_get_current_state">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_bridge_state" title="drm_bridge_state"><span class="n"><span class="pre">drm_bridge_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_get_current_state</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_get_current_state" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the current bridge state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge object</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function must be called with the modeset lock held.</p>
+<p>The current bridge state, or NULL if there is none.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_bridge_get_next_bridge">
@@ -6649,6 +6760,39 @@ iteration</p>
 <p>Iterate over all bridges present in the bridge chain attached to <strong>encoder</strong>.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_bridge_get">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_get" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Acquire a bridge reference</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>DRM bridge</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function increments the bridge’s refcount.</p>
+<p><strong>Return</strong></p>
+<p>Pointer to <strong>bridge</strong>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_bridge_put">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_put" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Release a bridge reference</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>DRM bridge</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function decrements the bridge’s reference count and frees the
+object if the reference count drops to zero.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_bridge_add">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_bridge_add</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_bridge" title="drm_bridge"><span class="n"><span class="pre">drm_bridge</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bridge</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_bridge_add" title="Link to this definition">¶</a><br /></dt>
 <dd><p>add the given bridge to the global bridge list</p>
@@ -6660,6 +6804,9 @@ iteration</p>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_bridge</span> <span class="pre">*bridge</span></code></dt><dd><p>bridge control structure</p>
 </dd>
 </dl>
+<p><strong>Description</strong></p>
+<p>The bridge to be added must have been allocated by
+<a class="reference internal" href="#c.devm_drm_bridge_alloc" title="devm_drm_bridge_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_drm_bridge_alloc()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.devm_drm_bridge_add">
@@ -7430,6 +7577,8 @@ does not need to implement the functionality to enable/disable backlight.</p>
     bool prepare_prev_first;
     bool prepared;
     bool enabled;
+    void *container;
+    struct kref refcount;
 };
 </pre></div>
 </div>
@@ -7464,7 +7613,43 @@ the panel is powered up.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">enabled</span></code></dt><dd><p>If true then the panel has been enabled.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">container</span></code></dt><dd><p>Pointer to the private driver struct embedding this
+<strong>struct</strong> drm_panel.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">refcount</span></code></dt><dd><p>reference count of users referencing this panel.</p>
+</dd>
 </dl>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.devm_drm_panel_alloc">
+<span class="sig-name descname"><span class="n"><span class="pre">devm_drm_panel_alloc</span></span></span><a class="headerlink" href="#c.devm_drm_panel_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">devm_drm_panel_alloc</span> <span class="pre">(dev,</span> <span class="pre">type,</span> <span class="pre">member,</span> <span class="pre">funcs,</span> <span class="pre">connector_type)</span></code></p>
+<blockquote>
+<div><p>Allocate and initialize a refcounted panel.</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> of the panel device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">type</span></code></dt><dd><p>the type of the struct which contains struct <a class="reference internal" href="#c.drm_panel" title="drm_panel"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_panel</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">member</span></code></dt><dd><p>the name of the <a class="reference internal" href="#c.drm_panel" title="drm_panel"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_panel</span></code></a> within <strong>type</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">funcs</span></code></dt><dd><p>callbacks for this panel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">connector_type</span></code></dt><dd><p>the connector type (DRM_MODE_CONNECTOR_*) corresponding to
+the panel interface</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>The reference count of the returned panel is initialized to 1. This
+reference will be automatically dropped via devm (by calling
+<a class="reference internal" href="#c.drm_panel_put" title="drm_panel_put"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_put()</span></code></a>) when <strong>dev</strong> is removed.</p>
+<p><strong>Return</strong></p>
+<p>Pointer to container structure embedding the panel, ERR_PTR on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_init">
@@ -7502,8 +7687,9 @@ the panel interface (must NOT be DRM_MODE_CONNECTOR_Unknown)</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Add a panel to the global registry so that it can be looked up by display
-drivers.</p>
+<p>Add a panel to the global registry so that it can be looked
+up by display drivers. The panel to be added must have been
+allocated by <a class="reference internal" href="#c.devm_drm_panel_alloc" title="devm_drm_panel_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_drm_panel_alloc()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_remove">
@@ -7522,7 +7708,7 @@ drivers.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_prepare">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_prepare</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_prepare" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_prepare</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_prepare" title="Link to this definition">¶</a><br /></dt>
 <dd><p>power on a panel</p>
 </dd></dl>
 
@@ -7535,13 +7721,13 @@ drivers.</p>
 <p><strong>Description</strong></p>
 <p>Calling this function will enable power and deassert any reset signals to
 the panel. After this has completed it is possible to communicate with any
-integrated circuitry via a command bus.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
+integrated circuitry via a command bus. This function cannot fail (as it is
+called from the pre_enable call chain). There will always be a call to
+<a class="reference internal" href="#c.drm_panel_disable" title="drm_panel_disable"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_disable()</span></code></a> afterwards.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_unprepare">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_unprepare</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_unprepare" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_unprepare</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_unprepare" title="Link to this definition">¶</a><br /></dt>
 <dd><p>power off a panel</p>
 </dd></dl>
 
@@ -7556,12 +7742,10 @@ integrated circuitry via a command bus.</p>
 reset, turn off power supplies, ...). After this function has completed, it
 is usually no longer possible to communicate with the panel until another
 call to <a class="reference internal" href="#c.drm_panel_prepare" title="drm_panel_prepare"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_prepare()</span></code></a>.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_enable">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_enable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_enable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_enable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>enable a panel</p>
 </dd></dl>
 
@@ -7574,13 +7758,13 @@ call to <a class="reference internal" href="#c.drm_panel_prepare" title="drm_pan
 <p><strong>Description</strong></p>
 <p>Calling this function will cause the panel display drivers to be turned on
 and the backlight to be enabled. Content will be visible on screen after
-this call completes.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
+this call completes. This function cannot fail (as it is called from the
+enable call chain). There will always be a call to <a class="reference internal" href="#c.drm_panel_disable" title="drm_panel_disable"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_panel_disable()</span></code></a>
+afterwards.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_disable">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_disable" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_disable</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_disable" title="Link to this definition">¶</a><br /></dt>
 <dd><p>disable a panel</p>
 </dd></dl>
 
@@ -7594,8 +7778,6 @@ this call completes.</p>
 <p>This will typically turn off the panel’s backlight or disable the display
 drivers. For smart panels it should still be possible to communicate with
 the integrated circuitry via any command bus after this call.</p>
-<p><strong>Return</strong></p>
-<p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_panel_get_modes">
@@ -7617,6 +7799,39 @@ that the panel is attached to.</p>
 <p><strong>Return</strong></p>
 <p>The number of modes available from the panel on success, or 0 on
 failure (no modes).</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_panel_get">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_get" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Acquire a panel reference</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_panel</span> <span class="pre">*panel</span></code></dt><dd><p>DRM panel</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function increments the panel’s refcount.</p>
+<p><strong>Return</strong></p>
+<p>Pointer to <strong>panel</strong></p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_panel_put">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panel_put</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_panel" title="drm_panel"><span class="n"><span class="pre">drm_panel</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">panel</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_panel_put" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Release a panel reference</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_panel</span> <span class="pre">*panel</span></code></dt><dd><p>DRM panel</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function decrements the panel’s reference count and frees the
+object if the reference count drops to zero.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.of_drm_find_panel">
@@ -7923,6 +8138,451 @@ the desired delay.</p>
 </dd>
 </dl>
 </div>
+</section>
+<section id="hdmi-atomic-state-helpers">
+<h2>HDMI Atomic State Helpers<a class="headerlink" href="#hdmi-atomic-state-helpers" title="Link to this heading">¶</a></h2>
+<section id="id2">
+<h3>Overview<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>These functions contain an implementation of the HDMI specification
+in the form of KMS helpers.</p>
+<p>It contains TMDS character rate computation, automatic selection of
+output formats, infoframes generation, etc.</p>
+<section id="infoframes-compliance">
+<h4>Infoframes Compliance<a class="headerlink" href="#infoframes-compliance" title="Link to this heading">¶</a></h4>
+<p>Drivers using the helpers will expose the various infoframes
+generated according to the HDMI specification in debugfs.</p>
+<p>Compliance can then be tested using <code class="docutils literal notranslate"><span class="pre">edid-decode</span></code> from the <code class="docutils literal notranslate"><span class="pre">v4l-utils</span></code> project
+(<a class="reference external" href="https://git.linuxtv.org/v4l-utils.git/">https://git.linuxtv.org/v4l-utils.git/</a>). A sample run would look like:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># edid-decode \</span>
+<span class="w">        </span>-I<span class="w"> </span>/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/audio<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-I<span class="w"> </span>/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/avi<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-I<span class="w"> </span>/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/hdmi<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-I<span class="w"> </span>/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/hdr_drm<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-I<span class="w"> </span>/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/spd<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>/sys/class/drm/card1-HDMI-A-1/edid<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>-c
+
+edid-decode<span class="w"> </span><span class="o">(</span>hex<span class="o">)</span>:
+
+<span class="m">00</span><span class="w"> </span>ff<span class="w"> </span>ff<span class="w"> </span>ff<span class="w"> </span>ff<span class="w"> </span>ff<span class="w"> </span>ff<span class="w"> </span><span class="m">00</span><span class="w"> </span>1e<span class="w"> </span>6d<span class="w"> </span>f4<span class="w"> </span>5b<span class="w"> </span>1e<span class="w"> </span>ef<span class="w"> </span><span class="m">06</span><span class="w"> </span><span class="m">00</span>
+<span class="m">07</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">80</span><span class="w"> </span>2f<span class="w"> </span><span class="m">34</span><span class="w"> </span><span class="m">78</span><span class="w"> </span>ea<span class="w"> </span><span class="m">24</span><span class="w"> </span><span class="m">05</span><span class="w"> </span>af<span class="w"> </span>4f<span class="w"> </span><span class="m">42</span><span class="w"> </span>ab<span class="w"> </span><span class="m">25</span>
+0f<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="m">54</span><span class="w"> </span><span class="m">21</span><span class="w"> </span><span class="m">08</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>d1<span class="w"> </span>c0<span class="w"> </span><span class="m">61</span><span class="w"> </span><span class="m">40</span><span class="w"> </span><span class="m">45</span><span class="w"> </span><span class="m">40</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span>
+<span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">98</span><span class="w"> </span>d0<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">40</span><span class="w"> </span>a1<span class="w"> </span><span class="m">40</span><span class="w"> </span>d4<span class="w"> </span>b0<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="m">20</span>
+3a<span class="w"> </span><span class="m">00</span><span class="w"> </span>d1<span class="w"> </span>0b<span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>1a<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>fd<span class="w"> </span><span class="m">00</span><span class="w"> </span>3b<span class="w"> </span>3d<span class="w"> </span>1e
+b2<span class="w"> </span><span class="m">31</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>0a<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="nb">fc</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>4c
+<span class="m">47</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">53</span><span class="w"> </span><span class="m">44</span><span class="w"> </span><span class="m">51</span><span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">44</span><span class="w"> </span>0a<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>ff
+<span class="m">00</span><span class="w"> </span><span class="m">32</span><span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="m">37</span><span class="w"> </span>4e<span class="w"> </span><span class="m">54</span><span class="w"> </span><span class="m">52</span><span class="w"> </span>4c<span class="w"> </span><span class="m">44</span><span class="w"> </span><span class="m">43</span><span class="w"> </span><span class="m">34</span><span class="w"> </span><span class="m">33</span><span class="w"> </span><span class="m">30</span><span class="w"> </span>0a<span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">46</span>
+
+<span class="m">02</span><span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="m">72</span><span class="w"> </span><span class="m">23</span><span class="w"> </span><span class="m">09</span><span class="w"> </span><span class="m">07</span><span class="w"> </span><span class="m">07</span><span class="w"> </span>4d<span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">04</span><span class="w"> </span><span class="m">90</span><span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="m">13</span><span class="w"> </span>1f
+<span class="m">22</span><span class="w"> </span>5d<span class="w"> </span>5e<span class="w"> </span>5f<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="m">61</span><span class="w"> </span><span class="m">83</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>6d<span class="w"> </span><span class="m">03</span><span class="w"> </span>0c<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="m">00</span>
+b8<span class="w"> </span>3c<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">02</span><span class="w"> </span><span class="m">03</span><span class="w"> </span><span class="m">67</span><span class="w"> </span>d8<span class="w"> </span>5d<span class="w"> </span>c4<span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">78</span><span class="w"> </span><span class="m">80</span><span class="w"> </span><span class="m">03</span>
+e3<span class="w"> </span>0f<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">18</span><span class="w"> </span>e2<span class="w"> </span><span class="m">00</span><span class="w"> </span>6a<span class="w"> </span>e3<span class="w"> </span><span class="m">05</span><span class="w"> </span>c0<span class="w"> </span><span class="m">00</span><span class="w"> </span>e6<span class="w"> </span><span class="m">06</span><span class="w"> </span><span class="m">05</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">52</span>
+<span class="m">52</span><span class="w"> </span><span class="m">51</span><span class="w"> </span><span class="m">11</span><span class="w"> </span>5d<span class="w"> </span><span class="m">00</span><span class="w"> </span>a0<span class="w"> </span>a0<span class="w"> </span><span class="m">40</span><span class="w"> </span><span class="m">29</span><span class="w"> </span>b0<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="m">20</span><span class="w"> </span>3a<span class="w"> </span><span class="m">00</span><span class="w"> </span>d1<span class="w"> </span>0b
+<span class="m">12</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>1a<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span>
+<span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span>
+<span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span>c3
+
+----------------
+
+Block<span class="w"> </span><span class="m">0</span>,<span class="w"> </span>Base<span class="w"> </span>EDID:
+<span class="w">  </span>EDID<span class="w"> </span>Structure<span class="w"> </span>Version<span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>Revision:<span class="w"> </span><span class="m">1</span>.3
+<span class="w">  </span>Vendor<span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>Product<span class="w"> </span>Identification:
+<span class="w">    </span>Manufacturer:<span class="w"> </span>GSM
+<span class="w">    </span>Model:<span class="w"> </span><span class="m">23540</span>
+<span class="w">    </span>Serial<span class="w"> </span>Number:<span class="w"> </span><span class="m">454430</span><span class="w"> </span><span class="o">(</span>0x0006ef1e<span class="o">)</span>
+<span class="w">    </span>Made<span class="w"> </span><span class="k">in</span>:<span class="w"> </span>week<span class="w"> </span><span class="m">7</span><span class="w"> </span>of<span class="w"> </span><span class="m">2022</span>
+<span class="w">  </span>Basic<span class="w"> </span>Display<span class="w"> </span>Parameters<span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>Features:
+<span class="w">    </span>Digital<span class="w"> </span>display
+<span class="w">    </span>Maximum<span class="w"> </span>image<span class="w"> </span>size:<span class="w"> </span><span class="m">47</span><span class="w"> </span>cm<span class="w"> </span>x<span class="w"> </span><span class="m">52</span><span class="w"> </span>cm
+<span class="w">    </span>Gamma:<span class="w"> </span><span class="m">2</span>.20
+<span class="w">    </span>DPMS<span class="w"> </span>levels:<span class="w"> </span>Standby<span class="w"> </span>Suspend<span class="w"> </span>Off
+<span class="w">    </span>RGB<span class="w"> </span>color<span class="w"> </span>display
+<span class="w">    </span>First<span class="w"> </span>detailed<span class="w"> </span>timing<span class="w"> </span>is<span class="w"> </span>the<span class="w"> </span>preferred<span class="w"> </span>timing
+<span class="w">  </span>Color<span class="w"> </span>Characteristics:
+<span class="w">    </span>Red<span class="w">  </span>:<span class="w"> </span><span class="m">0</span>.6835,<span class="w"> </span><span class="m">0</span>.3105
+<span class="w">    </span>Green:<span class="w"> </span><span class="m">0</span>.2587,<span class="w"> </span><span class="m">0</span>.6679
+<span class="w">    </span>Blue<span class="w"> </span>:<span class="w"> </span><span class="m">0</span>.1445,<span class="w"> </span><span class="m">0</span>.0585
+<span class="w">    </span>White:<span class="w"> </span><span class="m">0</span>.3134,<span class="w"> </span><span class="m">0</span>.3291
+<span class="w">  </span>Established<span class="w"> </span>Timings<span class="w"> </span>I<span class="w"> </span><span class="p">&amp;</span><span class="w"> </span>II:
+<span class="w">    </span>DMT<span class="w"> </span>0x04:<span class="w">   </span>640x480<span class="w">    </span><span class="m">59</span>.940476<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">31</span>.469<span class="w"> </span>kHz<span class="w">     </span><span class="m">25</span>.175000<span class="w"> </span>MHz
+<span class="w">    </span>DMT<span class="w"> </span>0x09:<span class="w">   </span>800x600<span class="w">    </span><span class="m">60</span>.316541<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">37</span>.879<span class="w"> </span>kHz<span class="w">     </span><span class="m">40</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>DMT<span class="w"> </span>0x10:<span class="w">  </span>1024x768<span class="w">    </span><span class="m">60</span>.003840<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">48</span>.363<span class="w"> </span>kHz<span class="w">     </span><span class="m">65</span>.000000<span class="w"> </span>MHz
+<span class="w">  </span>Standard<span class="w"> </span>Timings:
+<span class="w">    </span>DMT<span class="w"> </span>0x52:<span class="w">  </span>1920x1080<span class="w">   </span><span class="m">60</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">67</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">148</span>.500000<span class="w"> </span>MHz
+<span class="w">    </span>DMT<span class="w"> </span>0x10:<span class="w">  </span>1024x768<span class="w">    </span><span class="m">60</span>.003840<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">48</span>.363<span class="w"> </span>kHz<span class="w">     </span><span class="m">65</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>DMT<span class="w"> </span>0x09:<span class="w">   </span>800x600<span class="w">    </span><span class="m">60</span>.316541<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">37</span>.879<span class="w"> </span>kHz<span class="w">     </span><span class="m">40</span>.000000<span class="w"> </span>MHz
+<span class="w">  </span>Detailed<span class="w"> </span>Timing<span class="w"> </span>Descriptors:
+<span class="w">    </span>DTD<span class="w"> </span><span class="m">1</span>:<span class="w">  </span>2560x2880<span class="w">   </span><span class="m">59</span>.966580<span class="w"> </span>Hz<span class="w">   </span><span class="m">8</span>:9<span class="w">    </span><span class="m">185</span>.417<span class="w"> </span>kHz<span class="w">    </span><span class="m">534</span>.000000<span class="w"> </span>MHz<span class="w"> </span><span class="o">(</span><span class="m">465</span><span class="w"> </span>mm<span class="w"> </span>x<span class="w"> </span><span class="m">523</span><span class="w"> </span>mm<span class="o">)</span>
+<span class="w">                 </span>Hfront<span class="w">   </span><span class="m">48</span><span class="w"> </span>Hsync<span class="w">  </span><span class="m">32</span><span class="w"> </span>Hback<span class="w">  </span><span class="m">240</span><span class="w"> </span>Hpol<span class="w"> </span>P
+<span class="w">                 </span>Vfront<span class="w">    </span><span class="m">3</span><span class="w"> </span>Vsync<span class="w">  </span><span class="m">10</span><span class="w"> </span>Vback<span class="w">  </span><span class="m">199</span><span class="w"> </span>Vpol<span class="w"> </span>N
+<span class="w">    </span>Display<span class="w"> </span>Range<span class="w"> </span>Limits:
+<span class="w">      </span>Monitor<span class="w"> </span>ranges<span class="w"> </span><span class="o">(</span>GTF<span class="o">)</span>:<span class="w"> </span><span class="m">59</span>-61<span class="w"> </span>Hz<span class="w"> </span>V,<span class="w"> </span><span class="m">30</span>-178<span class="w"> </span>kHz<span class="w"> </span>H,<span class="w"> </span>max<span class="w"> </span>dotclock<span class="w"> </span><span class="m">490</span><span class="w"> </span>MHz
+<span class="w">    </span>Display<span class="w"> </span>Product<span class="w"> </span>Name:<span class="w"> </span><span class="s1">&#39;LG SDQHD&#39;</span>
+<span class="w">    </span>Display<span class="w"> </span>Product<span class="w"> </span>Serial<span class="w"> </span>Number:<span class="w"> </span><span class="s1">&#39;207NTRLDC430&#39;</span>
+<span class="w">  </span>Extension<span class="w"> </span>blocks:<span class="w"> </span><span class="m">1</span>
+Checksum:<span class="w"> </span>0x46
+
+----------------
+
+Block<span class="w"> </span><span class="m">1</span>,<span class="w"> </span>CTA-861<span class="w"> </span>Extension<span class="w"> </span>Block:
+<span class="w">  </span>Revision:<span class="w"> </span><span class="m">3</span>
+<span class="w">  </span>Basic<span class="w"> </span>audio<span class="w"> </span>support
+<span class="w">  </span>Supports<span class="w"> </span>YCbCr<span class="w"> </span><span class="m">4</span>:4:4
+<span class="w">  </span>Supports<span class="w"> </span>YCbCr<span class="w"> </span><span class="m">4</span>:2:2
+<span class="w">  </span>Native<span class="w"> </span>detailed<span class="w"> </span>modes:<span class="w"> </span><span class="m">2</span>
+<span class="w">  </span>Audio<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>Linear<span class="w"> </span>PCM:
+<span class="w">      </span>Max<span class="w"> </span>channels:<span class="w"> </span><span class="m">2</span>
+<span class="w">      </span>Supported<span class="w"> </span>sample<span class="w"> </span>rates<span class="w"> </span><span class="o">(</span>kHz<span class="o">)</span>:<span class="w"> </span><span class="m">48</span><span class="w"> </span><span class="m">44</span>.1<span class="w"> </span><span class="m">32</span>
+<span class="w">      </span>Supported<span class="w"> </span>sample<span class="w"> </span>sizes<span class="w"> </span><span class="o">(</span>bits<span class="o">)</span>:<span class="w"> </span><span class="m">24</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">16</span>
+<span class="w">  </span>Video<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>VIC<span class="w">   </span><span class="m">1</span>:<span class="w">   </span>640x480<span class="w">    </span><span class="m">59</span>.940476<span class="w"> </span>Hz<span class="w">   </span><span class="m">4</span>:3<span class="w">     </span><span class="m">31</span>.469<span class="w"> </span>kHz<span class="w">     </span><span class="m">25</span>.175000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">   </span><span class="m">3</span>:<span class="w">   </span>720x480<span class="w">    </span><span class="m">59</span>.940060<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">31</span>.469<span class="w"> </span>kHz<span class="w">     </span><span class="m">27</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">   </span><span class="m">4</span>:<span class="w">  </span>1280x720<span class="w">    </span><span class="m">60</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">45</span>.000<span class="w"> </span>kHz<span class="w">     </span><span class="m">74</span>.250000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">16</span>:<span class="w">  </span>1920x1080<span class="w">   </span><span class="m">60</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">67</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">148</span>.500000<span class="w"> </span>MHz<span class="w"> </span><span class="o">(</span>native<span class="o">)</span>
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">18</span>:<span class="w">   </span>720x576<span class="w">    </span><span class="m">50</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">31</span>.250<span class="w"> </span>kHz<span class="w">     </span><span class="m">27</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">19</span>:<span class="w">  </span>1280x720<span class="w">    </span><span class="m">50</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">37</span>.500<span class="w"> </span>kHz<span class="w">     </span><span class="m">74</span>.250000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">31</span>:<span class="w">  </span>1920x1080<span class="w">   </span><span class="m">50</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">56</span>.250<span class="w"> </span>kHz<span class="w">    </span><span class="m">148</span>.500000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">34</span>:<span class="w">  </span>1920x1080<span class="w">   </span><span class="m">30</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">33</span>.750<span class="w"> </span>kHz<span class="w">     </span><span class="m">74</span>.250000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">93</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">24</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">54</span>.000<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">94</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">25</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">56</span>.250<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">95</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">30</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">67</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">96</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">50</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">    </span><span class="m">112</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">594</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">97</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">60</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">    </span><span class="m">135</span>.000<span class="w"> </span>kHz<span class="w">    </span><span class="m">594</span>.000000<span class="w"> </span>MHz
+<span class="w">  </span>Speaker<span class="w"> </span>Allocation<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>FL/FR<span class="w"> </span>-<span class="w"> </span>Front<span class="w"> </span>Left/Right
+<span class="w">  </span>Vendor-Specific<span class="w"> </span>Data<span class="w"> </span>Block<span class="w"> </span><span class="o">(</span>HDMI<span class="o">)</span>,<span class="w"> </span>OUI<span class="w"> </span><span class="m">00</span>-0C-03:
+<span class="w">    </span>Source<span class="w"> </span>physical<span class="w"> </span>address:<span class="w"> </span><span class="m">1</span>.0.0.0
+<span class="w">    </span>Supports_AI
+<span class="w">    </span>DC_36bit
+<span class="w">    </span>DC_30bit
+<span class="w">    </span>DC_Y444
+<span class="w">    </span>Maximum<span class="w"> </span>TMDS<span class="w"> </span>clock:<span class="w"> </span><span class="m">300</span><span class="w"> </span>MHz
+<span class="w">    </span>Extended<span class="w"> </span>HDMI<span class="w"> </span>video<span class="w"> </span>details:
+<span class="w">      </span>HDMI<span class="w"> </span>VICs:
+<span class="w">        </span>HDMI<span class="w"> </span>VIC<span class="w"> </span><span class="m">1</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">30</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">67</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">        </span>HDMI<span class="w"> </span>VIC<span class="w"> </span><span class="m">2</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">25</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">56</span>.250<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">        </span>HDMI<span class="w"> </span>VIC<span class="w"> </span><span class="m">3</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">24</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">54</span>.000<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+<span class="w">  </span>Vendor-Specific<span class="w"> </span>Data<span class="w"> </span>Block<span class="w"> </span><span class="o">(</span>HDMI<span class="w"> </span>Forum<span class="o">)</span>,<span class="w"> </span>OUI<span class="w"> </span>C4-5D-D8:
+<span class="w">    </span>Version:<span class="w"> </span><span class="m">1</span>
+<span class="w">    </span>Maximum<span class="w"> </span>TMDS<span class="w"> </span>Character<span class="w"> </span>Rate:<span class="w"> </span><span class="m">600</span><span class="w"> </span>MHz
+<span class="w">    </span>SCDC<span class="w"> </span>Present
+<span class="w">    </span>Supports<span class="w"> </span><span class="m">12</span>-bits/component<span class="w"> </span>Deep<span class="w"> </span>Color<span class="w"> </span><span class="m">4</span>:2:0<span class="w"> </span>Pixel<span class="w"> </span>Encoding
+<span class="w">    </span>Supports<span class="w"> </span><span class="m">10</span>-bits/component<span class="w"> </span>Deep<span class="w"> </span>Color<span class="w"> </span><span class="m">4</span>:2:0<span class="w"> </span>Pixel<span class="w"> </span>Encoding
+<span class="w">  </span>YCbCr<span class="w"> </span><span class="m">4</span>:2:0<span class="w"> </span>Capability<span class="w"> </span>Map<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">96</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">50</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">    </span><span class="m">112</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">594</span>.000000<span class="w"> </span>MHz
+<span class="w">    </span>VIC<span class="w">  </span><span class="m">97</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">60</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">    </span><span class="m">135</span>.000<span class="w"> </span>kHz<span class="w">    </span><span class="m">594</span>.000000<span class="w"> </span>MHz
+<span class="w">  </span>Video<span class="w"> </span>Capability<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>YCbCr<span class="w"> </span>quantization:<span class="w"> </span>No<span class="w"> </span>Data
+<span class="w">    </span>RGB<span class="w"> </span>quantization:<span class="w"> </span>Selectable<span class="w"> </span><span class="o">(</span>via<span class="w"> </span>AVI<span class="w"> </span>Q<span class="o">)</span>
+<span class="w">    </span>PT<span class="w"> </span>scan<span class="w"> </span>behavior:<span class="w"> </span>Always<span class="w"> </span>Underscanned
+<span class="w">    </span>IT<span class="w"> </span>scan<span class="w"> </span>behavior:<span class="w"> </span>Always<span class="w"> </span>Underscanned
+<span class="w">    </span>CE<span class="w"> </span>scan<span class="w"> </span>behavior:<span class="w"> </span>Always<span class="w"> </span>Underscanned
+<span class="w">  </span>Colorimetry<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>BT2020YCC
+<span class="w">    </span>BT2020RGB
+<span class="w">  </span>HDR<span class="w"> </span>Static<span class="w"> </span>Metadata<span class="w"> </span>Data<span class="w"> </span>Block:
+<span class="w">    </span>Electro<span class="w"> </span>optical<span class="w"> </span>transfer<span class="w"> </span>functions:
+<span class="w">      </span>Traditional<span class="w"> </span>gamma<span class="w"> </span>-<span class="w"> </span>SDR<span class="w"> </span>luminance<span class="w"> </span>range
+<span class="w">      </span>SMPTE<span class="w"> </span>ST2084
+<span class="w">    </span>Supported<span class="w"> </span>static<span class="w"> </span>metadata<span class="w"> </span>descriptors:
+<span class="w">      </span>Static<span class="w"> </span>metadata<span class="w"> </span><span class="nb">type</span><span class="w"> </span><span class="m">1</span>
+<span class="w">    </span>Desired<span class="w"> </span>content<span class="w"> </span>max<span class="w"> </span>luminance:<span class="w"> </span><span class="m">82</span><span class="w"> </span><span class="o">(</span><span class="m">295</span>.365<span class="w"> </span>cd/m^2<span class="o">)</span>
+<span class="w">    </span>Desired<span class="w"> </span>content<span class="w"> </span>max<span class="w"> </span>frame-average<span class="w"> </span>luminance:<span class="w"> </span><span class="m">82</span><span class="w"> </span><span class="o">(</span><span class="m">295</span>.365<span class="w"> </span>cd/m^2<span class="o">)</span>
+<span class="w">    </span>Desired<span class="w"> </span>content<span class="w"> </span>min<span class="w"> </span>luminance:<span class="w"> </span><span class="m">81</span><span class="w"> </span><span class="o">(</span><span class="m">0</span>.298<span class="w"> </span>cd/m^2<span class="o">)</span>
+<span class="w">  </span>Detailed<span class="w"> </span>Timing<span class="w"> </span>Descriptors:
+<span class="w">    </span>DTD<span class="w"> </span><span class="m">2</span>:<span class="w">  </span>2560x2880<span class="w">   </span><span class="m">29</span>.986961<span class="w"> </span>Hz<span class="w">   </span><span class="m">8</span>:9<span class="w">     </span><span class="m">87</span>.592<span class="w"> </span>kHz<span class="w">    </span><span class="m">238</span>.250000<span class="w"> </span>MHz<span class="w"> </span><span class="o">(</span><span class="m">465</span><span class="w"> </span>mm<span class="w"> </span>x<span class="w"> </span><span class="m">523</span><span class="w"> </span>mm<span class="o">)</span>
+<span class="w">                 </span>Hfront<span class="w">   </span><span class="m">48</span><span class="w"> </span>Hsync<span class="w">  </span><span class="m">32</span><span class="w"> </span>Hback<span class="w">   </span><span class="m">80</span><span class="w"> </span>Hpol<span class="w"> </span>P
+<span class="w">                 </span>Vfront<span class="w">    </span><span class="m">3</span><span class="w"> </span>Vsync<span class="w">  </span><span class="m">10</span><span class="w"> </span>Vback<span class="w">   </span><span class="m">28</span><span class="w"> </span>Vpol<span class="w"> </span>N
+Checksum:<span class="w"> </span>0xc3<span class="w">  </span>Unused<span class="w"> </span>space<span class="w"> </span><span class="k">in</span><span class="w"> </span>Extension<span class="w"> </span>Block:<span class="w"> </span><span class="m">43</span><span class="w"> </span>bytes
+
+----------------
+
+edid-decode<span class="w"> </span><span class="m">1</span>.29.0-5346
+edid-decode<span class="w"> </span>SHA:<span class="w"> </span>c363e9aa6d70<span class="w"> </span><span class="m">2025</span>-03-11<span class="w"> </span><span class="m">11</span>:41:18
+
+Warnings:
+
+Block<span class="w"> </span><span class="m">1</span>,<span class="w"> </span>CTA-861<span class="w"> </span>Extension<span class="w"> </span>Block:
+<span class="w">  </span>IT<span class="w"> </span>Video<span class="w"> </span>Formats<span class="w"> </span>are<span class="w"> </span>overscanned<span class="w"> </span>by<span class="w"> </span>default,<span class="w"> </span>but<span class="w"> </span>normally<span class="w"> </span>this<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span>underscanned.
+<span class="w">  </span>Video<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>VIC<span class="w"> </span><span class="m">1</span><span class="w"> </span>and<span class="w"> </span>the<span class="w"> </span>first<span class="w"> </span>DTD<span class="w"> </span>are<span class="w"> </span>not<span class="w"> </span>identical.<span class="w"> </span>Is<span class="w"> </span>this<span class="w"> </span>intended?
+<span class="w">  </span>Video<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>All<span class="w"> </span>VICs<span class="w"> </span>are<span class="w"> </span><span class="k">in</span><span class="w"> </span>ascending<span class="w"> </span>order,<span class="w"> </span>and<span class="w"> </span>the<span class="w"> </span>first<span class="w"> </span><span class="o">(</span>preferred<span class="o">)</span><span class="w"> </span>VIC<span class="w"> </span>&lt;<span class="o">=</span><span class="w"> </span><span class="m">4</span>,<span class="w"> </span>is<span class="w"> </span>that<span class="w"> </span>intended?
+<span class="w">  </span>Video<span class="w"> </span>Capability<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>Set<span class="w"> </span>Selectable<span class="w"> </span>YCbCr<span class="w"> </span>Quantization<span class="w"> </span>to<span class="w"> </span>avoid<span class="w"> </span>interop<span class="w"> </span>issues.
+<span class="w">  </span>Video<span class="w"> </span>Capability<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>S_PT<span class="w"> </span>is<span class="w"> </span>equal<span class="w"> </span>to<span class="w"> </span>S_IT<span class="w"> </span>and<span class="w"> </span>S_CE,<span class="w"> </span>so<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span><span class="nb">set</span><span class="w"> </span>to<span class="w"> </span><span class="m">0</span><span class="w"> </span>instead.
+<span class="w">  </span>Colorimetry<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>Set<span class="w"> </span>the<span class="w"> </span>sRGB<span class="w"> </span>colorimetry<span class="w"> </span>bit<span class="w"> </span>to<span class="w"> </span>avoid<span class="w"> </span>interop<span class="w"> </span>issues.
+<span class="w">  </span>Display<span class="w"> </span>Product<span class="w"> </span>Serial<span class="w"> </span>Number<span class="w"> </span>is<span class="w"> </span>set,<span class="w"> </span>so<span class="w"> </span>the<span class="w"> </span>Serial<span class="w"> </span>Number<span class="w"> </span><span class="k">in</span><span class="w"> </span>the<span class="w"> </span>Base<span class="w"> </span>EDID<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span><span class="m">0</span>.
+EDID:
+<span class="w">  </span>Base<span class="w"> </span>EDID:<span class="w"> </span>Some<span class="w"> </span>timings<span class="w"> </span>are<span class="w"> </span>out<span class="w"> </span>of<span class="w"> </span>range<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>Monitor<span class="w"> </span>Ranges:
+<span class="w">    </span>Vertical<span class="w"> </span>Freq:<span class="w"> </span><span class="m">24</span>.000<span class="w"> </span>-<span class="w"> </span><span class="m">60</span>.317<span class="w"> </span>Hz<span class="w"> </span><span class="o">(</span>Monitor:<span class="w"> </span><span class="m">59</span>.000<span class="w"> </span>-<span class="w"> </span><span class="m">61</span>.000<span class="w"> </span>Hz<span class="o">)</span>
+<span class="w">    </span>Horizontal<span class="w"> </span>Freq:<span class="w"> </span><span class="m">31</span>.250<span class="w"> </span>-<span class="w"> </span><span class="m">185</span>.416<span class="w"> </span>kHz<span class="w"> </span><span class="o">(</span>Monitor:<span class="w"> </span><span class="m">30</span>.000<span class="w"> </span>-<span class="w"> </span><span class="m">178</span>.000<span class="w"> </span>kHz<span class="o">)</span>
+<span class="w">    </span>Maximum<span class="w"> </span>Clock:<span class="w"> </span><span class="m">594</span>.000<span class="w"> </span>MHz<span class="w"> </span><span class="o">(</span>Monitor:<span class="w"> </span><span class="m">490</span>.000<span class="w"> </span>MHz<span class="o">)</span>
+
+Failures:
+
+Block<span class="w"> </span><span class="m">1</span>,<span class="w"> </span>CTA-861<span class="w"> </span>Extension<span class="w"> </span>Block:
+<span class="w">  </span>Video<span class="w"> </span>Capability<span class="w"> </span>Data<span class="w"> </span>Block:<span class="w"> </span>IT<span class="w"> </span>video<span class="w"> </span>formats<span class="w"> </span>are<span class="w"> </span>always<span class="w"> </span>underscanned,<span class="w"> </span>but<span class="w"> </span>bit<span class="w"> </span><span class="m">7</span><span class="w"> </span>of<span class="w"> </span>Byte<span class="w"> </span><span class="m">3</span><span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>CTA-861<span class="w"> </span>Extension<span class="w"> </span>header<span class="w"> </span>is<span class="w"> </span><span class="nb">set</span><span class="w"> </span>to<span class="w"> </span>overscanned.
+EDID:
+<span class="w">  </span>CTA-861:<span class="w"> </span>Native<span class="w"> </span>progressive<span class="w"> </span>timings<span class="w"> </span>are<span class="w"> </span>a<span class="w"> </span>mix<span class="w"> </span>of<span class="w"> </span>several<span class="w"> </span>resolutions.
+
+EDID<span class="w"> </span>conformity:<span class="w"> </span><span class="nv">FAIL</span>
+
+<span class="o">================</span>
+
+InfoFrame<span class="w"> </span>of<span class="w"> </span><span class="s1">&#39;/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/audio&#39;</span><span class="w"> </span>was<span class="w"> </span>empty.
+
+<span class="o">================</span>
+
+edid-decode<span class="w"> </span>InfoFrame<span class="w"> </span><span class="o">(</span>hex<span class="o">)</span>:
+
+<span class="m">82</span><span class="w"> </span><span class="m">02</span><span class="w"> </span>0d<span class="w"> </span><span class="m">31</span><span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="m">28</span><span class="w"> </span><span class="m">04</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span>
+<span class="m">00</span>
+
+----------------
+
+HDMI<span class="w"> </span>InfoFrame<span class="w"> </span>Checksum:<span class="w"> </span>0x31
+
+AVI<span class="w"> </span>InfoFrame
+<span class="w">  </span>Version:<span class="w"> </span><span class="m">2</span>
+<span class="w">  </span>Length:<span class="w"> </span><span class="m">13</span>
+<span class="w">  </span>Y:<span class="w"> </span>Color<span class="w"> </span>Component<span class="w"> </span>Sample<span class="w"> </span>Format:<span class="w"> </span>RGB
+<span class="w">  </span>A:<span class="w"> </span>Active<span class="w"> </span>Format<span class="w"> </span>Information<span class="w"> </span>Present:<span class="w"> </span>Yes
+<span class="w">  </span>B:<span class="w"> </span>Bar<span class="w"> </span>Data<span class="w"> </span>Present:<span class="w"> </span>Bar<span class="w"> </span>Data<span class="w"> </span>not<span class="w"> </span>present
+<span class="w">  </span>S:<span class="w"> </span>Scan<span class="w"> </span>Information:<span class="w"> </span>Composed<span class="w"> </span><span class="k">for</span><span class="w"> </span>an<span class="w"> </span>underscanned<span class="w"> </span>display
+<span class="w">  </span>C:<span class="w"> </span>Colorimetry:<span class="w"> </span>No<span class="w"> </span>Data
+<span class="w">  </span>M:<span class="w"> </span>Picture<span class="w"> </span>Aspect<span class="w"> </span>Ratio:<span class="w"> </span><span class="m">16</span>:9
+<span class="w">  </span>R:<span class="w"> </span>Active<span class="w"> </span>Portion<span class="w"> </span>Aspect<span class="w"> </span>Ratio:<span class="w"> </span><span class="m">8</span>
+<span class="w">  </span>ITC:<span class="w"> </span>IT<span class="w"> </span>Content:<span class="w"> </span>No<span class="w"> </span>Data
+<span class="w">  </span>EC:<span class="w"> </span>Extended<span class="w"> </span>Colorimetry:<span class="w"> </span>xvYCC601
+<span class="w">  </span>Q:<span class="w"> </span>RGB<span class="w"> </span>Quantization<span class="w"> </span>Range:<span class="w"> </span>Limited<span class="w"> </span>Range
+<span class="w">  </span>SC:<span class="w"> </span>Non-Uniform<span class="w"> </span>Picture<span class="w"> </span>Scaling:<span class="w"> </span>No<span class="w"> </span>Known<span class="w"> </span>non-uniform<span class="w"> </span>scaling
+<span class="w">  </span>YQ:<span class="w"> </span>YCC<span class="w"> </span>Quantization<span class="w"> </span>Range:<span class="w"> </span>Limited<span class="w"> </span>Range
+<span class="w">  </span>CN:<span class="w"> </span>IT<span class="w"> </span>Content<span class="w"> </span>Type:<span class="w"> </span>Graphics
+<span class="w">  </span>PR:<span class="w"> </span>Pixel<span class="w"> </span>Data<span class="w"> </span>Repetition<span class="w"> </span>Count:<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>Line<span class="w"> </span>Number<span class="w"> </span>of<span class="w"> </span>End<span class="w"> </span>of<span class="w"> </span>Top<span class="w"> </span>Bar:<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>Line<span class="w"> </span>Number<span class="w"> </span>of<span class="w"> </span>Start<span class="w"> </span>of<span class="w"> </span>Bottom<span class="w"> </span>Bar:<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>Pixel<span class="w"> </span>Number<span class="w"> </span>of<span class="w"> </span>End<span class="w"> </span>of<span class="w"> </span>Left<span class="w"> </span>Bar:<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>Pixel<span class="w"> </span>Number<span class="w"> </span>of<span class="w"> </span>Start<span class="w"> </span>of<span class="w"> </span>Right<span class="w"> </span>Bar:<span class="w"> </span><span class="m">0</span>
+
+----------------
+
+AVI<span class="w"> </span>InfoFrame<span class="w"> </span>conformity:<span class="w"> </span><span class="nv">PASS</span>
+
+<span class="o">================</span>
+
+edid-decode<span class="w"> </span>InfoFrame<span class="w"> </span><span class="o">(</span>hex<span class="o">)</span>:
+
+<span class="m">81</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">05</span><span class="w"> </span><span class="m">49</span><span class="w"> </span><span class="m">03</span><span class="w"> </span>0c<span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="m">01</span>
+
+----------------
+
+HDMI<span class="w"> </span>InfoFrame<span class="w"> </span>Checksum:<span class="w"> </span>0x49
+
+Vendor-Specific<span class="w"> </span>InfoFrame<span class="w"> </span><span class="o">(</span>HDMI<span class="o">)</span>,<span class="w"> </span>OUI<span class="w"> </span><span class="m">00</span>-0C-03
+<span class="w">  </span>Version:<span class="w"> </span><span class="m">1</span>
+<span class="w">  </span>Length:<span class="w"> </span><span class="m">5</span>
+<span class="w">  </span>HDMI<span class="w"> </span>Video<span class="w"> </span>Format:<span class="w"> </span>HDMI_VIC<span class="w"> </span>is<span class="w"> </span>present
+<span class="w">  </span>HDMI<span class="w"> </span>VIC<span class="w"> </span><span class="m">1</span>:<span class="w">  </span>3840x2160<span class="w">   </span><span class="m">30</span>.000000<span class="w"> </span>Hz<span class="w">  </span><span class="m">16</span>:9<span class="w">     </span><span class="m">67</span>.500<span class="w"> </span>kHz<span class="w">    </span><span class="m">297</span>.000000<span class="w"> </span>MHz
+
+----------------
+
+Vendor-Specific<span class="w"> </span>InfoFrame<span class="w"> </span><span class="o">(</span>HDMI<span class="o">)</span>,<span class="w"> </span>OUI<span class="w"> </span><span class="m">00</span>-0C-03<span class="w"> </span>conformity:<span class="w"> </span><span class="nv">PASS</span>
+
+<span class="o">================</span>
+
+InfoFrame<span class="w"> </span>of<span class="w"> </span><span class="s1">&#39;/sys/kernel/debug/dri/1/HDMI-A-1/infoframes/hdr_drm&#39;</span><span class="w"> </span>was<span class="w"> </span>empty.
+
+<span class="o">================</span>
+
+edid-decode<span class="w"> </span>InfoFrame<span class="w"> </span><span class="o">(</span>hex<span class="o">)</span>:
+
+<span class="m">83</span><span class="w"> </span><span class="m">01</span><span class="w"> </span><span class="m">19</span><span class="w"> </span><span class="m">93</span><span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="m">72</span><span class="w"> </span>6f<span class="w"> </span><span class="m">61</span><span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="m">63</span><span class="w"> </span>6f<span class="w"> </span>6d<span class="w"> </span><span class="m">56</span><span class="w"> </span><span class="m">69</span><span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="m">65</span>
+6f<span class="w"> </span><span class="m">63</span><span class="w"> </span>6f<span class="w"> </span><span class="m">72</span><span class="w"> </span><span class="m">65</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">00</span><span class="w"> </span><span class="m">09</span>
+
+----------------
+
+HDMI<span class="w"> </span>InfoFrame<span class="w"> </span>Checksum:<span class="w"> </span>0x93
+
+Source<span class="w"> </span>Product<span class="w"> </span>Description<span class="w"> </span>InfoFrame
+<span class="w">  </span>Version:<span class="w"> </span><span class="m">1</span>
+<span class="w">  </span>Length:<span class="w"> </span><span class="m">25</span>
+<span class="w">  </span>Vendor<span class="w"> </span>Name:<span class="w"> </span><span class="s1">&#39;Broadcom&#39;</span>
+<span class="w">  </span>Product<span class="w"> </span>Description:<span class="w"> </span><span class="s1">&#39;Videocore&#39;</span>
+<span class="w">  </span>Source<span class="w"> </span>Information:<span class="w"> </span>PC<span class="w"> </span>general
+
+----------------
+
+Source<span class="w"> </span>Product<span class="w"> </span>Description<span class="w"> </span>InfoFrame<span class="w"> </span>conformity:<span class="w"> </span>PASS
+</pre></div>
+</div>
+</section>
+<section id="testing">
+<h4>Testing<a class="headerlink" href="#testing" title="Link to this heading">¶</a></h4>
+<p>The helpers have unit testing and can be tested using kunit with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>./tools/testing/kunit/kunit.py<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>--kunitconfig<span class="o">=</span>drivers/gpu/drm/tests<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>drm_atomic_helper_connector_hdmi_*
+</pre></div>
+</div>
+</section>
+</section>
+<section id="functions-reference">
+<h3>Functions Reference<a class="headerlink" href="#functions-reference" title="Link to this heading">¶</a></h3>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.__drm_atomic_helper_connector_hdmi_reset">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__drm_atomic_helper_connector_hdmi_reset</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector_state" title="drm_connector_state"><span class="n"><span class="pre">drm_connector_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">new_conn_state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__drm_atomic_helper_connector_hdmi_reset" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Initializes all HDMI <strong>drm_connector_state</strong> resources</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>DRM connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector_state</span> <span class="pre">*new_conn_state</span></code></dt><dd><p>connector state to reset</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Initializes all HDMI resources from a <strong>drm_connector_state</strong> without
+actually allocating it. This is useful for HDMI drivers, in
+combination with <a class="reference internal" href="#c.__drm_atomic_helper_connector_reset" title="__drm_atomic_helper_connector_reset"><code class="xref c c-func docutils literal notranslate"><span class="pre">__drm_atomic_helper_connector_reset()</span></code></a> or
+<a class="reference internal" href="#c.drm_atomic_helper_connector_reset" title="drm_atomic_helper_connector_reset"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_atomic_helper_connector_reset()</span></code></a>.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_check">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_check</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_check" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Helper to check HDMI connector atomic state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>DRM Connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>the DRM State object</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Provides a default connector state check handler for HDMI connectors.
+Checks that a desired connector update is valid, and updates various
+fields of derived state.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, or an errno code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_hdmi_connector_mode_valid">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_mode_status" title="drm_mode_status"><span class="n"><span class="pre">drm_mode_status</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_hdmi_connector_mode_valid</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_display_mode" title="drm_display_mode"><span class="n"><span class="pre">drm_display_mode</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_hdmi_connector_mode_valid" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check if mode is valid for HDMI connector</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>DRM connector to validate the mode</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_display_mode</span> <span class="pre">*mode</span></code></dt><dd><p>Display mode to validate</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Generic .mode_valid implementation for HDMI connectors.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_update_infoframes">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_update_infoframes</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_atomic_state" title="drm_atomic_state"><span class="n"><span class="pre">drm_atomic_state</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">state</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_update_infoframes" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Update the Infoframes</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_atomic_state</span> <span class="pre">*state</span></code></dt><dd><p>The HDMI connector state to generate the infoframe from</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is meant for HDMI connector drivers to write their
+infoframes. It will typically be used in a
+<strong>drm_connector_helper_funcs.atomic_enable</strong> implementation.</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_update_audio_infoframe">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_update_audio_infoframe</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">hdmi_audio_infoframe</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">frame</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_update_audio_infoframe" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Update the Audio Infoframe</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hdmi_audio_infoframe</span> <span class="pre">*frame</span></code></dt><dd><p>A pointer to the audio infoframe to write</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is meant for HDMI connector drivers to update their
+audio infoframe. It will typically be used in one of the ALSA hooks
+(most likely prepare).</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_clear_audio_infoframe">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_clear_audio_infoframe</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_clear_audio_infoframe" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Stop sending the Audio Infoframe</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function is meant for HDMI connector drivers to stop sending their
+audio infoframe. It will typically be used in one of the ALSA hooks
+(most likely shutdown).</p>
+<p><strong>Return</strong></p>
+<p>Zero on success, error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_hotplug">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_hotplug</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector_status" title="drm_connector_status"><span class="n"><span class="pre">drm_connector_status</span></span></a><span class="w"> </span><span class="n"><span class="pre">status</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_hotplug" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Handle the hotplug event for the HDMI connector</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_connector_status</span> <span class="pre">status</span></code></dt><dd><p>Connection status</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function should be called as a part of the .detect() / .detect_ctx()
+callbacks for all status changes.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_atomic_helper_connector_hdmi_force">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_atomic_helper_connector_hdmi_force</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_atomic_helper_connector_hdmi_force" title="Link to this definition">¶</a><br /></dt>
+<dd><p>HDMI Connector implementation of the force callback</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>A pointer to the HDMI connector</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function implements the .force() callback for the HDMI connectors. It
+can either be used directly as the callback or should be called from within
+the .force() callback implementation to maintain the HDMI-specific
+connector’s data.</p>
+</div>
+</section>
 </section>
 <section id="hdcp-helper-functions-reference">
 <h2>HDCP Helper Functions Reference<a class="headerlink" href="#hdcp-helper-functions-reference" title="Link to this heading">¶</a></h2>
@@ -8438,6 +9098,7 @@ otherwise</p>
     struct drm_dp_aux_cec cec;
     bool is_remote;
     bool powered_down;
+    bool no_zero_sized;
 };
 </pre></div>
 </div>
@@ -8549,6 +9210,8 @@ assumed always present even if the HPD pin is deasserted.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">powered_down</span></code></dt><dd><p>If true then the remote endpoint is powered down.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">no_zero_sized</span></code></dt><dd><p>If the hw can’t use zero sized transfers (NVIDIA)</p>
+</dd>
 </dl>
 </div>
 <p><strong>Description</strong></p>
@@ -8561,6 +9224,58 @@ that can be passed to <a class="reference internal" href="#c.drm_probe_ddc" titl
 transfers by default; if a partial response is received, the adapter will
 drop down to the size given by the partial response for this transaction
 only.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_read_data">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_read_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_read_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>read a series of bytes from the DPCD</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel (SST or MST)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">offset</span></code></dt><dd><p>address of the (first) register to read</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*buffer</span></code></dt><dd><p>buffer to store the register values</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>number of bytes in <strong>buffer</strong></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns zero (0) on success, or a negative error
+code on failure. -EIO is returned if the request was NAKed by the sink or
+if the retry count was exceeded. If not all bytes were transferred, this
+function returns -EPROTO. Errors from the underlying AUX channel transfer
+function, with the exception of -EBUSY (which causes the transaction to
+be retried), are propagated to the caller.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_write_data">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_write_data</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_write_data" title="Link to this definition">¶</a><br /></dt>
+<dd><p>write a series of bytes to the DPCD</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel (SST or MST)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">offset</span></code></dt><dd><p>address of the (first) register to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*buffer</span></code></dt><dd><p>buffer containing the values to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>number of bytes in <strong>buffer</strong></p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns zero (0) on success, or a negative error
+code on failure. -EIO is returned if the request was NAKed by the sink or
+if the retry count was exceeded. If not all bytes were transferred, this
+function returns -EPROTO. Errors from the underlying AUX channel transfer
+function, with the exception of -EBUSY (which causes the transaction to
+be retried), are propagated to the caller.</p>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_readb">
 <span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_readb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">valuep</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_readb" title="Link to this definition">¶</a><br /></dt>
@@ -8579,7 +9294,8 @@ only.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Returns the number of bytes transferred (1) on success, or a negative
-error code on failure.</p>
+error code on failure. In most of the cases you should be using
+<a class="reference internal" href="#c.drm_dp_dpcd_read_byte" title="drm_dp_dpcd_read_byte"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_dpcd_read_byte()</span></code></a> instead.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_writeb">
@@ -8599,7 +9315,46 @@ error code on failure.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Returns the number of bytes transferred (1) on success, or a negative
-error code on failure.</p>
+error code on failure. In most of the cases you should be using
+<a class="reference internal" href="#c.drm_dp_dpcd_write_byte" title="drm_dp_dpcd_write_byte"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_dpcd_write_byte()</span></code></a> instead.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_read_byte">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_read_byte</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">valuep</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_read_byte" title="Link to this definition">¶</a><br /></dt>
+<dd><p>read a single byte from the DPCD</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">offset</span></code></dt><dd><p>address of the register to read</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*valuep</span></code></dt><dd><p>location where the value of the register will be stored</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns zero (0) on success, or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_dpcd_write_byte">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_dpcd_write_byte</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="n"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_dpcd_write_byte" title="Link to this definition">¶</a><br /></dt>
+<dd><p>write a single byte to the DPCD</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">offset</span></code></dt><dd><p>address of the register to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">value</span></code></dt><dd><p>value to write to the register</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns zero (0) on success, or a negative error code on failure.</p>
 </div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_dp_desc">
@@ -8851,6 +9606,7 @@ if the retry count was exceeded. If not all bytes were transferred, this
 function returns -EPROTO. Errors from the underlying AUX channel transfer
 function, with the exception of -EBUSY (which causes the transaction to
 be retried), are propagated to the caller.</p>
+<p>In most of the cases you want to use <a class="reference internal" href="#c.drm_dp_dpcd_read_data" title="drm_dp_dpcd_read_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_dpcd_read_data()</span></code></a> instead.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_write">
@@ -8877,6 +9633,7 @@ if the retry count was exceeded. If not all bytes were transferred, this
 function returns -EPROTO. Errors from the underlying AUX channel transfer
 function, with the exception of -EBUSY (which causes the transaction to
 be retried), are propagated to the caller.</p>
+<p>In most of the cases you want to use <a class="reference internal" href="#c.drm_dp_dpcd_write_data" title="drm_dp_dpcd_write_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dp_dpcd_write_data()</span></code></a> instead.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_read_link_status">
@@ -8893,8 +9650,7 @@ be retried), are propagated to the caller.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Returns the number of bytes transferred on success or a negative error
-code on failure.</p>
+<p>Returns a negative error code on failure or 0 on success.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_read_phy_link_status">
@@ -8918,6 +9674,40 @@ layout of the returned <strong>link_status</strong> matches the DPCD register la
 DPRX PHY link status.</p>
 <p>Returns 0 if the information was read successfully or a negative error code
 on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_link_power_up">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_link_power_up</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="n"><span class="pre">revision</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_link_power_up" title="Link to this definition">¶</a><br /></dt>
+<dd><p>power up a DisplayPort link</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">char</span> <span class="pre">revision</span></code></dt><dd><p>DPCD revision supported on the link</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns 0 on success or a negative error code on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_link_power_down">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_link_power_down</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_dp_aux" title="drm_dp_aux"><span class="n"><span class="pre">drm_dp_aux</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">aux</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="n"><span class="pre">revision</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_link_power_down" title="Link to this definition">¶</a><br /></dt>
+<dd><p>power down a DisplayPort link</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_dp_aux</span> <span class="pre">*aux</span></code></dt><dd><p>DisplayPort AUX channel</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">char</span> <span class="pre">revision</span></code></dt><dd><p>DPCD revision supported on the link</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns 0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_dpcd_write_payload">
@@ -10206,6 +10996,32 @@ any intervention from the driver.</p>
 <p>0 on success or a negative error code on failure.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dp_link_symbol_cycles">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_link_symbol_cycles</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">lane_count</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">pixels</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">dsc_slice_count</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">bpp_x16</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">symbol_size</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">is_mst</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_link_symbol_cycles" title="Link to this definition">¶</a><br /></dt>
+<dd><p>calculate the link symbol count with/without dsc</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">lane_count</span></code></dt><dd><p>DP link lane count</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">pixels</span></code></dt><dd><p>number of pixels in a scanline</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">dsc_slice_count</span></code></dt><dd><p>number of slices for DSC or ‘0’ for non-DSC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">bpp_x16</span></code></dt><dd><p>bits per pixel in .4 binary fixed format</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">symbol_size</span></code></dt><dd><p>DP symbol size</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">is_mst</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">true</span></code> for MST and <code class="docutils literal notranslate"><span class="pre">false</span></code> for SST</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Calculate the link symbol cycles for both DSC (<strong>dsc_slice_count</strong> !=0) and
+non-DSC case (<strong>dsc_slice_count</strong> == 0) and return the count.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dp_bw_overhead">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_bw_overhead</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">lane_count</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hactive</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">dsc_slice_count</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">bpp_x16</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dp_bw_overhead" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Calculate the BW overhead of a DP link stream</p>
@@ -10218,7 +11034,7 @@ any intervention from the driver.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">hactive</span></code></dt><dd><p>pixel count of the active period in one scanline of the stream</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">dsc_slice_count</span></code></dt><dd><p>DSC slice count if <strong>flags</strong>/DRM_DP_LINK_BW_OVERHEAD_DSC is set</p>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">dsc_slice_count</span></code></dt><dd><p>number of slices for DSC or ‘0’ for non-DSC</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">bpp_x16</span></code></dt><dd><p>bits per pixel in .4 binary fixed point</p>
 </dd>
@@ -10236,7 +11052,7 @@ on the link’s
 as well as the stream’s
 - <strong>hactive</strong> timing
 - <strong>bpp_x16</strong> color depth
-- compression mode (<strong>flags</strong> / <code class="docutils literal notranslate"><span class="pre">DRM_DP_OVERHEAD_DSC</span></code>).
+- compression mode (<strong>dsc_slice_count</strong> != 0)
 Note that this overhead doesn’t account for the 8b/10b, 128b/132b
 channel coding efficiency, for that see
 <strong>drm_dp_link_bw_channel_coding_efficiency()</strong>.</p>
@@ -10608,8 +11424,8 @@ Type1 adaptors do not support any register writes.</p>
 </section>
 <section id="display-port-mst-helpers">
 <h2>Display Port MST Helpers<a class="headerlink" href="#display-port-mst-helpers" title="Link to this heading">¶</a></h2>
-<section id="id2">
-<h3>Overview<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<section id="id3">
+<h3>Overview<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <p>These functions contain parts of the DisplayPort 1.2a MultiStream Transport
 protocol. The helpers contain a topology manager and bandwidth manager.
 The helpers encapsulate the sending and received of sideband msgs.</p>
@@ -10647,14 +11463,14 @@ there is a legitimate driver usecase for this.</p>
 <h4>Refcount relationships in a topology<a class="headerlink" href="#refcount-relationships-in-a-topology" title="Link to this heading">¶</a></h4>
 <p>Let’s take a look at why the relationship between topology and malloc
 refcounts is designed the way it is.</p>
-<figure class="align-default" id="id3">
+<figure class="align-default" id="id5">
 <img alt="../_images/topology-figure-1.svg" src="../_images/topology-figure-1.svg" /><figcaption>
 <p><span class="caption-text">An example of topology and malloc refs in a DP MST topology with two
 active payloads. Topology refcount increments are indicated by solid
 lines, and malloc refcount increments are indicated by dashed lines.
 Each starts from the branch which incremented the refcount, and ends at
 the branch to which the refcount belongs to, i.e. the arrow points the
-same way as the C pointers used to reference a structure.</span><a class="headerlink" href="#id3" title="Link to this image">¶</a></p>
+same way as the C pointers used to reference a structure.</span><a class="headerlink" href="#id5" title="Link to this image">¶</a></p>
 </figcaption>
 </figure>
 <p>As you can see in the above figure, every branch increments the topology
@@ -10664,10 +11480,10 @@ assigned port by 1.</p>
 <p>So, what would happen if MSTB #3 from the above figure was unplugged from
 the system, but the driver hadn’t yet removed payload #2 from port #3? The
 topology would start to look like the figure below.</p>
-<figure class="align-default" id="id4">
+<figure class="align-default" id="id6">
 <img alt="../_images/topology-figure-2.svg" src="../_images/topology-figure-2.svg" /><figcaption>
 <p><span class="caption-text">Ports and branch devices which have been released from memory are
-colored grey, and references which have been removed are colored red.</span><a class="headerlink" href="#id4" title="Link to this image">¶</a></p>
+colored grey, and references which have been removed are colored red.</span><a class="headerlink" href="#id6" title="Link to this image">¶</a></p>
 </figcaption>
 </figure>
 <p>Whenever a port or branch device’s topology refcount reaches zero, it will
@@ -10690,8 +11506,8 @@ shown below.</p>
 sideband transactions.</p>
 </section>
 </section>
-<section id="functions-reference">
-<h3>Functions Reference<a class="headerlink" href="#functions-reference" title="Link to this heading">¶</a></h3>
+<section id="id4">
+<h3>Functions Reference<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_dp_mst_port">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dp_mst_port</span></span></span><a class="headerlink" href="#c.drm_dp_mst_port" title="Link to this definition">¶</a><br /></dt>
@@ -13348,31 +14164,6 @@ Please replace calls of it with <a class="reference internal" href="#c.mipi_dsi_
 callers that call this multiple times in a row.</p>
 </div>
 <dl class="c macro">
-<dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_seq">
-<span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_write_seq</span></span></span><a class="headerlink" href="#c.mipi_dsi_dcs_write_seq" title="Link to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-<p><code class="docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq</span> <span class="pre">(dsi,</span> <span class="pre">cmd,</span> <span class="pre">seq...)</span></code></p>
-<blockquote>
-<div><p>transmit a DCS command with payload</p>
-</div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">dsi</span></code></dt><dd><p>DSI peripheral device</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">cmd</span></code></dt><dd><p>Command</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">seq...</span></code></dt><dd><p>buffer containing data to be transmitted</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This macro will print errors for you and will RETURN FROM THE CALLING
-FUNCTION (yes this is non-intuitive) upon error.</p>
-<p>Because of the non-intuitive return behavior, THIS MACRO IS DEPRECATED.
-Please replace calls of it with <a class="reference internal" href="#c.mipi_dsi_dcs_write_seq_multi" title="mipi_dsi_dcs_write_seq_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">mipi_dsi_dcs_write_seq_multi()</span></code></a>.</p>
-</div>
-<dl class="c macro">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_seq_multi">
 <span class="sig-name descname"><span class="n"><span class="pre">mipi_dsi_dcs_write_seq_multi</span></span></span><a class="headerlink" href="#c.mipi_dsi_dcs_write_seq_multi" title="Link to this definition">¶</a><br /></dt>
 <dd></dd></dl>
@@ -13799,6 +14590,25 @@ the number of parameters passed in.</p>
 <p><strong>Return</strong></p>
 <p>The number of bytes successfully read or a negative error code on
 failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_mipi_dsi_get_input_bus_fmt">
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_mipi_dsi_get_input_bus_fmt</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">mipi_dsi_pixel_format</span></span><span class="w"> </span><span class="n"><span class="pre">dsi_format</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_mipi_dsi_get_input_bus_fmt" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the required MEDIA_BUS_FMT_* based input pixel format for a given DSI output pixel format</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">mipi_dsi_pixel_format</span> <span class="pre">dsi_format</span></code></dt><dd><p>pixel format that a DSI host needs to output</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Various DSI hosts can use this function during their
+<a class="reference internal" href="#c.drm_bridge_funcs" title="drm_bridge_funcs"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_bridge_funcs.atomic_get_input_bus_fmts</span></code></a> operation to ascertain
+the MEDIA_BUS_FMT_* pixel format required as input.</p>
+<p><strong>Return</strong></p>
+<p>a 32-bit MEDIA_BUS_FMT_* value on success or 0 in case of failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.mipi_dsi_dcs_write_buffer">
@@ -15450,7 +16260,7 @@ in case the hotplug interrupt is known to be unreliable.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drmm_kms_helper_poll_init">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drmm_kms_helper_poll_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drmm_kms_helper_poll_init" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drmm_kms_helper_poll_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-internals.html#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drmm_kms_helper_poll_init" title="Link to this definition">¶</a><br /></dt>
 <dd><p>initialize and enable output polling</p>
 </dd></dl>
 
@@ -15465,8 +16275,6 @@ in case the hotplug interrupt is known to be unreliable.</p>
 <strong>dev</strong> similar to <a class="reference internal" href="#c.drm_kms_helper_poll_init" title="drm_kms_helper_poll_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_poll_init()</span></code></a>. Polling will automatically be
 cleaned up when the DRM device goes away.</p>
 <p>See <a class="reference internal" href="#c.drm_kms_helper_poll_init" title="drm_kms_helper_poll_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_kms_helper_poll_init()</span></code></a> for more information.</p>
-<p><strong>Return</strong></p>
-<p>0 on success, or a negative errno code otherwise.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_connector_helper_hpd_irq_event">
@@ -16389,7 +17197,7 @@ can be derived from the edid.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_add_modes_noedid">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_add_modes_noedid</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hdisplay</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">vdisplay</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_add_modes_noedid" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_add_modes_noedid</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="drm-kms.html#c.drm_connector" title="drm_connector"><span class="n"><span class="pre">drm_connector</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">connector</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">hdisplay</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">vdisplay</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_add_modes_noedid" title="Link to this definition">¶</a><br /></dt>
 <dd><p>add modes for the connectors without EDID</p>
 </dd></dl>
 
@@ -16398,9 +17206,9 @@ can be derived from the edid.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_connector</span> <span class="pre">*connector</span></code></dt><dd><p>connector we’re probing</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">hdisplay</span></code></dt><dd><p>the horizontal display limit</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">hdisplay</span></code></dt><dd><p>the horizontal display limit</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">vdisplay</span></code></dt><dd><p>the vertical display limit</p>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">vdisplay</span></code></dt><dd><p>the vertical display limit</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

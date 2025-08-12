@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -584,7 +584,7 @@ is non-NULL.  Note that link body isn’t available anymore, so if you need it,
 store it as cookie.</p>
 <p>---</p>
 <p><strong>mandatory</strong></p>
-<p>any symlink that might use page_follow_link_light/page_put_link() must
+<p>any symlink that might use page_follow_link_light/<a class="reference internal" href="api-summary.html#c.page_put_link" title="page_put_link"><code class="xref c c-func docutils literal notranslate"><span class="pre">page_put_link()</span></code></a> must
 have inode_nohighmem(inode) called before anything might start playing with
 its pagecache.  No highmem pages should end up in the pagecache of such
 symlinks.  That includes any preseeding that might be done during symlink
@@ -1014,6 +1014,44 @@ should use <a class="reference internal" href="api-summary.html#c.d_drop" title=
 <p>If a positive dentry cannot be returned for some reason, in-kernel
 clients such as cachefiles, nfsd, smb/server may not perform ideally but
 will fail-safe.</p>
+<p>---</p>
+<p>** mandatory**</p>
+<p><a class="reference internal" href="api-summary.html#c.lookup_one" title="lookup_one"><code class="xref c c-func docutils literal notranslate"><span class="pre">lookup_one()</span></code></a>, <a class="reference internal" href="api-summary.html#c.lookup_one_unlocked" title="lookup_one_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">lookup_one_unlocked()</span></code></a>, <a class="reference internal" href="api-summary.html#c.lookup_one_positive_unlocked" title="lookup_one_positive_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">lookup_one_positive_unlocked()</span></code></a> now
+take a qstr instead of a name and len.  These, not the “one_len”
+versions, should be used whenever accessing a filesystem from outside
+that filesysmtem, through a mount point - which will have a mnt_idmap.</p>
+<p>---</p>
+<p>** mandatory**</p>
+<p>Functions try_lookup_one_len(), lookup_one_len(),
+lookup_one_len_unlocked() and lookup_positive_unlocked() have been
+renamed to <a class="reference internal" href="api-summary.html#c.try_lookup_noperm" title="try_lookup_noperm"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_lookup_noperm()</span></code></a>, <a class="reference internal" href="api-summary.html#c.lookup_noperm" title="lookup_noperm"><code class="xref c c-func docutils literal notranslate"><span class="pre">lookup_noperm()</span></code></a>,
+<a class="reference internal" href="api-summary.html#c.lookup_noperm_unlocked" title="lookup_noperm_unlocked"><code class="xref c c-func docutils literal notranslate"><span class="pre">lookup_noperm_unlocked()</span></code></a>, lookup_noperm_positive_unlocked().  They now
+take a qstr instead of separate name and length.  QSTR() can be used
+when <a class="reference internal" href="../core-api/kernel-api.html#c.strlen" title="strlen"><code class="xref c c-func docutils literal notranslate"><span class="pre">strlen()</span></code></a> is needed for the length.</p>
+<p>For <a class="reference internal" href="api-summary.html#c.try_lookup_noperm" title="try_lookup_noperm"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_lookup_noperm()</span></code></a> a reference to the qstr is passed in case the
+hash might subsequently be needed.</p>
+<p>These function no longer do any permission checking - they previously
+checked that the caller has ‘X’ permission on the parent.  They must
+ONLY be used internally by a filesystem on itself when it knows that
+permissions are irrelevant or in a context where permission checks have
+already been performed such as after <a class="reference internal" href="api-summary.html#c.vfs_path_parent_lookup" title="vfs_path_parent_lookup"><code class="xref c c-func docutils literal notranslate"><span class="pre">vfs_path_parent_lookup()</span></code></a></p>
+<p>---</p>
+<p>** mandatory**</p>
+<p>d_hash_and_lookup() is no longer exported or available outside the VFS.
+Use <a class="reference internal" href="api-summary.html#c.try_lookup_noperm" title="try_lookup_noperm"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_lookup_noperm()</span></code></a> instead.  This adds name validation and takes
+arguments in the opposite order but is otherwise identical.</p>
+<p>Using <a class="reference internal" href="api-summary.html#c.try_lookup_noperm" title="try_lookup_noperm"><code class="xref c c-func docutils literal notranslate"><span class="pre">try_lookup_noperm()</span></code></a> will require linux/namei.h to be included.</p>
+<p>---</p>
+<p><strong>mandatory</strong></p>
+<p>Calling conventions for -&gt;d_automount() have changed; we should <em>not</em> grab
+an extra reference to new mount - it should be returned with refcount 1.</p>
+<p>---</p>
+<p>collect_mounts()/drop_collected_mounts()/iterate_mounts() are gone now.
+Replacement is collect_paths()/drop_collected_path(), with no special
+iterator needed.  Instead of a cloned mount tree, the new interface returns
+an array of struct path, one for each mount collect_mounts() would’ve
+created.  These struct path point to locations in the caller’s namespace
+that would be roots of the cloned mounts.</p>
 </section>
 
 

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -388,6 +388,7 @@ possibly leaving the hardware enabled.</p>
     int if_version;
     struct kref ref;
     struct device *dev;
+    struct device *dma_dev;
     struct {
         struct list_head resources;
         void *final_kfree;
@@ -438,6 +439,20 @@ possibly leaving the hardware enabled.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">ref</span></code></dt><dd><p>Object ref-count</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>Device structure of bus-device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dma_dev</span></code></dt><dd><p>Device for DMA operations. Only required if the device <strong>dev</strong>
+cannot perform DMA by itself. Should be NULL otherwise. Call
+<a class="reference internal" href="#c.drm_dev_dma_dev" title="drm_dev_dma_dev"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_dma_dev()</span></code></a> to get the DMA device instead of using this
+field directly. Call <a class="reference internal" href="#c.drm_dev_set_dma_dev" title="drm_dev_set_dma_dev"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_set_dma_dev()</span></code></a> to set this field.</p>
+<p>DRM devices are sometimes bound to virtual devices that cannot
+perform DMA by themselves. Drivers should set this field to the
+respective DMA controller.</p>
+<p>Devices on USB and other peripheral busses also cannot perform
+DMA by themselves. The <strong>dma_dev</strong> field should point the bus
+controller that does DMA on behalve of such a device. Required
+for importing buffers via dma-buf.</p>
+<p>If set, the DRM core automatically releases the reference on the
+device.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">managed</span></code></dt><dd><p>Managed resources linked to the lifetime of this <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device</span></code></a> as
 tracked by <strong>ref</strong>.</p>
@@ -568,6 +583,24 @@ Set by <a class="reference internal" href="drm-kms-helpers.html#c.drm_fb_helper_
 <p><strong>Description</strong></p>
 <p>This structure represent a complete card that
 may contain multiple heads.</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dev_dma_dev">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">drm_dev_dma_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dev_dma_dev" title="Link to this definition">¶</a><br /></dt>
+<dd><p>returns the DMA device for a DRM device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns the DMA device of the given DRM device. By default, this
+the DRM device’s parent. See <a class="reference internal" href="#c.drm_dev_set_dma_dev" title="drm_dev_set_dma_dev"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_set_dma_dev()</span></code></a>.</p>
+<p><strong>Return</strong></p>
+<p>A DMA-capable device for the DRM device.</p>
+</div>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.drm_driver_feature">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_driver_feature</span></span></span><a class="headerlink" href="#c.drm_driver_feature" title="Link to this definition">¶</a><br /></dt>
@@ -991,6 +1024,26 @@ essentially unregisters the device like <a class="reference internal" href="#c.d
 called while there are still open users of <strong>dev</strong>.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_dev_set_dma_dev">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dev_set_dma_dev</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dma_dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dev_set_dma_dev" title="Link to this definition">¶</a><br /></dt>
+<dd><p>set the DMA device for a DRM device</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span> <span class="pre">*dev</span></code></dt><dd><p>DRM device</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dma_dev</span></code></dt><dd><p>DMA device or NULL</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Sets the DMA device of the given DRM device. Only required if
+the DMA device is different from the DRM device’s parent. After
+calling this function, the DRM device holds a reference on
+<strong>dma_dev</strong>. Pass NULL to clear the DMA device.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dev_wedged_event">
 <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_dev_wedged_event</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_device" title="drm_device"><span class="n"><span class="pre">drm_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">method</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_dev_wedged_event" title="Link to this definition">¶</a><br /></dt>
 <dd><p>generate a device wedged uevent</p>
@@ -1014,6 +1067,34 @@ If caller is unsure about recovery or <strong>method</strong> is unknown (0),
 details.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative error code otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.__drm_dev_alloc">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__drm_dev_alloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">parent</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_driver" title="drm_driver"><span class="n"><span class="pre">drm_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">driver</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__drm_dev_alloc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Allocation of a <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device</span></code></a> instance</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*parent</span></code></dt><dd><p>Parent device object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">drm_driver</span> <span class="pre">*driver</span></code></dt><dd><p>DRM driver</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>the size of the struct which contains <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_device</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">offset</span></code></dt><dd><p>the offset of the <a class="reference internal" href="#c.drm_device" title="drm_device"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_device</span></code></a> within the container.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This should <em>NOT</em> be by any drivers, but is a dedicated interface for the
+corresponding Rust abstraction.</p>
+<p>This is the same as <a class="reference internal" href="#c.devm_drm_dev_alloc" title="devm_drm_dev_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">devm_drm_dev_alloc()</span></code></a>, but without the corresponding
+resource management through the parent device, but not the same as
+<a class="reference internal" href="#c.drm_dev_alloc" title="drm_dev_alloc"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_dev_alloc()</span></code></a>, since the latter is the deprecated version, which does not
+support subclassing.</p>
+<p><strong>Return</strong></p>
+<p>A pointer to new DRM device, or an ERR_PTR on failure.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_dev_alloc">
@@ -1658,6 +1739,8 @@ dropped after a RCU grace period to accommodate lockless readers.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">object_idr</span></code></dt><dd><p>Mapping of mm object handles to object pointers. Used by the GEM
 subsystem. Protected by <strong>table_lock</strong>.</p>
+<p>Note that allocated entries might be NULL as a transient state when
+creating or deleting a handle.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">table_lock</span></code></dt><dd><p>Protects <strong>object_idr</strong>.</p>
 </dd>
@@ -2125,6 +2208,26 @@ file.</p>
 process using the GPU.  See also <a class="reference internal" href="#c.drm_driver" title="drm_driver"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_driver.show_fdinfo</span></code></a>.</p>
 <p>For text output format description please see <a class="reference internal" href="drm-usage-stats.html"><span class="doc">DRM client usage stats</span></a></p>
 </div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_file_err">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_file_err</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_file" title="drm_file"><span class="n"><span class="pre">drm_file</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">file_priv</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fmt</span></span>, <span class="p"><span class="pre">...</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_file_err" title="Link to this definition">¶</a><br /></dt>
+<dd><p>log process name, pid and client_name associated with a drm_file</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_file</span> <span class="pre">*file_priv</span></code></dt><dd><p>context of interest for process name and pid</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">char</span> <span class="pre">*fmt</span></code></dt><dd><p>printf() like format string</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">...</span></code></dt><dd><p>variable arguments</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Helper function for clients which needs to log process details such
+as name and pid etc along with user logs.</p>
+</div>
 </section>
 </section>
 <section id="misc-utilities">
@@ -2382,6 +2485,24 @@ devcoredump. This scales better than the previous example for larger
 devcoredumps.</p>
 <p><strong>Return</strong></p>
 <p>The <a class="reference internal" href="#c.drm_printer" title="drm_printer"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_printer</span></code></a> object</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.drm_coredump_printer_is_full">
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_coredump_printer_is_full</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_printer" title="drm_printer"><span class="n"><span class="pre">drm_printer</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">p</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_coredump_printer_is_full" title="Link to this definition">¶</a><br /></dt>
+<dd><p>DRM coredump printer output is full</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_printer</span> <span class="pre">*p</span></code></dt><dd><p>DRM coredump printer</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>DRM printer output is full, useful to short circuit coredump printing once
+printer is full.</p>
+<p><strong>Return</strong></p>
+<p>True if DRM coredump printer output buffer is full, False otherwise</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_seq_file_printer">

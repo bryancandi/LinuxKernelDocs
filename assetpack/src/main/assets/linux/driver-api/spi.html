@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -76,6 +76,7 @@
 <li class="toctree-l3"><a class="reference internal" href="acpi/index.html">ACPI Support</a></li>
 <li class="toctree-l3"><a class="reference internal" href="backlight/lp855x-driver.html">Kernel driver lp855x</a></li>
 <li class="toctree-l3"><a class="reference internal" href="clk.html">The Common Clk Framework</a></li>
+<li class="toctree-l3"><a class="reference internal" href="coco/index.html">Confidential Computing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="console.html">Console Drivers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="crypto/index.html">Crypto Drivers</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dmaengine/index.html">DMAEngine documentation</a></li>
@@ -344,7 +345,6 @@ maxsize limit</p>
     struct device           dev;
     struct spi_controller   *controller;
     u32 max_speed_hz;
-    u8 chip_select[SPI_CS_CNT_MAX];
     u8 bits_per_word;
     bool rt;
 #define SPI_NO_TX               BIT(31)         ;
@@ -357,13 +357,14 @@ maxsize limit</p>
     void *controller_data;
     char modalias[SPI_NAME_SIZE];
     const char              *driver_override;
-    struct gpio_desc        *cs_gpiod[SPI_CS_CNT_MAX];
+    struct spi_statistics __percpu  *pcpu_statistics;
     struct spi_delay        word_delay;
     struct spi_delay        cs_setup;
     struct spi_delay        cs_hold;
     struct spi_delay        cs_inactive;
-    struct spi_statistics __percpu  *pcpu_statistics;
+    u8 chip_select[SPI_CS_CNT_MAX];
     u32 cs_index_mask : SPI_CS_CNT_MAX;
+    struct gpio_desc        *cs_gpiod[SPI_CS_CNT_MAX];
 };
 </pre></div>
 </div>
@@ -376,9 +377,6 @@ maxsize limit</p>
 <dt><code class="docutils literal notranslate"><span class="pre">max_speed_hz</span></code></dt><dd><p>Maximum clock rate to be used with this chip
 (on this board); may be changed by the device’s driver.
 The spi_transfer.speed_hz can override this for each transfer.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">chip_select</span></code></dt><dd><p>Array of physical chipselect, spi-&gt;chipselect[i] gives
-the corresponding physical CS for logical CS i.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bits_per_word</span></code></dt><dd><p>Data transfers involve one or more words; word sizes
 like eight or 12 bits are common.  In-memory wordsizes are
@@ -412,8 +410,7 @@ the device will bind to the named driver and only the named driver.
 Do not set directly, because core frees it; use <a class="reference internal" href="infrastructure.html#c.driver_set_override" title="driver_set_override"><code class="xref c c-func docutils literal notranslate"><span class="pre">driver_set_override()</span></code></a> to
 set or clear it.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">cs_gpiod</span></code></dt><dd><p>Array of GPIO descriptors of the corresponding chipselect lines
-(optional, NULL when not using a GPIO line)</p>
+<dt><code class="docutils literal notranslate"><span class="pre">pcpu_statistics</span></code></dt><dd><p>statistics for the spi_device</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">word_delay</span></code></dt><dd><p>delay to be inserted between consecutive
 words of a transfer</p>
@@ -426,9 +423,13 @@ words of a transfer</p>
 deasserted. If <strong>cs_change_delay</strong> is used from <strong>spi_transfer</strong>, then the
 two delays will be added up.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">pcpu_statistics</span></code></dt><dd><p>statistics for the spi_device</p>
+<dt><code class="docutils literal notranslate"><span class="pre">chip_select</span></code></dt><dd><p>Array of physical chipselect, spi-&gt;chipselect[i] gives
+the corresponding physical CS for logical CS i.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">cs_index_mask</span></code></dt><dd><p>Bit mask of the active chipselect(s) in the chipselect array</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cs_gpiod</span></code></dt><dd><p>Array of GPIO descriptors of the corresponding chipselect lines
+(optional, NULL when not using a GPIO line)</p>
 </dd>
 </dl>
 </div>
@@ -604,6 +605,7 @@ use this macro once, and calling it replaces <a class="reference internal" href=
     void (*handle_err)(struct spi_controller *ctlr, struct spi_message *message);
     const struct spi_controller_mem_ops *mem_ops;
     const struct spi_controller_mem_caps *mem_caps;
+    bool dtr_caps;
     struct spi_offload *(*get_offload)(struct spi_device *spi, const struct spi_offload_config *config);
     void (*put_offload)(struct spi_offload *offload);
     struct gpio_desc        **cs_gpiods;
@@ -798,6 +800,9 @@ controller has native support for memory like operations.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mem_caps</span></code></dt><dd><p>controller capabilities for the handling of memory operations.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dtr_caps</span></code></dt><dd><p>true if controller has dtr(single/dual transfer rate) capability.
+QSPI based controller should fill this based on controller’s capability.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">get_offload</span></code></dt><dd><p>callback for controllers with offload support to get matching
 offload instance. Implementations should return -ENODEV if no match is
 found.</p>
@@ -925,6 +930,7 @@ management during spi_message processing.</p>
     unsigned tx_nbits:4;
     unsigned rx_nbits:4;
     unsigned timestamped:1;
+    bool dtr_mode;
 #define SPI_NBITS_SINGLE        0x01 ;
 #define SPI_NBITS_DUAL          0x02 ;
 #define SPI_NBITS_QUAD          0x04 ;
@@ -978,6 +984,8 @@ management during spi_message processing.</p>
 (SPI_NBITS_SINGLE) is used.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">timestamped</span></code></dt><dd><p>true if the transfer has been timestamped</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">dtr_mode</span></code></dt><dd><p>true if supports double transfer rate.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">bits_per_word</span></code></dt><dd><p>select a bits_per_word other than the device default
 for this transfer. If 0 the default (from <strong>spi_device</strong>) is used.</p>
@@ -1073,6 +1081,8 @@ ends when the chipselect goes inactive.</p>
 from device through <strong>tx_nbits</strong> and <strong>rx_nbits</strong>. In Bi-direction, these
 two should both be set. User can set transfer mode with SPI_NBITS_SINGLE(1x)
 SPI_NBITS_DUAL(2x) and SPI_NBITS_QUAD(4x) to support these three transfer.</p>
+<p>User may also set dtr_mode to true to use dual transfer mode if desired. if
+not, default considered as single transfer mode.</p>
 <p>The code that submits an spi_message (and its spi_transfers)
 to the lower layers is responsible for managing its memory.
 Zero-initialize every field you don’t set up explicitly, to
@@ -1191,6 +1201,48 @@ the given array to the message.</p>
 <p>This function checks to see if the SPI controller supports <strong>bpw</strong>.</p>
 <p><strong>Return</strong></p>
 <p>True if <strong>bpw</strong> is supported, false otherwise.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.spi_bpw_to_bytes">
+<span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">spi_bpw_to_bytes</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">bpw</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.spi_bpw_to_bytes" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Covert bits per word to bytes</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">bpw</span></code></dt><dd><p>Bits per word</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>This function converts the given <strong>bpw</strong> to bytes. The result is always
+power-of-two, e.g.,</p>
+<blockquote>
+<div><table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Input (in bits)</p></th>
+<th class="head"><p>Output (in bytes)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>9</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-even"><td><p>21</p></td>
+<td><p>4</p></td>
+</tr>
+<tr class="row-odd"><td><p>37</p></td>
+<td><p>8</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>It will return 0 for the 0 input.</p>
+<p><strong>Return</strong></p>
+<p>Bytes for the given <strong>bpw</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.spi_controller_xfer_timeout">

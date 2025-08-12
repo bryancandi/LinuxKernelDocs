@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -86,6 +86,7 @@
 <li class="toctree-l3"><a class="reference internal" href="pin_user_pages.html">pin_user_pages() and related calls</a></li>
 <li class="toctree-l3"><a class="reference internal" href="boot-time-mm.html">Boot time memory management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="gfp_mask-from-fs-io.html">GFP masks used from FS/IO context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kho/index.html">Kexec Handover Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#interfaces-for-kernel-debugging">Interfaces for kernel debugging</a></li>
@@ -3392,26 +3393,6 @@ be safe to call while holding the lock for another page.</p>
 and deadlock against the caller’s locked page.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.folio_index">
-<span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_index</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_index" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_index" title="Link to this definition">¶</a><br /></dt>
-<dd><p>File index of a folio.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>For a folio which is either in the page cache or the swap cache,
-return its index within the address_space it belongs to.  If you know
-the page is definitely in the page cache, you can look at the folio’s
-index directly.</p>
-<p><strong>Return</strong></p>
-<p>The index (offset in units of pages) of a folio in its file.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.folio_next_index">
 <span class="n"><span class="pre">pgoff_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_next_index</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_next_index" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_next_index" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Get the index of the next folio.</p>
@@ -3461,9 +3442,8 @@ obtain the specific page for an index (eg a page fault).</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>
-<p>The caller should have the page locked in order to prevent
-(eg) shmem from moving the page between the page cache and swap cache
-and changing its index in the middle of the operation.</p>
+<p>The caller should have the folio locked and ensure
+e.g., shmem did not move this folio to the swap cache.</p>
 <p><strong>Return</strong></p>
 <p>true or false.</p>
 </div>
@@ -3650,9 +3630,9 @@ May be NULL if invoked internally by the filesystem.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>A readahead request is for consecutive pages.  Filesystems which
-implement the -&gt;readahead method should call <a class="reference internal" href="#c.readahead_page" title="readahead_page"><code class="xref c c-func docutils literal notranslate"><span class="pre">readahead_page()</span></code></a> or
-<a class="reference internal" href="#c.readahead_page_batch" title="readahead_page_batch"><code class="xref c c-func docutils literal notranslate"><span class="pre">readahead_page_batch()</span></code></a> in a loop and attempt to start I/O against
-each page in the request.</p>
+implement the -&gt;readahead method should call <a class="reference internal" href="#c.readahead_folio" title="readahead_folio"><code class="xref c c-func docutils literal notranslate"><span class="pre">readahead_folio()</span></code></a> or
+__readahead_batch() in a loop and attempt to start reads into each
+folio in the request.</p>
 <p>Most of the fields in this struct are private and should be accessed
 by the functions below.</p>
 <dl class="c function">
@@ -3708,25 +3688,6 @@ has used up enough of the readahead window that we should start pulling in
 more pages.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.readahead_page">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">readahead_page</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.readahead_control" title="readahead_control"><span class="n"><span class="pre">readahead_control</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ractl</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.readahead_page" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Get the next page to read.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">readahead_control</span> <span class="pre">*ractl</span></code></dt><dd><p>The current readahead request.</p>
-</dd>
-</dl>
-<p><strong>Context</strong></p>
-<p>The page is locked and has an elevated refcount.  The caller
-should decreases the refcount once the page has been submitted for I/O
-and unlock the page once all I/O to that page has completed.</p>
-<p><strong>Return</strong></p>
-<p>A pointer to the next page, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if we are done.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.readahead_folio">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">readahead_folio</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.readahead_control" title="readahead_control"><span class="n"><span class="pre">readahead_control</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ractl</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.readahead_folio" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Get the next folio to read.</p>
@@ -3743,31 +3704,6 @@ and unlock the page once all I/O to that page has completed.</p>
 all I/O to that folio has completed.</p>
 <p><strong>Return</strong></p>
 <p>A pointer to the next folio, or <code class="docutils literal notranslate"><span class="pre">NULL</span></code> if we are done.</p>
-</div>
-<dl class="c macro">
-<dt class="sig sig-object c" id="c.readahead_page_batch">
-<span class="sig-name descname"><span class="n"><span class="pre">readahead_page_batch</span></span></span><a class="headerlink" href="#c.readahead_page_batch" title="Link to this definition">¶</a><br /></dt>
-<dd></dd></dl>
-
-<p><code class="docutils literal notranslate"><span class="pre">readahead_page_batch</span> <span class="pre">(rac,</span> <span class="pre">array)</span></code></p>
-<blockquote>
-<div><p>Get a batch of pages to read.</p>
-</div></blockquote>
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">rac</span></code></dt><dd><p>The current readahead request.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">array</span></code></dt><dd><p>An array of pointers to struct page.</p>
-</dd>
-</dl>
-<p><strong>Context</strong></p>
-<p>The pages are locked and have an elevated refcount.  The caller
-should decreases the refcount once the page has been submitted for I/O
-and unlock the page once all I/O to that page has completed.</p>
-<p><strong>Return</strong></p>
-<p>The number of pages placed in the array.  0 indicates the request
-is complete.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.readahead_pos">
@@ -3984,8 +3920,8 @@ mempool_create().</p>
 <section id="dma-pools">
 <h2>DMA pools<a class="headerlink" href="#dma-pools" title="Link to this heading">¶</a></h2>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.dma_pool_create">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dma_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dma_pool_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">boundary</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dma_pool_create" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.dma_pool_create_node">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dma_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dma_pool_create_node</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">boundary</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">node</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dma_pool_create_node" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Creates a pool of consistent memory blocks, for dma.</p>
 </dd></dl>
 
@@ -4001,6 +3937,8 @@ mempool_create().</p>
 <dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">align</span></code></dt><dd><p>alignment requirement for blocks; must be a power of two</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">boundary</span></code></dt><dd><p>returned blocks won’t cross this power of two boundary</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">node</span></code></dt><dd><p>optional NUMA node to allocate structs ‘dma_pool’ and ‘dma_page’ on</p>
 </dd>
 </dl>
 <p><strong>Context</strong></p>
@@ -4081,7 +4019,7 @@ unless it is first re-allocated.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dmam_pool_create">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">dma_pool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dmam_pool_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">name</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">align</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">allocation</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmam_pool_create" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Managed <a class="reference internal" href="#c.dma_pool_create" title="dma_pool_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_pool_create()</span></code></a></p>
+<dd><p>Managed dma_pool_create()</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -4099,7 +4037,7 @@ unless it is first re-allocated.</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>Managed <a class="reference internal" href="#c.dma_pool_create" title="dma_pool_create"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_pool_create()</span></code></a>.  DMA pool created with this function is
+<p>Managed dma_pool_create().  DMA pool created with this function is
 automatically destroyed on driver detach.</p>
 <p><strong>Return</strong></p>
 <p>a managed dma allocation pool with the requested
@@ -4865,8 +4803,8 @@ __free_page() on each allocated page.</p>
 <p>pointer to contiguous pages on success, or NULL if not successful.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.try_alloc_pages">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">try_alloc_pages</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nid</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.try_alloc_pages" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.alloc_pages_nolock">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">page</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">alloc_pages_nolock</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nid</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">order</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.alloc_pages_nolock" title="Link to this definition">¶</a><br /></dt>
 <dd><p>opportunistic reentrant allocation from any context</p>
 </dd></dl>
 
@@ -4881,12 +4819,13 @@ __free_page() on each allocated page.</p>
 <p><strong>Description</strong></p>
 <p>Allocates pages of a given order from the given node. This is safe to
 call from any context (from atomic, NMI, and also reentrant
-allocator -&gt; tracepoint -&gt; try_alloc_pages_noprof).
+allocator -&gt; tracepoint -&gt; alloc_pages_nolock_noprof).
 Allocation is best effort and to be expected to fail easily so nobody should
 rely on the success. Failures are not reported via warn_alloc().
 See always fail conditions below.</p>
 <p><strong>Return</strong></p>
-<p>allocated page or NULL on failure.</p>
+<p>allocated page or NULL on failure. NULL does not mean EBUSY or EAGAIN.
+It means ENOMEM. There is no reason to call it again and expect !NULL.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.numa_nearest_node">
@@ -5886,6 +5825,46 @@ Page Frame Numbers.</p>
 <p>The Page Frame Number of the first page in the folio.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.folio_mk_pte">
+<span class="n"><span class="pre">pte_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_mk_pte</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_mk_pte" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="n"><span class="pre">pgprot_t</span></span><span class="w"> </span><span class="n"><span class="pre">pgprot</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_mk_pte" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Create a PTE for this folio</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to create a PTE for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pgprot_t</span> <span class="pre">pgprot</span></code></dt><dd><p>The page protection bits to use</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Create a page table entry for the first page of this folio.
+This is suitable for passing to set_ptes().</p>
+<p><strong>Return</strong></p>
+<p>A page table entry suitable for mapping this folio.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_mk_pmd">
+<span class="n"><span class="pre">pmd_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_mk_pmd</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_mk_pmd" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="n"><span class="pre">pgprot_t</span></span><span class="w"> </span><span class="n"><span class="pre">pgprot</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_mk_pmd" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Create a PMD for this folio</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to create a PMD for</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pgprot_t</span> <span class="pre">pgprot</span></code></dt><dd><p>The page protection bits to use</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Create a page table entry for the first page of this folio.
+This is suitable for passing to set_pmd_at().</p>
+<p><strong>Return</strong></p>
+<p>A page table entry suitable for mapping this folio.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.folio_maybe_dma_pinned">
 <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_maybe_dma_pinned</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_maybe_dma_pinned" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_maybe_dma_pinned" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Report if a folio may be pinned for DMA.</p>
@@ -5959,19 +5938,6 @@ False, if the folio is definitely not dma-pinned.</p>
 </dl>
 <p><strong>Return</strong></p>
 <p>A positive power of two.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.thp_nr_pages">
-<span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">thp_nr_pages</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.thp_nr_pages" title="page"><span class="n"><span class="pre">page</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">page</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.thp_nr_pages" title="Link to this definition">¶</a><br /></dt>
-<dd><p>The number of regular pages in this huge page.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">page</span> <span class="pre">*page</span></code></dt><dd><p>The head page of a huge page.</p>
-</dd>
-</dl>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.folio_next">
@@ -6085,6 +6051,41 @@ hugetlb_pmd_shared().</p></li>
 </dl>
 <p><strong>Return</strong></p>
 <p>Whether the folio is estimated to be mapped into more than one MM.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.folio_expected_ref_count">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">folio_expected_ref_count</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.folio_expected_ref_count" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.folio_expected_ref_count" title="Link to this definition">¶</a><br /></dt>
+<dd><p>calculate the expected folio refcount</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>the folio</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Calculate the expected folio refcount, taking references from the pagecache,
+swapcache, PG_private and page table mappings into account. Useful in
+combination with <a class="reference internal" href="#c.folio_ref_count" title="folio_ref_count"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_ref_count()</span></code></a> to detect unexpected references (e.g.,
+GUP or other temporary references).</p>
+<p>Does currently not consider references from the LRU cache. If the folio
+was isolated from the LRU (which is the case during migration or split),
+the LRU cache does not apply.</p>
+<p>Calling this function on an unmapped folio -- !<a class="reference internal" href="#c.folio_mapped" title="folio_mapped"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_mapped()</span></code></a> -- that is
+locked will return a stable result.</p>
+<p>Calling this function on a mapped folio will not result in a stable result,
+because nothing stops additional page table mappings from coming (e.g.,
+fork()) or going (e.g., munmap()).</p>
+<p>Calling this function without the folio lock will also not result in a
+stable result: for example, the folio might get dropped from the swapcache
+concurrently.</p>
+<p>However, even when called without the folio lock or on a mapped folio,
+this function can be used to detect unexpected references early (for example,
+if it makes sense to even lock the folio and unmap it).</p>
+<p>The caller must add any reference (e.g., from <a class="reference internal" href="#c.folio_try_get" title="folio_try_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">folio_try_get()</span></code></a>) it might be
+holding itself to the result.</p>
+<p>Returns the expected folio refcount.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.pagetable_alloc">
@@ -6449,7 +6450,7 @@ an anon_vma.</p>
 </dl>
 <p><strong>Description</strong></p>
 <p>Calculates the user virtual address of this page in the specified VMA.
-It is the caller’s responsibililty to check the page is actually
+It is the caller’s responsibility to check the page is actually
 within the VMA.  There may not currently be a PTE pointing at this
 page, but if a page fault occurs at this address, this is the page
 which will be accessed.</p>
@@ -7284,6 +7285,19 @@ reported as a leak temporarily. This may happen, for example, if the object
 is part of a singly linked list and the -&gt;next reference to it is changed.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.kmemleak_ignore_percpu">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__ref</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmemleak_ignore_percpu</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__percpu</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmemleak_ignore_percpu" title="Link to this definition">¶</a><br /></dt>
+<dd><p>similar to kmemleak_ignore but taking a percpu address argument</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">void</span> <span class="pre">__percpu</span> <span class="pre">*ptr</span></code></dt><dd><p>percpu address of the object</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.kmemleak_ignore">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="pre">__ref</span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">kmemleak_ignore</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.kmemleak_ignore" title="Link to this definition">¶</a><br /></dt>
 <dd><p>ignore an allocated object</p>
@@ -7777,7 +7791,7 @@ after it is destroyed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.zpool_malloc">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zpool_malloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zpool_malloc" title="zpool"><span class="n"><span class="pre">zpool</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">zpool</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">handle</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zpool_malloc" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">zpool_malloc</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.zpool_malloc" title="zpool"><span class="n"><span class="pre">zpool</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">zpool</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">handle</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.zpool_malloc" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate memory</p>
 </dd></dl>
 
@@ -7792,12 +7806,15 @@ after it is destroyed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">long</span> <span class="pre">*handle</span></code></dt><dd><p>Pointer to the handle to set</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">int</span> <span class="pre">nid</span></code></dt><dd><p>The preferred node id.</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>This allocates the requested amount of memory from the pool.
 The gfp flags will be used when allocating memory, if the
 implementation supports it.  The provided <strong>handle</strong> will be
-set to the allocated object handle.</p>
+set to the allocated object handle. The allocation will
+prefer the NUMA node specified by <strong>nid</strong>.</p>
 <p>Implementations must guarantee this to be thread-safe.</p>
 <p><strong>Return</strong></p>
 <p>0 on success, negative value on error.</p>
@@ -7946,8 +7963,8 @@ after <a class="reference internal" href="#c.page_cgroup_ino" title="page_cgroup
 do not care (such as procfs interfaces).</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.__mod_memcg_state">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__mod_memcg_state</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">memcg_stat_item</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__mod_memcg_state" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.mod_memcg_state">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mod_memcg_state</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">memcg_stat_item</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mod_memcg_state" title="Link to this definition">¶</a><br /></dt>
 <dd><p>update cgroup memory statistics</p>
 </dd></dl>
 
@@ -7984,8 +8001,8 @@ function updates the all three counters that are affected by a
 change of state at this level: per-node, per-cgroup, per-lruvec.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.__count_memcg_events">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__count_memcg_events</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">vm_event_item</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__count_memcg_events" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.count_memcg_events">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">count_memcg_events</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="n"><span class="pre">vm_event_item</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.count_memcg_events" title="Link to this definition">¶</a><br /></dt>
 <dd><p>account VM events in a cgroup</p>
 </dd></dl>
 
@@ -8264,7 +8281,7 @@ by killing all belonging OOM-killable tasks.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.consume_stock">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">consume_stock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp_mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.consume_stock" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">consume_stock</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mem_cgroup</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">memcg</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">nr_pages</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.consume_stock" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Try to consume stocked charge on this cpu.</p>
 </dd></dl>
 
@@ -8275,13 +8292,11 @@ by killing all belonging OOM-killable tasks.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">nr_pages</span></code></dt><dd><p>how many pages to charge.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp_mask</span></code></dt><dd><p>allocation mask.</p>
-</dd>
 </dl>
 <p><strong>Description</strong></p>
-<p>The charges will only happen if <strong>memcg</strong> matches the current cpu’s memcg
-stock, and at least <strong>nr_pages</strong> are available in that stock.  Failure to
-service an allocation will refill the stock.</p>
+<p>Consume the cached charge if enough nr_pages are present otherwise return
+failure. Also return failure for charge request larger than
+MEMCG_CHARGE_BATCH or if the local lock is already taken.</p>
 <p>returns true if successful, false otherwise.</p>
 </div>
 <dl class="c function">
@@ -8655,6 +8670,23 @@ due to alignment considerations the mapping might have. The returned order
 may be less than the size passed.</p>
 <p><strong>Return</strong></p>
 <p>The orders.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.shmem_writeout">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shmem_writeout</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.shmem_writeout" title="folio"><span class="n"><span class="pre">folio</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">folio</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">writeback_control</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">wbc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.shmem_writeout" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Write the folio to swap</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">folio</span> <span class="pre">*folio</span></code></dt><dd><p>The folio to write</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">writeback_control</span> <span class="pre">*wbc</span></code></dt><dd><p>How writeback is to be done</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Move the folio from the page cache to the swap cache.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.shmem_get_folio">

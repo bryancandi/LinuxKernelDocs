@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -378,10 +378,15 @@ attempts in order to enforce the LRU property which have increasing impacts on
 other CPUs involved in the following operation attempts:</p>
 <ul class="simple">
 <li><p>Attempt to use CPU-local state to batch operations</p></li>
-<li><p>Attempt to fetch free nodes from global lists</p></li>
+<li><p>Attempt to fetch <code class="docutils literal notranslate"><span class="pre">target_free</span></code> free nodes from global lists</p></li>
 <li><p>Attempt to pull any node from a global list and remove it from the hashmap</p></li>
 <li><p>Attempt to pull any node from any CPU’s list and remove it from the hashmap</p></li>
 </ul>
+<p>The number of nodes to borrow from the global list in a batch, <code class="docutils literal notranslate"><span class="pre">target_free</span></code>,
+depends on the size of the map. Larger batch size reduces lock contention, but
+may also exhaust the global structure. The value is computed at map init to
+avoid exhaustion, by limiting aggregate reservation by all CPUs to half the map
+size. With a minimum of a single element and maximum budget of 128 at a time.</p>
 <p>This algorithm is described visually in the following diagram. See the
 description in <a class="reference external" href="https://git.kernel.org/torvalds/c/3a08c2fd7634">commit 3a08c2fd7634</a> (“bpf: LRU List”) for a full explanation of
 the corresponding operations:</p>

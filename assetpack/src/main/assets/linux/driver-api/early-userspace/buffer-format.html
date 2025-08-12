@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -154,29 +154,36 @@
 <section id="initramfs-buffer-format">
 <h1>initramfs buffer format<a class="headerlink" href="#initramfs-buffer-format" title="Link to this heading">¶</a></h1>
 <p>Al Viro, H. Peter Anvin</p>
-<p>Last revision: 2002-01-13</p>
-<p>Starting with kernel 2.5.x, the old “initial ramdisk” protocol is
-getting {replaced/complemented} with the new “initial ramfs”
-(initramfs) protocol.  The initramfs contents is passed using the same
-memory buffer protocol used by the initrd protocol, but the contents
+<p>With kernel 2.5.x, the old “initial ramdisk” protocol was complemented
+with an “initial ramfs” protocol.  The initramfs content is passed
+using the same memory buffer protocol used by initrd, but the content
 is different.  The initramfs buffer contains an archive which is
-expanded into a ramfs filesystem; this document details the format of
-the initramfs buffer format.</p>
+expanded into a ramfs filesystem; this document details the initramfs
+buffer format.</p>
 <p>The initramfs buffer format is based around the “newc” or “crc” CPIO
 formats, and can be created with the cpio(1) utility.  The cpio
-archive can be compressed using gzip(1).  One valid version of an
-initramfs buffer is thus a single .cpio.gz file.</p>
+archive can be compressed using gzip(1), or any other algorithm provided
+via CONFIG_DECOMPRESS_*.  One valid version of an initramfs buffer is
+thus a single .cpio.gz file.</p>
 <p>The full format of the initramfs buffer is defined by the following
 grammar, where:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>*       is used to indicate &quot;0 or more occurrences of&quot;
 (|)     indicates alternatives
 +       indicates concatenation
-GZIP()  indicates the gzip(1) of the operand
+GZIP()  indicates gzip compression of the operand
+BZIP2() indicates bzip2 compression of the operand
+LZMA()  indicates lzma compression of the operand
+XZ()    indicates xz compression of the operand
+LZO()   indicates lzo compression of the operand
+LZ4()   indicates lz4 compression of the operand
+ZSTD()  indicates zstd compression of the operand
 ALGN(n) means padding with null bytes to an n-byte boundary
 
-initramfs  := (&quot;\0&quot; | cpio_archive | cpio_gzip_archive)*
+initramfs := (&quot;\0&quot; | cpio_archive | cpio_compressed_archive)*
 
-cpio_gzip_archive := GZIP(cpio_archive)
+cpio_compressed_archive := (GZIP(cpio_archive) | BZIP2(cpio_archive)
+        | LZMA(cpio_archive) | XZ(cpio_archive) | LZO(cpio_archive)
+        | LZ4(cpio_archive) | ZSTD(cpio_archive))
 
 cpio_archive := cpio_file* + (&lt;nothing&gt; | cpio_trailer)
 
@@ -264,6 +271,7 @@ otherwise zero</p></td>
 </table>
 <p>The c_mode field matches the contents of st_mode returned by stat(2)
 on Linux, and encodes the file type and file permissions.</p>
+<p>c_mtime is ignored unless CONFIG_INITRAMFS_PRESERVE_MTIME=y is set.</p>
 <p>The c_filesize should be zero for any file which is not a regular file
 or symlink.</p>
 <p>The c_chksum field contains a simple 32-bit unsigned sum of all the

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -184,11 +184,12 @@ crypto_unregister_shash().</p>
     int (*digest)(struct ahash_request *req);
     int (*export)(struct ahash_request *req, void *out);
     int (*import)(struct ahash_request *req, const void *in);
+    int (*export_core)(struct ahash_request *req, void *out);
+    int (*import_core)(struct ahash_request *req, const void *in);
     int (*setkey)(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen);
     int (*init_tfm)(struct crypto_ahash *tfm);
     void (*exit_tfm)(struct crypto_ahash *tfm);
     int (*clone_tfm)(struct crypto_ahash *dst, struct crypto_ahash *src);
-    unsigned int reqsize;
     struct hash_alg_common halg;
 };
 </pre></div>
@@ -210,7 +211,9 @@ transformation. This function shall not modify the transformation
 context, as this function may be called in parallel with the same
 transformation object. Data processing can happen synchronously
 [SHASH] or asynchronously [AHASH] at this point. Driver must not use
-req-&gt;result.</p>
+req-&gt;result.
+For block-only algorithms, <strong>update</strong> must return the number
+of bytes to store in the API partial block buffer.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">final</span></code></dt><dd><p><strong>[mandatory]</strong> Retrieve result from the driver. This function finalizes the
 transformation and retrieves the resulting hash from the driver and
@@ -246,6 +249,12 @@ data so the transformation can continue from this point onward. No
 data processing happens at this point. Driver must not use
 req-&gt;result.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">export_core</span></code></dt><dd><p>Export partial state without partial block.  Only defined
+for algorithms that are not block-only.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">import_core</span></code></dt><dd><p>Import partial state without partial block.  Only defined
+for algorithms that are not block-only.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">setkey</span></code></dt><dd><p>Set optional key used by the hashing algorithm. Intended to push
 optional key used by the hashing algorithm from upper layers into
 the driver. This function can store the key in the transformation
@@ -275,8 +284,6 @@ various changes set in <strong>init_tfm</strong>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">clone_tfm</span></code></dt><dd><p>Copy transform into new object, may allocate memory.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">reqsize</span></code></dt><dd><p>Size of the request context.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">halg</span></code></dt><dd><p>see struct hash_alg_common</p>
 </dd>
 </dl>
@@ -297,6 +304,8 @@ various changes set in <strong>init_tfm</strong>.</p>
     int (*digest)(struct shash_desc *desc, const u8 *data, unsigned int len, u8 *out);
     int (*export)(struct shash_desc *desc, void *out);
     int (*import)(struct shash_desc *desc, const void *in);
+    int (*export_core)(struct shash_desc *desc, void *out);
+    int (*import_core)(struct shash_desc *desc, const void *in);
     int (*setkey)(struct crypto_shash *tfm, const u8 *key, unsigned int keylen);
     int (*init_tfm)(struct crypto_shash *tfm);
     void (*exit_tfm)(struct crypto_shash *tfm);
@@ -324,6 +333,10 @@ various changes set in <strong>init_tfm</strong>.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">export</span></code></dt><dd><p>see <a class="reference internal" href="#c.ahash_alg" title="ahash_alg"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_alg</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">import</span></code></dt><dd><p>see <a class="reference internal" href="#c.ahash_alg" title="ahash_alg"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_alg</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">export_core</span></code></dt><dd><p>see <a class="reference internal" href="#c.ahash_alg" title="ahash_alg"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_alg</span></code></a></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">import_core</span></code></dt><dd><p>see <a class="reference internal" href="#c.ahash_alg" title="ahash_alg"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_alg</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">setkey</span></code></dt><dd><p>see <a class="reference internal" href="#c.ahash_alg" title="ahash_alg"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_alg</span></code></a></p>
 </dd>
@@ -876,7 +889,7 @@ sizeof(struct shash_desc) + crypto_shash_descsize(alg)</p>
 cipher handle must point to a keyed message digest cipher in order for this
 function to succeed.</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <p>0 if the setting of the key was successful; &lt; 0 if an error occurred</p>
 </div>
@@ -903,7 +916,7 @@ function to succeed.</p>
 crypto_shash_update and crypto_shash_final. The parameters have the same
 meaning as discussed for those separate three functions.</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <dl class="simple">
 <dt>0 if the message digest creation was successful; &lt; 0 if an error</dt><dd><p>occurred</p>
@@ -929,7 +942,7 @@ meaning as discussed for those separate three functions.</p>
 caller-allocated output buffer out which must have sufficient size (e.g. by
 calling crypto_shash_descsize).</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <p>0 if the export creation was successful; &lt; 0 if an error occurred</p>
 </div>
@@ -952,7 +965,7 @@ calling crypto_shash_descsize).</p>
 the input buffer. That buffer should have been generated with the
 crypto_ahash_export function.</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <p>0 if the import was successful; &lt; 0 if an error occurred</p>
 </div>
@@ -973,63 +986,10 @@ crypto_ahash_export function.</p>
 operational state handle. Any potentially existing state created by
 previous operations is discarded.</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <dl class="simple">
 <dt>0 if the message digest initialization was successful; &lt; 0 if an</dt><dd><p>error occurred</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.crypto_shash_update">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">crypto_shash_update</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">shash_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.crypto_shash_update" title="Link to this definition">¶</a><br /></dt>
-<dd><p>add data to message digest for processing</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">shash_desc</span> <span class="pre">*desc</span></code></dt><dd><p>operational state handle that is already initialized</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">*data</span></code></dt><dd><p>input data to be added to the message digest</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">len</span></code></dt><dd><p>length of the input data</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Updates the message digest state of the operational state handle.</p>
-<p><strong>Context</strong></p>
-<p>Any context.</p>
-<p><strong>Return</strong></p>
-<dl class="simple">
-<dt>0 if the message digest update was successful; &lt; 0 if an error</dt><dd><p>occurred</p>
-</dd>
-</dl>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.crypto_shash_final">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">crypto_shash_final</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">shash_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">out</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.crypto_shash_final" title="Link to this definition">¶</a><br /></dt>
-<dd><p>calculate message digest</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">shash_desc</span> <span class="pre">*desc</span></code></dt><dd><p>operational state handle that is already filled with data</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*out</span></code></dt><dd><p>output buffer filled with the message digest</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Finalize the message digest operation and create the message digest
-based on all data added to the cipher handle. The message digest is placed
-into the output buffer. The caller must ensure that the output buffer is
-large enough by using crypto_shash_digestsize.</p>
-<p><strong>Context</strong></p>
-<p>Any context.</p>
-<p><strong>Return</strong></p>
-<dl class="simple">
-<dt>0 if the message digest creation was successful; &lt; 0 if an error</dt><dd><p>occurred</p>
 </dd>
 </dl>
 </div>
@@ -1056,7 +1016,60 @@ large enough by using crypto_shash_digestsize.</p>
 crypto_shash_update and crypto_shash_final. The parameters have the same
 meaning as discussed for those separate functions.</p>
 <p><strong>Context</strong></p>
-<p>Any context.</p>
+<p>Softirq or process context.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>0 if the message digest creation was successful; &lt; 0 if an error</dt><dd><p>occurred</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.crypto_shash_update">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">crypto_shash_update</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">shash_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.crypto_shash_update" title="Link to this definition">¶</a><br /></dt>
+<dd><p>add data to message digest for processing</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">shash_desc</span> <span class="pre">*desc</span></code></dt><dd><p>operational state handle that is already initialized</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u8</span> <span class="pre">*data</span></code></dt><dd><p>input data to be added to the message digest</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">len</span></code></dt><dd><p>length of the input data</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Updates the message digest state of the operational state handle.</p>
+<p><strong>Context</strong></p>
+<p>Softirq or process context.</p>
+<p><strong>Return</strong></p>
+<dl class="simple">
+<dt>0 if the message digest update was successful; &lt; 0 if an error</dt><dd><p>occurred</p>
+</dd>
+</dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.crypto_shash_final">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">crypto_shash_final</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">shash_desc</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span>, <span class="n"><span class="pre">u8</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">out</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.crypto_shash_final" title="Link to this definition">¶</a><br /></dt>
+<dd><p>calculate message digest</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">shash_desc</span> <span class="pre">*desc</span></code></dt><dd><p>operational state handle that is already filled with data</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u8</span> <span class="pre">*out</span></code></dt><dd><p>output buffer filled with the message digest</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Finalize the message digest operation and create the message digest
+based on all data added to the cipher handle. The message digest is placed
+into the output buffer. The caller must ensure that the output buffer is
+large enough by using crypto_shash_digestsize.</p>
+<p><strong>Context</strong></p>
+<p>Softirq or process context.</p>
 <p><strong>Return</strong></p>
 <dl class="simple">
 <dt>0 if the message digest creation was successful; &lt; 0 if an error</dt><dd><p>occurred</p>

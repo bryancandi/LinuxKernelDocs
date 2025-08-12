@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -989,7 +989,7 @@ pool for each NUMA node.</p>
 items for each CPU. e.g. <strong>max_active</strong> of 1 indicates that each CPU can be
 executing at most one work item for the workqueue.</p>
 <p>For unbound workqueues, <strong>max_active</strong> limits the number of in-flight work items
-for the whole system. e.g. <strong>max_active</strong> of 16 indicates that that there can be
+for the whole system. e.g. <strong>max_active</strong> of 16 indicates that there can be
 at most 16 work items executing for the workqueue in the whole system.</p>
 <p>As sharing the same active counter for an unbound workqueue across multiple
 NUMA nodes can be expensive, <strong>max_active</strong> is distributed to each NUMA node
@@ -2937,6 +2937,15 @@ activate inactive work items accordingly. If <strong>wq</strong> is freezing, cl
 </dl>
 <p><strong>Description</strong></p>
 <p>Safely destroy a workqueue. All work currently pending will be done first.</p>
+<p>This function does NOT guarantee that non-pending work that has been
+submitted with <a class="reference internal" href="#c.queue_delayed_work" title="queue_delayed_work"><code class="xref c c-func docutils literal notranslate"><span class="pre">queue_delayed_work()</span></code></a> and similar functions will be done
+before destroying the workqueue. The fundamental problem is that, currently,
+the workqueue has no way of accessing non-pending delayed_work. delayed_work
+is only linked on the timer-side. All delayed_work must, therefore, be
+canceled before calling this function.</p>
+<p>TODO: It would be better if the problem described above wouldn’t exist and
+<a class="reference internal" href="#c.destroy_workqueue" title="destroy_workqueue"><code class="xref c c-func docutils literal notranslate"><span class="pre">destroy_workqueue()</span></code></a> would cleanly cancel all pending and non-pending
+delayed_work.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.workqueue_set_max_active">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -251,14 +251,14 @@ because the driver does not handle any IO logic. This command has to be
 sent before sending <code class="docutils literal notranslate"><span class="pre">UBLK_CMD_START_DEV</span></code>.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">UBLK_CMD_START_DEV</span></code></p>
-<p>After the server prepares userspace resources (such as creating per-queue
-pthread &amp; io_uring for handling ublk IO), this command is sent to the
+<p>After the server prepares userspace resources (such as creating I/O handler
+threads &amp; io_uring for handling ublk IO), this command is sent to the
 driver for allocating &amp; exposing <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code>. Parameters set via
 <code class="docutils literal notranslate"><span class="pre">UBLK_CMD_SET_PARAMS</span></code> are applied for creating the device.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">UBLK_CMD_STOP_DEV</span></code></p>
 <p>Halt IO on <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code> and remove the device. When this command returns,
-ublk server will release resources (such as destroying per-queue pthread &amp;
+ublk server will release resources (such as destroying I/O handler threads &amp;
 io_uring).</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">UBLK_CMD_DEL_DEV</span></code></p>
@@ -333,14 +333,14 @@ ublk server may additionally specify at most one of
 <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> and <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_FAIL_IO</span></code> to
 modify how I/O is handled while the ublk server is dying/dead (this is called
 the <code class="docutils literal notranslate"><span class="pre">nosrv</span></code> case in the driver code).</p>
-<p>With just <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> set, after one ubq_daemon(ublk server’s io
-handler) is dying, ublk does not delete <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code> during the whole
+<p>With just <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code> set, after the ublk server exits,
+ublk does not delete <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code> during the whole
 recovery stage and ublk device ID is kept. It is ublk server’s
 responsibility to recover the device context by its own knowledge.
 Requests which have not been issued to userspace are requeued. Requests
 which have been issued to userspace are aborted.</p>
-<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> additionally set, after one ubq_daemon
-(ublk server’s io handler) is dying, contrary to <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code>,
+<p>With <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> additionally set, after the ublk server
+exits, contrary to <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY</span></code>,
 requests which have been issued to userspace are requeued and will be
 re-issued to the new process after handling <code class="docutils literal notranslate"><span class="pre">UBLK_CMD_END_USER_RECOVERY</span></code>.
 <code class="docutils literal notranslate"><span class="pre">UBLK_F_USER_RECOVERY_REISSUE</span></code> is designed for backends who tolerate
@@ -364,10 +364,11 @@ can be controlled/accessed just inside this container.</p>
 </section>
 <section id="data-plane">
 <h3>Data plane<a class="headerlink" href="#data-plane" title="Link to this heading">¶</a></h3>
-<p>ublk server needs to create per-queue IO pthread &amp; io_uring for handling IO
-commands via io_uring passthrough. The per-queue IO pthread
-focuses on IO handling and shouldn’t handle any control &amp; management
-tasks.</p>
+<p>The ublk server should create dedicated threads for handling I/O. Each
+thread should have its own io_uring through which it is notified of new
+I/O, and through which it can complete I/O. These dedicated threads
+should focus on IO handling and shouldn’t handle any control &amp;
+management tasks.</p>
 <p>The’s IO is assigned by a unique tag, which is 1:1 mapping with IO
 request of <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code>.</p>
 <p>UAPI structure of <code class="docutils literal notranslate"><span class="pre">ublksrv_io_desc</span></code> is defined for describing each IO from
@@ -383,6 +384,16 @@ with specified IO tag in the command data:</p>
 <p>Sent from the server IO pthread for fetching future incoming IO requests
 destined to <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code>. This command is sent only once from the server
 IO pthread for ublk driver to setup IO forward environment.</p>
+<p>Once a thread issues this command against a given (qid,tag) pair, the thread
+registers itself as that I/O’s daemon. In the future, only that I/O’s daemon
+is allowed to issue commands against the I/O. If any other thread attempts
+to issue a command against a (qid,tag) pair for which the thread is not the
+daemon, the command will fail. Daemons can be reset only be going through
+recovery.</p>
+<p>The ability for every (qid,tag) pair to have its own independent daemon task
+is indicated by the <code class="docutils literal notranslate"><span class="pre">UBLK_F_PER_IO_DAEMON</span></code> feature. If this feature is not
+supported by the driver, daemons must be per-queue instead - i.e. all I/Os
+associated to a single qid must be handled by the same task.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">UBLK_IO_COMMIT_AND_FETCH_REQ</span></code></p>
 <p>When an IO request is destined to <code class="docutils literal notranslate"><span class="pre">/dev/ublkb*</span></code>, the driver stores
@@ -448,6 +459,82 @@ with backend for zero copy to work correctly.</p>
 <p>For reaching best IO performance, ublk server should align its segment
 parameter of <cite>struct ublk_param_segment</cite> with backend for avoiding
 unnecessary IO split, which usually hurts io_uring performance.</p>
+</section>
+<section id="auto-buffer-registration">
+<h3>Auto Buffer Registration<a class="headerlink" href="#auto-buffer-registration" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">UBLK_F_AUTO_BUF_REG</span></code> feature automatically handles buffer registration
+and unregistration for I/O requests, which simplifies the buffer management
+process and reduces overhead in the ublk server implementation.</p>
+<p>This is another feature flag for using zero copy, and it is compatible with
+<code class="docutils literal notranslate"><span class="pre">UBLK_F_SUPPORT_ZERO_COPY</span></code>.</p>
+<section id="feature-overview">
+<h4>Feature Overview<a class="headerlink" href="#feature-overview" title="Link to this heading">¶</a></h4>
+<p>This feature automatically registers request buffers to the io_uring context
+before delivering I/O commands to the ublk server and unregisters them when
+completing I/O commands. This eliminates the need for manual buffer
+registration/unregistration via <code class="docutils literal notranslate"><span class="pre">UBLK_IO_REGISTER_IO_BUF</span></code> and
+<code class="docutils literal notranslate"><span class="pre">UBLK_IO_UNREGISTER_IO_BUF</span></code> commands, then IO handling in ublk server
+can avoid dependency on the two uring_cmd operations.</p>
+<p>IOs can’t be issued concurrently to io_uring if there is any dependency
+among these IOs. So this way not only simplifies ublk server implementation,
+but also makes concurrent IO handling becomes possible by removing the
+dependency on buffer registration &amp; unregistration commands.</p>
+</section>
+<section id="usage-requirements">
+<h4>Usage Requirements<a class="headerlink" href="#usage-requirements" title="Link to this heading">¶</a></h4>
+<ol class="arabic">
+<li><p>The ublk server must create a sparse buffer table on the same <code class="docutils literal notranslate"><span class="pre">io_ring_ctx</span></code>
+used for <code class="docutils literal notranslate"><span class="pre">UBLK_IO_FETCH_REQ</span></code> and <code class="docutils literal notranslate"><span class="pre">UBLK_IO_COMMIT_AND_FETCH_REQ</span></code>. If
+uring_cmd is issued on a different <code class="docutils literal notranslate"><span class="pre">io_ring_ctx</span></code>, manual buffer
+unregistration is required.</p></li>
+<li><p>Buffer registration data must be passed via uring_cmd’s <code class="docutils literal notranslate"><span class="pre">sqe-&gt;addr</span></code> with the
+following structure:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct ublk_auto_buf_reg {
+    __u16 index;      /* Buffer index for registration */
+    __u8 flags;       /* Registration flags */
+    __u8 reserved0;   /* Reserved for future use */
+    __u32 reserved1;  /* Reserved for future use */
+};
+</pre></div>
+</div>
+<p>ublk_auto_buf_reg_to_sqe_addr() is for converting the above structure into
+<code class="docutils literal notranslate"><span class="pre">sqe-&gt;addr</span></code>.</p>
+</li>
+<li><p>All reserved fields in <code class="docutils literal notranslate"><span class="pre">ublk_auto_buf_reg</span></code> must be zeroed.</p></li>
+<li><p>Optional flags can be passed via <code class="docutils literal notranslate"><span class="pre">ublk_auto_buf_reg.flags</span></code>.</p></li>
+</ol>
+</section>
+<section id="fallback-behavior">
+<h4>Fallback Behavior<a class="headerlink" href="#fallback-behavior" title="Link to this heading">¶</a></h4>
+<p>If auto buffer registration fails:</p>
+<ol class="arabic simple">
+<li><p>When <code class="docutils literal notranslate"><span class="pre">UBLK_AUTO_BUF_REG_FALLBACK</span></code> is enabled:</p>
+<ul class="simple">
+<li><p>The uring_cmd is completed</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UBLK_IO_F_NEED_REG_BUF</span></code> is set in <code class="docutils literal notranslate"><span class="pre">ublksrv_io_desc.op_flags</span></code></p></li>
+<li><p>The ublk server must manually deal with the failure, such as, register
+the buffer manually, or using user copy feature for retrieving the data
+for handling ublk IO</p></li>
+</ul>
+</li>
+<li><p>If fallback is not enabled:</p>
+<ul class="simple">
+<li><p>The ublk I/O request fails silently</p></li>
+<li><p>The uring_cmd won’t be completed</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="limitations">
+<h4>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Requires same <code class="docutils literal notranslate"><span class="pre">io_ring_ctx</span></code> for all operations</p></li>
+<li><p>May require manual buffer management in fallback cases</p></li>
+<li><p>io_ring_ctx buffer table has a max size of 16K, which may not be enough
+in case that too many ublk devices are handled by this single io_ring_ctx
+and each one has very large queue depth</p></li>
+</ul>
+</section>
 </section>
 </section>
 <section id="references">

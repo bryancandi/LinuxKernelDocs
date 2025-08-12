@@ -13,8 +13,8 @@
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="drm/amd/display - Display Core (DC)" href="display/index.html" />
-    <link rel="prev" title="Module Parameters" href="module-parameters.html" />
+    <link rel="next" title="AMD Hardware Components Information per Product" href="amd-hardware-list-info.html" />
+    <link rel="prev" title="drm/amdgpu AMDgpu driver" href="index.html" />
    
   <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
   
@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -203,37 +203,62 @@ etc.)</p>
 <dt>GC (Graphics and Compute)</dt><dd><p>This is the graphics and compute engine, i.e., the block that
 encompasses the 3D pipeline and and shader blocks.  This is by far the
 largest block on the GPU.  The 3D pipeline has tons of sub-blocks.  In
-addition to that, it also contains the CP microcontrollers (ME, PFP,
-CE, MEC) and the RLC microcontroller.  It’s exposed to userspace for
-user mode drivers (OpenGL, Vulkan, OpenCL, etc.)</p>
+addition to that, it also contains the CP microcontrollers (ME, PFP, CE,
+MEC) and the RLC microcontroller.  It’s exposed to userspace for user mode
+drivers (OpenGL, Vulkan, OpenCL, etc.). More details in <a class="reference internal" href="gc/index.html#amdgpu-gc"><span class="std std-ref">Graphics (GFX)
+and Compute</span></a>.</p>
 </dd>
 <dt>VCN (Video Core Next)</dt><dd><p>This is the multi-media engine.  It handles video and image encode and
 decode.  It’s exposed to userspace for user mode drivers (VA-API,
 OpenMAX, etc.)</p>
 </dd>
 </dl>
-<section id="graphics-and-compute-microcontrollers">
-<h3>Graphics and Compute Microcontrollers<a class="headerlink" href="#graphics-and-compute-microcontrollers" title="Link to this heading">¶</a></h3>
-<dl>
-<dt>CP (Command Processor)</dt><dd><p>The name for the hardware block that encompasses the front end of the
-GFX/Compute pipeline.  Consists mainly of a bunch of microcontrollers
-(PFP, ME, CE, MEC).  The firmware that runs on these microcontrollers
-provides the driver interface to interact with the GFX/Compute engine.</p>
-<dl class="simple">
-<dt>MEC (MicroEngine Compute)</dt><dd><p>This is the microcontroller that controls the compute queues on the
-GFX/compute engine.</p>
-</dd>
-<dt>MES (MicroEngine Scheduler)</dt><dd><p>This is a new engine for managing queues.  This is currently unused.</p>
-</dd>
-</dl>
-</dd>
-<dt>RLC (RunList Controller)</dt><dd><p>This is another microcontroller in the GFX/Compute engine.  It handles
-power management related functionality within the GFX/Compute engine.
-The name is a vestige of old hardware where it was originally added
-and doesn’t really have much relation to what the engine does now.</p>
-</dd>
-</dl>
 </section>
+<section id="gfx-compute-and-sdma-overall-behavior">
+<span id="pipes-and-queues-description"></span><h2>GFX, Compute, and SDMA Overall Behavior<a class="headerlink" href="#gfx-compute-and-sdma-overall-behavior" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For simplicity, whenever the term block is used in this section, it
+means GFX, Compute, and SDMA.</p>
+</div>
+<p>GFX, Compute and SDMA share a similar form of operation that can be abstracted
+to facilitate understanding of the behavior of these blocks. See the figure
+below illustrating the common components of these blocks:</p>
+<figure class="align-default">
+<img alt="../../_images/pipe_and_queue_abstraction.svg" src="../../_images/pipe_and_queue_abstraction.svg" /></figure>
+<p>In the central part of this figure, you can see two hardware elements, one called
+<strong>Pipes</strong> and another called <strong>Queues</strong>; it is important to highlight that Queues
+must be associated with a Pipe and vice-versa. Every specific hardware IP may have
+a different number of Pipes and, in turn, a different number of Queues; for
+example, GFX 11 has two Pipes and two Queues per Pipe for the GFX front end.</p>
+<p>Pipe is the hardware that processes the instructions available in the Queues;
+in other words, it is a thread executing the operations inserted in the Queue.
+One crucial characteristic of Pipes is that they can only execute one Queue at
+a time; no matter if the hardware has multiple Queues in the Pipe, it only runs
+one Queue per Pipe.</p>
+<p>Pipes have the mechanics of swapping between queues at the hardware level.
+Nonetheless, they only make use of Queues that are considered mapped. Pipes can
+switch between queues based on any of the following inputs:</p>
+<ol class="arabic simple">
+<li><p>Command Stream;</p></li>
+<li><p>Packet by Packet;</p></li>
+<li><p>Other hardware requests the change (e.g., MES).</p></li>
+</ol>
+<p>Queues within Pipes are defined by the Hardware Queue Descriptors (HQD).
+Associated with the HQD concept, we have the Memory Queue Descriptor (MQD),
+which is responsible for storing information about the state of each of the
+available Queues in the memory. The state of a Queue contains information such
+as the GPU virtual address of the queue itself, save areas, doorbell, etc. The
+MQD also stores the HQD registers, which are vital for activating or
+deactivating a given Queue.  The scheduling firmware (e.g., MES) is responsible
+for loading HQDs from MQDs and vice versa.</p>
+<p>The Queue-switching process can also happen with the firmware requesting the
+preemption or unmapping of a Queue. The firmware waits for the HQD_ACTIVE bit
+to change to low before saving the state into the MQD. To make a different
+Queue become active, the firmware copies the MQD state into the HQD registers
+and loads any additional state. Finally, it sets the HQD_ACTIVE bit to high to
+indicate that the queue is active.  The Pipe will then execute work from active
+Queues.</p>
 </section>
 <section id="driver-structure">
 <h2>Driver Structure<a class="headerlink" href="#driver-structure" title="Link to this heading">¶</a></h2>
@@ -244,7 +269,8 @@ walks the list and handles each IP.</p>
 <dl class="simple">
 <dt>KIQ (Kernel Interface Queue)</dt><dd><p>This is a control queue used by the kernel driver to manage other gfx
 and compute queues on the GFX/compute engine.  You can use it to
-map/unmap additional queues, etc.</p>
+map/unmap additional queues, etc.  This is replaced by MES on
+GFX 11 and newer hardware.</p>
 </dd>
 <dt>IB (Indirect Buffer)</dt><dd><p>A command buffer for a particular engine.  Rather than writing
 commands directly to the queue, you can write the commands into a
@@ -2880,7 +2906,7 @@ invalid parameters</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.amdgpu_irqdomain_map">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">amdgpu_irqdomain_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../core-api/genericirq.html#c.irq_domain" title="irq_domain"><span class="n"><span class="pre">irq_domain</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">d</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">irq</span></span>, <span class="n"><span class="pre">irq_hw_number_t</span></span><span class="w"> </span><span class="n"><span class="pre">hwirq</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.amdgpu_irqdomain_map" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">amdgpu_irqdomain_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../../core-api/irq/irq-domain.html#c.irq_domain" title="irq_domain"><span class="n"><span class="pre">irq_domain</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">d</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">irq</span></span>, <span class="n"><span class="pre">irq_hw_number_t</span></span><span class="w"> </span><span class="n"><span class="pre">hwirq</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.amdgpu_irqdomain_map" title="Link to this definition">¶</a><br /></dt>
 <dd><p>create mapping between virtual and hardware IRQ numbers</p>
 </dd></dl>
 
@@ -3066,14 +3092,18 @@ eDP display from ACPI _DDC method.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DC_DISABLE_HDMI_CEC</span></code></dt><dd><p>If set, disable HDMI-CEC feature in amdgpu driver.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">DC_DISABLE_SUBVP</span></code></dt><dd><p>If set, disable DCN Sub-Viewport feature in amdgpu driver.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">DC_DISABLE_SUBVP_FAMS</span></code></dt><dd><p>If set, disable DCN Sub-Viewport &amp; Firmware Assisted
+Memory Clock Switching (FAMS) feature in amdgpu driver.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE</span></code></dt><dd><p>If set, disable support for custom brightness curves</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">DC_HDCP_LC_FORCE_FW_ENABLE</span></code></dt><dd><p>If set, use HDCP Locality Check FW
 path regardless of reported HW capabilities.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">DC_HDCP_LC_ENABLE_SW_FALLBACK</span></code></dt><dd><p><em>undescribed</em></p>
+<dt><code class="docutils literal notranslate"><span class="pre">DC_HDCP_LC_ENABLE_SW_FALLBACK</span></code></dt><dd><p>If set, upon HDCP Locality Check FW
+path failure, retry using legacy SW path.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DC_SKIP_DETECTION_LT</span></code></dt><dd><p>If set, skip detection link training</p>
 </dd>
 </dl>
 </div>

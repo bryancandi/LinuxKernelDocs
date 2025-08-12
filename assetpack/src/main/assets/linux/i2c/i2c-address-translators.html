@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -257,6 +257,25 @@ the chip and put the alias back in the pool for later usage</p></li>
 </section>
 <section id="i2c-atr-functions-and-data-structures">
 <h2>I2C ATR functions and data structures<a class="headerlink" href="#i2c-atr-functions-and-data-structures" title="Link to this heading">¶</a></h2>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.i2c_atr_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_flags</span></span></span><a class="headerlink" href="#c.i2c_atr_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Flags for an I2C ATR driver</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">I2C_ATR_F_STATIC</span></code></dt><dd><p>ATR does not support dynamic mapping, use static mapping.
+Mappings will only be added or removed as a result of
+devices being added or removed from a child bus.
+The ATR pool will have to be big enough to accomodate all
+devices expected to be added to the child buses.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">I2C_ATR_F_PASSTHROUGH</span></code></dt><dd><p>Allow unmapped incoming addresses to pass through</p>
+</dd>
+</dl>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.i2c_atr_ops">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_ops</span></span></span><a class="headerlink" href="#c.i2c_atr_ops" title="Link to this definition">¶</a><br /></dt>
@@ -266,18 +285,18 @@ the chip and put the alias back in the pool for later usage</p></li>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct i2c_atr_ops {
-    int (*attach_client)(struct i2c_atr *atr, u32 chan_id, const struct i2c_client *client, u16 alias);
-    void (*detach_client)(struct i2c_atr *atr, u32 chan_id, const struct i2c_client *client);
+    int (*attach_addr)(struct i2c_atr *atr, u32 chan_id, u16 addr, u16 alias);
+    void (*detach_addr)(struct i2c_atr *atr, u32 chan_id, u16 addr);
 };
 </pre></div>
 </div>
 <p><strong>Members</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">attach_client</span></code></dt><dd><p>Notify the driver of a new device connected on a child
+<dt><code class="docutils literal notranslate"><span class="pre">attach_addr</span></code></dt><dd><p>Notify the driver of a new device connected on a child
 bus, with the alias assigned to it. The driver must
 configure the hardware to use the alias.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">detach_client</span></code></dt><dd><p>Notify the driver of a device getting disconnected. The
+<dt><code class="docutils literal notranslate"><span class="pre">detach_addr</span></code></dt><dd><p>Notify the driver of a device getting disconnected. The
 driver must configure the hardware to stop using the
 alias.</p>
 </dd>
@@ -285,9 +304,47 @@ alias.</p>
 </div>
 <p><strong>Description</strong></p>
 <p>All these functions return 0 on success, a negative error code otherwise.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.i2c_atr_adap_desc">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_adap_desc</span></span></span><a class="headerlink" href="#c.i2c_atr_adap_desc" title="Link to this definition">¶</a><br /></dt>
+<dd><p>An ATR downstream bus descriptor</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct i2c_atr_adap_desc {
+    u32 chan_id;
+    struct device *parent;
+    struct fwnode_handle *bus_handle;
+    size_t num_aliases;
+    u16 *aliases;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">chan_id</span></code></dt><dd><p>Index of the new adapter (0 .. max_adapters-1).  This value is
+passed to the callbacks in <cite><a class="reference internal" href="#c.i2c_atr_ops" title="i2c_atr_ops"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_atr_ops</span></code></a></cite>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">parent</span></code></dt><dd><p>The device used as the parent of the new i2c adapter, or NULL
+to use the i2c-atr device as the parent.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bus_handle</span></code></dt><dd><p>The fwnode handle that points to the adapter’s i2c
+peripherals, or NULL.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_aliases</span></code></dt><dd><p>The number of aliases in this adapter’s private alias pool. Set
+to zero if this adapter uses the ATR’s global alias pool.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">aliases</span></code></dt><dd><p>An optional array of private aliases used by the adapter
+instead of the ATR’s global pool of aliases. Must contain
+exactly num_aliases entries if num_aliases &gt; 0, is ignored
+otherwise.</p>
+</dd>
+</dl>
+</div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.i2c_atr_new">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_atr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_new</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">parent</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.i2c_atr_ops" title="i2c_atr_ops"><span class="n"><span class="pre">i2c_atr_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">max_adapters</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.i2c_atr_new" title="Link to this definition">¶</a><br /></dt>
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_atr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_new</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_adapter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">parent</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.i2c_atr_ops" title="i2c_atr_ops"><span class="n"><span class="pre">i2c_atr_ops</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ops</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">max_adapters</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.i2c_atr_new" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Allocate and initialize an I2C ATR helper.</p>
 </dd></dl>
 
@@ -301,6 +358,8 @@ alias.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">i2c_atr_ops</span> <span class="pre">*ops</span></code></dt><dd><p>Driver-specific callbacks</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">max_adapters</span></code></dt><dd><p>Maximum number of child adapters</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">flags</span></code></dt><dd><p>Flags for ATR</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -328,7 +387,7 @@ removed by calling <a class="reference internal" href="#c.i2c_atr_del_adapter" t
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.i2c_atr_add_adapter">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_add_adapter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_atr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">atr</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">chan_id</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">adapter_parent</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus_handle</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.i2c_atr_add_adapter" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i2c_atr_add_adapter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">i2c_atr</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">atr</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.i2c_atr_adap_desc" title="i2c_atr_adap_desc"><span class="n"><span class="pre">i2c_atr_adap_desc</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">desc</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.i2c_atr_add_adapter" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Create a child (“downstream”) I2C bus.</p>
 </dd></dl>
 
@@ -337,14 +396,7 @@ removed by calling <a class="reference internal" href="#c.i2c_atr_del_adapter" t
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_atr</span> <span class="pre">*atr</span></code></dt><dd><p>The I2C ATR</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">chan_id</span></code></dt><dd><p>Index of the new adapter (0 .. max_adapters-1).  This value is
-passed to the callbacks in <cite><a class="reference internal" href="#c.i2c_atr_ops" title="i2c_atr_ops"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_atr_ops</span></code></a></cite>.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*adapter_parent</span></code></dt><dd><p>The device used as the parent of the new i2c adapter, or NULL
-to use the i2c-atr device as the parent.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">fwnode_handle</span> <span class="pre">*bus_handle</span></code></dt><dd><p>The fwnode handle that points to the adapter’s i2c
-peripherals, or NULL.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_atr_adap_desc</span> <span class="pre">*desc</span></code></dt><dd><p>An ATR adapter descriptor</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>

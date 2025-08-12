@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -220,6 +220,7 @@ files can be found in mm/swap.c.</p>
 <li><p>unprivileged_userfaultfd</p></li>
 <li><p>user_reserve_kbytes</p></li>
 <li><p>vfs_cache_pressure</p></li>
+<li><p>vfs_cache_pressure_denom</p></li>
 <li><p>watermark_boost_factor</p></li>
 <li><p>watermark_scale_factor</p></li>
 <li><p>zone_reclaim_mode</p></li>
@@ -261,6 +262,11 @@ belonging to different processes are moved around, which could also lead
 to latency spikes in unsuspecting applications. The kernel employs
 various heuristics to avoid wasting CPU cycles if it detects that
 proactive compaction is not being effective.</p>
+<p>Setting the value above 80 will, in addition to lowering the acceptable level
+of fragmentation, make the compaction code more sensitive to increases in
+fragmentation, i.e. compaction will trigger more often, but reduce
+fragmentation by a smaller amount.
+This makes the fragmentation level more stable over time.</p>
 <p>Be careful when setting it to extreme values like 100, as that may
 cause excessive background compaction activity.</p>
 </section>
@@ -954,17 +960,25 @@ Any subsequent attempts to execute a command will result in
 <h2>vfs_cache_pressure<a class="headerlink" href="#vfs-cache-pressure" title="Link to this heading">¶</a></h2>
 <p>This percentage value controls the tendency of the kernel to reclaim
 the memory which is used for caching of directory and inode objects.</p>
-<p>At the default value of vfs_cache_pressure=100 the kernel will attempt to
-reclaim dentries and inodes at a “fair” rate with respect to pagecache and
-swapcache reclaim.  Decreasing vfs_cache_pressure causes the kernel to prefer
-to retain dentry and inode caches. When vfs_cache_pressure=0, the kernel will
-never reclaim dentries and inodes due to memory pressure and this can easily
-lead to out-of-memory conditions. Increasing vfs_cache_pressure beyond 100
-causes the kernel to prefer to reclaim dentries and inodes.</p>
-<p>Increasing vfs_cache_pressure significantly beyond 100 may have negative
-performance impact. Reclaim code needs to take various locks to find freeable
-directory and inode objects. With vfs_cache_pressure=1000, it will look for
-ten times more freeable objects than there are.</p>
+<p>At the default value of vfs_cache_pressure=vfs_cache_pressure_denom the kernel
+will attempt to reclaim dentries and inodes at a “fair” rate with respect to
+pagecache and swapcache reclaim.  Decreasing vfs_cache_pressure causes the
+kernel to prefer to retain dentry and inode caches. When vfs_cache_pressure=0,
+the kernel will never reclaim dentries and inodes due to memory pressure and
+this can easily lead to out-of-memory conditions. Increasing vfs_cache_pressure
+beyond vfs_cache_pressure_denom causes the kernel to prefer to reclaim dentries
+and inodes.</p>
+<p>Increasing vfs_cache_pressure significantly beyond vfs_cache_pressure_denom may
+have negative performance impact. Reclaim code needs to take various locks to
+find freeable directory and inode objects. When vfs_cache_pressure equals
+(10 * vfs_cache_pressure_denom), it will look for ten times more freeable
+objects than there are.</p>
+<p>Note: This setting should always be used together with vfs_cache_pressure_denom.</p>
+</section>
+<section id="vfs-cache-pressure-denom">
+<h2>vfs_cache_pressure_denom<a class="headerlink" href="#vfs-cache-pressure-denom" title="Link to this heading">¶</a></h2>
+<p>Defaults to 100 (minimum allowed value). Requires corresponding
+vfs_cache_pressure setting to take effect.</p>
 </section>
 <section id="watermark-boost-factor">
 <h2>watermark_boost_factor<a class="headerlink" href="#watermark-boost-factor" title="Link to this heading">¶</a></h2>

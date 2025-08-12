@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -1570,12 +1570,13 @@ The search for an empty entry will start at <strong>next</strong> and will wrap
 around if necessary.</p>
 <p>Must only be operated on an xarray initialized with flag XA_FLAGS_ALLOC set
 in <a class="reference internal" href="#c.xa_init_flags" title="xa_init_flags"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_init_flags()</span></code></a>.</p>
+<p>Note that callers interested in whether wrapping has occurred should
+use <a class="reference internal" href="#c.__xa_alloc_cyclic" title="__xa_alloc_cyclic"><code class="xref c c-func docutils literal notranslate"><span class="pre">__xa_alloc_cyclic()</span></code></a> instead.</p>
 <p><strong>Context</strong></p>
 <p>Any context.  Takes and releases the xa_lock.  May sleep if
 the <strong>gfp</strong> flags permit.</p>
 <p><strong>Return</strong></p>
-<p>0 if the allocation succeeded without wrapping.  1 if the
-allocation succeeded after wrapping, -ENOMEM if memory could not be
+<p>0 if the allocation succeeded, -ENOMEM if memory could not be
 allocated or -EBUSY if there are no free entries in <strong>limit</strong>.</p>
 </div>
 <dl class="c function">
@@ -1608,12 +1609,13 @@ The search for an empty entry will start at <strong>next</strong> and will wrap
 around if necessary.</p>
 <p>Must only be operated on an xarray initialized with flag XA_FLAGS_ALLOC set
 in <a class="reference internal" href="#c.xa_init_flags" title="xa_init_flags"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_init_flags()</span></code></a>.</p>
+<p>Note that callers interested in whether wrapping has occurred should
+use <a class="reference internal" href="#c.__xa_alloc_cyclic" title="__xa_alloc_cyclic"><code class="xref c c-func docutils literal notranslate"><span class="pre">__xa_alloc_cyclic()</span></code></a> instead.</p>
 <p><strong>Context</strong></p>
 <p>Any context.  Takes and releases the xa_lock while
 disabling softirqs.  May sleep if the <strong>gfp</strong> flags permit.</p>
 <p><strong>Return</strong></p>
-<p>0 if the allocation succeeded without wrapping.  1 if the
-allocation succeeded after wrapping, -ENOMEM if memory could not be
+<p>0 if the allocation succeeded, -ENOMEM if memory could not be
 allocated or -EBUSY if there are no free entries in <strong>limit</strong>.</p>
 </div>
 <dl class="c function">
@@ -1646,12 +1648,13 @@ The search for an empty entry will start at <strong>next</strong> and will wrap
 around if necessary.</p>
 <p>Must only be operated on an xarray initialized with flag XA_FLAGS_ALLOC set
 in <a class="reference internal" href="#c.xa_init_flags" title="xa_init_flags"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_init_flags()</span></code></a>.</p>
+<p>Note that callers interested in whether wrapping has occurred should
+use <a class="reference internal" href="#c.__xa_alloc_cyclic" title="__xa_alloc_cyclic"><code class="xref c c-func docutils literal notranslate"><span class="pre">__xa_alloc_cyclic()</span></code></a> instead.</p>
 <p><strong>Context</strong></p>
 <p>Process context.  Takes and releases the xa_lock while
 disabling interrupts.  May sleep if the <strong>gfp</strong> flags permit.</p>
 <p><strong>Return</strong></p>
-<p>0 if the allocation succeeded without wrapping.  1 if the
-allocation succeeded after wrapping, -ENOMEM if memory could not be
+<p>0 if the allocation succeeded, -ENOMEM if memory could not be
 allocated or -EBUSY if there are no free entries in <strong>limit</strong>.</p>
 </div>
 <dl class="c function">
@@ -2764,7 +2767,7 @@ failed.</p>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__xa_cmpxchg">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__xa_cmpxchg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.xarray" title="xarray"><span class="n"><span class="pre">xarray</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xa</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">long</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">old</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">entry</span></span>, <span class="n"><span class="pre">gfp_t</span></span><span class="w"> </span><span class="n"><span class="pre">gfp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__xa_cmpxchg" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Store this entry in the XArray.</p>
+<dd><p>Conditionally replace an entry in the XArray.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -2776,7 +2779,7 @@ failed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*old</span></code></dt><dd><p>Old value to test against.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*entry</span></code></dt><dd><p>New entry.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">*entry</span></code></dt><dd><p>New value to place in array.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">gfp_t</span> <span class="pre">gfp</span></code></dt><dd><p>Memory allocation flags.</p>
 </dd>
@@ -2785,11 +2788,13 @@ failed.</p>
 <p>You must already be holding the xa_lock when calling this function.
 It will drop the lock if needed to allocate memory, and then reacquire
 it afterwards.</p>
+<p>If the entry at <strong>index</strong> is the same as <strong>old</strong>, replace it with <strong>entry</strong>.
+If the return value is equal to <strong>old</strong>, then the exchange was successful.</p>
 <p><strong>Context</strong></p>
 <p>Any context.  Expects xa_lock to be held on entry.  May
 release and reacquire xa_lock if <strong>gfp</strong> flags permit.</p>
 <p><strong>Return</strong></p>
-<p>The old entry at this index or <a class="reference internal" href="#c.xa_err" title="xa_err"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_err()</span></code></a> if an error happened.</p>
+<p>The old value at this index or <a class="reference internal" href="#c.xa_err" title="xa_err"><code class="xref c c-func docutils literal notranslate"><span class="pre">xa_err()</span></code></a> if an error happened.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__xa_insert">

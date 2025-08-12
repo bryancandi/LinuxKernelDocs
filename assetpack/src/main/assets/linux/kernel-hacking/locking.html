@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -1779,9 +1779,25 @@ about this when converting semaphore users to mutexes.</p>
 <section id="futex-api-reference">
 <h2>Futex API reference<a class="headerlink" href="#futex-api-reference" title="Link to this heading">¶</a></h2>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.futex_hash">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_hash_bucket</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">futex_hash</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">futex_key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_hash" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Return the hash bucket in the global hash</p>
+<dt class="sig sig-object c" id="c.futex_hash_get">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_hash_get</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_hash_bucket</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_hash_get" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get an additional reference for the local hash.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_hash_bucket</span> <span class="pre">*hb</span></code></dt><dd><p>ptr to the private local hash.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Obtain an additional reference for the already obtained hash bucket. The
+caller must already own an reference.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.__futex_hash">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_hash_bucket</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">__futex_hash</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">futex_key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_private_hash</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fph</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__futex_hash" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Return the hash bucket</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -1789,10 +1805,15 @@ about this when converting semaphore users to mutexes.</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">union</span> <span class="pre">futex_key</span> <span class="pre">*key</span></code></dt><dd><p>Pointer to the futex key for which the hash is calculated</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_private_hash</span> <span class="pre">*fph</span></code></dt><dd><p>Pointer to private hash if known</p>
+</dd>
 </dl>
 <p><strong>Description</strong></p>
 <p>We hash on the keys returned from get_futex_key (see below) and return the
-corresponding hash bucket in the global hash.</p>
+corresponding hash bucket.
+If the FUTEX is PROCESS_PRIVATE then a per-process hash bucket (from the
+private hash) is returned if existing. Otherwise a hash bucket from the
+global hash is returned.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.futex_setup_timer">
@@ -1843,7 +1864,7 @@ FUTEX_WRITE)</p>
 <p>The key words are stored in <strong>key</strong> on success.</p>
 <p>For shared mappings (when <strong>fshared</strong>), the key is:</p>
 <blockquote>
-<div><p>( inode-&gt;i_sequence, page-&gt;index, offset_within_page )</p>
+<div><p>( inode-&gt;i_sequence, page offset within mapping, offset_within_page )</p>
 </div></blockquote>
 <p>[ also see get_inode_sequence_number() ]</p>
 <p>For private mappings (or when <strong>!fshared</strong>), the key is:</p>
@@ -1990,6 +2011,7 @@ block forever, but there is nothing which can be done about that.</p>
     union futex_key *requeue_pi_key;
     u32 bitset;
     atomic_t requeue_state;
+    bool drop_hb_ref;
 #ifdef CONFIG_PREEMPT_RT;
     struct rcuwait requeue_wait;
 #endif;
@@ -2019,6 +2041,8 @@ block forever, but there is nothing which can be done about that.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">bitset</span></code></dt><dd><p>bitset for the optional bitmasked wakeup</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">requeue_state</span></code></dt><dd><p>State field for futex_requeue_pi()</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">drop_hb_ref</span></code></dt><dd><p>Waiter should drop the extra hash bucket reference if true</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">requeue_wait</span></code></dt><dd><p>RCU wait for futex_requeue_pi() (RT only)</p>
 </dd>
@@ -2357,7 +2381,7 @@ on uaddr2 and complete the acquisition of the rt_mutex prior to returning to
 userspace.  This ensures the rt_mutex maintains an owner when it has waiters;
 without one, the pi logic would not know which task to boost/deboost, if
 there was a need to.</p>
-<p>We call schedule in <a class="reference internal" href="#c.futex_wait_queue" title="futex_wait_queue"><code class="xref c c-func docutils literal notranslate"><span class="pre">futex_wait_queue()</span></code></a> when we enqueue and return there
+<p>We call schedule in futex_wait_queue() when we enqueue and return there
 via the following--
 1) wakeup on uaddr2 after an atomic lock acquisition by <a class="reference internal" href="#c.futex_requeue" title="futex_requeue"><code class="xref c c-func docutils literal notranslate"><span class="pre">futex_requeue()</span></code></a>
 2) wakeup on uaddr2 after a requeue
@@ -2380,16 +2404,14 @@ via the following--
 </div></blockquote>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.futex_wait_queue">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_wait_queue</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_hash_bucket</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hb</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_q" title="futex_q"><span class="n"><span class="pre">futex_q</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/basics.html#c.hrtimer_sleeper" title="hrtimer_sleeper"><span class="n"><span class="pre">hrtimer_sleeper</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_wait_queue" title="Link to this definition">¶</a><br /></dt>
-<dd><p><a class="reference internal" href="#c.futex_queue" title="futex_queue"><code class="xref c c-func docutils literal notranslate"><span class="pre">futex_queue()</span></code></a> and wait for wakeup, timeout, or signal</p>
+<dt class="sig sig-object c" id="c.futex_do_wait">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_do_wait</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_q" title="futex_q"><span class="n"><span class="pre">futex_q</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/basics.html#c.hrtimer_sleeper" title="hrtimer_sleeper"><span class="n"><span class="pre">hrtimer_sleeper</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">timeout</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_do_wait" title="Link to this definition">¶</a><br /></dt>
+<dd><p>wait for wakeup, timeout, or signal</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
 <p><strong>Parameters</strong></p>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_hash_bucket</span> <span class="pre">*hb</span></code></dt><dd><p>the futex hash bucket, must be locked by the caller</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_q</span> <span class="pre">*q</span></code></dt><dd><p>the futex_q to queue up on</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">hrtimer_sleeper</span> <span class="pre">*timeout</span></code></dt><dd><p>the prepared hrtimer_sleeper, or null for no timeout</p>
@@ -2507,7 +2529,7 @@ wake, or after the timeout has elapsed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.futex_wait_setup">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_wait_setup</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_q" title="futex_q"><span class="n"><span class="pre">futex_q</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">futex_hash_bucket</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hb</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_wait_setup" title="Link to this definition">¶</a><br /></dt>
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">futex_wait_setup</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="pre">__user</span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">uaddr</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n"><span class="pre">val</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.futex_q" title="futex_q"><span class="n"><span class="pre">futex_q</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">q</span></span>, <span class="k"><span class="pre">union</span></span><span class="w"> </span><span class="n"><span class="pre">futex_key</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">key2</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">task_struct</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">task</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.futex_wait_setup" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Prepare to wait on a futex</p>
 </dd></dl>
 
@@ -2522,7 +2544,9 @@ wake, or after the timeout has elapsed.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_q</span> <span class="pre">*q</span></code></dt><dd><p>the associated futex_q</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">futex_hash_bucket</span> <span class="pre">**hb</span></code></dt><dd><p>storage for hash_bucket pointer to be returned to caller</p>
+<dt><code class="docutils literal notranslate"><span class="pre">union</span> <span class="pre">futex_key</span> <span class="pre">*key2</span></code></dt><dd><p>the second futex_key if used for requeue PI</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">task_struct</span> <span class="pre">*task</span></code></dt><dd><p>Task queueing this futex</p>
 </dd>
 </dl>
 <p><strong>Description</strong></p>
@@ -2533,7 +2557,11 @@ Return with the hb lock held on success, and unlocked on failure.</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>0 - uaddr contains val and hb has been locked;</p></li>
-<li><p>&lt;1 - -EFAULT or -EWOULDBLOCK (uaddr does not contain val) and hb is unlocked</p></li>
+<li><dl class="simple">
+<dt>&lt;0 - On error and the hb is unlocked. A possible reason: the uaddr can not</dt><dd><p>be read, does not contain the expected value or is not properly aligned.</p>
+</dd>
+</dl>
+</li>
 </ul>
 </div></blockquote>
 </div>

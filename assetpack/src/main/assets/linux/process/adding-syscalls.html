@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -399,6 +399,51 @@ off.</p></li>
 <li><p>fallback stub in <code class="docutils literal notranslate"><span class="pre">kernel/sys_ni.c</span></code></p></li>
 </ul>
 </div></blockquote>
+<section id="since-6-11">
+<span id="syscall-generic-6-11"></span><h3>Since 6.11<a class="headerlink" href="#since-6-11" title="Link to this heading">¶</a></h3>
+<p>Starting with kernel version 6.11, general system call implementation for the
+following architectures no longer requires modifications to
+<code class="docutils literal notranslate"><span class="pre">include/uapi/asm-generic/unistd.h</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>arc</p></li>
+<li><p>arm64</p></li>
+<li><p>csky</p></li>
+<li><p>hexagon</p></li>
+<li><p>loongarch</p></li>
+<li><p>nios2</p></li>
+<li><p>openrisc</p></li>
+<li><p>riscv</p></li>
+</ul>
+</div></blockquote>
+<p>Instead, you need to update <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code> and, if applicable, adjust
+<code class="docutils literal notranslate"><span class="pre">arch/*/kernel/Makefile.syscalls</span></code>.</p>
+<p>As <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code> serves as a common syscall table across multiple
+architectures, a new entry is required in this table:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>468   common   xyzzy     sys_xyzzy
+</pre></div>
+</div>
+<p>Note that adding an entry to <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code> with the “common” ABI
+also affects all architectures that share this table. For more limited or
+architecture-specific changes, consider using an architecture-specific ABI or
+defining a new one.</p>
+<p>If a new ABI, say <code class="docutils literal notranslate"><span class="pre">xyz</span></code>, is introduced, the corresponding updates should be
+made to <code class="docutils literal notranslate"><span class="pre">arch/*/kernel/Makefile.syscalls</span></code> as well:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>syscall_abis_{32,64} += xyz (...)
+</pre></div>
+</div>
+<p>To summarize, you need a commit that includes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CONFIG</span></code> option for the new function, normally in <code class="docutils literal notranslate"><span class="pre">init/Kconfig</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SYSCALL_DEFINEn(xyzzy,</span> <span class="pre">...)</span></code> for the entry point</p></li>
+<li><p>corresponding prototype in <code class="docutils literal notranslate"><span class="pre">include/linux/syscalls.h</span></code></p></li>
+<li><p>new entry in <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code></p></li>
+<li><p>(if needed) Makefile updates in <code class="docutils literal notranslate"><span class="pre">arch/*/kernel/Makefile.syscalls</span></code></p></li>
+<li><p>fallback stub in <code class="docutils literal notranslate"><span class="pre">kernel/sys_ni.c</span></code></p></li>
+</ul>
+</div></blockquote>
+</section>
 </section>
 <section id="x86-system-call-implementation">
 <h2>x86 System Call Implementation<a class="headerlink" href="#x86-system-call-implementation" title="Link to this heading">¶</a></h2>
@@ -499,6 +544,38 @@ __SC_COMP(__NR_xyzzy, sys_xyzzy, compat_sys_xyzzy)
 <code class="docutils literal notranslate"><span class="pre">include/uapi/asm-generic/unistd.h</span></code></p></li>
 </ul>
 </div></blockquote>
+<section id="id1">
+<h3>Since 6.11<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>This applies to all the architectures listed in <a class="reference internal" href="#syscall-generic-6-11"><span class="std std-ref">Since 6.11</span></a>
+under “Generic System Call Implementation”, except arm64. See
+<a class="reference internal" href="#compat-arm64"><span class="std std-ref">Compatibility System Calls (arm64)</span></a> for more information.</p>
+<p>You need to extend the entry in <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code> with an extra column
+to indicate that a 32-bit userspace program running on a 64-bit kernel should
+hit the compat entry point:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>468   common     xyzzy     sys_xyzzy    compat_sys_xyzzy
+</pre></div>
+</div>
+<p>To summarize, you need:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">COMPAT_SYSCALL_DEFINEn(xyzzy,</span> <span class="pre">...)</span></code> for the compat entry point</p></li>
+<li><p>corresponding prototype in <code class="docutils literal notranslate"><span class="pre">include/linux/compat.h</span></code></p></li>
+<li><p>modification of the entry in <code class="docutils literal notranslate"><span class="pre">scripts/syscall.tbl</span></code> to include an extra
+“compat” column</p></li>
+<li><p>(if needed) 32-bit mapping struct in <code class="docutils literal notranslate"><span class="pre">include/linux/compat.h</span></code></p></li>
+</ul>
+</div></blockquote>
+<section id="compatibility-system-calls-arm64">
+<span id="compat-arm64"></span><h4>Compatibility System Calls (arm64)<a class="headerlink" href="#compatibility-system-calls-arm64" title="Link to this heading">¶</a></h4>
+<p>On arm64, there is a dedicated syscall table for compatibility system calls
+targeting 32-bit (AArch32) userspace: <code class="docutils literal notranslate"><span class="pre">arch/arm64/tools/syscall_32.tbl</span></code>.
+You need to add an additional line to this table specifying the compat
+entry point:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>468   common     xyzzy     sys_xyzzy    compat_sys_xyzzy
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="compatibility-system-calls-x86">
 <h2>Compatibility System Calls (x86)<a class="headerlink" href="#compatibility-system-calls-x86" title="Link to this heading">¶</a></h2>
@@ -704,6 +781,9 @@ policed: <a class="reference external" href="https://lore.kernel.org/r/201407171
 <li><p>Recommendation from Linus Torvalds that x32 system calls should prefer
 compatibility with 64-bit versions rather than 32-bit versions:
 <a class="reference external" href="https://lore.kernel.org/r/CA+55aFxfmwfB7jbbrXxa=K7VBYPfAvmu3XOkGrLbB1UFjX1+Ew&#64;mail.gmail.com">https://lore.kernel.org/r/CA+55aFxfmwfB7jbbrXxa=K7VBYPfAvmu3XOkGrLbB1UFjX1+Ew&#64;mail.gmail.com</a></p></li>
+<li><p>Patch series revising system call table infrastructure to use
+scripts/syscall.tbl across multiple architectures:
+<a class="reference external" href="https://lore.kernel.org/lkml/20240704143611.2979589-1-arnd&#64;kernel.org">https://lore.kernel.org/lkml/20240704143611.2979589-1-arnd&#64;kernel.org</a></p></li>
 </ul>
 </div></blockquote>
 </section>

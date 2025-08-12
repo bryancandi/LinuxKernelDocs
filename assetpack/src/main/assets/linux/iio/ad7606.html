@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -183,6 +183,34 @@ is <code class="docutils literal notranslate"><span class="pre">ad7606</span></c
 <p>These ADCs can output data on several SDO lines (1/2/4/8). The driver
 currently supports only 1 SDO line.</p>
 </section>
+<section id="spi-offload-wiring">
+<h3>SPI offload wiring<a class="headerlink" href="#spi-offload-wiring" title="Link to this heading">¶</a></h3>
+<p>When used with a SPI offload, the supported wiring configuration is:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>+-------------+         +-------------+
+|        BUSY |--------&gt;| TRIGGER     |
+|          CS |&lt;--------| CS          |
+|             |         |             |
+|     ADC     |         |     SPI     |
+|             |         |             |
+|         SDI |&lt;--------| SDO         |
+|       DOUTA |--------&gt;| SDI         |
+|        SCLK |&lt;--------| SCLK        |
+|             |         |             |
+|             |         +-------------+
+|      CONVST |&lt;--------| PWM         |
++-------------+         +-------------+
+</pre></div>
+</div>
+<p>In this case, the <code class="docutils literal notranslate"><span class="pre">pwms</span></code> property is required.
+The <code class="docutils literal notranslate"><span class="pre">#trigger-source-cells</span> <span class="pre">=</span> <span class="pre">&lt;1&gt;</span></code> property is also required to connect back
+to the SPI offload. The SPI offload will have <code class="docutils literal notranslate"><span class="pre">trigger-sources</span></code> property
+with a cell to indicate the busy signal:
+<code class="docutils literal notranslate"><span class="pre">&lt;&amp;ad7606</span> <span class="pre">AD4695_TRIGGER_EVENT_BUSY&gt;</span></code>.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#spi-offload-support">SPI offload support</a></p>
+</div>
+</section>
 <section id="parallel-wiring-mode">
 <h3>Parallel wiring mode<a class="headerlink" href="#parallel-wiring-mode" title="Link to this heading">¶</a></h3>
 <p>There is also a parallel interface, with 16 lines (that can be reduced to 8 in
@@ -276,6 +304,19 @@ In software mode, the following ratios are available:
 <li><p>Calibration</p></li>
 </ul>
 </section>
+</section>
+<section id="spi-offload-support">
+<h2>SPI offload support<a class="headerlink" href="#spi-offload-support" title="Link to this heading">¶</a></h2>
+<p>To be able to achieve the maximum sample rate, the driver can be used with the
+<a class="reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/index.html">AXI SPI Engine</a> to provide SPI offload support.</p>
+<p>When SPI offload is being used, some attributes will be different.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger</span></code> directory is removed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> attribute is added for setting the sample rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code> channel is removed.</p></li>
+<li><p>Buffer data format may be different compared to when offload is not used,
+e.g. the <code class="docutils literal notranslate"><span class="pre">in_voltage0_type</span></code> attribute.</p></li>
+</ul>
 </section>
 <section id="device-buffers">
 <h2>Device buffers<a class="headerlink" href="#device-buffers" title="Link to this heading">¶</a></h2>

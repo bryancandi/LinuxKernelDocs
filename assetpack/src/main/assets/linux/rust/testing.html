@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -259,13 +259,77 @@ please see:</p>
 </section>
 <section id="the-test-tests">
 <h2>The <code class="docutils literal notranslate"><span class="pre">#[test]</span></code> tests<a class="headerlink" href="#the-test-tests" title="Link to this heading">¶</a></h2>
-<p>Additionally, there are the <code class="docutils literal notranslate"><span class="pre">#[test]</span></code> tests. These can be run using the
-<code class="docutils literal notranslate"><span class="pre">rusttest</span></code> Make target:</p>
+<p>Additionally, there are the <code class="docutils literal notranslate"><span class="pre">#[test]</span></code> tests. Like for documentation tests,
+these are also fairly similar to what you would expect from userspace, and they
+are also mapped to KUnit.</p>
+<p>These tests are introduced by the <code class="docutils literal notranslate"><span class="pre">kunit_tests</span></code> procedural macro, which takes
+the name of the test suite as an argument.</p>
+<p>For instance, assume we want to test the function <code class="docutils literal notranslate"><span class="pre">f</span></code> from the documentation
+tests section. We could write, in the same file where we have our function:</p>
+<div class="highlight-rust notranslate"><div class="highlight"><pre><span></span><span class="cp">#[kunit_tests(rust_kernel_mymod)]</span>
+<span class="k">mod</span> <span class="nn">tests</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="k">super</span>::<span class="o">*</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span> <span class="nf">test_f</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">),</span><span class="w"> </span><span class="mi">30</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>And if we run it, the kernel log would look like:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>    KTAP version 1
+    # Subtest: rust_kernel_mymod
+    # speed: normal
+    1..1
+    # test_f.speed: normal
+    ok 1 test_f
+ok 1 rust_kernel_mymod
+</pre></div>
+</div>
+<p>Like documentation tests, the <code class="docutils literal notranslate"><span class="pre">assert!</span></code> and <code class="docutils literal notranslate"><span class="pre">assert_eq!</span></code> macros are mapped
+back to KUnit and do not panic. Similarly, the
+<a class="reference external" href="https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-question-mark-operator">?</a>
+operator is supported, i.e. the test functions may return either nothing (i.e.
+the unit type <code class="docutils literal notranslate"><span class="pre">()</span></code>) or <code class="docutils literal notranslate"><span class="pre">Result</span></code> (i.e. any <code class="docutils literal notranslate"><span class="pre">Result&lt;T,</span> <span class="pre">E&gt;</span></code>). For instance:</p>
+<div class="highlight-rust notranslate"><div class="highlight"><pre><span></span><span class="cp">#[kunit_tests(rust_kernel_mymod)]</span>
+<span class="k">mod</span> <span class="nn">tests</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="k">super</span>::<span class="o">*</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cp">#[test]</span>
+<span class="w">    </span><span class="k">fn</span> <span class="nf">test_g</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span> <span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="p">()</span><span class="o">?</span><span class="p">;</span>
+<span class="w">        </span><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">);</span>
+<span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If we run the test and the call to <code class="docutils literal notranslate"><span class="pre">g</span></code> fails, then the kernel log would show:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>    KTAP version 1
+    # Subtest: rust_kernel_mymod
+    # speed: normal
+    1..1
+    # test_g: ASSERTION FAILED at rust/kernel/lib.rs:335
+    Expected is_test_result_ok(test_g()) to be true, but is false
+    # test_g.speed: normal
+    not ok 1 test_g
+not ok 1 rust_kernel_mymod
+</pre></div>
+</div>
+<p>If a <code class="docutils literal notranslate"><span class="pre">#[test]</span></code> test could be useful as an example for the user, then please
+use a documentation test instead. Even edge cases of an API, e.g. error or
+boundary cases, can be interesting to show in examples.</p>
+</section>
+<section id="the-rusttest-host-tests">
+<h2>The <code class="docutils literal notranslate"><span class="pre">rusttest</span></code> host tests<a class="headerlink" href="#the-rusttest-host-tests" title="Link to this heading">¶</a></h2>
+<p>These are userspace tests that can be built and run in the host (i.e. the one
+that performs the kernel build) using the <code class="docutils literal notranslate"><span class="pre">rusttest</span></code> Make target:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>make LLVM=1 rusttest
 </pre></div>
 </div>
-<p>This requires the kernel <code class="docutils literal notranslate"><span class="pre">.config</span></code>. It runs the <code class="docutils literal notranslate"><span class="pre">#[test]</span></code> tests on the host
-(currently) and thus is fairly limited in what these tests can test.</p>
+<p>This requires the kernel <code class="docutils literal notranslate"><span class="pre">.config</span></code>.</p>
+<p>Currently, they are mostly used for testing the <code class="docutils literal notranslate"><span class="pre">macros</span></code> crate’s examples.</p>
 </section>
 <section id="the-kselftests">
 <h2>The Kselftests<a class="headerlink" href="#the-kselftests" title="Link to this heading">¶</a></h2>

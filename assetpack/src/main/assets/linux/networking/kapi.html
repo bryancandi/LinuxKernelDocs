@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -2720,7 +2720,13 @@ for <a class="reference internal" href="#c.sock" title="sock"><code class="xref 
     seqlock_t sk_stamp_seq;
 #endif;
     int sk_disconnects;
-    u8 sk_txrehash;
+    union {
+        u8 sk_txrehash;
+        u8 sk_scm_recv_flags;
+        struct {
+            u8 sk_scm_credentials : 1,sk_scm_security : 1,sk_scm_pidfd : 1,sk_scm_rights : 1, sk_scm_unused : 4;
+        };
+    };
     u8 sk_clockid;
     u8 sk_txtime_deadline_mode : 1,sk_txtime_report_errors : 1, sk_txtime_unused : 6;
 #define SK_BPF_CB_FLAG_TEST(SK, FLAG) ((SK)-&gt;sk_bpf_cb_flags &amp; (FLAG));
@@ -2917,7 +2923,23 @@ for timestamping</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_disconnects</span></code></dt><dd><p>number of disconnect operations performed on this sock</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_union}</span></code></dt><dd><p>anonymous</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_txrehash</span></code></dt><dd><p>enable TX hash rethink</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_recv_flags</span></code></dt><dd><p>all flags used by scm_recv()</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">{unnamed_struct}</span></code></dt><dd><p>anonymous</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_credentials</span></code></dt><dd><p>flagged by SO_PASSCRED to recv SCM_CREDENTIALS</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_security</span></code></dt><dd><p>flagged by SO_PASSSEC to recv SCM_SECURITY</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_pidfd</span></code></dt><dd><p>flagged by SO_PASSPIDFD to recv SCM_PIDFD</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_rights</span></code></dt><dd><p>flagged by SO_PASSRIGHTS to recv SCM_RIGHTS</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sk_scm_unused</span></code></dt><dd><p>unused flags for scm_recv()</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">sk_clockid</span></code></dt><dd><p>clockid used by time-based scheduling (SO_TXTIME)</p>
 </dd>
@@ -5248,8 +5270,7 @@ within an skb where data actually starts</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">sk_buff</span> <span class="pre">**last</span></code></dt><dd><p>set to last peeked message to inform the wait function
 what to look for when peeking</p>
-<blockquote>
-<div><p>Get a datagram skbuff, understands the peeking, nonblocking wakeups
+<p>Get a datagram skbuff, understands the peeking, nonblocking wakeups
 and possible races. This replaces identical code in packet, raw and
 udp, as well as the IPX AX.25 and Appletalk. It also finally fixes
 the long standing peek and read race for datagram sockets. If you
@@ -5274,7 +5295,6 @@ error was detected.</p>
 <p>The order of the tests when we find no data waiting are specified
 quite explicitly by POSIX 1003.1g, don’t change them without having
 the standard around please.</p>
-</div></blockquote>
 </dd>
 </dl>
 </div>
@@ -5306,9 +5326,9 @@ context where that lock is acquired in an IRQ context.</p>
 </dl>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.skb_copy_and_hash_datagram_iter">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skb_copy_and_hash_datagram_iter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iov_iter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ahash_request</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">hash</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_copy_and_hash_datagram_iter" title="Link to this definition">¶</a><br /></dt>
-<dd><p>Copy datagram to an iovec iterator and update a hash.</p>
+<dt class="sig sig-object c" id="c.skb_copy_and_crc32c_datagram_iter">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skb_copy_and_crc32c_datagram_iter</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.sk_buff" title="sk_buff"><span class="n"><span class="pre">sk_buff</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">skb</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iov_iter</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">to</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">len</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">crcp</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.skb_copy_and_crc32c_datagram_iter" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Copy datagram to an iovec iterator and update a CRC32C value.</p>
 </dd></dl>
 
 <div class="kernelindent docutils container">
@@ -5322,9 +5342,11 @@ context where that lock is acquired in an IRQ context.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">len</span></code></dt><dd><p>amount of data to copy from buffer to iovec</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ahash_request</span> <span class="pre">*hash</span></code></dt><dd><p>hash request to update</p>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*crcp</span></code></dt><dd><p>pointer to CRC32C value to update</p>
 </dd>
 </dl>
+<p><strong>Return</strong></p>
+<p>0 on success, -EFAULT if there was a fault during copy.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.skb_copy_datagram_iter">
@@ -6029,6 +6051,25 @@ Returns the updated current XDR buffer position</p>
 <dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">u32</span> <span class="pre">len</span></code></dt><dd><p>length of string, in bytes</p>
 </dd>
 </dl>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.xdr_buf_to_bvec">
+<span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">xdr_buf_to_bvec</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">bio_vec</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bvec</span></span>, <span class="kt"><span class="pre">unsigned</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">bvec_size</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">xdr_buf</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">xdr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.xdr_buf_to_bvec" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Copy components of an xdr_buf into a bio_vec array</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">bio_vec</span> <span class="pre">*bvec</span></code></dt><dd><p>bio_vec array to populate</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">unsigned</span> <span class="pre">int</span> <span class="pre">bvec_size</span></code></dt><dd><p>element count of <strong>bio_vec</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">xdr_buf</span> <span class="pre">*xdr</span></code></dt><dd><p>xdr_buf to be copied</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Returns the number of entries consumed in <strong>bvec</strong>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.xdr_inline_pages">
@@ -10919,6 +10960,7 @@ during any kernel release.</p>
     __cacheline_group_begin(net_device_read_tx);
     unsigned long           priv_flags:32;
     unsigned long           lltx:1;
+    unsigned long           netmem_tx:1;
     const struct net_device_ops *netdev_ops;
     const struct header_ops *header_ops;
     struct netdev_queue     *_tx;
@@ -11116,10 +11158,8 @@ during any kernel release.</p>
     struct list_head        link_watch_list;
     u8 reg_state;
     bool dismantle;
-    enum {
-        RTNL_LINK_INITIALIZED,
-        RTNL_LINK_INITIALIZING,
-    } rtnl_link_state:16;
+    bool moving_ns;
+    bool rtnl_link_initializing;
     bool needs_free_netdev;
     void (*priv_destructor)(struct net_device *dev);
     void *ml_priv;
@@ -11218,6 +11258,8 @@ during any kernel release.</p>
 drivers. Mainly used by logical interfaces, such as
 bonding and tunnels</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">netmem_tx</span></code></dt><dd><p>device support netmem_tx.</p>
+</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">netdev_ops</span></code></dt><dd><p>Includes several pointers to callbacks,
 if one wants to override the ndo_*() functions</p>
 </dd>
@@ -11291,7 +11333,8 @@ receive offload (GRO), for IPv4.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">rx_handler_data</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">nd_net</span></code></dt><dd><p>Network namespace this network device is inside</p>
+<dt><code class="docutils literal notranslate"><span class="pre">nd_net</span></code></dt><dd><p>Network namespace this network device is inside
+protected by <strong>lock</strong></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">npinfo</span></code></dt><dd><p>XXX: need comments on this one</p>
 </dd>
@@ -11335,9 +11378,7 @@ device; see the function unregister_netdev</p>
 <dt><code class="docutils literal notranslate"><span class="pre">needed_tailroom</span></code></dt><dd><p>Extra tailroom the hardware may need, but not in all
 cases can this be guaranteed. Some cases also use
 LL_MAX_HEADER instead to allocate the skb</p>
-<blockquote>
-<div><p>interface address info:</p>
-</div></blockquote>
+<p>interface address info:</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">hw_features</span></code></dt><dd><p>User-changeable features</p>
 </dd>
@@ -11524,8 +11565,9 @@ the watchdog (see dev_watchdog())</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dismantle</span></code></dt><dd><p>Device is going to be freed</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">rtnl_link_state</span></code></dt><dd><p>This enum represents the phases of creating
-a new link</p>
+<dt><code class="docutils literal notranslate"><span class="pre">moving_ns</span></code></dt><dd><p>device is changing netns, protected by <strong>lock</strong></p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rtnl_link_initializing</span></code></dt><dd><p>Device being created, suppress events</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">needs_free_netdev</span></code></dt><dd><p>Should unregister perform free_netdev?</p>
 </dd>
@@ -11694,7 +11736,7 @@ the instance lock.</p></li>
 <dt>Simply protects:</dt><dd><p><strong>gro_flush_timeout</strong>, <strong>napi_defer_hard_irqs</strong>, <strong>napi_list</strong>,
 <strong>net_shaper_hierarchy</strong>, <strong>reg_state</strong>, <strong>threaded</strong></p>
 </dd>
-<dt>Double protects:</dt><dd><p><strong>up</strong></p>
+<dt>Double protects:</dt><dd><p><strong>up</strong>, <strong>moving_ns</strong>, <strong>nd_net</strong>, <strong>xdp_features</strong></p>
 </dd>
 <dt>Double ops protects:</dt><dd><p><strong>real_num_rx_queues</strong>, <strong>real_num_tx_queues</strong></p>
 </dd>
@@ -15486,7 +15528,7 @@ what is actually used.</p>
     int (*config_intr)(struct phy_device *phydev);
     irqreturn_t (*handle_interrupt)(struct phy_device *phydev);
     void (*remove)(struct phy_device *phydev);
-    int (*match_phy_device)(struct phy_device *phydev);
+    int (*match_phy_device)(struct phy_device *phydev, const struct phy_driver *phydrv);
     int (*set_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
     void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
     void (*link_change_notify)(struct phy_device *dev);
@@ -16322,6 +16364,29 @@ replaces <a class="reference internal" href="../driver-api/basics.html#c.module_
 </dl>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.genphy_match_phy_device">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">genphy_match_phy_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_driver" title="phy_driver"><span class="n"><span class="pre">phy_driver</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydrv</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.genphy_match_phy_device" title="Link to this definition">¶</a><br /></dt>
+<dd><p>match a PHY device with a PHY driver</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>target phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">struct</span> <span class="pre">phy_driver</span> <span class="pre">*phydrv</span></code></dt><dd><p>target phy_driver struct</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Checks whether the given PHY device matches the specified
+PHY driver. For Clause 45 PHYs, iterates over the available device
+identifiers and compares them against the driver’s expected PHY ID,
+applying the provided mask. For Clause 22 PHYs, a direct ID comparison
+is performed.</p>
+<p><strong>Return</strong></p>
+<p>1 if the PHY device matches the driver, 0 otherwise.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.get_phy_device">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_phy_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">is_c45</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.get_phy_device" title="Link to this definition">¶</a><br /></dt>
 <dd><p>reads the specified PHY device and returns its <strong>phy_device</strong> struct</p>
@@ -17131,6 +17196,25 @@ Return -EINVAL if the delay is invalid or cannot be found.</p>
 <p>0 on success, &lt; 0 on failure</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.phy_get_mac_termination">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">phy_get_mac_termination</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">phydev</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span>, <span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.phy_get_mac_termination" title="Link to this definition">¶</a><br /></dt>
+<dd><p>stores MAC termination in <strong>val</strong></p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">phy_device</span> <span class="pre">*phydev</span></code></dt><dd><p>phy_device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>pointer to the devices device struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">u32</span> <span class="pre">*val</span></code></dt><dd><p>MAC termination</p>
+</dd>
+</dl>
+<p><strong>Return</strong></p>
+<p>0 on success, &lt; 0 on failure</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.fwnode_mdio_find_device">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mdio_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">fwnode_mdio_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">fwnode_handle</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">fwnode</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.fwnode_mdio_find_device" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Given a fwnode, find the mdio_device</p>
@@ -17162,21 +17246,6 @@ The caller should call <a class="reference internal" href="../driver-api/infrast
 <p><strong>Description</strong></p>
 <p>If successful, returns a pointer to the phy_device with the embedded
 <a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code></a> refcount incremented by one, or NULL on failure.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.device_phy_find_device">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">device_phy_find_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="../driver-api/infrastructure.html#c.device" title="device"><span class="n"><span class="pre">device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dev</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.device_phy_find_device" title="Link to this definition">¶</a><br /></dt>
-<dd><p>For the given device, get the phy_device</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span> <span class="pre">*dev</span></code></dt><dd><p>Pointer to the given device</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Refer return conditions of <a class="reference internal" href="#c.fwnode_phy_find_device" title="fwnode_phy_find_device"><code class="xref c c-func docutils literal notranslate"><span class="pre">fwnode_phy_find_device()</span></code></a>.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.fwnode_get_phy_node">
@@ -17412,23 +17481,6 @@ for Clause 37 1000Base-X mode.</p>
 <p>Take care of setting up the phy_device structure, set the state to READY.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.mdiobus_alloc_size">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mdiobus_alloc_size</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdiobus_alloc_size" title="Link to this definition">¶</a><br /></dt>
-<dd><p>allocate a mii_bus structure</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size</span></code></dt><dd><p>extra amount of memory to allocate for private storage.
-If non-zero, then bus-&gt;priv is points to that memory.</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>called by a bus driver to allocate an mii_bus
-structure to fill in.</p>
-</div>
-<dl class="c function">
 <dt class="sig sig-object c" id="c.mdio_find_bus">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mdio_find_bus</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mdio_name</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdio_find_bus" title="Link to this definition">¶</a><br /></dt>
 <dd><p>Given the name of a mdiobus, find the mii_bus.</p>
@@ -17464,70 +17516,6 @@ and this must be put once the bus is finished with.</p>
 <p>Because the association of a device_node and mii_bus is made via
 of_mdiobus_register(), the mii_bus cannot be found before it is
 registered with of_mdiobus_register().</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.mdiobus_scan_c22">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mdiobus_scan_c22</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdiobus_scan_c22" title="Link to this definition">¶</a><br /></dt>
-<dd><p>scan one address on a bus for C22 MDIO devices.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span> <span class="pre">*bus</span></code></dt><dd><p>mii_bus to scan</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">addr</span></code></dt><dd><p>address on bus to scan</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function scans one address on the MDIO bus, looking for
-devices which can be identified using a vendor/product ID in
-registers 2 and 3. Not all MDIO devices have such registers, but
-PHY devices typically do. Hence this function assumes anything
-found is a PHY, or can be treated as a PHY. Other MDIO devices,
-such as switches, will probably not be found during the scan.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.__mdiobus_register">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">__mdiobus_register</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">module</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">owner</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.__mdiobus_register" title="Link to this definition">¶</a><br /></dt>
-<dd><p>bring up all the PHYs on a given bus and attach them to bus</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span> <span class="pre">*bus</span></code></dt><dd><p>target mii_bus</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">module</span> <span class="pre">*owner</span></code></dt><dd><p>module containing bus accessor functions</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<dl class="simple">
-<dt>Called by a bus driver to bring up all the PHYs</dt><dd><p>on a given bus, and attach them to the bus. Drivers should use
-mdiobus_register() rather than <a class="reference internal" href="#c.__mdiobus_register" title="__mdiobus_register"><code class="xref c c-func docutils literal notranslate"><span class="pre">__mdiobus_register()</span></code></a> unless they
-need to pass a specific owner module. MDIO devices which are not
-PHYs will not be brought up by this function. They are expected
-to be explicitly listed in DT and instantiated by of_mdiobus_register().</p>
-</dd>
-</dl>
-<p>Returns 0 on success or &lt; 0 on error.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.mdiobus_free">
-<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mdiobus_free</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdiobus_free" title="Link to this definition">¶</a><br /></dt>
-<dd><p>free a <a class="reference internal" href="#c.mii_bus" title="mii_bus"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span></code></a></p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span> <span class="pre">*bus</span></code></dt><dd><p>mii_bus to free</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function releases the reference to the underlying device
-object in the mii_bus.  If this is the last reference, the mii_bus
-will be freed.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__mdiobus_read">
@@ -17946,45 +17934,6 @@ to conclude the operation.</p>
 <p><strong>Description</strong></p>
 <p>called when the last reference to an mii_bus is
 dropped, to free the underlying memory.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.mdiobus_create_device">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mdiobus_create_device</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">mdio_board_info</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdiobus_create_device" title="Link to this definition">¶</a><br /></dt>
-<dd><p>create a full MDIO device given a mdio_board_info structure</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span> <span class="pre">*bus</span></code></dt><dd><p>MDIO bus to create the devices on</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mdio_board_info</span> <span class="pre">*bi</span></code></dt><dd><p>mdio_board_info structure describing the devices</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Returns 0 on success or &lt; 0 on error.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.mdiobus_scan_c45">
-<span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.phy_device" title="phy_device"><span class="n"><span class="pre">phy_device</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">mdiobus_scan_c45</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.mii_bus" title="mii_bus"><span class="n"><span class="pre">mii_bus</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">bus</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n"><span class="pre">addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.mdiobus_scan_c45" title="Link to this definition">¶</a><br /></dt>
-<dd><p>scan one address on a bus for C45 MDIO devices.</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">mii_bus</span> <span class="pre">*bus</span></code></dt><dd><p>mii_bus to scan</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">addr</span></code></dt><dd><p>address on bus to scan</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>This function scans one address on the MDIO bus, looking for
-devices which can be identified using a vendor/product ID in
-registers 2 and 3. Not all MDIO devices have such registers, but
-PHY devices typically do. Hence this function assumes anything
-found is a PHY, or can be treated as a PHY. Other MDIO devices,
-such as switches, will probably not be found during the scan.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.__mdiobus_c45_modify_changed">

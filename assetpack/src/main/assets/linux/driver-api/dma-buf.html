@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -740,7 +740,6 @@ error code wrapped into a pointer on failure.</p>
 <p>Note that this can fail if the backing storage of <strong>dmabuf</strong> is in a place not
 accessible to <strong>dev</strong>, and cannot be moved to a more suitable place. This is
 indicated with the error code -EBUSY.</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dma_buf_attach">
@@ -1059,7 +1058,6 @@ mapping.</p>
 <div class="kernelindent docutils container">
 <p><strong>Definition</strong>:</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct dma_buf_ops {
-    bool cache_sgt_mapping;
     int (*attach)(struct dma_buf *, struct dma_buf_attachment *);
     void (*detach)(struct dma_buf *, struct dma_buf_attachment *);
     int (*pin)(struct dma_buf_attachment *attach);
@@ -1077,10 +1075,6 @@ mapping.</p>
 </div>
 <p><strong>Members</strong></p>
 <dl>
-<dt><code class="docutils literal notranslate"><span class="pre">cache_sgt_mapping</span></code></dt><dd><p>If true the framework will cache the first mapping made for each
-attachment. This avoids creating mappings for attachments multiple
-times.</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">attach</span></code></dt><dd><p>This is called from <a class="reference internal" href="#c.dma_buf_attach" title="dma_buf_attach"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_buf_attach()</span></code></a> to make sure that a given
 <a class="reference internal" href="#c.dma_buf_attachment" title="dma_buf_attachment"><code class="xref c c-type docutils literal notranslate"><span class="pre">dma_buf_attachment.dev</span></code></a> can access the provided <a class="reference internal" href="#c.dma_buf" title="dma_buf"><code class="xref c c-type docutils literal notranslate"><span class="pre">dma_buf</span></code></a>. Exporters
 which support buffer objects in special locations like VRAM or
@@ -1254,9 +1248,7 @@ address space. Same restrictions as for vmap and friends apply.</p>
     const char *name;
     spinlock_t name_lock;
     struct module *owner;
-#if IS_ENABLED(CONFIG_DEBUG_FS);
     struct list_head list_node;
-#endif;
     void *priv;
     struct dma_resv *resv;
     wait_queue_head_t poll;
@@ -1329,7 +1321,7 @@ access. An example here is v4l.</p></li>
 dependency for implicit synchronization.</p></li>
 </ul>
 <p>DYNAMIC IMPORTER RULES:</p>
-<p>Dynamic importers, see <a class="reference internal" href="#c.dma_buf_attachment_is_dynamic" title="dma_buf_attachment_is_dynamic"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_buf_attachment_is_dynamic()</span></code></a>, have
+<p>Dynamic importers, see dma_buf_attachment_is_dynamic(), have
 additional constraints on how they set up fences:</p>
 <ul class="simple">
 <li><p>Dynamic importers must obey the write fences and wait for them to
@@ -1410,8 +1402,6 @@ point to the new location of the DMA-buf.</p>
     struct dma_buf *dmabuf;
     struct device *dev;
     struct list_head node;
-    struct sg_table *sgt;
-    enum dma_data_direction dir;
     bool peer2peer;
     const struct dma_buf_attach_ops *importer_ops;
     void *importer_priv;
@@ -1426,10 +1416,6 @@ point to the new location of the DMA-buf.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>device attached to the buffer.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">node</span></code></dt><dd><p>list of dma_buf_attachment, protected by dma_resv lock of the dmabuf.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">sgt</span></code></dt><dd><p>cached mapping.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">dir</span></code></dt><dd><p>direction of cached mapping.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">peer2peer</span></code></dt><dd><p>true if the importer can handle peer resources without pages.</p>
 </dd>
@@ -1543,22 +1529,6 @@ so that subsequent exports don’t create a new dmabuf.</p>
 <p>Returns true if a DMA-buf exporter wants to be called with the dma_resv
 locked for the map/unmap callbacks, false if it doesn’t wants to be called
 with the lock held.</p>
-</div>
-<dl class="c function">
-<dt class="sig sig-object c" id="c.dma_buf_attachment_is_dynamic">
-<span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dma_buf_attachment_is_dynamic</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.dma_buf_attachment" title="dma_buf_attachment"><span class="n"><span class="pre">dma_buf_attachment</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">attach</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dma_buf_attachment_is_dynamic" title="Link to this definition">¶</a><br /></dt>
-<dd><p>check if a DMA-buf attachment uses dynamic mappings</p>
-</dd></dl>
-
-<div class="kernelindent docutils container">
-<p><strong>Parameters</strong></p>
-<dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_buf_attachment</span> <span class="pre">*attach</span></code></dt><dd><p>the DMA-buf attachment to check</p>
-</dd>
-</dl>
-<p><strong>Description</strong></p>
-<p>Returns true if a DMA-buf importer wants to call the map/unmap functions with
-the dma_resv lock held.</p>
 </div>
 </section>
 </section>
@@ -2591,7 +2561,6 @@ required to eventually complete <a class="reference internal" href="#c.dma_fence
 <a class="reference internal" href="#c.dma_fence_end_signalling" title="dma_fence_end_signalling"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_end_signalling()</span></code></a>.</p>
 <p>Opaque cookie needed by the implementation, which needs to be passed to
 <a class="reference internal" href="#c.dma_fence_end_signalling" title="dma_fence_end_signalling"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_end_signalling()</span></code></a>.</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.dma_fence_end_signalling">
@@ -3082,8 +3051,6 @@ data can be passed along by embedding dma_fence_cb in another struct.</p>
     bool (*signaled)(struct dma_fence *fence);
     signed long (*wait)(struct dma_fence *fence, bool intr, signed long timeout);
     void (*release)(struct dma_fence *fence);
-    void (*fence_value_str)(struct dma_fence *fence, char *str, int size);
-    void (*timeline_value_str)(struct dma_fence *fence, char *str, int size);
     void (*set_deadline)(struct dma_fence *fence, ktime_t deadline);
 };
 </pre></div>
@@ -3113,8 +3080,8 @@ synchronization is required.  This is called in the first
 <a class="reference internal" href="#c.dma_fence_wait" title="dma_fence_wait"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_wait()</span></code></a> or <a class="reference internal" href="#c.dma_fence_add_callback" title="dma_fence_add_callback"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_add_callback()</span></code></a> path to let the fence
 implementation know that there is another driver waiting on the
 signal (ie. hw-&gt;sw case).</p>
-<p>This function can be called from atomic context, but not
-from irq context, so normal spinlocks can be used.</p>
+<p>This is called with irq’s disabled, so only spinlocks which disable
+IRQ’s can be used in the code outside of this callback.</p>
 <p>A return value of false indicates the fence already passed,
 or some failure occurred that made it impossible to enable
 signaling. True indicates successful enabling.</p>
@@ -3155,15 +3122,6 @@ lockup could be reported like that.</p>
 Can be called from irq context.  This callback is optional. If it is
 NULL, then <a class="reference internal" href="#c.dma_fence_free" title="dma_fence_free"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_free()</span></code></a> is instead called as the default
 implementation.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">fence_value_str</span></code></dt><dd><p>Callback to fill in free-form debug info specific to this fence, like
-the sequence number.</p>
-<p>This callback is optional.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">timeline_value_str</span></code></dt><dd><p>Fills in the current value of the timeline as a string, like the
-sequence number. Note that the specific fence passed to this function
-should not matter, drivers should only use it to look up the
-corresponding timeline structures.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">set_deadline</span></code></dt><dd><p>Callback to allow a fence waiter to inform the fence signaler of
 an upcoming deadline, such as vblank, by which point the waiter

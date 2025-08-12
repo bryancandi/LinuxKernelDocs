@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -86,6 +86,7 @@
 <li class="toctree-l3"><a class="reference internal" href="pin_user_pages.html">pin_user_pages() and related calls</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Boot time memory management</a></li>
 <li class="toctree-l3"><a class="reference internal" href="gfp_mask-from-fs-io.html">GFP masks used from FS/IO context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kho/index.html">Kexec Handover Subsystem</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="index.html#interfaces-for-kernel-debugging">Interfaces for kernel debugging</a></li>
@@ -275,6 +276,16 @@ kernel resource tree.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">MEMBLOCK_RSRV_NOINIT</span></code></dt><dd><p>memory region for which struct pages are
 not initialized (only for reserved regions).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">MEMBLOCK_RSRV_KERN</span></code></dt><dd><p>memory region that is reserved for kernel use,
+either explictitly with memblock_reserve_kern() or via memblock
+allocation APIs. All memblock allocations set this flag.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">MEMBLOCK_KHO_SCRATCH</span></code></dt><dd><p>memory region that kexec can pass to the next
+kernel in handover mode. During early boot, we do not know about all
+memory reservations yet, so we get scratch memory from the previous
+kernel that we know is good to use. It is the only memory that
+allocations may happen from in this phase.</p>
 </dd>
 </dl>
 </div>
@@ -1208,6 +1219,43 @@ memblock, the caller must inform kmemleak to ignore that memory</p>
 <p><strong>Description</strong></p>
 <p>struct pages will not be initialized for reserved memory regions marked with
 <code class="docutils literal notranslate"><span class="pre">MEMBLOCK_RSRV_NOINIT</span></code>.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, -errno on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.memblock_mark_kho_scratch">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">memblock_mark_kho_scratch</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">phys_addr_t</span></span><span class="w"> </span><span class="n"><span class="pre">base</span></span>, <span class="n"><span class="pre">phys_addr_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.memblock_mark_kho_scratch" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Mark a memory region as MEMBLOCK_KHO_SCRATCH.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">phys_addr_t</span> <span class="pre">base</span></code></dt><dd><p>the base phys addr of the region</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">phys_addr_t</span> <span class="pre">size</span></code></dt><dd><p>the size of the region</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Only memory regions marked with <code class="docutils literal notranslate"><span class="pre">MEMBLOCK_KHO_SCRATCH</span></code> will be considered
+for allocations during early boot with kexec handover.</p>
+<p><strong>Return</strong></p>
+<p>0 on success, -errno on failure.</p>
+</div>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.memblock_clear_kho_scratch">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">memblock_clear_kho_scratch</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">phys_addr_t</span></span><span class="w"> </span><span class="n"><span class="pre">base</span></span>, <span class="n"><span class="pre">phys_addr_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.memblock_clear_kho_scratch" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Clear MEMBLOCK_KHO_SCRATCH flag for a specified region.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">phys_addr_t</span> <span class="pre">base</span></code></dt><dd><p>the base phys addr of the region</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">phys_addr_t</span> <span class="pre">size</span></code></dt><dd><p>the size of the region</p>
+</dd>
+</dl>
 <p><strong>Return</strong></p>
 <p>0 on success, -errno on failure.</p>
 </div>

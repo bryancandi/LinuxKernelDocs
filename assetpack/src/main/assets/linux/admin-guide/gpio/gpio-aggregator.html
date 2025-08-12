@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -225,6 +225,113 @@ controller, assumed to be “gpio-aggregator.0”:</p>
 </dl>
 </div></blockquote>
 </div></blockquote>
+</section>
+<section id="aggregating-gpios-using-configfs">
+<h2>Aggregating GPIOs using Configfs<a class="headerlink" href="#aggregating-gpios-using-configfs" title="Link to this heading">¶</a></h2>
+<p><strong>Group:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator</span></code></p>
+<blockquote>
+<div><p>This is the root directory of the gpio-aggregator configfs tree.</p>
+</div></blockquote>
+<p><strong>Group:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;</span></code></p>
+<blockquote>
+<div><p>This directory represents a GPIO aggregator device. You can assign any
+name to <code class="docutils literal notranslate"><span class="pre">&lt;example-name&gt;</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">agg0</span></code>), except names starting with
+<code class="docutils literal notranslate"><span class="pre">_sysfs</span></code> prefix, which are reserved for auto-generated configfs
+entries corresponding to devices created via Sysfs.</p>
+</div></blockquote>
+<p><strong>Attribute:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/live</span></code></p>
+<blockquote>
+<div><p>The <code class="docutils literal notranslate"><span class="pre">live</span></code> attribute allows to trigger the actual creation of the device
+once it’s fully configured. Accepted values are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">yes</span></code>, <code class="docutils literal notranslate"><span class="pre">true</span></code> : enable the virtual device</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">no</span></code>, <code class="docutils literal notranslate"><span class="pre">false</span></code> : disable the virtual device</p></li>
+</ul>
+</div></blockquote>
+<p><strong>Attribute:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/dev_name</span></code></p>
+<blockquote>
+<div><p>The read-only <code class="docutils literal notranslate"><span class="pre">dev_name</span></code> attribute exposes the name of the device as it
+will appear in the system on the platform bus (e.g. <code class="docutils literal notranslate"><span class="pre">gpio-aggregator.0</span></code>).
+This is useful for identifying a character device for the newly created
+aggregator. If it’s <code class="docutils literal notranslate"><span class="pre">gpio-aggregator.0</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/sys/devices/platform/gpio-aggregator.0/gpiochipX</span></code> path tells you that the
+GPIO device id is <code class="docutils literal notranslate"><span class="pre">X</span></code>.</p>
+</div></blockquote>
+<p>You must create subdirectories for each virtual line you want to
+instantiate, named exactly as <code class="docutils literal notranslate"><span class="pre">line0</span></code>, <code class="docutils literal notranslate"><span class="pre">line1</span></code>, ..., <code class="docutils literal notranslate"><span class="pre">lineY</span></code>, when
+you want to instantiate <code class="docutils literal notranslate"><span class="pre">Y+1</span></code> (Y &gt;= 0) lines.  Configure all lines before
+activating the device by setting <code class="docutils literal notranslate"><span class="pre">live</span></code> to 1.</p>
+<p><strong>Group:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/&lt;lineY&gt;/</span></code></p>
+<blockquote>
+<div><p>This directory represents a GPIO line to include in the aggregator.</p>
+</div></blockquote>
+<p><strong>Attribute:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/&lt;lineY&gt;/key</span></code></p>
+<p><strong>Attribute:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/&lt;lineY&gt;/offset</span></code></p>
+<blockquote>
+<div><p>The default values after creating the <code class="docutils literal notranslate"><span class="pre">&lt;lineY&gt;</span></code> directory are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">key</span></code> : &lt;empty&gt;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">offset</span></code> : -1</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">key</span></code> must always be explicitly configured, while <code class="docutils literal notranslate"><span class="pre">offset</span></code> depends.
+Two configuration patterns exist for each <code class="docutils literal notranslate"><span class="pre">&lt;lineY&gt;</span></code>:</p>
+<p>(a). For lookup by GPIO line name:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">key</span></code> to the line name.</p></li>
+<li><p>Ensure <code class="docutils literal notranslate"><span class="pre">offset</span></code> remains -1 (the default).</p></li>
+</ul>
+</div></blockquote>
+<p>(b). For lookup by GPIO chip name and the line offset within the chip:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">key</span></code> to the chip name.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">offset</span></code> to the line offset (0 &lt;= <code class="docutils literal notranslate"><span class="pre">offset</span></code> &lt; 65535).</p></li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+<p><strong>Attribute:</strong> <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/&lt;example-name&gt;/&lt;lineY&gt;/name</span></code></p>
+<blockquote>
+<div><p>The <code class="docutils literal notranslate"><span class="pre">name</span></code> attribute sets a custom name for lineY. If left unset, the
+line will remain unnamed.</p>
+</div></blockquote>
+<p>Once the configuration is done, the <code class="docutils literal notranslate"><span class="pre">'live'</span></code> attribute must be set to 1
+in order to instantiate the aggregator device. It can be set back to 0 to
+destroy the virtual device. The module will synchronously wait for the new
+aggregator device to be successfully probed and if this doesn’t happen, writing
+to <code class="docutils literal notranslate"><span class="pre">'live'</span></code> will result in an error. This is a different behaviour from the
+case when you create it using sysfs <code class="docutils literal notranslate"><span class="pre">new_device</span></code> interface.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For aggregators created via Sysfs, the configfs entries are
+auto-generated and appear as <code class="docutils literal notranslate"><span class="pre">/config/gpio-aggregator/_sysfs.&lt;N&gt;/</span></code>. You
+cannot add or remove line directories with mkdir(2)/rmdir(2). To modify
+lines, you must use the “delete_device” interface to tear down the
+existing device and reconfigure it from scratch. However, you can still
+toggle the aggregator with the <code class="docutils literal notranslate"><span class="pre">live</span></code> attribute and adjust the
+<code class="docutils literal notranslate"><span class="pre">key</span></code>, <code class="docutils literal notranslate"><span class="pre">offset</span></code>, and <code class="docutils literal notranslate"><span class="pre">name</span></code> attributes for each line when <code class="docutils literal notranslate"><span class="pre">live</span></code>
+is set to 0 by hand (i.e. it’s not waiting for deferred probe).</p>
+</div>
+<section id="sample-configuration-commands">
+<h3>Sample configuration commands<a class="headerlink" href="#sample-configuration-commands" title="Link to this heading">¶</a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create a directory for an aggregator device</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0
+
+<span class="c1"># Configure each line</span>
+$<span class="w"> </span>mkdir<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line0
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>gpiochip0<span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line0/key
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="m">6</span><span class="w">         </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line0/offset
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>test0<span class="w">     </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line0/name
+$<span class="w"> </span>mkdir<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line1
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>gpiochip0<span class="w"> </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line1/key
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="m">7</span><span class="w">         </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line1/offset
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>test1<span class="w">     </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/line1/name
+
+<span class="c1"># Activate the aggregator device</span>
+$<span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w">         </span>&gt;<span class="w"> </span>/sys/kernel/config/gpio-aggregator/agg0/live
+</pre></div>
+</div>
+</section>
 </section>
 <section id="generic-gpio-driver">
 <h2>Generic GPIO Driver<a class="headerlink" href="#generic-gpio-driver" title="Link to this heading">¶</a></h2>

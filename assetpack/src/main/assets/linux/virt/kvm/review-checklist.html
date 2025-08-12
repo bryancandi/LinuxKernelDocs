@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -167,16 +167,16 @@
 <ol class="arabic simple">
 <li><p>The patch must follow <a class="reference internal" href="../../process/coding-style.html"><span class="doc">Linux kernel coding style</span></a> and
 <a class="reference internal" href="../../process/submitting-patches.html"><span class="doc">Submitting patches: the essential guide to getting your code into the kernel</span></a>.</p></li>
-<li><p>Patches should be against kvm.git master branch.</p></li>
+<li><p>Patches should be against kvm.git master or next branches.</p></li>
 <li><p>If the patch introduces or modifies a new userspace API:
 - the API must be documented in <a class="reference internal" href="api.html"><span class="doc">The Definitive KVM (Kernel-based Virtual Machine) API Documentation</span></a>
 - the API must be discoverable using KVM_CHECK_EXTENSION</p></li>
 <li><p>New state must include support for save/restore.</p></li>
 <li><p>New features must default to off (userspace should explicitly request them).
 Performance improvements can and should default to on.</p></li>
-<li><p>New cpu features should be exposed via KVM_GET_SUPPORTED_CPUID2</p></li>
-<li><p>Emulator changes should be accompanied by unit tests for qemu-kvm.git
-kvm/test directory.</p></li>
+<li><p>New cpu features should be exposed via KVM_GET_SUPPORTED_CPUID2,
+or its equivalent for non-x86 architectures</p></li>
+<li><p>The feature should be testable (see below).</p></li>
 <li><p>Changes should be vendor neutral when possible.  Changes to common code
 are better than duplicating changes to vendor code.</p></li>
 <li><p>Similarly, prefer changes to arch independent code than to arch dependent
@@ -186,10 +186,83 @@ code.</p></li>
 only - u64 rather than ulong).</p></li>
 <li><p>New guest visible features must either be documented in a hardware manual
 or be accompanied by documentation.</p></li>
-<li><p>Features must be robust against reset and kexec - for example, shared
-host/guest memory must be unshared to prevent the host from writing to
-guest memory that the guest has not reserved for this purpose.</p></li>
 </ol>
+<section id="testing-of-kvm-code">
+<h2>Testing of KVM code<a class="headerlink" href="#testing-of-kvm-code" title="Link to this heading">¶</a></h2>
+<p>All features contributed to KVM, and in many cases bugfixes too, should be
+accompanied by some kind of tests and/or enablement in open source guests
+and VMMs.  KVM is covered by multiple test suites:</p>
+<dl class="simple">
+<dt><em>Selftests</em></dt><dd><p>These are low level tests that allow granular testing of kernel APIs.
+This includes API failure scenarios, invoking APIs after specific
+guest instructions, and testing multiple calls to <code class="docutils literal notranslate"><span class="pre">KVM_CREATE_VM</span></code>
+within a single test.  They are included in the kernel tree at
+<code class="docutils literal notranslate"><span class="pre">tools/testing/selftests/kvm</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code></dt><dd><p>A collection of small guests that test CPU and emulated device features
+from a guest’s perspective.  They run under QEMU or <code class="docutils literal notranslate"><span class="pre">kvmtool</span></code>, and
+are generally not KVM-specific: they can be run with any accelerator
+that QEMU support or even on bare metal, making it possible to compare
+behavior across hypervisors and processor families.</p>
+</dd>
+<dt>Functional test suites</dt><dd><p>Various sets of functional tests exist, such as QEMU’s <code class="docutils literal notranslate"><span class="pre">tests/functional</span></code>
+suite and <a class="reference external" href="https://avocado-vt.readthedocs.io/en/latest/">avocado-vt</a>.
+These typically involve running a full operating system in a virtual
+machine.</p>
+</dd>
+</dl>
+<p>The best testing approach depends on the feature’s complexity and
+operation. Here are some examples and guidelines:</p>
+<dl class="simple">
+<dt>New instructions (no new registers or APIs)</dt><dd><p>The corresponding CPU features (if applicable) should be made available
+in QEMU.  If the instructions require emulation support or other code in
+KVM, it is worth adding coverage to <code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code> or selftests;
+the latter can be a better choice if the instructions relate to an API
+that already has good selftest coverage.</p>
+</dd>
+<dt>New hardware features (new registers, no new APIs)</dt><dd><p>These should be tested via <code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code>; this more or less implies
+supporting them in QEMU and/or <code class="docutils literal notranslate"><span class="pre">kvmtool</span></code>.  In some cases selftests
+can be used instead, similar to the previous case, or specifically to
+test corner cases in guest state save/restore.</p>
+</dd>
+<dt>Bug fixes and performance improvements</dt><dd><p>These usually do not introduce new APIs, but it’s worth sharing
+any benchmarks and tests that will validate your contribution,
+ideally in the form of regression tests.  Tests and benchmarks
+can be included in either <code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code> or selftests, depending
+on the specifics of your change.  Selftests are especially useful for
+regression tests because they are included directly in Linux’s tree.</p>
+</dd>
+<dt>Large scale internal changes</dt><dd><p>While it’s difficult to provide a single policy, you should ensure that
+the changed code is covered by either <code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code> or selftests.
+In some cases the affected code is run for any guests and functional
+tests suffice.  Explain your testing process in the cover letter,
+as that can help identify gaps in existing test suites.</p>
+</dd>
+<dt>New APIs</dt><dd><p>It is important to demonstrate your use case.  This can be as simple as
+explaining that the feature is already in use on bare metal, or it can be
+a proof-of-concept implementation in userspace.  The latter need not be
+open source, though that is of course preferrable for easier testing.
+Selftests should test corner cases of the APIs, and should also cover
+basic host and guest operation if no open source VMM uses the feature.</p>
+</dd>
+<dt>Bigger features, usually spanning host and guest</dt><dd><p>These should be supported by Linux guests, with limited exceptions for
+Hyper-V features that are testable on Windows guests.  It is strongly
+suggested that the feature be usable with an open source host VMM, such
+as at least one of QEMU or crosvm, and guest firmware.  Selftests should
+test at least API error cases.  Guest operation can be covered by
+either selftests of <code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code> (this is especially important for
+paravirtualized and Windows-only features).  Strong selftest coverage
+can also be a replacement for implementation in an open source VMM,
+but this is generally not recommended.</p>
+</dd>
+</dl>
+<p>Following the above suggestions for testing in selftests and
+<code class="docutils literal notranslate"><span class="pre">kvm-unit-tests</span></code> will make it easier for the maintainers to review
+and accept your code.  In fact, even before you contribute your changes
+upstream it will make it easier for you to develop for KVM.</p>
+<p>Of course, the KVM maintainers reserve the right to require more tests,
+though they may also waive the requirement from time to time.</p>
+</section>
 </section>
 
 

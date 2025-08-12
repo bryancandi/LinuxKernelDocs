@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -370,6 +370,38 @@ algorithms for power balancing.</p>
 <p>Single Loop Power Conservation (SLPC) is the name given to the suite of
 connected power conservation features in the GuC firmware. The firmware
 exposes a programming interface to the host for the control of SLPC.</p>
+</section>
+<section id="pcie-gen5-limitations">
+<h2>PCIe Gen5 Limitations<a class="headerlink" href="#pcie-gen5-limitations" title="Link to this heading">¶</a></h2>
+<p>Default link speed of discrete GPUs is determined by configuration parameters
+stored in their flash memory, which are subject to override through user
+initiated firmware updates. It has been observed that devices configured with
+PCIe Gen5 as their default link speed can come across link quality issues due
+to host or motherboard limitations and may have to auto-downgrade their link
+to PCIe Gen4 speed when faced with unstable link at Gen5, which makes
+firmware updates rather risky on such setups. It is required to ensure that
+the device is capable of auto-downgrading its link to PCIe Gen4 speed before
+pushing the firmware image with PCIe Gen5 as default configuration. This can
+be done by reading <code class="docutils literal notranslate"><span class="pre">auto_link_downgrade_capable</span></code> sysfs entry, which will
+denote if the device is capable of auto-downgrading its link to PCIe Gen4
+speed with boolean output value of <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>, meaning <cite>incapable</cite> or
+<cite>capable</cite> respectively.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>/sys/bus/pci/devices/&lt;bdf&gt;/auto_link_downgrade_capable
+</pre></div>
+</div>
+<p>Pushing the firmware image with PCIe Gen5 as default configuration on a auto
+link downgrade incapable device and facing link instability due to host or
+motherboard limitations can result in driver failing to bind to the device,
+making further firmware updates impossible with RMA being the only last
+resort.</p>
+<p>Link downgrade status of auto link downgrade capable devices is available
+through <code class="docutils literal notranslate"><span class="pre">auto_link_downgrade_status</span></code> sysfs entry with boolean output value
+of <code class="docutils literal notranslate"><span class="pre">0</span></code> or <code class="docutils literal notranslate"><span class="pre">1</span></code>, where <code class="docutils literal notranslate"><span class="pre">0</span></code> means no auto-downgrading was required during
+link training (which is the optimal scenario) and <code class="docutils literal notranslate"><span class="pre">1</span></code> means the device has
+auto-downgraded its link to PCIe Gen4 speed due to unstable Gen5 link.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cat<span class="w"> </span>/sys/bus/pci/devices/&lt;bdf&gt;/auto_link_downgrade_status
+</pre></div>
+</div>
 </section>
 <section id="internal-api">
 <h2>Internal API<a class="headerlink" href="#internal-api" title="Link to this heading">¶</a></h2>

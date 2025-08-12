@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -1821,11 +1821,13 @@ ranges.</p>
 <p>See also <a class="reference internal" href="#c.drm_prime_pages_to_sg" title="drm_prime_pages_to_sg"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_prime_pages_to_sg()</span></code></a>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vmap</span></code></dt><dd><p>Returns a virtual address for the buffer. Used by the
-<a class="reference internal" href="#c.drm_gem_dmabuf_vmap" title="drm_gem_dmabuf_vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_dmabuf_vmap()</span></code></a> helper.</p>
+<a class="reference internal" href="#c.drm_gem_dmabuf_vmap" title="drm_gem_dmabuf_vmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_dmabuf_vmap()</span></code></a> helper. Called with a held GEM reservation
+lock.</p>
 <p>This callback is optional.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">vunmap</span></code></dt><dd><p>Releases the address previously returned by <strong>vmap</strong>. Used by the
-<a class="reference internal" href="#c.drm_gem_dmabuf_vunmap" title="drm_gem_dmabuf_vunmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_dmabuf_vunmap()</span></code></a> helper.</p>
+<a class="reference internal" href="#c.drm_gem_dmabuf_vunmap" title="drm_gem_dmabuf_vunmap"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_gem_dmabuf_vunmap()</span></code></a> helper. Called with a held GEM reservation
+lock.</p>
 <p>This callback is optional.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">mmap</span></code></dt><dd><p>Handle mmap() of the gem object, setup vma accordingly.</p>
@@ -1835,7 +1837,8 @@ ranges.</p>
 used, the <strong>mmap</strong> callback must set vma-&gt;vm_ops instead.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">evict</span></code></dt><dd><p>Evicts gem object out from memory. Used by the drm_gem_object_evict()
-helper. Returns 0 on success, -errno otherwise.</p>
+helper. Returns 0 on success, -errno otherwise. Called with a held
+GEM reservation lock.</p>
 <p>This callback is optional.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>The optional status callback can return additional object state
@@ -2739,8 +2742,8 @@ of the shrink callback to check for this (ie. <a class="reference internal" href
 or if necessary block until the buffer becomes idle.</p>
 </div>
 <dl class="c function">
-<dt class="sig sig-object c" id="c.drm_gem_evict">
-<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_evict</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_evict" title="Link to this definition">¶</a><br /></dt>
+<dt class="sig sig-object c" id="c.drm_gem_evict_locked">
+<span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gem_evict_locked</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#c.drm_gem_object" title="drm_gem_object"><span class="n"><span class="pre">drm_gem_object</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">obj</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_gem_evict_locked" title="Link to this definition">¶</a><br /></dt>
 <dd><p>helper to evict backing pages for a GEM object</p>
 </dd></dl>
 
@@ -3264,12 +3267,13 @@ drm_gem_shmem_vmap()). These helpers perform the necessary type conversion.</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_gem_shmem_object {
     struct drm_gem_object base;
     struct page **pages;
-    unsigned int pages_use_count;
+    refcount_t pages_use_count;
+    refcount_t pages_pin_count;
     int madv;
     struct list_head madv_list;
     struct sg_table *sgt;
     void *vaddr;
-    unsigned int vmap_use_count;
+    refcount_t vmap_use_count;
     bool pages_mark_dirty_on_put : 1;
     bool pages_mark_accessed_on_put : 1;
     bool map_wc : 1;
@@ -3284,6 +3288,11 @@ drm_gem_shmem_vmap()). These helpers perform the necessary type conversion.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">pages_use_count</span></code></dt><dd><p>Reference count on the pages table.
 The pages are put when the count reaches zero.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pages_pin_count</span></code></dt><dd><p>Reference count on the pinned pages table.</p>
+<p>Pages are hard-pinned and reside in memory if count
+greater than zero. Otherwise, when count is zero, the pages are
+allowed to be evicted and purged by memory shrinker.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">madv</span></code></dt><dd><p>State for madvise</p>
 <p>0 is active/inuse.
@@ -8700,6 +8709,24 @@ Requires some kind of locking to protect against
 any concurrent allocate and free operations.</p>
 </div>
 <dl class="c function">
+<dt class="sig sig-object c" id="c.drm_buddy_reset_clear">
+<span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_buddy_reset_clear</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_buddy</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mm</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n"><span class="pre">is_clear</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_buddy_reset_clear" title="Link to this definition">¶</a><br /></dt>
+<dd><p>reset blocks clear state</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_buddy</span> <span class="pre">*mm</span></code></dt><dd><p>DRM buddy manager</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">is_clear</span></code></dt><dd><p>blocks clear state</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Reset the clear state based on <strong>is_clear</strong> value for each block
+in the freelist.</p>
+</div>
+<dl class="c function">
 <dt class="sig sig-object c" id="c.drm_buddy_free_block">
 <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_buddy_free_block</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_buddy</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mm</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">drm_buddy_block</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">block</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.drm_buddy_free_block" title="Link to this definition">¶</a><br /></dt>
 <dd><p>free a block</p>
@@ -9977,6 +10004,23 @@ be scheduled further.</p>
 <p>A job is created by the driver using <a class="reference internal" href="#c.drm_sched_job_init" title="drm_sched_job_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_init()</span></code></a>, and
 should call <a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a> once it wants the scheduler
 to schedule the job.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_gpu_sched_stat">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_gpu_sched_stat</span></span></span><a class="headerlink" href="#c.drm_gpu_sched_stat" title="Link to this definition">¶</a><br /></dt>
+<dd><p>the scheduler’s status</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_GPU_SCHED_STAT_NONE</span></code></dt><dd><p>Reserved. Do not use.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_GPU_SCHED_STAT_NOMINAL</span></code></dt><dd><p>Operation succeeded.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_GPU_SCHED_STAT_ENODEV</span></code></dt><dd><p>Error: Device is not available anymore.</p>
+</dd>
+</dl>
+</div>
 <dl class="c struct">
 <dt class="sig sig-object c" id="c.drm_sched_backend_ops">
 <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_sched_backend_ops</span></span></span><a class="headerlink" href="#c.drm_sched_backend_ops" title="Link to this definition">¶</a><br /></dt>
@@ -10002,47 +10046,72 @@ returns NULL, run_job() may be called.</p>
 necessary. Skipped when jobs are killed instead of run.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">run_job</span></code></dt><dd><p>Called to execute the job once all of the dependencies
-have been resolved.  This may be called multiple times, if
-timedout_job() has happened and drm_sched_job_recovery()
-decides to try it again.</p>
+have been resolved.</p>
+<p><strong>sched_job</strong>: the job to run</p>
+<p>The deprecated <a class="reference internal" href="#c.drm_sched_resubmit_jobs" title="drm_sched_resubmit_jobs"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_resubmit_jobs()</span></code></a> (called by <a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">drm_sched_backend_ops</span></code></a>.timedout_job) can invoke this again with the
+same parameters. Using this is discouraged because it violates
+dma_fence rules, notably <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_fence_init" title="dma_fence_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_init()</span></code></a> has to be called on
+already initialized fences for a second time. Moreover, this is
+dangerous because attempts to allocate memory might deadlock with
+memory management code waiting for the reset to complete.</p>
+<p>TODO: Document what drivers should do / use instead.</p>
+<p>This method is called in a workqueue context - either from the
+submit_wq the driver passed through <a class="reference internal" href="#c.drm_sched_init" title="drm_sched_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_init()</span></code></a>, or, if the
+driver passed NULL, a separate, ordered workqueue the scheduler
+allocated.</p>
+<p>Note that the scheduler expects to ‘inherit’ its own reference to
+this fence from the callback. It does not invoke an extra
+<a class="reference internal" href="../driver-api/dma-buf.html#c.dma_fence_get" title="dma_fence_get"><code class="xref c c-func docutils literal notranslate"><span class="pre">dma_fence_get()</span></code></a> on it. Consequently, this callback must take a
+reference for the scheduler, and additional ones for the driver’s
+respective needs.</p>
+<p>Return:
+* On success: dma_fence the driver must signal once the hardware has
+completed the job (“hardware fence”).
+* On failure: NULL or an ERR_PTR.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">timedout_job</span></code></dt><dd><p>Called when a job has taken too long to execute,
 to trigger GPU recovery.</p>
-<p>This method is called in a workqueue context.</p>
-<p>Drivers typically issue a reset to recover from GPU hangs, and this
-procedure usually follows the following workflow:</p>
+<p><strong>sched_job</strong>: The job that has timed out</p>
+<p>Drivers typically issue a reset to recover from GPU hangs.
+This procedure looks very different depending on whether a firmware
+or a hardware scheduler is being used.</p>
+<p>For a FIRMWARE SCHEDULER, each ring has one scheduler, and each
+scheduler has one entity. Hence, the steps taken typically look as
+follows:</p>
 <ol class="arabic simple">
-<li><p>Stop the scheduler using <a class="reference internal" href="#c.drm_sched_stop" title="drm_sched_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_stop()</span></code></a>. This will park the
-scheduler thread and cancel the timeout work, guaranteeing that
-nothing is queued while we reset the hardware queue</p></li>
-<li><p>Try to gracefully stop non-faulty jobs (optional)</p></li>
-<li><p>Issue a GPU reset (driver-specific)</p></li>
-<li><p>Re-submit jobs using <a class="reference internal" href="#c.drm_sched_resubmit_jobs" title="drm_sched_resubmit_jobs"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_resubmit_jobs()</span></code></a></p></li>
-<li><p>Restart the scheduler using <a class="reference internal" href="#c.drm_sched_start" title="drm_sched_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_start()</span></code></a>. At that point, new
-jobs can be queued, and the scheduler thread is unblocked</p></li>
+<li><p>Stop the scheduler using <a class="reference internal" href="#c.drm_sched_stop" title="drm_sched_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_stop()</span></code></a>. This will pause the
+scheduler workqueues and cancel the timeout work, guaranteeing
+that nothing is queued while the ring is being removed.</p></li>
+<li><p>Remove the ring. The firmware will make sure that the
+corresponding parts of the hardware are resetted, and that other
+rings are not impacted.</p></li>
+<li><p>Kill the entity and the associated scheduler.</p></li>
+</ol>
+<p>For a HARDWARE SCHEDULER, a scheduler instance schedules jobs from
+one or more entities to one ring. This implies that all entities
+associated with the affected scheduler cannot be torn down, because
+this would effectively also affect innocent userspace processes which
+did not submit faulty jobs (for example).</p>
+<p>Consequently, the procedure to recover with a hardware scheduler
+should look like this:</p>
+<ol class="arabic simple">
+<li><p>Stop all schedulers impacted by the reset using <a class="reference internal" href="#c.drm_sched_stop" title="drm_sched_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_stop()</span></code></a>.</p></li>
+<li><p>Kill the entity the faulty job stems from.</p></li>
+<li><p>Issue a GPU reset on all faulty rings (driver-specific).</p></li>
+<li><p>Re-submit jobs on all schedulers impacted by re-submitting them to
+the entities which are still alive.</p></li>
+<li><p>Restart all schedulers that were stopped in step #1 using
+<a class="reference internal" href="#c.drm_sched_start" title="drm_sched_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_start()</span></code></a>.</p></li>
 </ol>
 <p>Note that some GPUs have distinct hardware queues but need to reset
 the GPU globally, which requires extra synchronization between the
-timeout handler of the different <a class="reference internal" href="#c.drm_gpu_scheduler" title="drm_gpu_scheduler"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_gpu_scheduler</span></code></a>. One way to
-achieve this synchronization is to create an ordered workqueue
-(using <a class="reference internal" href="../core-api/workqueue.html#c.alloc_ordered_workqueue" title="alloc_ordered_workqueue"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_ordered_workqueue()</span></code></a>) at the driver level, and pass this
-queue to <a class="reference internal" href="#c.drm_sched_init" title="drm_sched_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_init()</span></code></a>, to guarantee that timeout handlers are
-executed sequentially. The above workflow needs to be slightly
-adjusted in that case:</p>
-<ol class="arabic simple">
-<li><p>Stop all schedulers impacted by the reset using <a class="reference internal" href="#c.drm_sched_stop" title="drm_sched_stop"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_stop()</span></code></a></p></li>
-<li><p>Try to gracefully stop non-faulty jobs on all queues impacted by
-the reset (optional)</p></li>
-<li><p>Issue a GPU reset on all faulty queues (driver-specific)</p></li>
-<li><p>Re-submit jobs on all schedulers impacted by the reset using
-<a class="reference internal" href="#c.drm_sched_resubmit_jobs" title="drm_sched_resubmit_jobs"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_resubmit_jobs()</span></code></a></p></li>
-<li><p>Restart all schedulers that were stopped in step #1 using
-<a class="reference internal" href="#c.drm_sched_start" title="drm_sched_start"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_start()</span></code></a></p></li>
-</ol>
-<p>Return DRM_GPU_SCHED_STAT_NOMINAL, when all is normal,
-and the underlying driver has started or completed recovery.</p>
-<p>Return DRM_GPU_SCHED_STAT_ENODEV, if the device is no longer
-available, i.e. has been unplugged.</p>
+timeout handlers of different schedulers. One way to achieve this
+synchronization is to create an ordered workqueue (using
+<a class="reference internal" href="../core-api/workqueue.html#c.alloc_ordered_workqueue" title="alloc_ordered_workqueue"><code class="xref c c-func docutils literal notranslate"><span class="pre">alloc_ordered_workqueue()</span></code></a>) at the driver level, and pass this queue
+as <a class="reference internal" href="#c.drm_sched_init" title="drm_sched_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_init()</span></code></a>’s <strong>timeout_wq</strong> parameter. This will guarantee
+that timeout handlers are executed sequentially.</p>
+<p>Return: The scheduler’s status, defined by <a class="reference internal" href="#c.drm_gpu_sched_stat" title="drm_gpu_sched_stat"><code class="xref c c-type docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_gpu_sched_stat</span></code></a></p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">free_job</span></code></dt><dd><p>Called once the job’s finished fence has been signaled
 and it’s time to clean it up.</p>
@@ -10377,9 +10446,12 @@ a more meanigful return value).</p>
 <p><strong>Description</strong></p>
 <p>This arms a scheduler job for execution. Specifically it initializes the
 <a class="reference internal" href="#c.drm_sched_job" title="drm_sched_job"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched_job.s_fence</span></code></a> of <strong>job</strong>, so that it can be attached to <a class="reference internal" href="../driver-api/dma-buf.html#c.dma_resv" title="dma_resv"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">dma_resv</span></code></a>
-or other places that need to track the completion of this job.</p>
+or other places that need to track the completion of this job. It also
+initializes sequence numbers, which are fundamental for fence ordering.</p>
 <p>Refer to <a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a> documentation for locking
 considerations.</p>
+<p>Once this function was called, you <em>must</em> submit <strong>job</strong> with
+<a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a>.</p>
 <p>This can only be called if <a class="reference internal" href="#c.drm_sched_job_init" title="drm_sched_job_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_init()</span></code></a> succeeded.</p>
 </div>
 <dl class="c function">
@@ -10502,11 +10574,12 @@ own fences.</p>
 <p><strong>Description</strong></p>
 <p>Cleans up the resources allocated with <a class="reference internal" href="#c.drm_sched_job_init" title="drm_sched_job_init"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_init()</span></code></a>.</p>
 <p>Drivers should call this from their error unwind code if <strong>job</strong> is aborted
-before it was submitted to an entity with <a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a>.</p>
-<p>Since calling <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> causes the job’s fences to be initialized,
-it is up to the driver to ensure that fences that were exposed to external
-parties get signaled. <a class="reference internal" href="#c.drm_sched_job_cleanup" title="drm_sched_job_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_cleanup()</span></code></a> does not ensure this.</p>
-<p>This function must also be called in <a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_sched_backend_ops</span></code></a>.free_job</p>
+before <a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> is called.</p>
+<p><a class="reference internal" href="#c.drm_sched_job_arm" title="drm_sched_job_arm"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_arm()</span></code></a> is a point of no return since it initializes the fences
+and their sequence number etc. Once that function has been called, you <em>must</em>
+submit it with <a class="reference internal" href="#c.drm_sched_entity_push_job" title="drm_sched_entity_push_job"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_entity_push_job()</span></code></a> and cannot simply abort it by
+calling <a class="reference internal" href="#c.drm_sched_job_cleanup" title="drm_sched_job_cleanup"><code class="xref c c-func docutils literal notranslate"><span class="pre">drm_sched_job_cleanup()</span></code></a>.</p>
+<p>This function should be called in the <a class="reference internal" href="#c.drm_sched_backend_ops" title="drm_sched_backend_ops"><code class="xref c c-type docutils literal notranslate"><span class="pre">drm_sched_backend_ops.free_job</span></code></a> callback.</p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.drm_sched_pick_best">

@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -174,10 +174,10 @@ an uevent connected to the actual_brightness attribute.
 When brightness is set by platform specific means, for example
 a hot-key to adjust backlight, the driver must notify the backlight
 core that brightness has changed using <a class="reference internal" href="#c.backlight_force_update" title="backlight_force_update"><code class="xref c c-func docutils literal notranslate"><span class="pre">backlight_force_update()</span></code></a>.</p>
-<p>The backlight driver core receives notifications from fbdev and
-if the event is FB_EVENT_BLANK and if the value of blank, from the
-FBIOBLANK ioctrl, results in a change in the backlight state the
-update_status() operation is called.</p>
+<p>Display drives can control the backlight device’s status using
+backlight_notify_blank() and backlight_notify_blank_all(). If this
+results in a change in the backlight state the functions call the
+update_status() operation.</p>
 <dl class="c enum">
 <dt class="sig sig-object c" id="c.backlight_update_reason">
 <span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">backlight_update_reason</span></span></span><a class="headerlink" href="#c.backlight_update_reason" title="Link to this definition">¶</a><br /></dt>
@@ -352,10 +352,8 @@ state property.</p>
     struct mutex update_lock;
     struct mutex ops_lock;
     const struct backlight_ops *ops;
-    struct notifier_block fb_notif;
     struct list_head entry;
     struct device dev;
-    bool fb_bl_on[FB_MAX];
     int use_count;
 };
 </pre></div>
@@ -380,17 +378,11 @@ invoked. The ops_lock shall not be used by backlight drivers.</p>
 and if class_get_devdata() points to something in the body of that driver,
 it is also invalid.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">fb_notif</span></code></dt><dd><p>The framebuffer notifier block</p>
-</dd>
 <dt><code class="docutils literal notranslate"><span class="pre">entry</span></code></dt><dd><p>List entry of all registered backlight devices</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">dev</span></code></dt><dd><p>Parent device.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">fb_bl_on</span></code></dt><dd><p>The state of individual fbdev’s.</p>
-<p>Multiple fbdev’s may share one backlight device. The fb_bl_on
-records the state of the individual fbdev.</p>
-</dd>
-<dt><code class="docutils literal notranslate"><span class="pre">use_count</span></code></dt><dd><p>The number of uses of fb_bl_on.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">use_count</span></code></dt><dd><p>The number of unblanked displays.</p>
 </dd>
 </dl>
 </div>
@@ -491,7 +483,6 @@ operation to get the brightness value.</p>
 to supply a void * devdata. <a class="reference internal" href="#c.bl_get_data" title="bl_get_data"><code class="xref c c-func docutils literal notranslate"><span class="pre">bl_get_data()</span></code></a> return a pointer to the
 devdata.</p>
 <p>pointer to devdata stored while registering the backlight device.</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.backlight_force_update">
@@ -560,7 +551,6 @@ reference by calling <a class="reference internal" href="../driver-api/infrastru
 is registered the configuration must be specified in the <strong>props</strong>
 parameter. See description of <a class="reference internal" href="#c.backlight_properties" title="backlight_properties"><code class="xref c c-type docutils literal notranslate"><span class="pre">backlight_properties</span></code></a>.</p>
 <p>struct backlight on success, or an ERR_PTR on error</p>
-<p><strong>Return</strong></p>
 </div>
 <dl class="c function">
 <dt class="sig sig-object c" id="c.devm_backlight_device_unregister">
@@ -621,7 +611,6 @@ dropped on driver detach.</p>
 <p>A pointer to the backlight device if found.
 Error pointer -EPROBE_DEFER if the DT property is set, but no backlight
 device is found. NULL if there’s no backlight property.</p>
-<p><strong>Return</strong></p>
 </div>
 </section>
 

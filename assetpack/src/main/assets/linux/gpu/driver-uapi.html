@@ -33,7 +33,7 @@
 
 
 
-<p class="blurb">6.15.0</p>
+<p class="blurb">6.16.0</p>
 
 
 
@@ -701,7 +701,7 @@ platforms.</p>
     __u32 flags;
 #define I915_CONTEXT_CREATE_FLAGS_USE_EXTENSIONS        (1u &lt;&lt; 0);
 #define I915_CONTEXT_CREATE_FLAGS_SINGLE_TIMELINE       (1u &lt;&lt; 1);
-#define I915_CONTEXT_CREATE_FLAGS_UNKNOWN       (-(I915_CONTEXT_CREATE_FLAGS_SINGLE_TIMELINE &lt;&lt; 1));
+#define I915_CONTEXT_CREATE_FLAGS_UNKNOWN         (-(I915_CONTEXT_CREATE_FLAGS_SINGLE_TIMELINE &lt;&lt; 1));
     __u64 extensions;
 #define I915_CONTEXT_CREATE_EXT_SETPARAM 0;
 #define I915_CONTEXT_CREATE_EXT_CLONE 1;
@@ -3337,6 +3337,32 @@ is the first element in the list.</p>
 </dd>
 </dl>
 </div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_panthor_bo_set_label">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_panthor_bo_set_label</span></span></span><a class="headerlink" href="#c.drm_panthor_bo_set_label" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_PANTHOR_BO_SET_LABEL</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_panthor_bo_set_label {
+    __u32 handle;
+    __u32 pad;
+    __u64 label;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle of the buffer object to label.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">label</span></code></dt><dd><p>User pointer to a NUL-terminated string</p>
+<p>Length cannot be greater than 4096</p>
+</dd>
+</dl>
+</div>
 <dl class="c macro">
 <dt class="sig sig-object c" id="c.DRM_IOCTL_PANTHOR">
 <span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_PANTHOR</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_PANTHOR" title="Link to this definition">¶</a><br /></dt>
@@ -4420,7 +4446,11 @@ triggering a barrier.</p>
 <p><strong>Description</strong></p>
 <dl class="simple">
 <dt>The <strong>flags</strong> can be:</dt><dd><ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_SCRATCH_PAGE</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_SCRATCH_PAGE</span></code> - Map the whole virtual address
+space of the VM to scratch page. A vm_bind would overwrite the scratch
+page mapping. This flag is mutually exclusive with the
+<code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_FAULT_MODE</span></code> flag, with an exception of on x2 and
+xe3 platform.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">DRM_XE_VM_CREATE_FLAG_LR_MODE</span></code> - An LR, or Long Running VM accepts
 exec submissions to its exec_queues that don’t have an upper time
 limit on the job execution time. But exec submissions to these
@@ -4761,6 +4791,11 @@ this queue will be used with. Valid values are listed in <a class="reference int
 there is no need to explicitly set that. When a queue of type
 <code class="docutils literal notranslate"><span class="pre">DRM_XE_PXP_TYPE_HWDRM</span></code> is created, the PXP default HWDRM session
 (<code class="docutils literal notranslate"><span class="pre">XE_PXP_HWDRM_DEFAULT_SESSION</span></code>) will be started, if isn’t already running.
+The user is expected to query the PXP status via the query ioctl (see
+<code class="docutils literal notranslate"><span class="pre">DRM_XE_DEVICE_QUERY_PXP_STATUS</span></code>) and to wait for PXP to be ready before
+attempting to create a queue with this property. When a queue is created
+before PXP is ready, the ioctl will return -EBUSY if init is still in
+progress or -EIO if init failed.
 Given that going into a power-saving state kills PXP HWDRM sessions,
 runtime PM will be blocked while queues of this type are alive.
 All PXP queues will be killed if a PXP invalidation event occurs.</p></li>
@@ -5569,6 +5604,1246 @@ Sampling rates are specified in GPU clock cycles.</p>
 <p>If a query is made with a struct <strong>drm_xe_device_query</strong> where .query
 is equal to <strong>DRM_XE_DEVICE_QUERY_EU_STALL</strong>, then the reply uses
 struct <strong>drm_xe_query_eu_stall</strong> in .data.</p>
+</section>
+<section id="drm-asahi-uapi">
+<h2>drm/asahi uAPI<a class="headerlink" href="#drm-asahi-uapi" title="Link to this heading">¶</a></h2>
+<p id="introduction-to-the-asahi-uapi"><strong>Introduction to the Asahi UAPI</strong></p>
+<p>This documentation describes the Asahi IOCTLs.</p>
+<p>Just a few generic rules about the data passed to the Asahi IOCTLs (cribbed
+from Panthor):</p>
+<ul class="simple">
+<li><p>Structures must be aligned on 64-bit/8-byte. If the object is not
+naturally aligned, a padding field must be added.</p></li>
+<li><p>Fields must be explicitly aligned to their natural type alignment with
+pad[0..N] fields.</p></li>
+<li><p>All padding fields will be checked by the driver to make sure they are
+zeroed.</p></li>
+<li><p>Flags can be added, but not removed/replaced.</p></li>
+<li><p>New fields can be added to the main structures (the structures
+directly passed to the ioctl). Those fields can be added at the end of
+the structure, or replace existing padding fields. Any new field being
+added must preserve the behavior that existed before those fields were
+added when a value of zero is passed.</p></li>
+<li><p>New fields can be added to indirect objects (objects pointed by the
+main structure), iff those objects are passed a size to reflect the
+size known by the userspace driver (see
+drm_asahi_cmd_header::size).</p></li>
+<li><p>If the kernel driver is too old to know some fields, those will be
+ignored if zero, and otherwise rejected (and so will be zero on output).</p></li>
+<li><p>If userspace is too old to know some fields, those will be zeroed
+(input) before the structure is parsed by the kernel driver.</p></li>
+<li><p>Each new flag/field addition must come with a driver version update so
+the userspace driver doesn’t have to guess which flags are supported.</p></li>
+<li><p>Structures should not contain unions, as this would defeat the
+extensibility of such structures.</p></li>
+<li><p>IOCTLs can’t be removed or replaced. New IOCTL IDs should be placed
+at the end of the drm_asahi_ioctl_id enum.</p></li>
+</ul>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_ioctl_id">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_ioctl_id</span></span></span><a class="headerlink" href="#c.drm_asahi_ioctl_id" title="Link to this definition">¶</a><br /></dt>
+<dd><p>IOCTL IDs</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GET_PARAMS</span></code></dt><dd><p>Query device properties.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GET_TIME</span></code></dt><dd><p>Query device time.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_VM_CREATE</span></code></dt><dd><p>Create a GPU VM address space.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_VM_DESTROY</span></code></dt><dd><p>Destroy a VM.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_VM_BIND</span></code></dt><dd><p>Bind/unbind memory to a VM.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GEM_CREATE</span></code></dt><dd><p>Create a buffer object.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GEM_MMAP_OFFSET</span></code></dt><dd><p>Get offset to pass to mmap() to map a
+given GEM handle.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GEM_BIND_OBJECT</span></code></dt><dd><p>Bind memory as a special object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_QUEUE_CREATE</span></code></dt><dd><p>Create a scheduling queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_QUEUE_DESTROY</span></code></dt><dd><p>Destroy a scheduling queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SUBMIT</span></code></dt><dd><p>Submit commands to a queue.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Place new ioctls at the end, don’t re-order, don’t replace or remove entries.</p>
+<p>These IDs are not meant to be used directly. Use the DRM_IOCTL_ASAHI_xxx
+definitions instead.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_params_global">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_params_global</span></span></span><a class="headerlink" href="#c.drm_asahi_params_global" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Global parameters.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_params_global {
+    __u64 features;
+    __u32 gpu_generation;
+    __u32 gpu_variant;
+    __u32 gpu_revision;
+    __u32 chip_id;
+    __u32 num_dies;
+    __u32 num_clusters_total;
+    __u32 num_cores_per_cluster;
+    __u32 max_frequency_khz;
+    __u64 core_masks[DRM_ASAHI_MAX_CLUSTERS];
+    __u64 vm_start;
+    __u64 vm_end;
+    __u64 vm_kernel_min_size;
+    __u32 max_commands_per_submission;
+    __u32 max_attachments;
+    __u64 command_timestamp_frequency_hz;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">features</span></code></dt><dd><p>Feature bits from drm_asahi_feature</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_generation</span></code></dt><dd><p>GPU generation, e.g. 13 for G13G</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_variant</span></code></dt><dd><p>GPU variant as a character, e.g. ‘C’ for G13C</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_revision</span></code></dt><dd><p>GPU revision in BCD, e.g. 0x00 for ‘A0’ or
+0x21 for ‘C1’</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">chip_id</span></code></dt><dd><p>Chip ID in BCD, e.g. 0x8103 for T8103</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_dies</span></code></dt><dd><p>Number of dies in the SoC</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_clusters_total</span></code></dt><dd><p>Number of GPU clusters (across all dies)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_cores_per_cluster</span></code></dt><dd><p>Number of logical cores per cluster
+(including inactive/nonexistent)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_frequency_khz</span></code></dt><dd><p>Maximum GPU core clock frequency</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">core_masks</span></code></dt><dd><p>Bitmask of present/enabled cores per cluster</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_start</span></code></dt><dd><p>VM range start VMA. Together with <strong>vm_end</strong>, this defines
+the window of valid GPU VAs. Userspace is expected to subdivide VAs
+out of this window.</p>
+<p>This window contains all virtual addresses that userspace needs to
+know about. There may be kernel-internal GPU VAs outside this range,
+but that detail is not relevant here.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_end</span></code></dt><dd><p>VM range end VMA</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_kernel_min_size</span></code></dt><dd><p>Minimum kernel VMA window size.</p>
+<p>When creating a VM, userspace is required to carve out a section of
+virtual addresses (within the range given by <strong>vm_start</strong> and
+<strong>vm_end</strong>). The kernel will allocate various internal structures
+within the specified VA range.</p>
+<p>Allowing userspace to choose the VA range for the kernel, rather than
+the kernel reserving VAs and requiring userspace to cope, can assist
+in implementing SVM.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_commands_per_submission</span></code></dt><dd><p>Maximum number of supported commands
+per submission. This mirrors firmware limits. Userspace must split up
+larger command buffers, which may require inserting additional
+synchronization.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">max_attachments</span></code></dt><dd><p>Maximum number of drm_asahi_attachment’s per
+command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">command_timestamp_frequency_hz</span></code></dt><dd><p>Timebase frequency for timestamps
+written during command execution, specified via drm_asahi_timestamp
+structures. As this rate is controlled by the firmware, it is a
+queryable parameter.</p>
+<p>Userspace must divide by this frequency to convert timestamps to
+seconds, rather than hardcoding a particular firmware’s rate.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This struct may be queried by drm_asahi_get_params.</p>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_feature">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_feature</span></span></span><a class="headerlink" href="#c.drm_asahi_feature" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Feature bits</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_FEATURE_SOFT_FAULTS</span></code></dt><dd><p>GPU has “soft fault” enabled. Shader
+loads of unmapped memory will return zero. Shader stores to unmapped
+memory will be silently discarded. Note that only shader load/store
+is affected. Other hardware units are not affected, notably including
+texture sampling.</p>
+<p>Soft fault is set when initializing the GPU and cannot be runtime
+toggled. Therefore, it is exposed as a feature bit and not a
+userspace-settable flag on the VM. When soft fault is enabled,
+userspace can speculate memory accesses more aggressively.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This covers only features that userspace cannot infer from the architecture
+version. Most features don’t need to be here.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_get_params">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_get_params</span></span></span><a class="headerlink" href="#c.drm_asahi_get_params" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_GET_PARAMS</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_get_params {
+    __u32 param_group;
+    __u32 pad;
+    __u64 pointer;
+    __u64 size;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">param_group</span></code></dt><dd><p>Parameter group to fetch (MBZ)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pointer</span></code></dt><dd><p>User pointer to write parameter struct</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of the user buffer. In case of older userspace, this may
+be less than sizeof(<a class="reference internal" href="#c.drm_asahi_params_global" title="drm_asahi_params_global"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_asahi_params_global</span></code></a>). The kernel will
+not write past the length specified here, allowing extensibility.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_vm_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_vm_create</span></span></span><a class="headerlink" href="#c.drm_asahi_vm_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_VM_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_vm_create {
+    __u64 kernel_start;
+    __u64 kernel_end;
+    __u32 vm_id;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">kernel_start</span></code></dt><dd><p>Start of the kernel-reserved address range. See
+drm_asahi_params_global::vm_kernel_min_size.</p>
+<p>Both <strong>kernel_start</strong> and <strong>kernel_end</strong> must be within the range of
+valid VAs given by drm_asahi_params_global::vm_start and
+drm_asahi_params_global::vm_end. The size of the kernel range
+(<strong>kernel_end</strong> - <strong>kernel_start</strong>) must be at least
+drm_asahi_params_global::vm_kernel_min_size.</p>
+<p>Userspace must not bind any memory on this VM into this reserved
+range, it is for kernel use only.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">kernel_end</span></code></dt><dd><p>End of the kernel-reserved address range. See
+<strong>kernel_start</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>Returned VM ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_vm_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_vm_destroy</span></span></span><a class="headerlink" href="#c.drm_asahi_vm_destroy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_VM_DESTROY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_vm_destroy {
+    __u32 vm_id;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM ID to be destroyed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_gem_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_gem_flags</span></span></span><a class="headerlink" href="#c.drm_asahi_gem_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Flags for GEM creation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GEM_WRITEBACK</span></code></dt><dd><p>BO should be CPU-mapped as writeback.</p>
+<p>Map as writeback instead of write-combine. This optimizes for CPU
+reads.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_GEM_VM_PRIVATE</span></code></dt><dd><p>BO is private to this GPU VM (no exports).</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_gem_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_gem_create</span></span></span><a class="headerlink" href="#c.drm_asahi_gem_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_GEM_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_gem_create {
+    __u64 size;
+    __u32 flags;
+    __u32 vm_id;
+    __u32 handle;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of the BO</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_asahi_gem_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>VM ID to assign to the BO, if DRM_ASAHI_GEM_VM_PRIVATE is set</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Returned GEM handle for the BO</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_gem_mmap_offset">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_gem_mmap_offset</span></span></span><a class="headerlink" href="#c.drm_asahi_gem_mmap_offset" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_GEM_MMAP_OFFSET</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_gem_mmap_offset {
+    __u32 handle;
+    __u32 flags;
+    __u64 offset;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle for the object being mapped.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Must be zero</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>The fake offset to use for subsequent mmap call</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_bind_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_bind_flags</span></span></span><a class="headerlink" href="#c.drm_asahi_bind_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Flags for GEM binding</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_UNBIND</span></code></dt><dd><p>Instead of binding a GEM object to the range,
+simply unbind the GPU VMA range.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_READ</span></code></dt><dd><p>Map BO with GPU read permission</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_WRITE</span></code></dt><dd><p>Map BO with GPU write permission</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_SINGLE_PAGE</span></code></dt><dd><p>Map a single page of the BO repeatedly
+across the VA range.</p>
+<p>This is useful to fill a VA range with scratch pages or zero pages.
+It is intended as a mechanism to accelerate sparse.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_gem_bind_op">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_gem_bind_op</span></span></span><a class="headerlink" href="#c.drm_asahi_gem_bind_op" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Description of a single GEM bind operation.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_gem_bind_op {
+    __u32 flags;
+    __u32 handle;
+    __u64 offset;
+    __u64 range;
+    __u64 addr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_asahi_bind_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>GEM object to bind (except for UNBIND)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>Offset into the object (except for UNBIND).</p>
+<p>For a regular bind, this is the beginning of the region of the GEM
+object to bind.</p>
+<p>For a single-page bind, this is the offset to the single page that
+will be repeatedly bound.</p>
+<p>Must be page-size aligned.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">range</span></code></dt><dd><p>Number of bytes to bind/unbind to <strong>addr</strong>.</p>
+<p>Must be page-size aligned.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">addr</span></code></dt><dd><p>Address to bind to.</p>
+<p>Must be page-size aligned.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_vm_bind">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_vm_bind</span></span></span><a class="headerlink" href="#c.drm_asahi_vm_bind" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_VM_BIND</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_vm_bind {
+    __u32 vm_id;
+    __u32 num_binds;
+    __u32 stride;
+    __u32 pad;
+    __u64 userptr;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>The ID of the VM to bind to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">num_binds</span></code></dt><dd><p>number of binds in this IOCTL.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stride</span></code></dt><dd><p>Stride in bytes between consecutive binds. This allows
+extensibility of drm_asahi_gem_bind_op.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">userptr</span></code></dt><dd><p>User pointer to an array of <strong>num_binds</strong> structures of type
+<strong>drm_asahi_gem_bind_op</strong> and size <strong>stride</strong> bytes.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_bind_object_op">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_bind_object_op</span></span></span><a class="headerlink" href="#c.drm_asahi_bind_object_op" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Special object bind operation</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_OBJECT_OP_BIND</span></code></dt><dd><p>Bind a BO as a special GPU object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_OBJECT_OP_UNBIND</span></code></dt><dd><p>Unbind a special GPU object</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_bind_object_flags">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_bind_object_flags</span></span></span><a class="headerlink" href="#c.drm_asahi_bind_object_flags" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Special object bind flags</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BIND_OBJECT_USAGE_TIMESTAMPS</span></code></dt><dd><p>Map a BO as a timestamp
+buffer.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_gem_bind_object">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_gem_bind_object</span></span></span><a class="headerlink" href="#c.drm_asahi_gem_bind_object" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_GEM_BIND_OBJECT</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_gem_bind_object {
+    __u32 op;
+    __u32 flags;
+    __u32 handle;
+    __u32 vm_id;
+    __u64 offset;
+    __u64 range;
+    __u32 object_handle;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">op</span></code></dt><dd><p>Bind operation (<a class="reference internal" href="#c.drm_asahi_bind_object_op" title="drm_asahi_bind_object_op"><code class="xref c c-enum docutils literal notranslate"><span class="pre">enum</span> <span class="pre">drm_asahi_bind_object_op</span></code></a>)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_asahi_bind_object_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>GEM object to bind/unbind (BIND)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>The ID of the VM to operate on (MBZ currently)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>Offset into the object (BIND only)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">range</span></code></dt><dd><p>Number of bytes to bind/unbind (BIND only)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">object_handle</span></code></dt><dd><p>Object handle (out for BIND, in for UNBIND)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_cmd_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_cmd_type</span></span></span><a class="headerlink" href="#c.drm_asahi_cmd_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Command type</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_CMD_RENDER</span></code></dt><dd><p>Render command, executing on the render
+subqueue. Combined vertex and fragment operation.</p>
+<p>Followed by a <strong>drm_asahi_cmd_render</strong> payload.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_CMD_COMPUTE</span></code></dt><dd><p>Compute command on the compute subqueue.</p>
+<p>Followed by a <strong>drm_asahi_cmd_compute</strong> payload.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SET_VERTEX_ATTACHMENTS</span></code></dt><dd><p>Software command to set
+attachments for subsequent vertex shaders in the same submit.</p>
+<p>Followed by (possibly multiple) <strong>drm_asahi_attachment</strong> payloads.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SET_FRAGMENT_ATTACHMENTS</span></code></dt><dd><p>Software command to set
+attachments for subsequent fragment shaders in the same submit.</p>
+<p>Followed by (possibly multiple) <strong>drm_asahi_attachment</strong> payloads.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SET_COMPUTE_ATTACHMENTS</span></code></dt><dd><p>Software command to set
+attachments for subsequent compute shaders in the same submit.</p>
+<p>Followed by (possibly multiple) <strong>drm_asahi_attachment</strong> payloads.</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_priority">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_priority</span></span></span><a class="headerlink" href="#c.drm_asahi_priority" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Scheduling queue priority.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_PRIORITY_LOW</span></code></dt><dd><p>Low priority queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_PRIORITY_MEDIUM</span></code></dt><dd><p>Medium priority queue.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_PRIORITY_HIGH</span></code></dt><dd><p>High priority queue.</p>
+<p>Reserved for future extension.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_PRIORITY_REALTIME</span></code></dt><dd><p>Real-time priority queue.</p>
+<p>Reserved for future extension.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>These priorities are forwarded to the firmware to influence firmware
+scheduling. The exact policy is ultimately decided by firmware, but
+these enums allow userspace to communicate the intentions.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_queue_create">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_queue_create</span></span></span><a class="headerlink" href="#c.drm_asahi_queue_create" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_QUEUE_CREATE</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_queue_create {
+    __u32 flags;
+    __u32 vm_id;
+    __u32 priority;
+    __u32 queue_id;
+    __u64 usc_exec_base;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vm_id</span></code></dt><dd><p>The ID of the VM this queue is bound to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">priority</span></code></dt><dd><p>One of drm_asahi_priority</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">queue_id</span></code></dt><dd><p>The returned queue ID</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">usc_exec_base</span></code></dt><dd><p>GPU base address for all USC binaries (shaders) on
+this queue. USC addresses are 32-bit relative to this 64-bit base.</p>
+<p>This sets the following registers on all queue commands:</p>
+<blockquote>
+<div><p>USC_EXEC_BASE_TA  (vertex)
+USC_EXEC_BASE_ISP (fragment)
+USC_EXEC_BASE_CP  (compute)</p>
+</div></blockquote>
+<p>While the hardware lets us configure these independently per command,
+we do not have a use case for this. Instead, we expect userspace to
+fix a 4GiB VA carveout for USC memory and pass its base address here.</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_queue_destroy">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_queue_destroy</span></span></span><a class="headerlink" href="#c.drm_asahi_queue_destroy" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_QUEUE_DESTROY</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_queue_destroy {
+    __u32 queue_id;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">queue_id</span></code></dt><dd><p>The queue ID to be destroyed</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c enum">
+<dt class="sig sig-object c" id="c.drm_asahi_sync_type">
+<span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_sync_type</span></span></span><a class="headerlink" href="#c.drm_asahi_sync_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Sync item type</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Constants</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SYNC_SYNCOBJ</span></code></dt><dd><p>Binary sync object</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_SYNC_TIMELINE_SYNCOBJ</span></code></dt><dd><p>Timeline sync object</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_sync">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_sync</span></span></span><a class="headerlink" href="#c.drm_asahi_sync" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Sync item</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_sync {
+    __u32 sync_type;
+    __u32 handle;
+    __u64 timeline_value;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">sync_type</span></code></dt><dd><p>One of drm_asahi_sync_type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>The sync object handle</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">timeline_value</span></code></dt><dd><p>Timeline value for timeline sync objects</p>
+</dd>
+</dl>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_ASAHI_BARRIER_NONE">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_ASAHI_BARRIER_NONE</span></span></span><a class="headerlink" href="#c.DRM_ASAHI_BARRIER_NONE" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">DRM_ASAHI_BARRIER_NONE</span></code></p>
+<blockquote>
+<div><blockquote>
+<div><p>Command index for no barrier</p>
+</div></blockquote>
+<p><strong>Description</strong></p>
+<p>This special value may be passed in to drm_asahi_command::vdm_barrier or
+drm_asahi_command::cdm_barrier to indicate that the respective subqueue
+should not wait on any previous work.</p>
+</div></blockquote>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_cmd_header">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_cmd_header</span></span></span><a class="headerlink" href="#c.drm_asahi_cmd_header" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Top level command structure</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_cmd_header {
+    __u16 cmd_type;
+    __u16 size;
+    __u16 vdm_barrier;
+    __u16 cdm_barrier;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">cmd_type</span></code></dt><dd><p>One of drm_asahi_cmd_type</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of this command, not including this header.</p>
+<p>For hardware commands, this enables extensibility of commands without
+requiring extra command types. Passing a command that is shorter
+than expected is explicitly allowed for backwards-compatibility.
+Truncated fields will be zeroed.</p>
+<p>For the synthetic attachment setting commands, this implicitly
+encodes the number of attachments. These commands take multiple
+fixed-size <strong>drm_asahi_attachment</strong> structures as their payload, so size
+equals number of attachments * sizeof(<a class="reference internal" href="#c.drm_asahi_attachment" title="drm_asahi_attachment"><code class="xref c c-struct docutils literal notranslate"><span class="pre">struct</span> <span class="pre">drm_asahi_attachment</span></code></a>).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vdm_barrier</span></code></dt><dd><p>VDM (render) command index to wait on.</p>
+<p>Barriers are indices relative to the beginning of a given submit. A
+barrier of 0 waits on commands submitted to the respective subqueue
+in previous submit ioctls. A barrier of N waits on N previous
+commands on the subqueue within the current submit ioctl. As a
+special case, passing <strong>DRM_ASAHI_BARRIER_NONE</strong> avoids waiting on any
+commands in the subqueue.</p>
+<p>Examples:</p>
+<blockquote>
+<div><p>0: This waits on all previous work.</p>
+<p>NONE: This does not wait for anything on this subqueue.</p>
+<p>1: This waits on the first render command in the submit.
+This is valid only if there are multiple render commands in the
+same submit.</p>
+</div></blockquote>
+<p>Barriers are valid only for hardware commands. Synthetic software
+commands to set attachments must pass NONE here.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cdm_barrier</span></code></dt><dd><p>CDM (compute) command index to wait on.</p>
+<p>See <strong>vdm_barrier</strong>, and replace VDM/render with CDM/compute.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This struct is core to the command buffer definition and therefore is not
+extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_submit">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_submit</span></span></span><a class="headerlink" href="#c.drm_asahi_submit" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_SUBMIT</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_submit {
+    __u64 syncs;
+    __u64 cmdbuf;
+    __u32 flags;
+    __u32 queue_id;
+    __u32 in_sync_count;
+    __u32 out_sync_count;
+    __u32 cmdbuf_size;
+    __u32 pad;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">syncs</span></code></dt><dd><p>An optional pointer to an array of drm_asahi_sync. The first
+<strong>in_sync_count</strong> elements are in-syncs, then the remaining
+<strong>out_sync_count</strong> elements are out-syncs. Using a single array with
+explicit partitioning simplifies handling.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmdbuf</span></code></dt><dd><p>Pointer to the command buffer to submit.</p>
+<p>This is a flat command buffer. By design, it contains no CPU
+pointers, which makes it suitable for a virtgpu wire protocol without
+requiring any serializing/deserializing step.</p>
+<p>It consists of a series of commands. Each command begins with a
+fixed-size <strong>drm_asahi_cmd_header</strong> header and is followed by a
+variable-length payload according to the type and size in the header.</p>
+<p>The combined count of “real” hardware commands must be nonzero and at
+most drm_asahi_params_global::max_commands_per_submission.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Flags for command submission (MBZ)</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">queue_id</span></code></dt><dd><p>The queue ID to be submitted to</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">in_sync_count</span></code></dt><dd><p>Number of sync objects to wait on before starting
+this job.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">out_sync_count</span></code></dt><dd><p>Number of sync objects to signal upon completion of
+this job.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cmdbuf_size</span></code></dt><dd><p>Command buffer size in bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_attachment">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_attachment</span></span></span><a class="headerlink" href="#c.drm_asahi_attachment" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe an “attachment”.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_attachment {
+    __u64 pointer;
+    __u64 size;
+    __u32 pad;
+    __u32 flags;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">pointer</span></code></dt><dd><p>Base address of the attachment</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code></dt><dd><p>Size of the attachment in bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">pad</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>MBZ</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Attachments are any memory written by shaders, notably including render
+target attachments written by the end-of-tile program. This is purely a hint
+about the accessed memory regions. It is optional to specify, which is
+fortunate as it cannot be specified precisely with bindless access anyway.
+But where possible, it’s probably a good idea for userspace to include these
+hints, forwarded to the firmware.</p>
+<p>This struct is implicitly sized and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_zls_buffer">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_zls_buffer</span></span></span><a class="headerlink" href="#c.drm_asahi_zls_buffer" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe a depth or stencil buffer.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_zls_buffer {
+    __u64 base;
+    __u64 comp_base;
+    __u32 stride;
+    __u32 comp_stride;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">base</span></code></dt><dd><p>Base address of the buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">comp_base</span></code></dt><dd><p>If the load buffer is compressed, address of the
+compression metadata section.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stride</span></code></dt><dd><p>If layered rendering is enabled, the number of bytes
+between each layer of the buffer.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">comp_stride</span></code></dt><dd><p>If layered rendering is enabled, the number of bytes
+between each layer of the compression metadata.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>These fields correspond to hardware registers in the ZLS (Z Load/Store) unit.
+There are three hardware registers for each field respectively for loads,
+stores, and partial renders. In practice, it makes sense to set all to the
+same values, except in exceptional cases not yet implemented in userspace, so
+we do not duplicate here for simplicity/efficiency.</p>
+<p>This struct is embedded in other structs and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_timestamp">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_timestamp</span></span></span><a class="headerlink" href="#c.drm_asahi_timestamp" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe a timestamp write.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_timestamp {
+    __u32 handle;
+    __u32 offset;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">handle</span></code></dt><dd><p>Handle of the timestamp buffer, or 0 to skip this
+timestamp. If nonzero, this must equal the value returned in
+drm_asahi_gem_bind_object::object_handle.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">offset</span></code></dt><dd><p>Offset to write into the timestamp buffer</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The firmware can optionally write the GPU timestamp at render pass
+granularities, but it needs to be mapped specially via
+DRM_IOCTL_ASAHI_GEM_BIND_OBJECT. This structure therefore describes where to
+write as a handle-offset pair, rather than a GPU address like normal.</p>
+<p>This struct is embedded in other structs and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_timestamps">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_timestamps</span></span></span><a class="headerlink" href="#c.drm_asahi_timestamps" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe timestamp writes.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_timestamps {
+    struct drm_asahi_timestamp start;
+    struct drm_asahi_timestamp end;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">start</span></code></dt><dd><p>Timestamp recorded at the start of the operation</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">end</span></code></dt><dd><p>Timestamp recorded at the end of the operation</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>Each operation that can be timestamped, can be timestamped at the start and
+end. Therefore, drm_asahi_timestamp structs always come in pairs, bundled
+together into drm_asahi_timestamps.</p>
+<p>This struct is embedded in other structs and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_helper_program">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_helper_program</span></span></span><a class="headerlink" href="#c.drm_asahi_helper_program" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe helper program configuration.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_helper_program {
+    __u32 binary;
+    __u32 cfg;
+    __u64 data;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">binary</span></code></dt><dd><p>USC address to the helper program binary. This is a tagged
+pointer with configuration in the bottom bits.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cfg</span></code></dt><dd><p>Additional configuration bits for the helper program.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p>Data passed to the helper program. This value is not
+interpreted by the kernel, firmware, or hardware in any way. It is
+simply a sideband for userspace, set with the submit ioctl and read
+via special registers inside the helper program.</p>
+<p>In practice, userspace will pass a 64-bit GPU VA here pointing to the
+actual arguments, which presumably don’t fit in 64-bits.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The helper program is a compute-like kernel required for various hardware
+functionality. Its most important role is dynamically allocating
+scratch/stack memory for individual subgroups, by partitioning a static
+allocation shared for the whole device. It is supplied by userspace via
+drm_asahi_helper_program and internally dispatched by the hardware as needed.</p>
+<p>This struct is embedded in other structs and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_bg_eot">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_bg_eot</span></span></span><a class="headerlink" href="#c.drm_asahi_bg_eot" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Describe a background or end-of-tile program.</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_bg_eot {
+    __u32 usc;
+    __u32 rsrc_spec;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">usc</span></code></dt><dd><p>USC address of the hardware USC words binding resources
+(including images and uniforms) and the program itself. Note this is
+an additional layer of indirection compared to the helper program,
+avoiding the need for a sideband for data. This is a tagged pointer
+with additional configuration in the bottom bits.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">rsrc_spec</span></code></dt><dd><p>Resource specifier for the program. This is a packed
+hardware data structure describing the required number of registers,
+uniforms, bound textures, and bound samplers.</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>The background and end-of-tile programs are dispatched by the hardware at the
+beginning and end of rendering. As the hardware “tilebuffer” is simply local
+memory, these programs are necessary to implement API-level render targets.
+The fragment-like background program is responsible for loading either the
+clear colour or the existing render target contents, while the compute-like
+end-of-tile program stores the tilebuffer contents to memory.</p>
+<p>This struct is embedded in other structs and therefore is not extensible.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_cmd_render">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_cmd_render</span></span></span><a class="headerlink" href="#c.drm_asahi_cmd_render" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Command to submit 3D</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_cmd_render {
+    __u32 flags;
+    __u32 isp_zls_pixels;
+    __u64 vdm_ctrl_stream_base;
+    struct drm_asahi_helper_program vertex_helper;
+    struct drm_asahi_helper_program fragment_helper;
+    __u64 isp_scissor_base;
+    __u64 isp_dbias_base;
+    __u64 isp_oclqry_base;
+    struct drm_asahi_zls_buffer depth;
+    struct drm_asahi_zls_buffer stencil;
+    __u64 zls_ctrl;
+    __u64 ppp_multisamplectl;
+    __u64 sampler_heap;
+    __u32 ppp_ctrl;
+    __u16 width_px;
+    __u16 height_px;
+    __u16 layers;
+    __u16 sampler_count;
+    __u8 utile_width_px;
+    __u8 utile_height_px;
+    __u8 samples;
+    __u8 sample_size_B;
+    __u32 isp_merge_upper_x;
+    __u32 isp_merge_upper_y;
+    struct drm_asahi_bg_eot bg;
+    struct drm_asahi_bg_eot eot;
+    struct drm_asahi_bg_eot partial_bg;
+    struct drm_asahi_bg_eot partial_eot;
+    __u32 isp_bgobjdepth;
+    __u32 isp_bgobjvals;
+    struct drm_asahi_timestamps ts_vtx;
+    struct drm_asahi_timestamps ts_frag;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>Combination of drm_asahi_render_flags flags.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_zls_pixels</span></code></dt><dd><p>ISP_ZLS_PIXELS register value. This contains the
+depth/stencil width/height, which may differ from the framebuffer
+width/height.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vdm_ctrl_stream_base</span></code></dt><dd><p>VDM_CTRL_STREAM_BASE register value. GPU
+address to the beginning of the VDM control stream.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">vertex_helper</span></code></dt><dd><p>Helper program used for the vertex shader</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">fragment_helper</span></code></dt><dd><p>Helper program used for the fragment shader</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_scissor_base</span></code></dt><dd><p>ISP_SCISSOR_BASE register value. GPU address of an
+array of scissor descriptors indexed in the render pass.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_dbias_base</span></code></dt><dd><p>ISP_DBIAS_BASE register value. GPU address of an
+array of depth bias values indexed in the render pass.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_oclqry_base</span></code></dt><dd><p>ISP_OCLQRY_BASE register value. GPU address of an
+array of occlusion query results written by the render pass.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">depth</span></code></dt><dd><p>Depth buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">stencil</span></code></dt><dd><p>Stencil buffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">zls_ctrl</span></code></dt><dd><p>ZLS_CTRL register value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ppp_multisamplectl</span></code></dt><dd><p>PPP_MULTISAMPLECTL register value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sampler_heap</span></code></dt><dd><p>Base address of the sampler heap. This heap is used
+for both vertex shaders and fragment shaders. The registers are
+per-stage, but there is no known use case for separate heaps.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ppp_ctrl</span></code></dt><dd><p>PPP_CTRL register value</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">width_px</span></code></dt><dd><p>Framebuffer width in pixels</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">height_px</span></code></dt><dd><p>Framebuffer height in pixels</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">layers</span></code></dt><dd><p>Number of layers in the framebuffer</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sampler_count</span></code></dt><dd><p>Number of samplers in the sampler heap.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">utile_width_px</span></code></dt><dd><p>Width of a logical tilebuffer tile in pixels</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">utile_height_px</span></code></dt><dd><p>Height of a logical tilebuffer tile in pixels</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">samples</span></code></dt><dd><p># of samples in the framebuffer. Must be 1, 2, or 4.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sample_size_B</span></code></dt><dd><p># of bytes in the tilebuffer required per sample.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_merge_upper_x</span></code></dt><dd><p>32-bit float used in the hardware triangle
+merging. Calculate as: tan(60 deg) * width.</p>
+<p>Making these values UAPI avoids requiring floating-point calculations
+in the kernel in the hot path.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_merge_upper_y</span></code></dt><dd><p>32-bit float. Calculate as: tan(60 deg) * height.
+See <strong>isp_merge_upper_x</strong>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bg</span></code></dt><dd><p>Background program run for each tile at the start</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">eot</span></code></dt><dd><p>End-of-tile program ran for each tile at the end</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">partial_bg</span></code></dt><dd><p>Background program ran at the start of each tile when
+resuming the render pass during a partial render.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">partial_eot</span></code></dt><dd><p>End-of-tile program ran at the end of each tile when
+pausing the render pass during a partial render.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_bgobjdepth</span></code></dt><dd><p>ISP_BGOBJDEPTH register value. This is the depth
+buffer clear value, encoded in the depth buffer’s format: either a
+32-bit float or a 16-bit unorm (with upper bits zeroed).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">isp_bgobjvals</span></code></dt><dd><p>ISP_BGOBJVALS register value. The bottom 8-bits
+contain the stencil buffer clear value.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ts_vtx</span></code></dt><dd><p>Timestamps for the vertex portion of the render</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ts_frag</span></code></dt><dd><p>Timestamps for the fragment portion of the render</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This command submits a single render pass. The hardware control stream may
+include many draws and subpasses, but within the command, the framebuffer
+dimensions and attachments are fixed.</p>
+<p>The hardware requires the firmware to set a large number of Control Registers
+setting up state at render pass granularity before each command rendering 3D.
+The firmware bundles this state into data structures. Unfortunately, we
+cannot expose either any of that directly to userspace, because the
+kernel-firmware ABI is not stable. Although we can guarantee the firmware
+updates in tandem with the kernel, we cannot break old userspace when
+upgrading the firmware and kernel. Therefore, we need to abstract well the
+data structures to avoid tying our hands with future firmwares.</p>
+<p>The bulk of drm_asahi_cmd_render therefore consists of values of hardware
+control registers, marshalled via the firmware interface.</p>
+<p>The framebuffer/tilebuffer dimensions are also specified here. In addition to
+being passed to the firmware/hardware, the kernel requires these dimensions
+to calculate various essential tiling-related data structures. It is
+unfortunate that our submits are heavier than on vendors with saner
+hardware-software interfaces. The upshot is all of this information is
+readily available to userspace with all current APIs.</p>
+<p>It looks odd - but it’s not overly burdensome and it ensures we can remain
+compatible with old userspace.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_cmd_compute">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_cmd_compute</span></span></span><a class="headerlink" href="#c.drm_asahi_cmd_compute" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Command to submit compute</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_cmd_compute {
+    __u32 flags;
+    __u32 sampler_count;
+    __u64 cdm_ctrl_stream_base;
+    __u64 cdm_ctrl_stream_end;
+    __u64 sampler_heap;
+    struct drm_asahi_helper_program helper;
+    struct drm_asahi_timestamps ts;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>MBZ</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sampler_count</span></code></dt><dd><p>Number of samplers in the sampler heap.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cdm_ctrl_stream_base</span></code></dt><dd><p>CDM_CTRL_STREAM_BASE register value. GPU
+address to the beginning of the CDM control stream.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">cdm_ctrl_stream_end</span></code></dt><dd><p>GPU base address to the end of the hardware
+control stream. Note this only considers the first contiguous segment
+of the control stream, as the stream might jump elsewhere.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">sampler_heap</span></code></dt><dd><p>Base address of the sampler heap.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">helper</span></code></dt><dd><p>Helper program used for this compute command</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ts</span></code></dt><dd><p>Timestamps for the compute command</p>
+</dd>
+</dl>
+</div>
+<p><strong>Description</strong></p>
+<p>This command submits a control stream consisting of compute dispatches. There
+is essentially no limit on how many compute dispatches may be included in a
+single compute command, although timestamps are at command granularity.</p>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.drm_asahi_get_time">
+<span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">drm_asahi_get_time</span></span></span><a class="headerlink" href="#c.drm_asahi_get_time" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Arguments passed to DRM_IOCTL_ASAHI_GET_TIME</p>
+</dd></dl>
+
+<div class="kernelindent docutils container">
+<p><strong>Definition</strong>:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>struct drm_asahi_get_time {
+    __u64 flags;
+    __u64 gpu_timestamp;
+};
+</pre></div>
+</div>
+<p><strong>Members</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flags</span></code></dt><dd><p>MBZ.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">gpu_timestamp</span></code></dt><dd><p>On return, the GPU timestamp in nanoseconds.</p>
+</dd>
+</dl>
+</div>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DRM_IOCTL_ASAHI">
+<span class="sig-name descname"><span class="n"><span class="pre">DRM_IOCTL_ASAHI</span></span></span><a class="headerlink" href="#c.DRM_IOCTL_ASAHI" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<p><code class="docutils literal notranslate"><span class="pre">DRM_IOCTL_ASAHI</span> <span class="pre">(__access,</span> <span class="pre">__id,</span> <span class="pre">__type)</span></code></p>
+<blockquote>
+<div><p>Build an Asahi IOCTL number</p>
+</div></blockquote>
+<div class="kernelindent docutils container">
+<p><strong>Parameters</strong></p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__access</span></code></dt><dd><p>Access type. Must be R, W or RW.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__id</span></code></dt><dd><p>One of the DRM_ASAHI_xxx id.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__type</span></code></dt><dd><p>Suffix of the type being passed to the IOCTL.</p>
+</dd>
+</dl>
+<p><strong>Description</strong></p>
+<p>Don’t use this macro directly, use the DRM_IOCTL_ASAHI_xxx
+values instead.</p>
+<p><strong>Return</strong></p>
+<p>An IOCTL number to be passed to ioctl() from userspace.</p>
+</div>
 </section>
 </section>
 
